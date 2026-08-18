@@ -8,7 +8,9 @@
 # los resuelve tanto si npm hizo hoisting a la raíz como si no.
 set -euo pipefail
 
-echo "▶ cwd inicial: $(pwd)"
+# Vercel busca `outputDirectory` relativo a ESTE directorio, sea cual sea.
+start="$(pwd)"
+echo "▶ cwd inicial: $start"
 
 # Subir hasta la raíz del monorepo (la que contiene ambos workspaces).
 root="$(pwd)"
@@ -32,6 +34,19 @@ echo "▶ compilando API (nest build)…"
 echo "▶ compilando consola (ng build)…"
 (cd apps/console && npx ng build)
 
+# La consola queda en `<cwd inicial>/dist`, que es lo que declara
+# `outputDirectory`. Copiarla evita que un Root Directory distinto al esperado
+# deje a Vercel sirviendo un directorio vacío (404 NOT_FOUND).
+echo "▶ publicando estáticos en $start/dist…"
+# Vía un temporal: si el cwd inicial es apps/console, el destino ($start/dist)
+# contiene a la carpeta origen y borrarlo antes de copiar la destruiría.
+tmp="$(mktemp -d)"
+cp -R apps/console/dist/console/browser/. "$tmp/"
+rm -rf "$start/dist"
+mkdir -p "$start/dist"
+cp -R "$tmp/." "$start/dist/"
+rm -rf "$tmp"
+
 echo "✔ build completo:"
 ls -la apps/api/dist/app.module.js
-ls -la apps/console/dist/console/browser/index.html
+ls -la "$start/dist/index.html"
