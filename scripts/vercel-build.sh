@@ -1,52 +1,78 @@
 #!/usr/bin/env bash
-# Build para Vercel: compila la API (Nest) y la consola (Angular).
+# Build para Vercel: compila la API (Nest) y la consola (Angular), y deja los
+# estáticos en `<cwd inicial>/.vercel-out` (lo que declara outputDirectory).
 #
-# Deliberadamente NO usa `npm run --workspace`: Vercel puede ejecutar el
-# buildCommand desde un subdirectorio (p. ej. apps/console si lo tomó como
-# Root Directory), y ahí npm responde `No workspaces found`. Acá se localiza
-# la raíz del monorepo y se invocan los binarios directamente con npx, que
-# los resuelve tanto si npm hizo hoisting a la raíz como si no.
+# Está escrito para funcionar sin importar cómo esté configurado el proyecto
+# en Vercel, porque cada variante rompe de una forma distinta:
+#   - Root Directory = raíz del repo  → caso normal.
+#   - Root Directory = apps/api o apps/console → Vercel arranca dentro de un
+#     workspace e instala SOLO sus dependencias; el binario del otro workspace
+#     no existe (`npx: could not determine executable to run`).
+# Por eso: se localiza la raíz, se asegura el install completo del monorepo y
+# los binarios se invocan por ruta absoluta (nunca con npx).
 set -euo pipefail
 
-# Vercel busca `outputDirectory` relativo a ESTE directorio, sea cual sea.
 start="$(pwd)"
 echo "▶ cwd inicial: $start"
 
-# Subir hasta la raíz del monorepo (la que contiene ambos workspaces).
-root="$(pwd)"
+# --- 1. Localizar la raíz del monorepo (la que contiene ambos workspaces) ---
+root="$start"
 for _ in 1 2 3 4; do
   if [ -d "$root/apps/api" ] && [ -d "$root/apps/console" ]; then break; fi
   root="$(dirname "$root")"
 done
 
 if [ ! -d "$root/apps/api" ] || [ ! -d "$root/apps/console" ]; then
-  echo "✖ No encontré la raíz del monorepo (apps/api + apps/console) desde $(pwd)" >&2
-  echo "  Revisá el Root Directory del proyecto en Vercel: debe ser la raíz del repo." >&2
+  echo "✖ No encontré la raíz del monorepo (apps/api + apps/console) desde $start" >&2
   exit 1
 fi
 
 cd "$root"
-echo "▶ raíz del monorepo: $(pwd)"
+echo "▶ raíz del monorepo: $root"
 
+# --- 2. Buscar un binario en la raíz o en cualquiera de los workspaces ---
+find_bin() {
+  local name="$1" candidate
+  for candidate in \
+    "$root/node_modules/.bin/$name" \
+    "$root/apps/api/node_modules/.bin/$name" \
+    "$root/apps/console/node_modules/.bin/$name"; do
+    if [ -x "$candidate" ]; then echo "$candidate"; return 0; fi
+  done
+  return 1
+}
+
+# --- 3. Asegurar las dependencias de TODO el monorepo ---
+# Si Vercel instaló solo las de un workspace, falta el compilador del otro.
+if ! find_bin nest >/dev/null || ! find_bin ng >/dev/null; then
+  echo "▶ faltan dependencias del monorepo; instalando desde la raíz…"
+  npm install --no-audit --no-fund
+fi
+
+NEST="$(find_bin nest)" || { echo "✖ No encontré el binario 'nest'" >&2; exit 1; }
+NG="$(find_bin ng)" || { echo "✖ No encontré el binario 'ng'" >&2; exit 1; }
+echo "▶ nest: $NEST"
+echo "▶ ng:   $NG"
+
+# --- 4. Compilar ---
 echo "▶ compilando API (nest build)…"
-(cd apps/api && npx nest build)
+(cd "$root/apps/api" && "$NEST" build)
 
 echo "▶ compilando consola (ng build)…"
-(cd apps/console && npx ng build)
+(cd "$root/apps/console" && "$NG" build)
 
-# La consola queda en `<cwd inicial>/dist`, que es lo que declara
-# `outputDirectory`. Copiarla evita que un Root Directory distinto al esperado
-# deje a Vercel sirviendo un directorio vacío (404 NOT_FOUND).
-echo "▶ publicando estáticos en $start/dist…"
-# Vía un temporal: si el cwd inicial es apps/console, el destino ($start/dist)
-# contiene a la carpeta origen y borrarlo antes de copiar la destruiría.
+# --- 5. Publicar los estáticos donde Vercel los busca ---
+# Nombre propio (.vercel-out) para no chocar con los `dist/` de nest ni de ng,
+# y vía temporal porque el destino puede contener a la carpeta origen.
+out="$start/.vercel-out"
+echo "▶ publicando estáticos en $out…"
 tmp="$(mktemp -d)"
-cp -R apps/console/dist/console/browser/. "$tmp/"
-rm -rf "$start/dist"
-mkdir -p "$start/dist"
-cp -R "$tmp/." "$start/dist/"
+cp -R "$root/apps/console/dist/console/browser/." "$tmp/"
+rm -rf "$out"
+mkdir -p "$out"
+cp -R "$tmp/." "$out/"
 rm -rf "$tmp"
 
 echo "✔ build completo:"
-ls -la apps/api/dist/app.module.js
-ls -la "$start/dist/index.html"
+ls -la "$root/apps/api/dist/app.module.js"
+ls -la "$out/index.html"

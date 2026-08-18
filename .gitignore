@@ -2,6 +2,7 @@ node_modules/
 dist/
 .angular/
 .vercel/
+.vercel-out/
 
 # Secretos y datos locales — nunca al repo
 .env
