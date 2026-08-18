@@ -488,7 +488,7 @@ $overlap: 44px;
 }
 
 .vbtn--muted { background: var(--panel-2); color: var(--ink); border: 1px solid var(--border); }
-.vbtn--call { background: var(--primary); color: #fff; box-shadow: 0 6px 22px rgba(243, 71, 0, 0.4); }
+.vbtn--call { background: var(--call); color: #04240f; box-shadow: 0 6px 22px rgba(34, 197, 94, 0.4); }
 .vbtn--hang { background: #e11d48; color: #fff; box-shadow: 0 6px 22px rgba(225, 29, 72, 0.4); }
 
 /* ===== Bloque "Contexto en vivo" ===== */
@@ -718,10 +718,11 @@ $overlap: 44px;
   &:disabled { opacity: 0.5; cursor: not-allowed; }
 }
 
+/* La acción sugerida principal es lanzar la llamada: mismo verde que el botón. */
 .action--primary {
-  background: var(--primary);
-  border-color: var(--primary);
-  color: #fff;
+  background: var(--call);
+  border-color: var(--call);
+  color: #04240f;
 
-  &:hover:not(:disabled) { filter: brightness(1.1); border-color: var(--primary); }
+  &:hover:not(:disabled) { filter: brightness(1.08); border-color: var(--call); }
 }
