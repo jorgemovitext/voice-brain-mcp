@@ -88,9 +88,15 @@ git push -u origin main
 ```
 
 En Vercel: **Add New → Project → Import** ese repo y **Deploy**. No hay que
-tocar la configuración: `vercel.json` define el build (`npm run vercel-build`),
-publica la consola Angular como estático y rutea `/api/*`, `/precall` y
-`/webhooks/*` a la función Nest.
+tocar la configuración: `vercel.json` define el build, publica la consola
+Angular como estático y rutea `/api/*`, `/precall` y `/webhooks/*` a la
+función Nest. Dejá **Root Directory** en la raíz del repo (no `apps/console`),
+que es donde vive `vercel.json`.
+
+> Nota: el `buildCommand` va inline en `vercel.json` a propósito. Un script
+> llamado `vercel-build` en el `package.json` raíz **no** funciona en este
+> monorepo: Vercel lo ejecuta de forma especial y npm lo propaga a cada
+> workspace, que no lo tiene definido (`Missing script: "vercel-build"`).
 
 Variables de entorno (Project → Settings → Environment Variables): **ninguna es
 obligatoria** — sin nada, el deploy corre en modo mock. Para conectar NL Pearl

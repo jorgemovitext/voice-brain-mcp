@@ -1,8 +1,8 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
-  "buildCommand": "npm run vercel-build",
+  "buildCommand": "npm run build --workspace apps/api && npm run build --workspace apps/console",
   "outputDirectory": "apps/console/dist/console/browser",
-  "installCommand": "npm install",
+  "installCommand": "npm install --workspaces --include-workspace-root",
   "framework": null,
   "functions": {
     "api/index.js": {
