@@ -1,0 +1,70 @@
+<div class="head">
+  <div>
+    <h1>Demo del flujo end-to-end</h1>
+    <p class="muted">Dos escenarios en modo mock, sin credenciales. El paso a paso corre en vivo.</p>
+  </div>
+</div>
+
+<!-- Selector de escenario -->
+<div class="scenarios">
+  <button class="scenario" [class.scenario--active]="scenario() === 'outbound'" (click)="run('outbound')" [disabled]="running()">
+    <span class="scenario__title"><ui-icon name="send" /> Flujo saliente</span>
+    <span class="scenario__desc">Sembrado → addLead → PreCallAPI → llamada → webhook → Brain → WhatsApp.</span>
+  </button>
+  <button class="scenario" [class.scenario--active]="scenario() === 'inbound'" (click)="run('inbound')" [disabled]="running()">
+    <span class="scenario__title"><ui-icon name="phone" /> Práctica: entrante + WhatsApp</span>
+    <span class="scenario__desc">Llamada que ENTRA de un número → contexto guardado → WhatsApp del mismo número → identidad + contexto.</span>
+  </button>
+</div>
+
+@if (error()) {
+  <div class="state state--error card">{{ error() }}</div>
+}
+
+@if (!started() && !error()) {
+  <div class="state card">
+    <p>Elegí un escenario para ver cómo la voz alimenta el Brain y los canales continúan el mismo hilo.</p>
+  </div>
+}
+
+@if (started()) {
+  <ol class="stepper">
+    @for (def of stepDefs(); track def.key) {
+      <li class="step"
+          [class.step--done]="doneKeys().has(def.key)"
+          [class.step--pending]="!doneKeys().has(def.key)">
+        <span class="step__icon">
+          @if (doneKeys().has(def.key)) { <ui-icon [name]="def.icon" /> } @else { · }
+        </span>
+        <div class="step__body">
+          <div class="step__label">{{ def.label }}</div>
+          @if (stepFor(def.key); as s) {
+            <div class="step__meta">{{ s.at.slice(11, 19) }} — {{ s.title }}</div>
+            @if (detailText(s); as d) {
+              <details class="step__detail">
+                <summary>Detalle</summary>
+                <pre>{{ d }}</pre>
+              </details>
+            }
+          } @else if (running()) {
+            <div class="step__meta muted">esperando…</div>
+          }
+        </div>
+      </li>
+    }
+  </ol>
+
+  @if (finished() && contactId()) {
+    <div class="card done">
+      <span class="done__text">
+        <ui-icon name="check" class="done__icon" />
+        @if (scenario() === 'inbound') {
+          Práctica completa: el WhatsApp entrante encontró la identidad y el contexto de la llamada.
+        } @else {
+          Flujo completo. El timeline del contacto ahora tiene voz + WhatsApp en el mismo hilo.
+        }
+      </span>
+      <a class="btn btn--secondary" [routerLink]="['/contacts', contactId()]">Ver conversación del contacto →</a>
+    </div>
+  }
+}

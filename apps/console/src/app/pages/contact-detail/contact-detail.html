@@ -1,0 +1,231 @@
+@if (context.isLoading() && !context.value()) {
+  <div class="state"><div class="spinner"></div>Cargando conversación…</div>
+} @else if (context.error()) {
+  <div class="state state--error">
+    No se pudo cargar el contacto.
+    <div><button class="btn btn--primary" (click)="context.reload()">Reintentar</button></div>
+  </div>
+} @else if (context.value(); as ctx) {
+  <div class="convo" [class.convo--threads]="withThreads()">
+    <!-- ===== Sidebar de conversaciones (solo en /conversations) ===== -->
+    @if (withThreads()) {
+      <aside class="threads">
+        <div class="threads__head">
+          <span class="threads__title">Conversaciones</span>
+          <a routerLink="/contacts" class="threads__all" title="Ver directorio"><ui-icon name="users" /></a>
+        </div>
+        <div class="threads__list">
+          @for (c of conversations.value() ?? []; track c.id) {
+            <a class="thread" [class.thread--active]="c.id === id()" [routerLink]="[threadBase(), c.id]">
+              <span class="thread__avatar" [style.background]="tileColor(c.id)">{{ initialsOf(c.displayName) }}</span>
+              <span class="thread__body">
+                <span class="thread__top">
+                  <span class="thread__name">{{ c.displayName || 'Sin nombre' }}</span>
+                  <span class="thread__time">{{ shortTime(c.lastInteraction?.occurredAt) }}</span>
+                </span>
+                <span class="thread__preview">{{ preview(c) }}</span>
+              </span>
+            </a>
+          }
+        </div>
+      </aside>
+    }
+
+    <!-- ===== Panel de chat ===== -->
+    <section class="chat">
+      <header class="chat__head">
+        @if (!withThreads()) {
+          <a routerLink="/contacts" class="chat__back" title="Volver">‹</a>
+        }
+        <div class="chat__who">
+          <div class="chat__name">{{ ctx.contact.displayName || 'Sin nombre' }}</div>
+          <div class="chat__meta">
+            {{ ctx.contact.phones[0] || 'Sin teléfono' }}
+            · {{ kycmLabel(ctx.contact.kycmStatus) }}
+          </div>
+        </div>
+        <span class="chat__dots">⋯</span>
+      </header>
+
+      <div class="chat__scroll" #scrollEl>
+        @if (!chat().length) {
+          <div class="chat__empty">Sin mensajes todavía. Lanzá una llamada o escribí abajo.</div>
+        }
+        @for (m of chat(); track m.interaction.id) {
+          @if (m.dayLabel) {
+            <div class="chat__day"><span>{{ m.dayLabel }}</span></div>
+          }
+
+          <div class="msg" [class.msg--in]="m.side === 'in'" [class.msg--out]="m.side === 'out'">
+            @if (m.side === 'in') {
+              <span class="msg__avatar">{{ initials() }}</span>
+            }
+            <div class="msg__stack">
+              @if (m.interaction.channel === 'voice') {
+                <div class="bubble bubble--voice" (click)="toggleTranscript(m.interaction.id)" title="Ver transcripción">
+                  <span class="bubble__play">▶</span>
+                  <span class="wave">
+                    @for (h of [7, 12, 9, 15, 11, 6, 13, 9, 14, 7, 11, 15, 8, 12, 6, 10, 13, 7]; track $index) {
+                      <i [style.height.px]="h"></i>
+                    }
+                  </span>
+                  <span class="bubble__dur">📞 Llamada</span>
+                </div>
+                @if (m.interaction.summary) {
+                  <div class="bubble bubble--caption">
+                    {{ m.interaction.summary }}
+                    @if (m.interaction.sentiment) {
+                      <span [class]="'pill-mini ' + sentimentClass(m.interaction.sentiment)">{{ sentimentLabel(m.interaction.sentiment) }}</span>
+                    }
+                  </div>
+                }
+                @if (expanded().has(m.interaction.id) && m.interaction.transcript) {
+                  <pre class="bubble bubble--transcript">{{ m.interaction.transcript }}</pre>
+                }
+              } @else {
+                <div class="bubble">{{ m.interaction.summary }}</div>
+              }
+              <span class="msg__time">
+                {{ channelIcon(m.interaction.channel) }} {{ m.time }} @if (m.side === 'out') { ✓✓ }
+              </span>
+            </div>
+          </div>
+        }
+
+        @if (callState() === 'calling') {
+          <div class="chat__day"><span>📞 Llamada de voz en curso ({{ timerLabel() }})</span></div>
+        }
+      </div>
+
+      <footer class="chat__composer">
+        <input
+          class="chat__input"
+          type="text"
+          [placeholder]="'Mensaje a ' + (ctx.contact.displayName || 'contacto') + '…'"
+          [value]="draft()"
+          (input)="onDraft($event)"
+          (keydown.enter)="sendMessage()"
+          [disabled]="sending()"
+        />
+        <button class="chat__send" (click)="sendMessage()" [disabled]="sending() || !draft().trim()" title="Enviar por WhatsApp">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m22 2-11 11"/><path d="M22 2 15 22l-4-9-9-4z"/></svg>
+        </button>
+      </footer>
+    </section>
+
+    <!-- ===== Contexto en vivo (avatar de voz + info) ===== -->
+    <aside class="voice" [class.voice--live]="callState() === 'calling'">
+      @if (callState() === 'calling') {
+        <span class="voice__timer">{{ timerLabel() }} ●</span>
+      }
+
+      <div class="voice__top">
+        <voice-nebula [size]="104" [active]="callState() === 'calling'" />
+        <div class="voice__name">{{ ctx.contact.displayName || 'Contacto' }}</div>
+        <div class="voice__status">
+          @switch (callState()) {
+            @case ('calling') { El agente de voz está conversando… }
+            @case ('ended') { Llamada finalizada — hilo actualizado. }
+            @default { Agente de voz disponible. }
+          }
+        </div>
+        <div class="voice__controls">
+          <button class="vbtn vbtn--muted" title="Silenciar (decorativo)" disabled>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0"/><path d="M12 18v3"/></svg>
+          </button>
+          @if (callState() === 'calling') {
+            <button class="vbtn vbtn--hang" (click)="endCall()" title="Colgar">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 15c6-5 12-5 18 0l-3 4c-4-3-8-3-12 0z"/></svg>
+            </button>
+          } @else {
+            <button class="vbtn vbtn--call" (click)="startCall()" title="Lanzar llamada (mock)">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M5 4h4l2 5-2.5 1.5a12 12 0 0 0 5 5L15 13l5 2v4a2 2 0 0 1-2 2A16 16 0 0 1 3 6a2 2 0 0 1 2-2"/></svg>
+            </button>
+          }
+        </div>
+      </div>
+
+      <div class="live">
+        <div class="live__badge">
+          <span class="live__dot"></span> Contexto en vivo <span class="live__api">API</span>
+        </div>
+
+        <!-- Estado emocional -->
+        <div class="panel">
+          <div class="panel__head">
+            <span class="panel__title">Estado emocional</span>
+            @if (ctx.sentimentTrend) {
+              <span class="panel__aside" [class.positive]="ctx.sentimentTrend === 'mejorando'">{{ ctx.sentimentTrend }}</span>
+            }
+          </div>
+          @if (mood(); as m) {
+            <div class="mood" [class]="'mood ' + m.cls">
+              <span class="mood__label">{{ m.label }}</span>
+              <span class="mood__bar"><i [style.width.%]="m.pct"></i></span>
+            </div>
+          } @else {
+            <div class="panel__empty">Sin lecturas todavía</div>
+          }
+        </div>
+
+        <!-- Caso actual -->
+        <div class="panel">
+          <div class="panel__head">
+            <span class="panel__title">Caso actual</span>
+            <span class="panel__aside">{{ caseNumber() }}</span>
+          </div>
+          @if (activePromise(); as p) {
+            <div class="case">
+              <span class="case__name">Promesa de pago</span>
+              <span class="pill pill--primary">Activa</span>
+            </div>
+            <div class="case__detail">{{ p.amount }} @if (p.dueDate) { · vence {{ p.dueDate }} }</div>
+          } @else {
+            <div class="case">
+              <span class="case__name">Seguimiento general</span>
+              <span class="pill pill--neutral">Abierto</span>
+            </div>
+            <div class="case__detail">Sin promesa activa registrada</div>
+          }
+        </div>
+
+        <!-- Resumen de IA -->
+        @if (aiSummary(); as summary) {
+          <div class="panel panel--ai">
+            <div class="panel__head">
+              <span class="panel__title panel__title--ai"><ui-icon name="sparkle" /> Resumen de IA</span>
+            </div>
+            <p class="ai__text">{{ summary }}</p>
+          </div>
+        }
+
+        <!-- Momentos clave -->
+        @if (keyMoments().length) {
+          <div class="panel">
+            <div class="panel__head"><span class="panel__title">Momentos clave</span></div>
+            <ol class="moments">
+              @for (m of keyMoments(); track $index) {
+                <li class="moment" [class.moment--first]="$index === 0">
+                  <span class="moment__when"><ui-icon name="clock" /> {{ m.when }}</span>
+                  <span class="moment__title">{{ m.title }}</span>
+                  @if (m.detail) { <span class="moment__detail">{{ m.detail }}</span> }
+                </li>
+              }
+            </ol>
+          </div>
+        }
+
+        <!-- Acciones sugeridas -->
+        <div class="actions">
+          <span class="actions__title">Acciones sugeridas</span>
+          <button class="action action--primary" (click)="startCall()" [disabled]="callState() === 'calling'">
+            Lanzar llamada (mock) <ui-icon name="chevron" />
+          </button>
+          <button class="action" (click)="sendFollowup()" [disabled]="sending()">
+            Enviar seguimiento por WhatsApp <ui-icon name="chevron" />
+          </button>
+        </div>
+      </div>
+    </aside>
+  </div>
+}

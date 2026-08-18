@@ -1,0 +1,220 @@
+.page {
+  padding: 1.4rem 1.5rem;
+  max-width: 1100px;
+}
+
+/* --- Header con saludo --- */
+.hero {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 1rem;
+}
+
+.hero__left {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+}
+
+.hero__avatar {
+  width: 42px;
+  height: 42px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  font-size: 0.8rem;
+  font-weight: 800;
+  color: #fff;
+  background: linear-gradient(135deg, var(--primary), #b33500);
+}
+
+.hero__hi {
+  color: var(--ink-soft);
+  font-size: 0.78rem;
+}
+
+.hero__name {
+  font-weight: 800;
+  font-size: 1.02rem;
+}
+
+.hero__refresh {
+  width: 40px;
+  height: 40px;
+  display: grid;
+  place-items: center;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: transparent;
+  color: var(--ink-soft);
+  cursor: pointer;
+
+  svg { width: 18px; height: 18px; }
+
+  &:hover { color: var(--ink); border-color: var(--secondary); }
+}
+
+/* --- Búsqueda --- */
+.search {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  background: var(--panel-2);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 0.55rem 1rem;
+  margin-bottom: 0.9rem;
+
+  svg {
+    width: 17px;
+    height: 17px;
+    color: var(--ink-soft);
+    flex-shrink: 0;
+  }
+
+  input {
+    flex: 1;
+    background: transparent;
+    border: none;
+    outline: none;
+    color: var(--ink);
+    font-family: inherit;
+    font-size: 0.92rem;
+
+    &::placeholder { color: var(--ink-soft); }
+  }
+}
+
+/* --- Chips de filtro --- */
+.chips {
+  display: flex;
+  gap: 0.45rem;
+  flex-wrap: wrap;
+  margin-bottom: 1.1rem;
+}
+
+.chip {
+  border: 1px solid var(--border);
+  background: var(--panel);
+  color: var(--ink-soft);
+  border-radius: 999px;
+  padding: 0.42rem 0.95rem;
+  font-family: inherit;
+  font-size: 0.8rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+
+  &:hover { color: var(--ink); }
+}
+
+.chip--active {
+  background: #fff;
+  border-color: #fff;
+  color: #10131a;
+}
+
+/* --- Grid de tarjetas --- */
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 0.9rem;
+}
+
+.tile {
+  position: relative;
+  display: flex;
+  align-items: stretch;
+  gap: 0;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  overflow: hidden;
+  color: var(--ink);
+  transition: border-color 0.15s, transform 0.1s;
+
+  &:hover {
+    border-color: var(--secondary);
+    transform: translateY(-2px);
+
+    .tile__call { opacity: 1; }
+  }
+}
+
+.tile__avatar {
+  position: relative;
+  width: 92px;
+  flex-shrink: 0;
+  display: grid;
+  place-items: center;
+  font-size: 1.5rem;
+  font-weight: 800;
+  color: #22303c;
+}
+
+.tile__dot {
+  position: absolute;
+  right: 8px;
+  bottom: 8px;
+  width: 11px;
+  height: 11px;
+  border-radius: 50%;
+  border: 2px solid rgba(255, 255, 255, 0.85);
+
+  &.pill--positive { background: #16a34a; }
+  &.pill--negative { background: #dc2626; }
+  &.pill--neutral { background: #94a3b8; }
+}
+
+.tile__body {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 0.15rem;
+  padding: 0.9rem 1rem;
+  min-width: 0;
+}
+
+.tile__name {
+  font-weight: 800;
+  font-size: 1rem;
+  line-height: 1.25;
+}
+
+.tile__sub {
+  color: var(--ink-soft);
+  font-size: 0.76rem;
+  font-weight: 700;
+}
+
+.tile__meta {
+  color: var(--ink-soft);
+  font-size: 0.72rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.tile__call {
+  position: absolute;
+  right: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 38px;
+  height: 38px;
+  display: grid;
+  place-items: center;
+  border: none;
+  border-radius: 50%;
+  background: var(--primary);
+  color: #fff;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.15s, filter 0.15s;
+
+  svg { width: 17px; height: 17px; }
+
+  &:hover { filter: brightness(1.12); }
+  &:disabled { opacity: 0.5; cursor: wait; }
+}

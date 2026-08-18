@@ -1,0 +1,179 @@
+{
+  "contacts": [
+    {
+      "id": "04081a6d-d0e2-40bf-b424-654bc9ede0d1",
+      "displayName": "María López",
+      "phones": [
+        "+50588887777"
+      ],
+      "externalIds": {
+        "sender": "snd_84421"
+      },
+      "kycmStatus": "verified"
+    },
+    {
+      "id": "cf47ad03-13ab-45ad-a78d-050430d92370",
+      "displayName": "Carlos Mendoza",
+      "phones": [
+        "+50577665544"
+      ],
+      "externalIds": {},
+      "kycmStatus": "unverified"
+    },
+    {
+      "id": "44639366-922d-4247-9dcd-24d84c85965b",
+      "displayName": "Ana Chavarría",
+      "phones": [
+        "+50581234567"
+      ],
+      "externalIds": {},
+      "kycmStatus": "verified"
+    }
+  ],
+  "interactions": [
+    {
+      "id": "46282173-1694-4a7e-927c-b0d41d3b697c",
+      "contactId": "04081a6d-d0e2-40bf-b424-654bc9ede0d1",
+      "channel": "whatsapp",
+      "direction": "inbound",
+      "occurredAt": "2026-08-16T21:49:49.636Z",
+      "summary": "Cliente preguntó por su saldo pendiente y pidió que la llamaran para coordinar el pago.",
+      "sentiment": "neutral",
+      "source": "own"
+    },
+    {
+      "id": "f9420fef-e855-497a-b325-ccc0c42e8a74",
+      "contactId": "cf47ad03-13ab-45ad-a78d-050430d92370",
+      "channel": "voice",
+      "direction": "outbound",
+      "occurredAt": "2026-08-13T21:49:49.638Z",
+      "summary": "No contestó; se dejó mensaje en buzón de voz.",
+      "sentiment": "negative",
+      "source": "nlpearl"
+    },
+    {
+      "id": "18ca792f-4991-4901-acf0-8b5853b8f9cd",
+      "contactId": "44639366-922d-4247-9dcd-24d84c85965b",
+      "channel": "sms",
+      "direction": "inbound",
+      "occurredAt": "2026-08-17T21:49:49.638Z",
+      "summary": "Consultó cómo actualizar su método de pago.",
+      "sentiment": "positive",
+      "source": "own"
+    },
+    {
+      "id": "d99fe01d-f900-4998-b7a6-b221a0326275",
+      "contactId": "04081a6d-d0e2-40bf-b424-654bc9ede0d1",
+      "channel": "voice",
+      "direction": "outbound",
+      "occurredAt": "2026-08-18T21:49:56.224Z",
+      "summary": "Cliente confirmó promesa de pago por 1500 antes del 2026-08-25. Actitud cooperativa; pidió recordatorio por WhatsApp.",
+      "transcript": "Agente: Buenas, ¿hablo con María López? Le llamamos por su cuenta pendiente.\nCliente: Sí, con ella. Fíjese que ando un poco corta este mes.\nAgente: Entiendo. Veo que tiene una promesa previa. ¿Puede comprometerse a pagar 1500 antes del 2026-08-25?\nCliente: Sí, para esa fecha sí puedo. Me comprometo a los 1500.\nAgente: Perfecto, queda registrado. Le enviaremos la confirmación por WhatsApp. ¡Gracias!",
+      "sentiment": "positive",
+      "collectedInfo": {
+        "promiseAmount": 1500,
+        "promiseDate": "2026-08-25",
+        "preferredChannel": "whatsapp"
+      },
+      "source": "nlpearl"
+    },
+    {
+      "id": "c9fdff73-c768-472d-8c5f-29eebb3a94e5",
+      "contactId": "04081a6d-d0e2-40bf-b424-654bc9ede0d1",
+      "channel": "whatsapp",
+      "direction": "outbound",
+      "occurredAt": "2026-08-18T21:49:56.239Z",
+      "summary": "María López, gracias por conversar con nosotros. Resumen: Cliente confirmó promesa de pago por 1500 antes del 2026-08-25. Actitud cooperativa; pidió recordatorio por WhatsApp. Confirmamos tu compromiso de pago por 1500 antes del 2026-08-25. Cualquier consulta, respondé este WhatsApp.",
+      "source": "own",
+      "collectedInfo": {
+        "providerId": "wa_1787089796238"
+      }
+    },
+    {
+      "id": "8aec24cc-ec6d-4a6a-be3f-b978068a68d5",
+      "contactId": "04081a6d-d0e2-40bf-b424-654bc9ede0d1",
+      "channel": "voice",
+      "direction": "outbound",
+      "occurredAt": "2026-08-18T22:07:46.408Z",
+      "summary": "Cliente confirmó promesa de pago por 1500 antes del 2026-08-25. Actitud cooperativa; pidió recordatorio por WhatsApp.",
+      "transcript": "Agente: Buenas, ¿hablo con María López? Le llamamos por su cuenta pendiente.\nCliente: Sí, con ella. Fíjese que ando un poco corta este mes.\nAgente: Entiendo. Veo que tiene una promesa previa. ¿Puede comprometerse a pagar 1500 antes del 2026-08-25?\nCliente: Sí, para esa fecha sí puedo. Me comprometo a los 1500.\nAgente: Perfecto, queda registrado. Le enviaremos la confirmación por WhatsApp. ¡Gracias!",
+      "sentiment": "positive",
+      "collectedInfo": {
+        "promiseAmount": 1500,
+        "promiseDate": "2026-08-25",
+        "preferredChannel": "whatsapp"
+      },
+      "source": "nlpearl"
+    },
+    {
+      "id": "486e09b8-a775-4e08-b335-29e6826ae396",
+      "contactId": "04081a6d-d0e2-40bf-b424-654bc9ede0d1",
+      "channel": "whatsapp",
+      "direction": "outbound",
+      "occurredAt": "2026-08-18T22:07:46.425Z",
+      "summary": "María López, gracias por conversar con nosotros. Resumen: Cliente confirmó promesa de pago por 1500 antes del 2026-08-25. Actitud cooperativa; pidió recordatorio por WhatsApp. Confirmamos tu compromiso de pago por 1500 antes del 2026-08-25. Cualquier consulta, respondé este WhatsApp.",
+      "source": "own",
+      "collectedInfo": {
+        "providerId": "wa_1787090866425"
+      }
+    },
+    {
+      "id": "cb24dce4-db81-4e1a-ac81-42c8aa40ea23",
+      "contactId": "04081a6d-d0e2-40bf-b424-654bc9ede0d1",
+      "channel": "voice",
+      "direction": "outbound",
+      "occurredAt": "2026-08-18T22:08:00.334Z",
+      "summary": "Cliente confirmó promesa de pago por 1500 antes del 2026-08-25. Actitud cooperativa; pidió recordatorio por WhatsApp.",
+      "transcript": "Agente: Buenas, ¿hablo con María López? Le llamamos por su cuenta pendiente.\nCliente: Sí, con ella. Fíjese que ando un poco corta este mes.\nAgente: Entiendo. Veo que tiene una promesa previa. ¿Puede comprometerse a pagar 1500 antes del 2026-08-25?\nCliente: Sí, para esa fecha sí puedo. Me comprometo a los 1500.\nAgente: Perfecto, queda registrado. Le enviaremos la confirmación por WhatsApp. ¡Gracias!",
+      "sentiment": "positive",
+      "collectedInfo": {
+        "promiseAmount": 1500,
+        "promiseDate": "2026-08-25",
+        "preferredChannel": "whatsapp"
+      },
+      "source": "nlpearl"
+    },
+    {
+      "id": "82d3a04d-5c5d-4620-b019-243416758766",
+      "contactId": "04081a6d-d0e2-40bf-b424-654bc9ede0d1",
+      "channel": "whatsapp",
+      "direction": "outbound",
+      "occurredAt": "2026-08-18T22:08:00.354Z",
+      "summary": "María López, gracias por conversar con nosotros. Resumen: Cliente confirmó promesa de pago por 1500 antes del 2026-08-25. Actitud cooperativa; pidió recordatorio por WhatsApp. Confirmamos tu compromiso de pago por 1500 antes del 2026-08-25. Cualquier consulta, respondé este WhatsApp.",
+      "source": "own",
+      "collectedInfo": {
+        "providerId": "wa_1787090880354"
+      }
+    },
+    {
+      "id": "b37163df-65cb-4279-845f-cf62e5b29729",
+      "contactId": "04081a6d-d0e2-40bf-b424-654bc9ede0d1",
+      "channel": "whatsapp",
+      "direction": "outbound",
+      "occurredAt": "2026-08-18T22:08:02.583Z",
+      "summary": "María López, gracias por conversar con nosotros. Resumen: Cliente confirmó promesa de pago por 1500 antes del 2026-08-25. Actitud cooperativa; pidió recordatorio por WhatsApp. Confirmamos tu compromiso de pago por 1500 antes del 2026-08-25. Cualquier consulta, respondé este WhatsApp.",
+      "source": "own",
+      "collectedInfo": {
+        "providerId": "wa_1787090882583"
+      }
+    }
+  ],
+  "signals": [
+    {
+      "id": "89fb1cff-0ee7-4ac1-bc6e-902ab4ed8dbf",
+      "contactId": "04081a6d-d0e2-40bf-b424-654bc9ede0d1",
+      "type": "promise",
+      "amount": 1500,
+      "dueDate": "2026-08-25",
+      "status": "active",
+      "text": "Promesa capturada en llamada de voz"
+    },
+    {
+      "id": "133d3d53-a1e5-4695-a29c-a6df47bdfaca",
+      "contactId": "cf47ad03-13ab-45ad-a78d-050430d92370",
+      "type": "flag",
+      "status": "active",
+      "text": "Difícil de contactar por voz; intentar por SMS"
+    }
+  ]
+}

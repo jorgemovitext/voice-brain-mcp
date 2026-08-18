@@ -1,0 +1,7 @@
+node_modules/
+dist/
+.env
+data/brain.json
+.angular/
+*.log
+.DS_Store

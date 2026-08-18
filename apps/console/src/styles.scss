@@ -1,0 +1,169 @@
+/* Rediseño inspirado en apps de mensajería + asistente IA:
+   shell oscuro con rail de iconos, chat claro de burbujas y avatar de voz.
+   Marca Movitext: naranja #F34700 (primario), cyan #00BAFE (secundario). */
+@import url('https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap');
+
+:root {
+  --primary: #f34700;
+  --secondary: #00bafe;
+
+  /* Shell oscuro */
+  --bg: #060b16;
+  --panel: #0d1526;
+  --panel-2: #111d36;
+  --border: #1c2a47;
+  --ink: #e8edf6;
+  --ink-soft: #8fa0ba;
+
+  /* Chat claro (como la referencia de mensajería) */
+  --chat-bg: #f2f7fd;
+  --chat-ink: #182333;
+  --chat-ink-soft: #6b7a90;
+  --bubble-in: #d9edff;
+  --bubble-out: #e9eef5;
+  --chat-border: #e1e9f2;
+
+  --positive: #34d399;
+  --negative: #f87171;
+  --radius: 18px;
+}
+
+* { box-sizing: border-box; }
+
+html, body { height: 100%; }
+
+/* Fondo exterior claro: la app vive dentro de un "device" oscuro redondeado,
+   como en la referencia de mensajería. */
+body {
+  margin: 0;
+  font-family: 'Manrope', 'Inter', system-ui, -apple-system, sans-serif;
+  background: #dfe5ee;
+  color: var(--ink);
+  font-size: 15px;
+  line-height: 1.5;
+}
+
+h1, h2, h3 { font-weight: 800; margin: 0 0 0.5rem; }
+a { color: var(--secondary); text-decoration: none; }
+
+/* --- Tarjetas (oscuras) --- */
+.card {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 1.25rem;
+}
+
+/* --- Pills --- */
+.pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.2rem 0.7rem;
+  border-radius: 999px;
+  font-size: 0.78rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.pill--primary { background: rgba(243, 71, 0, 0.16); color: #ff8a5c; }
+.pill--secondary { background: rgba(0, 186, 254, 0.14); color: #5ed4ff; }
+.pill--positive { background: rgba(52, 211, 153, 0.14); color: var(--positive); }
+.pill--negative { background: rgba(248, 113, 113, 0.14); color: var(--negative); }
+.pill--neutral { background: rgba(143, 160, 186, 0.16); color: var(--ink-soft); }
+
+/* --- Botones --- */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  border: none;
+  border-radius: 999px;
+  padding: 0.55rem 1.2rem;
+  font-family: inherit;
+  font-size: 0.9rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: filter 0.15s, transform 0.05s;
+}
+
+.btn:hover:not(:disabled) { filter: brightness(1.12); }
+.btn:active:not(:disabled) { transform: scale(0.98); }
+.btn:disabled { opacity: 0.45; cursor: not-allowed; }
+
+.btn--primary { background: var(--primary); color: #fff; }
+.btn--secondary { background: var(--secondary); color: #04283a; }
+.btn--ghost { background: transparent; color: var(--ink); border: 1.5px solid var(--border); }
+
+/* --- Estados --- */
+.state {
+  text-align: center;
+  padding: 3rem 1rem;
+  color: var(--ink-soft);
+}
+
+.state--error { color: var(--negative); }
+
+.spinner {
+  width: 26px;
+  height: 26px;
+  margin: 0 auto 0.75rem;
+  border: 3px solid var(--border);
+  border-top-color: var(--primary);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* --- Scrollbars discretos ---
+   Delgados, sin flechas ni pista visible; el thumb es semitransparente y
+   solo gana contraste al pasar el mouse, para que no compita con el diseño. */
+* {
+  scrollbar-width: thin; /* Firefox */
+  scrollbar-color: rgba(143, 160, 186, 0.28) transparent;
+}
+
+*::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+*::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+*::-webkit-scrollbar-thumb {
+  background: rgba(143, 160, 186, 0.22);
+  border-radius: 999px;
+  /* El borde transparente adelgaza el thumb y lo separa del borde del panel */
+  border: 2px solid transparent;
+  background-clip: content-box;
+}
+
+*::-webkit-scrollbar-thumb:hover {
+  background: rgba(143, 160, 186, 0.45);
+  background-clip: content-box;
+}
+
+*::-webkit-scrollbar-corner {
+  background: transparent;
+}
+
+/* En el chat (fondo claro) el thumb va en gris azulado oscuro */
+.chat *::-webkit-scrollbar-thumb {
+  background: rgba(107, 122, 144, 0.25);
+  background-clip: content-box;
+}
+
+.chat *::-webkit-scrollbar-thumb:hover {
+  background: rgba(107, 122, 144, 0.45);
+  background-clip: content-box;
+}
+
+.chat * {
+  scrollbar-color: rgba(107, 122, 144, 0.3) transparent;
+}
+
+/* El avatar de voz vive en el componente <voice-nebula> (src/app/nebula.ts). */

@@ -1,0 +1,44 @@
+<div class="home">
+  <voice-nebula class="home__orb" [size]="130" />
+
+  <p class="home__hi">Hola, operador</p>
+  <h1 class="home__title">¿En qué te ayudo hoy?</h1>
+  <p class="home__sub">
+    Voz con NL Pearl + contexto unificado en el Brain —
+    del precall al seguimiento por WhatsApp.
+  </p>
+
+  <form class="ask" (submit)="$event.preventDefault(); search()">
+    <span class="ask__hint"><ui-icon name="zap" /> Todo corre en modo mock, sin credenciales</span>
+    <div class="ask__box">
+      <input
+        class="ask__input"
+        type="text"
+        placeholder="Buscá un contacto por nombre o teléfono…"
+        [value]="query()"
+        (input)="onInput($event)"
+      />
+      <button class="ask__send" type="submit" title="Buscar">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M5 12h13"/><path d="m12 5 7 7-7 7"/></svg>
+      </button>
+    </div>
+  </form>
+
+  <div class="quick">
+    <a routerLink="/demo" class="quick__card">
+      <span class="quick__icon quick__icon--primary"><ui-icon name="zap" /></span>
+      <span class="quick__title">Correr la demo</span>
+      <span class="quick__desc">Flujo end-to-end: llamada → Brain → WhatsApp.</span>
+    </a>
+    <a routerLink="/contacts" class="quick__card">
+      <span class="quick__icon quick__icon--secondary"><ui-icon name="users" /></span>
+      <span class="quick__title">Ver contactos</span>
+      <span class="quick__desc">Identidad y contexto unificado por contacto.</span>
+    </a>
+    <a routerLink="/conversations" class="quick__card">
+      <span class="quick__icon quick__icon--secondary"><ui-icon name="chat" /></span>
+      <span class="quick__title">Conversaciones</span>
+      <span class="quick__desc">Todos los hilos en un solo lugar, con contexto en vivo.</span>
+    </a>
+  </div>
+</div>

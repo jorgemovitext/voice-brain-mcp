@@ -1,0 +1,25 @@
+{
+  "name": "voice-brain-mcp",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Prototipo: Voz (NL Pearl v2) + Brain (MCP) + Canales — NestJS + Angular",
+  "workspaces": [
+    "apps/api",
+    "apps/console"
+  ],
+  "scripts": {
+    "dev:api": "npm run start:dev --workspace apps/api",
+    "dev:console": "npm run start --workspace apps/console",
+    "dev": "concurrently -n api,console -c yellow,cyan \"npm:dev:api\" \"npm:dev:console\"",
+    "mcp": "npm run mcp --workspace apps/api",
+    "demo": "node scripts/run-demo.mjs",
+    "test": "npm run test --workspace apps/api",
+    "build": "npm run build --workspace apps/api && npm run build --workspace apps/console"
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.2"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

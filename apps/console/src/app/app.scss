@@ -1,0 +1,93 @@
+/* "Device" redondeado sobre fondo claro, como la referencia:
+   sidebar de iconos plano (sin contenedor) integrado al marco oscuro,
+   y el contenido en paneles redondeados que se superponen al sidebar. */
+.shell {
+  display: flex;
+  height: calc(100dvh - 32px);
+  margin: 16px;
+  border-radius: 34px;
+  background:
+    radial-gradient(900px 500px at 80% -10%, #14284a 0%, transparent 60%),
+    linear-gradient(160deg, #0e1b33, #081020 70%);
+  box-shadow: 0 24px 60px rgba(10, 20, 40, 0.45);
+  overflow: hidden;
+}
+
+/* --- Rail de iconos: plano, sin card --- */
+.rail {
+  width: 74px;
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 1.3rem 0;
+}
+
+.rail__logo {
+  display: grid;
+  place-items: center;
+  margin-bottom: 1.6rem;
+}
+
+.rail__logo-orb {
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  background: conic-gradient(from 210deg, var(--primary), #ff9d5c, var(--secondary), var(--primary));
+  box-shadow: 0 0 14px rgba(0, 186, 254, 0.5);
+}
+
+.rail__nav {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+
+.rail__btn {
+  width: 44px;
+  height: 44px;
+  display: grid;
+  place-items: center;
+  border-radius: 14px;
+  color: #5c6f92;
+  transition: background 0.15s, color 0.15s;
+
+  svg { width: 21px; height: 21px; }
+
+  &:hover { color: var(--ink); }
+}
+
+.rail__btn--active {
+  background: var(--secondary);
+  color: #04283a;
+  box-shadow: 0 4px 18px rgba(0, 186, 254, 0.35);
+
+  &:hover { background: var(--secondary); color: #04283a; }
+}
+
+.rail__bottom {
+  margin-top: auto;
+}
+
+.rail__avatar {
+  width: 40px;
+  height: 40px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  font-size: 0.78rem;
+  font-weight: 800;
+  color: #fff;
+  background: linear-gradient(135deg, var(--primary), #b33500);
+}
+
+/* --- Escenario: se superpone levemente al rail, con esquinas redondeadas --- */
+.stage {
+  flex: 1;
+  min-width: 0;
+  overflow-y: auto;
+  position: relative;
+  z-index: 1;
+  margin: 10px 10px 10px -10px;
+  border-radius: 26px;
+}
