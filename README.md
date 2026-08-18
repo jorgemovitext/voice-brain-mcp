@@ -77,6 +77,10 @@ npm run dev:console
 - Demo por CLI (con la api levantada): `npm run demo`
 - Tests: `npm test` · Build: `npm run build`
 
+## Desplegado
+
+**https://voice-brain-mcp.vercel.app** — corre en modo mock, sin credenciales.
+
 ## Desplegar en Vercel (desde GitHub)
 
 El repo ya trae `vercel.json` y la función serverless en `api/index.js`.
@@ -87,11 +91,15 @@ git remote add origin git@github.com:<usuario>/<repo>.git
 git push -u origin main
 ```
 
-En Vercel: **Add New → Project → Import** ese repo y **Deploy**. No hay que
-tocar la configuración: `vercel.json` define el build, publica la consola
-Angular como estático y rutea `/api/*`, `/precall` y `/webhooks/*` a la
-función Nest. Dejá **Root Directory** en la raíz del repo (no `apps/console`),
-que es donde vive `vercel.json`.
+En Vercel: **Add New → Project → Import** ese repo y **Deploy**. `vercel.json`
+define el build, publica la consola Angular como estático y rutea `/api/*`,
+`/precall` y `/webhooks/*` a la función Nest.
+
+> **Un solo proyecto, con Root Directory en la raíz del repo.** El build tolera
+> que Vercel arranque dentro de un workspace, pero la función serverless vive
+> en `api/index.js` (raíz) y Vercel solo la detecta si el Root Directory es esa
+> raíz. Con proyectos separados por workspace, la consola se despliega pero
+> `/api/*` responde 404.
 
 > **Por qué el build es un script y no `npm run --workspace`** (dos trampas de
 > Vercel con monorepos npm, ambas ya resueltas en `scripts/vercel-build.sh`):

@@ -13,3 +13,4 @@ data/brain.json
 
 *.log
 .DS_Store
+.vercel
