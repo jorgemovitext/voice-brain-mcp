@@ -1,7 +1,7 @@
 import { HttpClient } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
 import { firstValueFrom } from 'rxjs';
-import { DemoStatus } from './models';
+import { DemoStatus, FlowStep } from './models';
 
 /**
  * Acciones (POST) contra el backend. Las lecturas de las vistas usan
@@ -11,13 +11,18 @@ import { DemoStatus } from './models';
 export class BrainApiService {
   private readonly http = inject(HttpClient);
 
-  runDemo(): Promise<{ contactId: string }> {
-    return firstValueFrom(this.http.post<{ contactId: string }>('/api/demo/run', {}));
+  /**
+   * Ambas demos devuelven `steps` cuando el backend completó el flujo dentro
+   * del request (serverless); si viene vacío, el flujo corre detrás y hay que
+   * seguirlo con demoStatus().
+   */
+  runDemo(): Promise<{ contactId: string; steps: FlowStep[] }> {
+    return firstValueFrom(this.http.post<{ contactId: string; steps: FlowStep[] }>('/api/demo/run', {}));
   }
 
   /** Práctica: llamada entrante + WhatsApp entrante del mismo número. */
-  runInboundDemo(): Promise<{ phone: string }> {
-    return firstValueFrom(this.http.post<{ phone: string }>('/api/demo/run-inbound', {}));
+  runInboundDemo(): Promise<{ phone: string; steps: FlowStep[] }> {
+    return firstValueFrom(this.http.post<{ phone: string; steps: FlowStep[] }>('/api/demo/run-inbound', {}));
   }
 
   demoStatus(): Promise<DemoStatus> {

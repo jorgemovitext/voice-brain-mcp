@@ -4,8 +4,10 @@ import { randomUUID } from 'crypto';
 import { NlpearlCallContext } from '../brain/types';
 import { StartCallInput, VoiceEnginePort } from '../ports/voice-engine.port';
 import { FlowLogService } from '../shared/flow-log.service';
+import { CallIngestService } from './call-ingest.service';
 import { NlpearlCallApiView } from './nlpearl.client';
 import { toCallContext } from './nlpearl.mapper';
+import { PrecallService } from './precall.service';
 
 /**
  * Motor de voz simulado (MOCK=true). `startCall` emula el ciclo completo
@@ -25,9 +27,51 @@ export class NlpearlMockEngine implements VoiceEnginePort {
   /** Llamadas simuladas "finalizadas", consultables como con getCall(callId). */
   private readonly calls = new Map<string, NlpearlCallApiView>();
 
-  constructor(config: ConfigService, private readonly flowLog: FlowLogService) {
-    this.baseUrl = `http://localhost:${config.get<number>('PORT', 3000)}`;
+  private readonly serverless: boolean;
+  private readonly callDelayMs: number;
+
+  constructor(
+    config: ConfigService,
+    private readonly flowLog: FlowLogService,
+    private readonly precall: PrecallService,
+    private readonly ingest: CallIngestService,
+  ) {
+    this.baseUrl = config.get<string>('PUBLIC_BASE_URL', 'http://localhost:3000');
     this.webhookSecret = config.get<string>('NLPEARL_WEBHOOK_SECRET', '');
+    this.serverless = config.get<boolean>('SERVERLESS', false);
+    this.callDelayMs = config.get<number>('MOCK_CALL_DELAY_MS', 6000);
+  }
+
+  /**
+   * En local el mock llama a NUESTROS endpoints HTTP (ejercita de verdad el
+   * guard del webhook y los controllers, como haría NL Pearl). En serverless
+   * eso no sirve: la protección de deployment bloquea el self-request y cada
+   * salto costaría una invocación, así que se usan los servicios in-process.
+   */
+  private async callPrecall(phone: string, externalId: string): Promise<Record<string, string>> {
+    if (this.serverless) return this.precall.buildVariables({ phone, externalId });
+
+    const res = await fetch(`${this.baseUrl}/precall`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ phoneNumber: phone, externalId }),
+    });
+    return (await res.json()) as Record<string, string>;
+  }
+
+  /** Entrega del webhook de llamada finalizada (HTTP en local, directo en serverless). */
+  private async deliverCallFinished(call: NlpearlCallApiView): Promise<void> {
+    if (this.serverless) {
+      this.flowLog.push('webhook', `Webhook recibido: llamada ${call.id} finalizada`);
+      await this.ingest.ingest(toCallContext(call));
+      return;
+    }
+
+    const body = JSON.stringify({ event: 'call.finished', callId: call.id, pearlId: call.pearlId });
+    const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+    // Como NL Pearl real: si hay credential configurado, viaja en cada entrega.
+    if (this.webhookSecret) headers['authorization'] = `Bearer ${this.webhookSecret}`;
+    await fetch(`${this.baseUrl}/webhooks/nlpearl`, { method: 'POST', headers, body });
   }
 
   async startCall(input: StartCallInput): Promise<{ leadId: string }> {
@@ -40,8 +84,15 @@ export class NlpearlMockEngine implements VoiceEnginePort {
       externalId: input.externalId,
     });
 
-    // Ciclo asíncrono de la "llamada": precall → conversación → webhook.
-    setTimeout(() => void this.simulateCallLifecycle(input, callId), 500);
+    // Ciclo de la "llamada": precall → conversación → webhook.
+    // En serverless el proceso se congela al responder, así que hay que
+    // completarlo dentro del request; en local corre en segundo plano para
+    // que la consola muestre la llamada en vivo.
+    if (this.serverless) {
+      await this.simulateCallLifecycle(input, callId);
+    } else {
+      setTimeout(() => void this.simulateCallLifecycle(input, callId), 500);
+    }
     return { leadId };
   }
 
@@ -60,8 +111,8 @@ export class NlpearlMockEngine implements VoiceEnginePort {
     const callId = `call_in_${randomUUID().slice(0, 8)}`;
     this.logger.log(`[mock] llamada entrante de ${phone} → ${callId}`);
 
-    // "Conversación" entrante (~4s) para que se aprecie en la consola.
-    await new Promise((r) => setTimeout(r, 4000));
+    // "Conversación" entrante, para que se aprecie en la consola.
+    await new Promise((r) => setTimeout(r, Math.round(this.callDelayMs * 0.7)));
 
     this.calls.set(callId, {
       id: callId,
@@ -93,36 +144,24 @@ export class NlpearlMockEngine implements VoiceEnginePort {
     });
 
     // Webhook de llamada finalizada hacia nuestro gateway (mismo flujo que outbound).
-    const body = JSON.stringify({ event: 'call.finished', callId, pearlId: 'pearl_mock' });
-    const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-    if (this.webhookSecret) headers['authorization'] = `Bearer ${this.webhookSecret}`;
-    await fetch(`${this.baseUrl}/webhooks/nlpearl`, { method: 'POST', headers, body });
+    await this.deliverCallFinished(this.calls.get(callId)!);
     return { callId };
   }
 
   private async simulateCallLifecycle(input: StartCallInput, callId: string): Promise<void> {
     try {
       // 1) Nodo PreCallAPI: pide contexto a nuestro gateway antes de hablar.
-      const precallRes = await fetch(`${this.baseUrl}/precall`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ phoneNumber: input.phone, externalId: input.externalId }),
-      });
-      const variables = (await precallRes.json()) as Record<string, string>;
+      const variables = await this.callPrecall(input.phone, input.externalId);
       this.logger.log(`[mock] precall respondió: ${JSON.stringify(variables)}`);
 
-      // 2) "Conversación" simulada usando el contexto inyectado (~6s para que
-      //    el avatar de voz en vivo se aprecie en la consola).
-      await new Promise((r) => setTimeout(r, 6000));
+      // 2) "Conversación" simulada usando el contexto inyectado (varios
+      //    segundos en local para que el avatar de voz se aprecie en vivo).
+      await new Promise((r) => setTimeout(r, this.callDelayMs));
       const call = this.buildFinishedCall(input, callId, variables);
       this.calls.set(callId, call);
 
-      // 3) Webhook de llamada finalizada hacia nuestro gateway. Como NL Pearl
-      //    real: si hay credential configurado, viaja en cada entrega.
-      const body = JSON.stringify({ event: 'call.finished', callId, pearlId: 'pearl_mock' });
-      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-      if (this.webhookSecret) headers['authorization'] = `Bearer ${this.webhookSecret}`;
-      await fetch(`${this.baseUrl}/webhooks/nlpearl`, { method: 'POST', headers, body });
+      // 3) Webhook de llamada finalizada hacia nuestro gateway.
+      await this.deliverCallFinished(call);
     } catch (err) {
       this.logger.error(`[mock] ciclo de llamada falló: ${(err as Error).message}`);
       this.flowLog.push('error', `Error en llamada simulada: ${(err as Error).message}`);

@@ -1,7 +1,6 @@
 import { BadRequestException, Body, Controller, Post } from '@nestjs/common';
 import { z } from 'zod';
-import { BrainService } from '../brain/brain.service';
-import { FlowLogService } from '../shared/flow-log.service';
+import { PrecallService } from './precall.service';
 
 /**
  * POST /precall — lo invoca el nodo PreCallAPI del flujo NL Pearl antes de
@@ -21,30 +20,13 @@ const precallSchema = z
 
 @Controller('precall')
 export class PrecallController {
-  constructor(private readonly brain: BrainService, private readonly flowLog: FlowLogService) {}
+  constructor(private readonly precall: PrecallService) {}
 
   @Post()
-  async precall(@Body() body: unknown): Promise<Record<string, string>> {
+  precallVariables(@Body() body: unknown): Promise<Record<string, string>> {
     const parsed = precallSchema.safeParse(body ?? {});
     if (!parsed.success) throw new BadRequestException(parsed.error.issues);
     const { phoneNumber, phone, externalId } = parsed.data;
-
-    const ctx = await this.brain.getContext({ phone: phoneNumber ?? phone, externalId });
-    const promise = ctx.signals.find((s) => s.type === 'promise' && s.status === 'active');
-    const lastInteraction = ctx.recentInteractions[0];
-
-    // Variables planas (string) para el flujo de voz.
-    const variables: Record<string, string> = {
-      contactName: ctx.contact.displayName ?? '',
-      kycmStatus: ctx.contact.kycmStatus ?? 'unverified',
-      activePromiseAmount: promise?.amount?.toString() ?? '',
-      activePromiseDue: promise?.dueDate ?? '',
-      balance: '2350.00', // TODO: conectar al core bancario/CRM real
-      lastSummary: lastInteraction?.summary ?? '',
-      lastChannel: lastInteraction?.channel ?? '',
-    };
-
-    this.flowLog.push('precall', 'PreCallAPI: contexto inyectado al agente de voz', variables);
-    return variables;
+    return this.precall.buildVariables({ phone: phoneNumber ?? phone, externalId });
   }
 }

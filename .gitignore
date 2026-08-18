@@ -1,7 +1,14 @@
 node_modules/
 dist/
-.env
-data/brain.json
 .angular/
+.vercel/
+
+# Secretos y datos locales — nunca al repo
+.env
+.env.local
+# Respaldo del Brain: estado de runtime, se regenera solo (en cualquier nivel)
+data/brain.json
+**/data/brain.json
+
 *.log
 .DS_Store

@@ -74,13 +74,19 @@ export class DemoPage implements OnDestroy {
     this.started.set(true);
     this.running.set(true);
     try {
-      if (scenario === 'outbound') {
-        const { contactId } = await this.api.runDemo();
-        this.contactId.set(contactId);
+      const result =
+        scenario === 'outbound' ? await this.api.runDemo() : await this.api.runInboundDemo();
+      if ('contactId' in result) this.contactId.set(result.contactId);
+
+      if (result.steps?.length) {
+        // El backend completó el flujo dentro del request (serverless):
+        // los pasos ya vienen, no hace falta seguirlo por polling.
+        this.steps.set(result.steps);
+        this.applyContextHit(result.steps);
+        this.running.set(false);
       } else {
-        await this.api.runInboundDemo();
+        this.poll();
       }
-      this.poll();
     } catch {
       this.error.set('No se pudo iniciar el flujo. ¿Está corriendo la API en el puerto 3000?');
       this.running.set(false);
@@ -95,11 +101,7 @@ export class DemoPage implements OnDestroy {
       try {
         const status = await this.api.demoStatus();
         this.steps.set(status.steps);
-
-        // En la práctica entrante el contactId viene en el paso contextHit.
-        const hit = status.steps.find((s) => s.step === 'contextHit');
-        const hitId = (hit?.detail as { contactId?: string } | undefined)?.contactId;
-        if (hitId) this.contactId.set(hitId);
+        this.applyContextHit(status.steps);
 
         const done = status.steps.some((s) => s.step === finalKey || s.step === 'error');
         if (done || ++ticks > 80) {
@@ -110,6 +112,13 @@ export class DemoPage implements OnDestroy {
         // reintenta en el próximo tick
       }
     }, 500);
+  }
+
+  /** En la práctica entrante el contactId llega en el detalle de contextHit. */
+  private applyContextHit(steps: FlowStep[]): void {
+    const hit = steps.find((s) => s.step === 'contextHit');
+    const hitId = (hit?.detail as { contactId?: string } | undefined)?.contactId;
+    if (hitId) this.contactId.set(hitId);
   }
 
   detailText(step: FlowStep): string | null {

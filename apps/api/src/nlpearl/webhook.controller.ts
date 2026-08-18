@@ -1,15 +1,14 @@
 import { BadRequestException, Body, Controller, Inject, Logger, Post, UseGuards } from '@nestjs/common';
 import { z } from 'zod';
-import { BrainService } from '../brain/brain.service';
-import { FollowupService } from '../channels/followup.service';
 import { VOICE_ENGINE_PORT, VoiceEnginePort } from '../ports/voice-engine.port';
 import { FlowLogService } from '../shared/flow-log.service';
+import { CallIngestService } from './call-ingest.service';
 import { WebhookSignatureGuard } from './webhook-signature.guard';
 
 /**
  * POST /webhooks/nlpearl — evento de llamada finalizada.
- * Flujo: webhook → getCall (contexto completo) → brain.recordCallContext →
- * seguimiento automático por FOLLOWUP_CHANNEL con brain_suggest_followup.
+ * Flujo: webhook → getCall (contexto completo) → CallIngestService
+ * (Brain + seguimiento por FOLLOWUP_CHANNEL).
  * // TODO: confirmar shape real del webhook con NL Pearl (acá: {event, callId, pearlId})
  */
 const webhookSchema = z.object({
@@ -24,8 +23,7 @@ export class NlpearlWebhookController {
 
   constructor(
     @Inject(VOICE_ENGINE_PORT) private readonly voice: VoiceEnginePort,
-    private readonly brain: BrainService,
-    private readonly followup: FollowupService,
+    private readonly ingest: CallIngestService,
     private readonly flowLog: FlowLogService,
   ) {}
 
@@ -42,17 +40,8 @@ export class NlpearlWebhookController {
     // Con el webhook solo llega el aviso; el contexto completo se pide al motor
     // (equivale a getCall / getCallsBulk con fields en el modo real).
     const callContext = await this.voice.getCallContext(callId);
-    const interaction = await this.brain.recordCallContext(callContext);
-    this.flowLog.push('brain', 'Brain actualizado: interacción de voz + señales guardadas', {
-      contactId: interaction.contactId,
-      summary: interaction.summary,
-      sentiment: interaction.sentiment,
-    });
+    const { contactId } = await this.ingest.ingest(callContext);
 
-    // Seguimiento cross-channel inmediato (WhatsApp/SMS propio, no NL Pearl).
-    await this.followup.sendFollowup(interaction.contactId);
-    this.flowLog.finish();
-
-    return { received: true, contactId: interaction.contactId };
+    return { received: true, contactId };
   }
 }

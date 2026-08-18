@@ -4,8 +4,10 @@ import { ConfigService } from '@nestjs/config';
 import { BrainModule } from '../brain/brain.module';
 import { ChannelsModule } from '../channels/channels.module';
 import { VOICE_ENGINE_PORT } from '../ports/voice-engine.port';
+import { CallIngestService } from './call-ingest.service';
 import { NlpearlClient } from './nlpearl.client';
 import { NlpearlVoiceEngine } from './nlpearl.engine';
+import { PrecallService } from './precall.service';
 import { NlpearlMockEngine } from './nlpearl.mock';
 import { PrecallController } from './precall.controller';
 import { WebhookSignatureGuard } from './webhook-signature.guard';
@@ -20,6 +22,8 @@ import { NlpearlWebhookController } from './webhook.controller';
   controllers: [PrecallController, NlpearlWebhookController],
   providers: [
     NlpearlClient,
+    PrecallService,
+    CallIngestService,
     NlpearlMockEngine,
     NlpearlVoiceEngine,
     WebhookSignatureGuard,

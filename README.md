@@ -77,6 +77,46 @@ npm run dev:console
 - Demo por CLI (con la api levantada): `npm run demo`
 - Tests: `npm test` · Build: `npm run build`
 
+## Desplegar en Vercel (desde GitHub)
+
+El repo ya trae `vercel.json` y la función serverless en `api/index.js`.
+
+```bash
+git init && git add -A && git commit -m "Prototipo voz + Brain MCP"
+git remote add origin git@github.com:<usuario>/<repo>.git
+git push -u origin main
+```
+
+En Vercel: **Add New → Project → Import** ese repo y **Deploy**. No hay que
+tocar la configuración: `vercel.json` define el build (`npm run vercel-build`),
+publica la consola Angular como estático y rutea `/api/*`, `/precall` y
+`/webhooks/*` a la función Nest.
+
+Variables de entorno (Project → Settings → Environment Variables): **ninguna es
+obligatoria** — sin nada, el deploy corre en modo mock. Para conectar NL Pearl
+real, cargá `MOCK=false`, `NLPEARL_ACCOUNT_ID`, `NLPEARL_API_KEY`,
+`NLPEARL_PEARL_ID` y `NLPEARL_WEBHOOK_SECRET`, y apuntá el webhook del Pearl a
+`https://<tu-deploy>.vercel.app/webhooks/nlpearl` y el nodo PreCallAPI a
+`https://<tu-deploy>.vercel.app/precall`.
+
+### Qué cambia en serverless (y por qué)
+
+Vercel congela el proceso al responder y solo `/tmp` es escribible, así que el
+código se adapta solo (detecta `VERCEL`):
+
+- **Persistencia**: el respaldo JSON va a `/tmp`. Cada instancia tiene su propia
+  copia y se pierde al reciclarse — suficiente para demo, no para producción
+  (cambiar `BrainRepository` por SQLite/Postgres para eso).
+- **Sembrado en frío**: si el Brain arranca vacío se siembra el directorio de
+  demo con **IDs fijos**, para que los enlaces `/contacts/:id` sigan valiendo
+  entre instancias.
+- **Flujo demo**: se completa dentro del request (no hay timers de fondo) y los
+  pasos viajan en la respuesta, porque el polling podría caer en otra instancia.
+- **Mock**: usa los servicios in-process en vez de llamarse por HTTP a sí mismo
+  (la protección de deployments bloquearía ese self-request). En local sigue
+  usando HTTP real contra `/precall` y `/webhooks/nlpearl`.
+- **MCP**: el servidor stdio no aplica en Vercel; corre local con `npm run mcp`.
+
 ## Brain como servidor MCP
 
 ```bash
