@@ -93,10 +93,20 @@ Angular como estático y rutea `/api/*`, `/precall` y `/webhooks/*` a la
 función Nest. Dejá **Root Directory** en la raíz del repo (no `apps/console`),
 que es donde vive `vercel.json`.
 
-> Nota: el `buildCommand` va inline en `vercel.json` a propósito. Un script
-> llamado `vercel-build` en el `package.json` raíz **no** funciona en este
-> monorepo: Vercel lo ejecuta de forma especial y npm lo propaga a cada
-> workspace, que no lo tiene definido (`Missing script: "vercel-build"`).
+> **Por qué el build es un script y no `npm run --workspace`** (dos trampas de
+> Vercel con monorepos npm, ambas ya resueltas en `scripts/vercel-build.sh`):
+>
+> - Un script llamado `vercel-build` en el `package.json` raíz **no** sirve:
+>   Vercel le da trato especial y npm lo propaga a cada workspace, que no lo
+>   define → `Missing script: "vercel-build"`.
+> - `npm run build --workspace apps/api` falla con `No workspaces found` si
+>   Vercel ejecuta el build desde un subdirectorio. El script localiza la raíz
+>   del monorepo por su cuenta y llama a `nest`/`ng` con `npx`, así funciona
+>   desde cualquier ubicación.
+>
+> Si el deploy vuelve a fallar, mirá las primeras líneas del log: el script
+> imprime `cwd inicial` y `raíz del monorepo`, que dicen exactamente desde
+> dónde arrancó Vercel.
 
 Variables de entorno (Project → Settings → Environment Variables): **ninguna es
 obligatoria** — sin nada, el deploy corre en modo mock. Para conectar NL Pearl
