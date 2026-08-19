@@ -1,0 +1,102 @@
+<div class="page">
+  <header class="head">
+    <div>
+      <h1>Obreros</h1>
+      <p class="muted">
+        Los Pearls de tu cuenta NL Pearl: la fuerza de trabajo de voz. Solo lecturas —
+        nada de acá gasta llamadas ni créditos.
+      </p>
+    </div>
+    <button class="btn btn--ghost" (click)="data.reload()">↻ Actualizar</button>
+  </header>
+
+  @if (data.isLoading()) {
+    <div class="state"><div class="spinner"></div>Cargando obreros…</div>
+  } @else if (data.error()) {
+    <div class="state state--error">
+      No se pudieron cargar los Pearls. Revisá las credenciales en <a routerLink="/integrations">Integraciones</a>.
+      <div><button class="btn btn--primary" (click)="data.reload()">Reintentar</button></div>
+    </div>
+  } @else if (data.value(); as d) {
+    <div class="grid">
+      @for (w of d.workers; track w.id) {
+        <button class="worker" [class.worker--selected]="selectedId() === w.id" (click)="select(w.id)">
+          <voice-nebula [size]="54" />
+          <span class="worker__body">
+            <span class="worker__name">{{ w.name }}</span>
+            <code class="worker__id">{{ w.id }}</code>
+            <span class="worker__chips">
+              <span [class]="'pill ' + statusClass(w)">{{ statusLabel(w) }}</span>
+              @if (w.type) { <span class="pill pill--neutral">{{ w.type }}</span> }
+              @if (w.id === d.inUseId) { <span class="pill pill--primary">En uso por el gateway</span> }
+            </span>
+          </span>
+          <ui-icon name="chevron" class="worker__chevron" />
+        </button>
+      }
+    </div>
+
+    <!-- Detalle + workflow del obrero seleccionado -->
+    @if (selected(); as w) {
+      <section class="card detail">
+        <div class="detail__head">
+          <h2>{{ w.name }}</h2>
+          <span [class]="'pill ' + statusClass(w)">{{ statusLabel(w) }}</span>
+        </div>
+
+        @if (selectedDetails().length) {
+          <dl class="props">
+            @for (p of selectedDetails(); track p.key) {
+              <div class="props__row"><dt>{{ p.key }}</dt><dd>{{ p.value }}</dd></div>
+            }
+          </dl>
+        }
+
+        <h3 class="detail__sub">Workflow del Pearl</h3>
+        @if (flow.isLoading()) {
+          <div class="state"><div class="spinner"></div>Consultando el flow…</div>
+        } @else if (flow.value(); as f) {
+          @if (f.available && f.flow) {
+            @if (f.flow.nodes?.length) {
+              <ol class="flow">
+                @for (n of f.flow.nodes; track n.id) {
+                  <li class="flow__node">
+                    <span class="flow__type">{{ n.type ?? 'Paso' }}</span>
+                    <span class="flow__label">{{ n.label ?? n.name ?? n.id }}</span>
+                  </li>
+                }
+              </ol>
+            } @else {
+              <pre class="flow__json">{{ flowJson(f.flow) }}</pre>
+            }
+          } @else {
+            <div class="flow__missing">{{ f.message }}</div>
+          }
+        }
+      </section>
+    }
+  }
+
+  <!-- Workflows del gateway -->
+  <section class="workflows">
+    <h2>Workflows del gateway</h2>
+    <p class="muted">Las orquestaciones propias: cómo la voz, el Brain y los canales se encadenan.</p>
+    <div class="wf-grid">
+      @for (wf of gatewayWorkflows; track wf.name) {
+        <article class="card wf">
+          <div class="wf__head">
+            <span class="wf__icon"><ui-icon [name]="wf.icon" /></span>
+            <div class="wf__titles">
+              <span class="wf__name">{{ wf.name }}</span>
+              <span class="wf__trigger">Disparador: {{ wf.trigger }}</span>
+            </div>
+          </div>
+          <ol class="wf__steps">
+            @for (s of wf.steps; track $index) { <li>{{ s }}</li> }
+          </ol>
+          <a class="btn btn--ghost" [routerLink]="wf.link">{{ wf.linkLabel }} →</a>
+        </article>
+      }
+    </div>
+  </section>
+</div>

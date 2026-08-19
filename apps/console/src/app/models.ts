@@ -61,6 +61,30 @@ export interface DemoStatus {
   steps: FlowStep[];
 }
 
+/** Un "obrero": Pearl (agente de voz) de la cuenta NL Pearl. */
+export interface Worker {
+  id: string;
+  name: string;
+  status?: string;
+  type?: string;
+  raw: Record<string, string | number | boolean>;
+}
+
+export interface WorkersResponse {
+  workers: Worker[];
+  /** El Pearl configurado en NLPEARL_PEARL_ID (se resalta en la vista). */
+  inUseId: string;
+}
+
+export interface WorkerFlow {
+  available: boolean;
+  flow?: {
+    nodes?: Array<{ id: string; type?: string; label?: string; name?: string }>;
+    edges?: Array<{ from: string; to: string }>;
+  } & Record<string, unknown>;
+  message?: string;
+}
+
 /** Actividad reciente de webhooks (entrantes y pruebas salientes). */
 export interface WebhookEvent {
   at: string;

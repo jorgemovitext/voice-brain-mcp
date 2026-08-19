@@ -12,6 +12,7 @@ import { NlpearlMockEngine } from './nlpearl.mock';
 import { PrecallController } from './precall.controller';
 import { WebhookSignatureGuard } from './webhook-signature.guard';
 import { NlpearlWebhookController } from './webhook.controller';
+import { WorkersController } from './workers.controller';
 
 /**
  * Adaptador de voz. El binding mock/real del puerto vive ACÁ,
@@ -19,7 +20,7 @@ import { NlpearlWebhookController } from './webhook.controller';
  */
 @Module({
   imports: [HttpModule, BrainModule, ChannelsModule],
-  controllers: [PrecallController, NlpearlWebhookController],
+  controllers: [PrecallController, NlpearlWebhookController, WorkersController],
   providers: [
     NlpearlClient,
     PrecallService,

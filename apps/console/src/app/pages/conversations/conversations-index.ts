@@ -21,7 +21,7 @@ import { ContactListItem } from '../../models';
     } @else {
       <div class="state">
         Todavía no hay conversaciones.
-        <p>Corré el <a routerLink="/demo">flujo demo</a> para sembrar datos.</p>
+        <p>Dá de alta un número en <a routerLink="/integrations">Integraciones → Empezar una conversación</a>.</p>
       </div>
     }
   `,
