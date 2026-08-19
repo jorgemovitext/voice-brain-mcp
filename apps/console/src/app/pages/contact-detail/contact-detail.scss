@@ -359,6 +359,30 @@ $overlap: 44px;
 .pill-mini.pill--negative { background: #fde3e3; color: #b42222; }
 .pill-mini.pill--neutral { background: #eceff3; color: #5c6a7d; }
 
+/* Rechazo del proveedor: se muestra sobre el composer y el texto no se pierde. */
+.chat__error {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.6rem;
+  background: #fdecec;
+  color: #b42222;
+  border-top: 1px solid #f6d0d0;
+  padding: 0.6rem $overlap 0.6rem 0.9rem;
+  font-size: 0.8rem;
+  font-weight: 700;
+}
+
+.chat__error-close {
+  margin-left: auto;
+  background: none;
+  border: none;
+  color: inherit;
+  font-size: 1.1rem;
+  line-height: 1;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
 /* --- Composer --- */
 .chat__composer {
   display: flex;

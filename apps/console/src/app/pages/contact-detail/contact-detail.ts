@@ -81,6 +81,8 @@ export class ContactDetailPage implements OnDestroy {
   readonly callSeconds = signal(0);
   readonly sending = signal(false);
   readonly draft = signal('');
+  /** Motivo del último envío rechazado por el proveedor (WhatsApp/SMS). */
+  readonly sendError = signal<string | null>(null);
   readonly expanded = signal<Set<string>>(new Set());
 
   readonly channelIcon = channelIcon;
@@ -273,13 +275,26 @@ export class ContactDetailPage implements OnDestroy {
 
   async sendFollowup(): Promise<void> {
     this.sending.set(true);
+    this.sendError.set(null);
     try {
       await this.api.sendFollowup(this.id(), 'whatsapp');
       this.context.reload();
       this.conversations.reload();
+    } catch (err) {
+      this.sendError.set(this.describeSendError(err));
     } finally {
       this.sending.set(false);
     }
+  }
+
+  /**
+   * El proveedor puede rechazar el envío (sesión de 24 h vencida, credenciales,
+   * número no habilitado). Sin esto el mensaje simplemente no aparecía y no
+   * quedaba claro por qué.
+   */
+  private describeSendError(err: unknown): string {
+    const message = (err as { error?: { message?: string } })?.error?.message;
+    return message ?? 'No se pudo enviar el mensaje. Revisá el estado en Integraciones.';
   }
 
   onDraft(event: Event): void {
@@ -290,11 +305,15 @@ export class ContactDetailPage implements OnDestroy {
     const text = this.draft().trim();
     if (!text || this.sending()) return;
     this.sending.set(true);
+    this.sendError.set(null);
     try {
       await this.api.sendMessage(this.id(), text, 'whatsapp');
       this.draft.set('');
       this.context.reload();
       this.conversations.reload();
+    } catch (err) {
+      // El texto se conserva en el composer para poder reintentar.
+      this.sendError.set(this.describeSendError(err));
     } finally {
       this.sending.set(false);
     }

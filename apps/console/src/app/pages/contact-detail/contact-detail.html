@@ -97,6 +97,13 @@
         }
       </div>
 
+      @if (sendError(); as e) {
+        <div class="chat__error">
+          <span>⚠ {{ e }}</span>
+          <button class="chat__error-close" (click)="sendError.set(null)" title="Cerrar">×</button>
+        </div>
+      }
+
       <footer class="chat__composer">
         <input
           class="chat__input"
