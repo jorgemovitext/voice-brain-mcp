@@ -1,6 +1,6 @@
 import { Controller, Get, Inject } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { head, put } from '@vercel/blob';
+import { get, put } from '@vercel/blob';
 import { BRAIN_REPOSITORY, BrainRepository } from './brain.repository';
 
 /**
@@ -37,21 +37,21 @@ export class StorageDiagnosticsController {
       return resultado;
     }
 
-    // Escritura + lectura reales contra el store.
+    // Escritura + lectura reales contra el store (privado, como está creado).
     try {
       const prueba = `diag/${Date.now()}.txt`;
-      const puesto = await put(prueba, `ok ${new Date().toISOString()}`, {
-        access: 'public',
+      await put(prueba, `ok ${new Date().toISOString()}`, {
+        access: 'private',
         token,
         addRandomSuffix: false,
         allowOverwrite: true,
         cacheControlMaxAge: 0,
       });
-      resultado['escritura'] = { ok: true, url: puesto.url };
+      resultado['escritura'] = { ok: true };
 
-      const meta = await head(pathname, { token }).catch(() => null);
-      resultado['estadoDelBrain'] = meta
-        ? { existe: true, tamañoBytes: meta.size, subido: meta.uploadedAt }
+      const estado = await get(pathname, { token, useCache: false }).catch(() => null);
+      resultado['estadoDelBrain'] = estado
+        ? { existe: true, tamañoBytes: (await estado.text()).length }
         : { existe: false, nota: 'Todavía no se escribió el estado del Brain' };
     } catch (err) {
       resultado['escritura'] = { ok: false, error: (err as Error).message };

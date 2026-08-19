@@ -1,6 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { head, put } from '@vercel/blob';
+import { get, put } from '@vercel/blob';
 import { BrainRepository } from './brain.repository';
 import { Contact, Interaction, Signal } from './types';
 
@@ -61,10 +61,11 @@ export class BlobBrainRepository implements BrainRepository {
     if (!force && Date.now() - this.loadedAt < BlobBrainRepository.FRESH_MS) return this.snapshot;
 
     try {
-      const meta = await head(this.pathname, { token: this.token });
-      const res = await fetch(`${meta.url}?ts=${Date.now()}`, { cache: 'no-store' });
-      if (res.ok) {
-        const remote = { ...EMPTY, ...((await res.json()) as BrainSnapshot) };
+      // `get` autentica con el token: funciona con stores privados y públicos.
+      // useCache:false evita leer una versión anterior recién escrita.
+      const blob = await get(this.pathname, { token: this.token, useCache: false });
+      if (blob) {
+        const remote = { ...EMPTY, ...((await blob.json()) as BrainSnapshot) };
         this.snapshot = {
           contacts: mergeById(remote.contacts, this.snapshot.contacts),
           interactions: mergeById(remote.interactions, this.snapshot.interactions),
@@ -80,8 +81,9 @@ export class BlobBrainRepository implements BrainRepository {
 
   private async persist(): Promise<void> {
     try {
+      // Store privado: el estado del Brain no debe ser accesible por URL.
       await put(this.pathname, JSON.stringify(this.snapshot), {
-        access: 'public',
+        access: 'private',
         token: this.token,
         addRandomSuffix: false,
         allowOverwrite: true,
