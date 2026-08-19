@@ -65,6 +65,17 @@ export class IntegrationsController {
   }
 
   /**
+   * Ping para comprobar que un proveedor externo puede alcanzar el gateway.
+   * Deja rastro en la bitácora, así se distingue "no llega nada" de
+   * "llega pero no lo entiendo".
+   */
+  @Get('ping')
+  ping() {
+    this.webhookLog.push('desconocido', 'Ping recibido en el gateway', true);
+    return { ok: true, at: new Date().toISOString() };
+  }
+
+  /**
    * Prueba de conexión con NL Pearl: pide el listado de Pearls, que es una
    * lectura y no gasta llamadas ni créditos. Si responde, las credenciales
    * están bien y la API contesta.

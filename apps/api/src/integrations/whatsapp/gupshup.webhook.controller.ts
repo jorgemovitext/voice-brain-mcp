@@ -47,6 +47,16 @@ export class GupshupWebhookController {
   @HttpCode(200)
   async receive(@Req() req: { body?: GupshupEvent }) {
     const event = req.body ?? {};
+
+    // Se registra TODO lo que llega, incluso lo que no se entienda: si el
+    // proveedor está pegando pero con otro formato, tiene que verse.
+    this.webhookLog.push(
+      'gupshup',
+      `Evento recibido (type=${event.type ?? 'sin type'})`,
+      true,
+      JSON.parse(JSON.stringify(event).slice(0, 900)),
+    );
+
     try {
       if (event.type === 'message-event') {
         // Acuse de estado: se registra pero no entra al hilo del contacto.
