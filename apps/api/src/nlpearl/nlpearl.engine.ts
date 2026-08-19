@@ -13,6 +13,7 @@ export class NlpearlVoiceEngine implements VoiceEnginePort {
   constructor(private readonly client: NlpearlClient) {}
 
   async startCall(input: StartCallInput): Promise<{ leadId: string }> {
+    this.client.assertConfigured();
     const lead = await this.client.addLead(this.client.pearlId, {
       phoneNumber: input.phone,
       externalId: input.externalId, // llave de unión: nuestro contactId
@@ -22,6 +23,7 @@ export class NlpearlVoiceEngine implements VoiceEnginePort {
   }
 
   async getCallContext(callId: string): Promise<NlpearlCallContext> {
+    this.client.assertConfigured();
     const call = await this.client.getCall(callId);
     return toCallContext(call);
   }

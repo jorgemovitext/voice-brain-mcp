@@ -1,5 +1,5 @@
 import { HttpService } from '@nestjs/axios';
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, ServiceUnavailableException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { AxiosRequestConfig } from 'axios';
 import { firstValueFrom } from 'rxjs';
@@ -67,18 +67,47 @@ export class NlpearlClient {
   private readonly logger = new Logger(NlpearlClient.name);
   private readonly baseUrl: string;
   private readonly authHeader: string;
+  private readonly accountId: string;
+  private readonly apiKey: string;
   readonly pearlId: string;
 
   private static readonly TIMEOUT_MS = 15_000;
   private static readonly MAX_RETRIES = 2;
 
   constructor(private readonly http: HttpService, config: ConfigService) {
-    this.baseUrl = config.get<string>('NLPEARL_BASE_URL', 'https://api.nlpearl.ai');
-    const accountId = config.get<string>('NLPEARL_ACCOUNT_ID', '');
-    const apiKey = config.get<string>('NLPEARL_API_KEY', '');
+    // Los paths de abajo ya incluyen /v2, así que se tolera que la base venga
+    // como `https://api.nlpearl.ai` o como `https://api.nlpearl.ai/v2`.
+    this.baseUrl = config
+      .get<string>('NLPEARL_BASE_URL', 'https://api.nlpearl.ai')
+      .replace(/\/+$/, '')
+      .replace(/\/v2$/i, '');
+    this.accountId = config.get<string>('NLPEARL_ACCOUNT_ID', '');
+    this.apiKey = config.get<string>('NLPEARL_API_KEY', '');
     // Formato Bearer confirmado en docs: "AccountId:SecretKey"
-    this.authHeader = `Bearer ${accountId}:${apiKey}`;
+    this.authHeader = `Bearer ${this.accountId}:${this.apiKey}`;
     this.pearlId = config.get<string>('NLPEARL_PEARL_ID', '');
+  }
+
+  /**
+   * Con MOCK=false hace falta la configuración real. Sin ella, cualquier
+   * llamada saldría con `Authorization: Bearer :` y el error de NL Pearl no
+   * diría qué falta; mejor fallar acá con un mensaje accionable.
+   */
+  assertConfigured(): void {
+    const faltantes = [
+      ['NLPEARL_ACCOUNT_ID', this.accountId],
+      ['NLPEARL_API_KEY', this.apiKey],
+      ['NLPEARL_PEARL_ID', this.pearlId],
+    ]
+      .filter(([, value]) => !value)
+      .map(([name]) => name);
+
+    if (faltantes.length) {
+      throw new ServiceUnavailableException(
+        `Faltan credenciales de NL Pearl: ${faltantes.join(', ')}. ` +
+          'Cargalas como variables de entorno, o poné MOCK=true para el modo simulado.',
+      );
+    }
   }
 
   // =============== Disparo y leads (Outbound) ===============
