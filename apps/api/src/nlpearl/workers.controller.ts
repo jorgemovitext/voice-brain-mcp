@@ -18,12 +18,24 @@ interface Worker {
   raw: Record<string, unknown>;
 }
 
+/**
+ * Estados numéricos observados en la cuenta real: el Pearl activo reporta 1
+ * y los demás 2. // TODO: confirmar el enum completo con NL Pearl.
+ */
+function mapStatus(value: unknown): string | undefined {
+  if (value === undefined || value === null) return undefined;
+  const s = String(value);
+  if (s === '1') return 'active';
+  if (s === '2') return 'paused';
+  return s;
+}
+
 /** Campos que suelen traer estado/tipo en la API v2, en orden de preferencia. */
 function normalizeWorker(p: Record<string, unknown>): Worker {
   const id = String(p['id'] ?? p['pearlId'] ?? '');
   const name = String(p['name'] ?? p['pearlName'] ?? 'sin nombre');
 
-  const rawStatus = p['activityState'] ?? p['status'] ?? p['state'];
+  const rawStatus = mapStatus(p['activityState'] ?? p['status'] ?? p['state']);
   const rawType = p['type'] ?? p['pearlType'] ?? p['direction'];
 
   // Sin no primitivos ni campos gigantes: el detalle completo va aparte.
