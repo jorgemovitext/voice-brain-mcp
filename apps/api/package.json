@@ -18,6 +18,7 @@
     "@nestjs/config": "^4.0.0",
     "@nestjs/core": "^11.0.0",
     "@nestjs/platform-fastify": "^11.0.0",
+    "@vercel/blob": "^2.8.0",
     "axios": "^1.9.0",
     "reflect-metadata": "^0.2.2",
     "rxjs": "^7.8.1",
@@ -35,7 +36,11 @@
     "typescript": "^5.7.0"
   },
   "jest": {
-    "moduleFileExtensions": ["js", "json", "ts"],
+    "moduleFileExtensions": [
+      "js",
+      "json",
+      "ts"
+    ],
     "rootDir": "src",
     "testRegex": ".*\\.spec\\.ts$",
     "transform": {

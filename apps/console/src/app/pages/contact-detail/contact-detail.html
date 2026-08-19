@@ -1,10 +1,17 @@
-@if (context.isLoading() && !context.value()) {
-  <div class="state"><div class="spinner"></div>Cargando conversación…</div>
-} @else if (context.error()) {
+@if (context.error()) {
   <div class="state state--error">
-    No se pudo cargar el contacto.
-    <div><button class="btn btn--primary" (click)="context.reload()">Reintentar</button></div>
+    No se encontró esta conversación.
+    <p class="state__hint">
+      Puede que el contacto se haya creado en otra instancia del servidor.
+      Volvé al listado y abrila desde ahí.
+    </p>
+    <div class="state__actions">
+      <button class="btn btn--primary" (click)="context.reload()">Reintentar</button>
+      <a class="btn btn--ghost" routerLink="/conversations">Ver conversaciones</a>
+    </div>
   </div>
+} @else if (context.isLoading() && !context.value()) {
+  <div class="state"><div class="spinner"></div>Cargando conversación…</div>
 } @else if (context.value(); as ctx) {
   <div class="convo" [class.convo--threads]="withThreads()">
     <!-- ===== Sidebar de conversaciones (solo en /conversations) ===== -->

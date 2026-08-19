@@ -25,6 +25,14 @@ export const configSchema = z.object({
   BRAIN_DATA_FILE: z.string().optional(),
 
   /**
+   * Token del Blob store de Vercel. Si está presente, el Brain persiste ahí y
+   * el estado se comparte entre instancias serverless (lo carga Vercel solo
+   * al conectar el store al proyecto).
+   */
+  BLOB_READ_WRITE_TOKEN: z.string().default(''),
+  BRAIN_BLOB_PATH: z.string().default('brain/state.json'),
+
+  /**
    * URL pública del gateway; la usa el mock para llamarse a sí mismo
    * (/precall, /webhooks/*) igual que lo haría NL Pearl real.
    * En Vercel se deriva de VERCEL_URL si no se define.

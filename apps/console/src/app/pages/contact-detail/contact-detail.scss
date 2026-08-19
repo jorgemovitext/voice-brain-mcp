@@ -3,6 +3,20 @@
   height: 100%;
 }
 
+.state__hint {
+  color: var(--ink-soft);
+  font-size: 0.85rem;
+  max-width: 420px;
+  margin: 0.5rem auto;
+}
+
+.state__actions {
+  display: flex;
+  gap: 0.5rem;
+  justify-content: center;
+  margin-top: 0.6rem;
+}
+
 /* Por defecto (/contacts/:id): chat + contexto.
    Con .convo--threads (/conversations/:id) se antepone la lista de hilos. */
 .convo {

@@ -128,9 +128,12 @@ real, cargá `MOCK=false`, `NLPEARL_ACCOUNT_ID`, `NLPEARL_API_KEY`,
 Vercel congela el proceso al responder y solo `/tmp` es escribible, así que el
 código se adapta solo (detecta `VERCEL`):
 
-- **Persistencia**: el respaldo JSON va a `/tmp`. Cada instancia tiene su propia
-  copia y se pierde al reciclarse — suficiente para demo, no para producción
-  (cambiar `BrainRepository` por SQLite/Postgres para eso).
+- **Persistencia**: con un **Vercel Blob store** conectado (Storage → Create →
+  Blob), el Brain guarda un único JSON compartido por todas las instancias y
+  el estado deja de perderse. Vercel inyecta `BLOB_READ_WRITE_TOKEN` solo y el
+  código lo detecta. **Sin store**, cae al archivo en `/tmp`: cada lambda tiene
+  su propia copia, así que un contacto creado en una instancia no existe en la
+  siguiente y los mensajes que entran por webhook no aparecen en la consola.
 - **Sembrado en frío**: si el Brain arranca vacío se siembra el directorio de
   demo con **IDs fijos**, para que los enlaces `/contacts/:id` sigan valiendo
   entre instancias.
