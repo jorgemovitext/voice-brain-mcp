@@ -5,6 +5,7 @@ import { BrainModule } from '../brain/brain.module';
 import { ChannelsModule } from '../channels/channels.module';
 import { VOICE_ENGINE_PORT } from '../ports/voice-engine.port';
 import { CallIngestService } from './call-ingest.service';
+import { NlpearlDiagnosticsController } from './nlpearl-diagnostics.controller';
 import { NlpearlClient } from './nlpearl.client';
 import { NlpearlVoiceEngine } from './nlpearl.engine';
 import { PrecallService } from './precall.service';
@@ -20,7 +21,12 @@ import { WorkersController } from './workers.controller';
  */
 @Module({
   imports: [HttpModule, BrainModule, ChannelsModule],
-  controllers: [PrecallController, NlpearlWebhookController, WorkersController],
+  controllers: [
+    PrecallController,
+    NlpearlWebhookController,
+    WorkersController,
+    NlpearlDiagnosticsController,
+  ],
   providers: [
     NlpearlClient,
     PrecallService,

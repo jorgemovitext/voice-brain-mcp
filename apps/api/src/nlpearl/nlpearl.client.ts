@@ -242,6 +242,28 @@ export class NlpearlClient {
     return this.request('GET', `/v2/PearlSettings/Phones`);
   }
 
+  /**
+   * GET suelto para diagnóstico: la doc pública no fija el path de varios
+   * recursos, así que se prueban candidatos y se reporta cuál responde.
+   * No lanza: devuelve el status para poder comparar.
+   */
+  async probe(path: string): Promise<{ path: string; status: number; data: unknown }> {
+    try {
+      const res = await firstValueFrom(
+        this.http.request({
+          method: 'GET',
+          url: `${this.baseUrl}${path}`,
+          timeout: 10_000,
+          headers: { Authorization: this.authHeader },
+          validateStatus: () => true,
+        }),
+      );
+      return { path, status: res.status, data: res.data };
+    } catch (err) {
+      return { path, status: 0, data: (err as Error).message };
+    }
+  }
+
   // =============== Cumplimiento (Account) ===============
 
   /** // TODO: confirmar con NL Pearl (GET vs POST con filtros) */
