@@ -12,6 +12,13 @@ interface BrainSnapshot {
 
 const EMPTY: BrainSnapshot = { contacts: [], interactions: [], signals: [] };
 
+/** Une dos listas por id; lo de `local` gana sobre `remote`. */
+function mergeById<T extends { id: string }>(remote: T[], local: T[]): T[] {
+  const porId = new Map(remote.map((item) => [item.id, item]));
+  for (const item of local) porId.set(item.id, item);
+  return [...porId.values()];
+}
+
 /**
  * Persistencia del Brain en Vercel Blob: un único JSON compartido por TODAS
  * las instancias serverless.
@@ -41,15 +48,29 @@ export class BlobBrainRepository implements BrainRepository {
     this.pathname = config.get<string>('BRAIN_BLOB_PATH', 'brain/state.json');
   }
 
-  /** Relee del blob salvo que la copia local sea muy reciente. */
+  /**
+   * Trae lo remoto y lo FUSIONA con lo local en vez de reemplazarlo.
+   *
+   * La lectura del blob es eventualmente consistente (pasa por CDN): puede
+   * devolver una versión anterior. Reemplazando, un escrito reciente de esta
+   * misma instancia se perdía y al persistir se borraba del blob. Fusionando
+   * por id, lo local siempre sobrevive y además se incorpora lo que hayan
+   * escrito otras instancias.
+   */
   private async fresh(force = false): Promise<BrainSnapshot> {
     if (!force && Date.now() - this.loadedAt < BlobBrainRepository.FRESH_MS) return this.snapshot;
 
     try {
       const meta = await head(this.pathname, { token: this.token });
-      // El blob es público y pasa por CDN: se evita la caché para no leer viejo.
       const res = await fetch(`${meta.url}?ts=${Date.now()}`, { cache: 'no-store' });
-      if (res.ok) this.snapshot = { ...EMPTY, ...((await res.json()) as BrainSnapshot) };
+      if (res.ok) {
+        const remote = { ...EMPTY, ...((await res.json()) as BrainSnapshot) };
+        this.snapshot = {
+          contacts: mergeById(remote.contacts, this.snapshot.contacts),
+          interactions: mergeById(remote.interactions, this.snapshot.interactions),
+          signals: mergeById(remote.signals, this.snapshot.signals),
+        };
+      }
     } catch {
       // Todavía no existe el blob (primer arranque): se queda el estado actual.
     }
@@ -126,7 +147,10 @@ export class BlobBrainRepository implements BrainRepository {
   }
 
   async reset(): Promise<void> {
-    this.snapshot = { ...EMPTY, contacts: [], interactions: [], signals: [] };
+    // Vaciado real: se escribe sin fusionar y se invalida la copia local para
+    // que la próxima lectura no reviva lo borrado.
+    this.snapshot = { contacts: [], interactions: [], signals: [] };
     await this.persist();
+    this.loadedAt = Date.now();
   }
 }
