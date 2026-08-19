@@ -6,13 +6,14 @@ import { JsonBrainRepository } from './brain.repository.json';
 import { BrainController } from './brain.controller';
 import { BrainService } from './brain.service';
 import { IdentityService } from './identity.service';
+import { StorageDiagnosticsController } from './storage-diagnostics.controller';
 
 /**
  * BrainModule: el core. No importa clientes concretos de voz ni de
  * canales — solo su propio repositorio (intercambiable vía token).
  */
 @Module({
-  controllers: [BrainController],
+  controllers: [BrainController, StorageDiagnosticsController],
   providers: [
     BrainService,
     IdentityService,
