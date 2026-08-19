@@ -1,6 +1,9 @@
+/* Centrado y con tope amplio: pegado a la izquierda dejaba un hueco muerto
+   a la derecha en pantallas anchas. */
 .page {
   padding: 1.4rem 1.5rem;
-  max-width: 1000px;
+  max-width: 1360px;
+  margin-inline: auto;
 }
 
 .head {
@@ -61,14 +64,6 @@
   font-size: 0.95rem;
 }
 
-.worker__id {
-  color: var(--ink-soft);
-  font-size: 0.7rem;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
 .worker__chips {
   display: flex;
   gap: 0.35rem;
@@ -94,23 +89,38 @@
   h2 { margin: 0; font-size: 1.1rem; }
 }
 
+/* El ID solo hace falta acá: es lo que se copia a NLPEARL_PEARL_ID. */
+.detail__id {
+  margin-left: auto;
+  color: var(--ink-soft);
+  font-size: 0.72rem;
+  background: var(--panel-2);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 0.15rem 0.5rem;
+}
+
+/* Chips clave:valor — en pantallas anchas las filas con guías punteadas
+   quedaban estiradas y desalineadas. */
 .props {
   margin: 0 0 0.9rem;
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
-  gap: 0.4rem 1.2rem;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
 }
 
 .props__row {
-  display: flex;
-  justify-content: space-between;
-  gap: 0.6rem;
-  font-size: 0.8rem;
-  border-bottom: 1px dashed var(--border);
-  padding-bottom: 0.25rem;
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.4rem;
+  font-size: 0.78rem;
+  background: var(--panel-2);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 0.25rem 0.75rem;
 
   dt { color: var(--ink-soft); }
-  dd { margin: 0; font-weight: 700; word-break: break-all; text-align: right; }
+  dd { margin: 0; font-weight: 700; word-break: break-all; }
 }
 
 .detail__sub {

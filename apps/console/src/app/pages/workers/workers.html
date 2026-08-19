@@ -24,7 +24,6 @@
           <voice-nebula [size]="54" />
           <span class="worker__body">
             <span class="worker__name">{{ w.name }}</span>
-            <code class="worker__id">{{ w.id }}</code>
             <span class="worker__chips">
               <span [class]="'pill ' + statusClass(w)">{{ statusLabel(w) }}</span>
               @if (w.type) { <span class="pill pill--neutral">{{ w.type }}</span> }
@@ -42,6 +41,7 @@
         <div class="detail__head">
           <h2>{{ w.name }}</h2>
           <span [class]="'pill ' + statusClass(w)">{{ statusLabel(w) }}</span>
+          <code class="detail__id" title="ID del Pearl">{{ w.id }}</code>
         </div>
 
         @if (selectedDetails().length) {
