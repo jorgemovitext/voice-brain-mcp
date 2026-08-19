@@ -61,11 +61,12 @@ export class BlobBrainRepository implements BrainRepository {
     if (!force && Date.now() - this.loadedAt < BlobBrainRepository.FRESH_MS) return this.snapshot;
 
     try {
-      // `get` autentica con el token: funciona con stores privados y públicos.
+      // `get` autentica con el token (store privado) y devuelve un stream;
       // useCache:false evita leer una versión anterior recién escrita.
-      const blob = await get(this.pathname, { token: this.token, useCache: false });
-      if (blob) {
-        const remote = { ...EMPTY, ...((await blob.json()) as BrainSnapshot) };
+      const res = await get(this.pathname, { access: 'private', token: this.token, useCache: false });
+      if (res?.stream) {
+        const texto = await new Response(res.stream).text();
+        const remote = { ...EMPTY, ...(JSON.parse(texto) as BrainSnapshot) };
         this.snapshot = {
           contacts: mergeById(remote.contacts, this.snapshot.contacts),
           interactions: mergeById(remote.interactions, this.snapshot.interactions),

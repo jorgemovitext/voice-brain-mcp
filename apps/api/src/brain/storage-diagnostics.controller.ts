@@ -49,9 +49,10 @@ export class StorageDiagnosticsController {
       });
       resultado['escritura'] = { ok: true };
 
-      const estado = await get(pathname, { token, useCache: false }).catch(() => null);
-      resultado['estadoDelBrain'] = estado
-        ? { existe: true, tamañoBytes: (await estado.text()).length }
+      const estado = await get(pathname, { access: 'private', token, useCache: false }).catch(() => null);
+      const texto = estado?.stream ? await new Response(estado.stream).text() : null;
+      resultado['estadoDelBrain'] = texto
+        ? { existe: true, tamañoBytes: texto.length }
         : { existe: false, nota: 'Todavía no se escribió el estado del Brain' };
     } catch (err) {
       resultado['escritura'] = { ok: false, error: (err as Error).message };
