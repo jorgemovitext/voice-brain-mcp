@@ -96,8 +96,19 @@ export function validateConfig(env: Record<string, unknown>): AppConfig {
     cfg.PUBLIC_BASE_URL ??
     (env['VERCEL_URL'] ? `https://${env['VERCEL_URL'] as string}` : `http://localhost:${cfg.PORT}`);
 
+  // Al conectar un Blob store, Vercel nombra la variable según el prefijo que
+  // le hayas puesto: `<PREFIJO>_READ_WRITE_TOKEN`. Se acepta el nombre estándar
+  // o cualquier variante con ese sufijo, para no depender de cómo se llamó.
+  const blobToken =
+    cfg.BLOB_READ_WRITE_TOKEN ||
+    (Object.entries(env).find(
+      ([key, value]) => key.endsWith('_READ_WRITE_TOKEN') && typeof value === 'string' && value,
+    )?.[1] as string | undefined) ||
+    '';
+
   return {
     ...cfg,
+    BLOB_READ_WRITE_TOKEN: blobToken,
     SERVERLESS: serverless,
     BRAIN_DATA_FILE: cfg.BRAIN_DATA_FILE ?? (serverless ? '/tmp/brain.json' : './data/brain.json'),
     PUBLIC_BASE_URL: publicBaseUrl,
