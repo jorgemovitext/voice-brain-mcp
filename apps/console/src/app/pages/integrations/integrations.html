@@ -1,0 +1,93 @@
+<div class="page">
+  <header class="head">
+    <div>
+      <h1>Integraciones</h1>
+      <p class="muted">
+        Estado de los proveedores conectados. Los secretos nunca se muestran acá:
+        se cargan como variables de entorno.
+      </p>
+    </div>
+    <button class="btn btn--ghost" (click)="integrations.reload()">↻ Actualizar</button>
+  </header>
+
+  <!-- Iniciar conversación con un número -->
+  <section class="card starter">
+    <div class="starter__title"><ui-icon name="chat" /> Empezar una conversación</div>
+    <p class="muted">
+      Dando de alta el número podés escribirle desde el chat. Si WhatsApp está conectado,
+      el mensaje sale por la Cloud API; si no, queda registrado en el hilo del Brain.
+    </p>
+    <div class="starter__form">
+      <input class="input" type="tel" placeholder="+50588887777" [value]="phone()" (input)="onPhone($event)" (keydown.enter)="startChat()" />
+      <input class="input" type="text" placeholder="Nombre (opcional)" [value]="name()" (input)="onName($event)" (keydown.enter)="startChat()" />
+      <button class="btn btn--primary" (click)="startChat()" [disabled]="creating() || !phone().trim()">
+        @if (creating()) { Creando… } @else { Abrir conversación }
+      </button>
+    </div>
+    @if (error()) { <div class="starter__error">{{ error() }}</div> }
+  </section>
+
+  @if (integrations.isLoading()) {
+    <div class="state"><div class="spinner"></div>Cargando integraciones…</div>
+  } @else if (integrations.error()) {
+    <div class="state state--error">
+      No se pudo consultar el estado. ¿Está corriendo la API?
+      <div><button class="btn btn--primary" (click)="integrations.reload()">Reintentar</button></div>
+    </div>
+  } @else {
+    <div class="grid">
+      @for (i of integrations.value() ?? []; track i.id) {
+        <article class="card integration">
+          <div class="integration__head">
+            <span class="integration__icon" [class.on]="i.connected"><ui-icon [name]="icon(i.id)" /></span>
+            <div class="integration__title">
+              <span class="integration__name">{{ i.name }}</span>
+              <span class="integration__mode">modo: {{ i.mode }}</span>
+            </div>
+            <span class="pill" [class.pill--positive]="i.connected" [class.pill--neutral]="!i.connected">
+              {{ i.connected ? 'Conectada' : 'Sin conectar' }}
+            </span>
+          </div>
+
+          @if (i.missing.length) {
+            <div class="missing">
+              <span class="missing__title">Faltan variables de entorno:</span>
+              <ul>
+                @for (m of i.missing; track m) { <li><code>{{ m }}</code></li> }
+              </ul>
+            </div>
+          }
+
+          <dl class="details">
+            @for (entry of i.details | keyvalue; track entry.key) {
+              <div class="details__row">
+                <dt>{{ entry.key }}</dt>
+                <dd>
+                  <span class="details__value">{{ entry.value }}</span>
+                  @if (entry.value.startsWith('http')) {
+                    <button class="copy" (click)="copy(entry.value)" title="Copiar">
+                      {{ copied() === entry.value ? '✓' : '⧉' }}
+                    </button>
+                  }
+                </dd>
+              </div>
+            }
+          </dl>
+        </article>
+      }
+    </div>
+
+    <section class="card help">
+      <h2>Cómo conectar WhatsApp</h2>
+      <ol>
+        <li>En Meta for Developers, creá una app de tipo <strong>Business</strong> y agregá el producto <strong>WhatsApp</strong>.</li>
+        <li>En <strong>API Setup</strong> copiá el <em>Phone number ID</em> y el <em>access token</em> → variables <code>WHATSAPP_PHONE_NUMBER_ID</code> y <code>WHATSAPP_TOKEN</code>.</li>
+        <li>En <strong>Configuration → Webhooks</strong> pegá la <em>Callback URL</em> de la tarjeta de arriba y un <em>Verify token</em> inventado por vos, que va también en <code>WHATSAPP_VERIFY_TOKEN</code>.</li>
+        <li>Suscribite al campo <strong>messages</strong> y copiá el <em>App Secret</em> en <code>WHATSAPP_APP_SECRET</code> para validar la firma.</li>
+        <li>Recordá la ventana de 24 horas: fuera de ella WhatsApp solo acepta plantillas aprobadas.</li>
+      </ol>
+      <p class="muted">Tras cargar las variables hay que volver a desplegar para que tomen efecto.</p>
+      <a class="btn btn--ghost" routerLink="/demo">Ver el flujo de la demo →</a>
+    </section>
+  }
+</div>

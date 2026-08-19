@@ -34,11 +34,25 @@ export const configSchema = z.object({
   /** Duración de la "conversación" simulada. Corta en serverless. */
   MOCK_CALL_DELAY_MS: z.coerce.number().int().nonnegative().optional(),
 
-  /** Sembrar el directorio de demo al arrancar si el Brain está vacío. */
+  /**
+   * Sembrar el directorio de demo al arrancar si el Brain está vacío.
+   * Sin definir: sigue a MOCK (en modo real el Brain arranca vacío).
+   */
   SEED_ON_BOOT: z
     .string()
-    .default('true')
-    .transform((v) => v.toLowerCase() !== 'false'),
+    .optional()
+    .transform((v) => (v === undefined ? undefined : v.toLowerCase() !== 'false')),
+
+  // --- WhatsApp Cloud API (Meta) — canal propio, no los text channels de NL Pearl ---
+  WHATSAPP_API_VERSION: z.string().default('v21.0'),
+  /** ID del número emisor (Meta → WhatsApp → API Setup). */
+  WHATSAPP_PHONE_NUMBER_ID: z.string().default(''),
+  /** Access token (permanente del System User, o temporal de pruebas). */
+  WHATSAPP_TOKEN: z.string().default(''),
+  /** Lo definís vos; Meta lo repite al verificar el webhook. */
+  WHATSAPP_VERIFY_TOKEN: z.string().default(''),
+  /** App Secret: valida la firma X-Hub-Signature-256 de cada evento. */
+  WHATSAPP_APP_SECRET: z.string().default(''),
 });
 
 export type AppConfig = z.infer<typeof configSchema> & {
@@ -47,6 +61,7 @@ export type AppConfig = z.infer<typeof configSchema> & {
   BRAIN_DATA_FILE: string;
   PUBLIC_BASE_URL: string;
   MOCK_CALL_DELAY_MS: number;
+  SEED_ON_BOOT: boolean;
 };
 
 export function validateConfig(env: Record<string, unknown>): AppConfig {
@@ -70,5 +85,7 @@ export function validateConfig(env: Record<string, unknown>): AppConfig {
     BRAIN_DATA_FILE: cfg.BRAIN_DATA_FILE ?? (serverless ? '/tmp/brain.json' : './data/brain.json'),
     PUBLIC_BASE_URL: publicBaseUrl,
     MOCK_CALL_DELAY_MS: cfg.MOCK_CALL_DELAY_MS ?? (serverless ? 800 : 6000),
+    // Los contactos de demo solo tienen sentido en modo simulado.
+    SEED_ON_BOOT: cfg.SEED_ON_BOOT ?? cfg.MOCK,
   };
 }

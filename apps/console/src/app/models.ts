@@ -60,3 +60,15 @@ export interface DemoStatus {
   running: boolean;
   steps: FlowStep[];
 }
+
+export interface IntegrationStatus {
+  id: 'nlpearl' | 'whatsapp' | 'sms';
+  name: string;
+  kind: 'voice' | 'messaging';
+  connected: boolean;
+  mode: string;
+  /** Variables de entorno que faltan para conectarla. */
+  missing: string[];
+  /** Datos públicos para configurar el proveedor (nunca secretos). */
+  details: Record<string, string>;
+}

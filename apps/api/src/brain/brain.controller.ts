@@ -1,5 +1,15 @@
-import { Controller, Get, Param, Query } from '@nestjs/common';
+import { BadRequestException, Body, Controller, Get, Param, Post, Query } from '@nestjs/common';
+import { z } from 'zod';
 import { BrainService } from './brain.service';
+
+/** Alta de contacto por teléfono: la llave de identidad es E.164. */
+const newContactSchema = z.object({
+  phone: z
+    .string()
+    .trim()
+    .regex(/^\+[1-9]\d{6,14}$/, 'El teléfono debe ir en formato E.164, por ejemplo +50588887777'),
+  displayName: z.string().trim().max(120).optional(),
+});
 
 /**
  * REST para la consola Angular. Solo lectura + delegación al servicio:
@@ -17,6 +27,25 @@ export class BrainController {
   @Get('contacts')
   listContacts() {
     return this.brain.listContacts();
+  }
+
+  /**
+   * Inicia una conversación con un número: resuelve identidad (crea el
+   * contacto si no existía) y devuelve el contacto listo para chatear.
+   */
+  @Post('contacts')
+  async createContact(@Body() body: unknown) {
+    const parsed = newContactSchema.safeParse(body ?? {});
+    if (!parsed.success) throw new BadRequestException(parsed.error.issues);
+    const { phone, displayName } = parsed.data;
+
+    const { contactId, created } = await this.brain.resolveIdentity({
+      phone,
+      system: 'sender',
+      displayName,
+    });
+    const contact = await this.brain.upsertContact({ id: contactId, displayName });
+    return { contact, created };
   }
 
   @Get('contacts/:id/context')

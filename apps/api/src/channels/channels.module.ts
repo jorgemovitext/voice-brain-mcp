@@ -1,23 +1,19 @@
 import { Module } from '@nestjs/common';
 import { BrainModule } from '../brain/brain.module';
-import { SMS_CHANNEL, WHATSAPP_CHANNEL } from '../ports/channel.port';
+import { IntegrationsModule } from '../integrations/integrations.module';
+import { WhatsappWebhookController } from '../integrations/whatsapp/whatsapp.webhook.controller';
 import { FollowupService } from './followup.service';
 import { ChannelInboundController } from './inbound.controller';
-import { SmsAdapter } from './sms.adapter';
-import { WhatsappAdapter } from './whatsapp.adapter';
 
 /**
- * Canales propios (WhatsApp/SMS). Los adaptadores se exponen por token
- * de puerto — cuando exista la WABA real, se cambia el useClass acá.
+ * Canales propios (WhatsApp/SMS): seguimiento saliente y entrada de mensajes.
+ * Los adaptadores concretos los provee IntegrationsModule.
  */
 @Module({
-  imports: [BrainModule],
-  controllers: [ChannelInboundController],
-  providers: [
-    FollowupService,
-    { provide: WHATSAPP_CHANNEL, useClass: WhatsappAdapter },
-    { provide: SMS_CHANNEL, useClass: SmsAdapter },
-  ],
-  exports: [FollowupService, WHATSAPP_CHANNEL, SMS_CHANNEL],
+  imports: [BrainModule, IntegrationsModule],
+  controllers: [ChannelInboundController, WhatsappWebhookController],
+  providers: [FollowupService],
+  // Se re-exporta el módulo (no los tokens): los canales los provee él.
+  exports: [FollowupService, IntegrationsModule],
 })
 export class ChannelsModule {}

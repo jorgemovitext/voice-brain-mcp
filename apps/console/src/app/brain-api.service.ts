@@ -1,7 +1,7 @@
 import { HttpClient } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
 import { firstValueFrom } from 'rxjs';
-import { DemoStatus, FlowStep } from './models';
+import { Contact, DemoStatus, FlowStep } from './models';
 
 /**
  * Acciones (POST) contra el backend. Las lecturas de las vistas usan
@@ -36,6 +36,13 @@ export class BrainApiService {
   sendFollowup(contactId: string, channel?: 'whatsapp' | 'sms'): Promise<{ message: string; channel: string }> {
     return firstValueFrom(
       this.http.post<{ message: string; channel: string }>(`/api/contacts/${contactId}/followup`, { channel }),
+    );
+  }
+
+  /** Da de alta un número (E.164) para empezar a conversar con él. */
+  createContact(phone: string, displayName?: string): Promise<{ contact: Contact; created: boolean }> {
+    return firstValueFrom(
+      this.http.post<{ contact: Contact; created: boolean }>('/api/contacts', { phone, displayName }),
     );
   }
 

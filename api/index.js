@@ -20,6 +20,8 @@ async function bootstrap() {
   const adapter = new FastifyAdapter();
   const app = await NestFactory.create(AppModule, adapter, {
     logger: ['error', 'warn', 'log'],
+    // rawBody: necesario para validar la firma de los webhooks de Meta.
+    rawBody: true,
   });
   app.enableCors({ origin: true });
   await app.init();

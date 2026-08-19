@@ -8,7 +8,10 @@ import { LoggingInterceptor } from './shared/logging.interceptor';
  * bootstrap en src/mcp/mcp.bootstrap.ts (transporte stdio).
  */
 async function bootstrap() {
-  const app = await NestFactory.create<NestFastifyApplication>(AppModule, new FastifyAdapter());
+  // rawBody: necesario para validar la firma X-Hub-Signature-256 de Meta.
+  const app = await NestFactory.create<NestFastifyApplication>(AppModule, new FastifyAdapter(), {
+    rawBody: true,
+  });
 
   // CORS para la consola Angular (dev). El proxy de Angular también aplica.
   app.enableCors({ origin: true });

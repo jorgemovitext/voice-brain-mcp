@@ -32,6 +32,11 @@ export const routes: Routes = [
     title: 'Conversaciones · Brain',
   },
   {
+    path: 'integrations',
+    loadComponent: () => import('./pages/integrations/integrations').then((m) => m.IntegrationsPage),
+    title: 'Integraciones · Brain',
+  },
+  {
     path: 'demo',
     loadComponent: () => import('./pages/demo/demo').then((m) => m.DemoPage),
     title: 'Demo del flujo · Brain',

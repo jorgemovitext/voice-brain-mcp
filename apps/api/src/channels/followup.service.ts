@@ -58,12 +58,27 @@ export class FollowupService {
     channel: 'whatsapp' | 'sms',
     from: string,
     text: string,
+    /** Nombre del perfil, cuando el proveedor lo manda (WhatsApp lo incluye). */
+    profileName?: string,
   ): Promise<{ contactId: string; reply: string }> {
     const label = channel === 'sms' ? 'SMS' : 'WhatsApp';
     this.flowLog.push('inboundMsg', `${label} entrante de ${from}: “${text}”`);
 
     // Misma llave de identidad que usa la voz: el teléfono E.164.
-    const { contactId, created } = await this.brain.resolveIdentity({ phone: from, system: 'sender' });
+    const { contactId, created } = await this.brain.resolveIdentity({
+      phone: from,
+      system: 'sender',
+      displayName: profileName,
+    });
+
+    // Un contacto que llegó por voz puede no tener nombre todavía.
+    if (profileName) {
+      const known = await this.brain.getContext({ contactId });
+      if (!known.contact.displayName) {
+        await this.brain.upsertContact({ id: contactId, displayName: profileName });
+      }
+    }
+
     const ctx = await this.brain.getContext({ contactId });
     this.flowLog.push(
       'contextHit',
