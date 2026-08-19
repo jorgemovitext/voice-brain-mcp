@@ -44,35 +44,87 @@ export class GupshupAdapter implements ChannelPort {
     const ctx = await this.brain.getContext({ contactId });
     const to = ctx.contact.phones[0];
     if (!to) throw new ServiceUnavailableException(`El contacto ${contactId} no tiene teléfono`);
+    return this.sendToPhone(to, message);
+  }
 
-    const body = new URLSearchParams({
+  /** Envío directo por teléfono E.164 (lo usa también el diagnóstico). */
+  async sendToPhone(to: string, message: string): Promise<{ delivered: boolean; providerId?: string }> {
+    const { status, data } = await this.postMessage(to, message);
+
+    // Gupshup responde 200/202 incluso cuando rechaza el mensaje: el veredicto
+    // está en el body (`status: "submitted"` es el caso bueno).
+    const estado = String(data?.status ?? '').toLowerCase();
+    const ok = status < 400 && ['submitted', 'success', 'sent', 'queued'].includes(estado);
+
+    if (!ok) {
+      const detalle = this.describeError(status, data);
+      this.logger.warn(`Gupshup rechazó el mensaje a ${to}: ${detalle}`);
+      throw new ServiceUnavailableException(`Gupshup: ${detalle}`);
+    }
+
+    this.logger.log(`→ WhatsApp (Gupshup) a ${to} — ${estado} ${data?.messageId ?? ''}`);
+    return { delivered: true, providerId: data?.messageId };
+  }
+
+  /** POST crudo: devuelve status y body sin interpretar (para diagnóstico). */
+  async postMessage(
+    to: string,
+    message: string,
+  ): Promise<{ status: number; data: GupshupResponse; sent: Record<string, string> }> {
+    const params = {
       channel: 'whatsapp',
       source: this.source,
       destination: to.replace(/^\+/, ''),
       'src.name': this.appName,
       message: JSON.stringify({ type: 'text', text: message }),
-    });
+    };
+    const body = new URLSearchParams(params);
 
     try {
       const res = await firstValueFrom(
-        this.http.post<{ status?: string; messageId?: string }>(this.apiUrl, body.toString(), {
+        this.http.post<GupshupResponse>(this.apiUrl, body.toString(), {
           headers: {
             apikey: this.apiKey,
             'Content-Type': 'application/x-www-form-urlencoded',
             'Cache-Control': 'no-cache',
           },
           timeout: 15_000,
+          // Que un 4xx no lance: el body trae el motivo y queremos reportarlo.
+          validateStatus: () => true,
         }),
       );
-
-      const providerId = res.data.messageId;
-      this.logger.log(`→ WhatsApp (Gupshup) a ${to} — ${res.data.status ?? 'enviado'} ${providerId ?? ''}`);
-      return { delivered: true, providerId };
+      return { status: res.status, data: res.data ?? {}, sent: { ...params, message: params.message } };
     } catch (err) {
-      const data = (err as { response?: { data?: unknown } }).response?.data;
-      const detalle = typeof data === 'string' ? data : JSON.stringify(data ?? (err as Error).message);
-      this.logger.warn(`Gupshup falló para ${to}: ${detalle}`);
-      throw new ServiceUnavailableException(`Gupshup: ${detalle}`);
+      // Error de red/timeout: no hubo respuesta del proveedor.
+      throw new ServiceUnavailableException(`Gupshup no respondió: ${(err as Error).message}`);
     }
   }
+
+  /** Traduce los rechazos más comunes del sandbox a algo accionable. */
+  private describeError(status: number, data: GupshupResponse): string {
+    const raw = typeof data === 'string' ? data : JSON.stringify(data);
+    const msg = String(data?.message ?? '');
+
+    if (status === 401 || /unauthor|invalid.*(api|key)/i.test(msg)) {
+      return `credenciales rechazadas (revisá GUPSHUP_API_KEY). Respuesta: ${raw}`;
+    }
+    if (/app.*not.*found|src\.?name/i.test(msg)) {
+      return `Gupshup no reconoce la app (revisá GUPSHUP_APP_NAME). Respuesta: ${raw}`;
+    }
+    if (/source|sender/i.test(msg)) {
+      return `número emisor inválido (revisá GUPSHUP_SOURCE_NUMBER, sin '+'). Respuesta: ${raw}`;
+    }
+    if (/opt.?in|24|window|session/i.test(msg)) {
+      return `el destinatario no tiene sesión abierta: tiene que escribirle primero al número del sandbox (o usar plantilla). Respuesta: ${raw}`;
+    }
+    return `HTTP ${status} — ${raw}`;
+  }
+}
+
+/** Respuesta de la API de Gupshup (los campos varían según el caso). */
+interface GupshupResponse {
+  status?: string;
+  messageId?: string;
+  message?: string;
+  [key: string]: unknown;
 }
