@@ -20,12 +20,23 @@ export interface IntegrationStatus {
 export class IntegrationsService {
   constructor(private readonly config: ConfigService) {}
 
-  /** Credenciales completas de WhatsApp Cloud API. */
-  isWhatsappConfigured(): boolean {
-    return this.missingWhatsapp().length === 0;
+  /**
+   * Proveedor de WhatsApp efectivo. Gupshup tiene prioridad sobre la Cloud API
+   * de Meta; si no hay ninguno completo, queda el stub que registra en el log.
+   */
+  whatsappProvider(): 'gupshup' | 'cloud-api' | 'stub' {
+    if (this.missingGupshup().length === 0) return 'gupshup';
+    if (this.missingCloudApi().length === 0) return 'cloud-api';
+    return 'stub';
   }
 
-  private missingWhatsapp(): string[] {
+  private missingGupshup(): string[] {
+    return (['GUPSHUP_API_KEY', 'GUPSHUP_APP_NAME', 'GUPSHUP_SOURCE_NUMBER'] as const).filter(
+      (key) => !this.config.get<string>(key),
+    );
+  }
+
+  private missingCloudApi(): string[] {
     return (['WHATSAPP_PHONE_NUMBER_ID', 'WHATSAPP_TOKEN'] as const).filter(
       (key) => !this.config.get<string>(key),
     );
@@ -41,8 +52,8 @@ export class IntegrationsService {
     const base = this.config.get<string>('PUBLIC_BASE_URL', '');
     const mock = this.config.get<boolean>('MOCK', true);
     const missingNlpearl = this.missingNlpearl();
-    const missingWhatsapp = this.missingWhatsapp();
-    const whatsappOk = missingWhatsapp.length === 0;
+    const provider = this.whatsappProvider();
+    const whatsappOk = provider !== 'stub';
 
     return [
       {
@@ -62,22 +73,36 @@ export class IntegrationsService {
       },
       {
         id: 'whatsapp',
-        name: 'WhatsApp · Cloud API',
+        name:
+          provider === 'gupshup'
+            ? 'WhatsApp · Gupshup'
+            : provider === 'cloud-api'
+              ? 'WhatsApp · Cloud API (Meta)'
+              : 'WhatsApp · sin proveedor',
         kind: 'messaging',
         connected: whatsappOk,
-        mode: whatsappOk ? 'cloud-api' : 'stub',
-        missing: missingWhatsapp,
-        details: {
-          'Callback URL': `${base}/webhooks/whatsapp`,
-          'Verify token': this.config.get<string>('WHATSAPP_VERIFY_TOKEN')
-            ? 'configurado'
-            : 'falta WHATSAPP_VERIFY_TOKEN',
-          'Firma de eventos': this.config.get<string>('WHATSAPP_APP_SECRET')
-            ? 'validada (App Secret)'
-            : 'sin validar (falta WHATSAPP_APP_SECRET)',
-          'Número emisor (ID)': this.config.get<string>('WHATSAPP_PHONE_NUMBER_ID') || '—',
-          'Versión de API': this.config.get<string>('WHATSAPP_API_VERSION', 'v21.0'),
-        },
+        mode: provider,
+        // Basta con completar UNO de los dos proveedores; se muestra el preferido.
+        missing: whatsappOk ? [] : this.missingGupshup(),
+        details:
+          provider === 'cloud-api'
+            ? {
+                'Callback URL (Meta)': `${base}/webhooks/whatsapp`,
+                'Verify token': this.config.get<string>('WHATSAPP_VERIFY_TOKEN')
+                  ? 'configurado'
+                  : 'falta WHATSAPP_VERIFY_TOKEN',
+                'Firma de eventos': this.config.get<string>('WHATSAPP_APP_SECRET')
+                  ? 'validada (App Secret)'
+                  : 'sin validar (falta WHATSAPP_APP_SECRET)',
+                'Número emisor (ID)': this.config.get<string>('WHATSAPP_PHONE_NUMBER_ID') || '—',
+              }
+            : {
+                'Callback URL (Gupshup)': `${base}/webhooks/gupshup`,
+                'App de Gupshup': this.config.get<string>('GUPSHUP_APP_NAME') || '—',
+                'Número emisor': this.config.get<string>('GUPSHUP_SOURCE_NUMBER') || '—',
+                'API key': this.config.get<string>('GUPSHUP_API_KEY') ? 'configurada' : 'falta GUPSHUP_API_KEY',
+                'Alternativa (Meta directo)': `${base}/webhooks/whatsapp`,
+              },
       },
       {
         id: 'sms',

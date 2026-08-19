@@ -43,7 +43,16 @@ export const configSchema = z.object({
     .optional()
     .transform((v) => (v === undefined ? undefined : v.toLowerCase() !== 'false')),
 
-  // --- WhatsApp Cloud API (Meta) — canal propio, no los text channels de NL Pearl ---
+  // --- WhatsApp vía Gupshup (BSP) — proveedor preferido si está configurado ---
+  GUPSHUP_API_URL: z.string().default('https://api.gupshup.io/wa/api/v1/msg'),
+  /** Gupshup → Dashboard → API key. */
+  GUPSHUP_API_KEY: z.string().default(''),
+  /** Nombre de la app en Gupshup (viaja como src.name). */
+  GUPSHUP_APP_NAME: z.string().default(''),
+  /** Número emisor registrado en Gupshup, sin '+' (ej. 917834811114). */
+  GUPSHUP_SOURCE_NUMBER: z.string().default(''),
+
+  // --- WhatsApp Cloud API (Meta directo) — alternativa a Gupshup ---
   WHATSAPP_API_VERSION: z.string().default('v21.0'),
   /** ID del número emisor (Meta → WhatsApp → API Setup). */
   WHATSAPP_PHONE_NUMBER_ID: z.string().default(''),

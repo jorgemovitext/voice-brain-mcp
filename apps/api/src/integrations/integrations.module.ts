@@ -7,6 +7,7 @@ import { WhatsappAdapter } from '../channels/whatsapp.adapter';
 import { SMS_CHANNEL, WHATSAPP_CHANNEL } from '../ports/channel.port';
 import { IntegrationsController } from './integrations.controller';
 import { IntegrationsService } from './integrations.service';
+import { GupshupAdapter } from './whatsapp/gupshup.adapter';
 import { WhatsappCloudAdapter } from './whatsapp/whatsapp-cloud.adapter';
 import { WhatsappSignatureGuard } from './whatsapp/whatsapp-signature.guard';
 
@@ -21,16 +22,22 @@ import { WhatsappSignatureGuard } from './whatsapp/whatsapp-signature.guard';
   providers: [
     IntegrationsService,
     WhatsappSignatureGuard,
+    GupshupAdapter,
     WhatsappCloudAdapter,
     WhatsappAdapter,
     {
       provide: WHATSAPP_CHANNEL,
-      inject: [IntegrationsService, WhatsappCloudAdapter, WhatsappAdapter],
+      inject: [IntegrationsService, GupshupAdapter, WhatsappCloudAdapter, WhatsappAdapter],
       useFactory: (
         integrations: IntegrationsService,
+        gupshup: GupshupAdapter,
         cloud: WhatsappCloudAdapter,
         stub: WhatsappAdapter,
-      ) => (integrations.isWhatsappConfigured() ? cloud : stub),
+      ) => {
+        const provider = integrations.whatsappProvider();
+        if (provider === 'gupshup') return gupshup;
+        return provider === 'cloud-api' ? cloud : stub;
+      },
     },
     // TODO: conectar un proveedor SMS real (Twilio/Infobip) igual que WhatsApp.
     { provide: SMS_CHANNEL, useClass: SmsAdapter },

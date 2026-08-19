@@ -78,15 +78,23 @@
     </div>
 
     <section class="card help">
-      <h2>Cómo conectar WhatsApp</h2>
+      <h2>Conectar WhatsApp con Gupshup</h2>
       <ol>
-        <li>En Meta for Developers, creá una app de tipo <strong>Business</strong> y agregá el producto <strong>WhatsApp</strong>.</li>
-        <li>En <strong>API Setup</strong> copiá el <em>Phone number ID</em> y el <em>access token</em> → variables <code>WHATSAPP_PHONE_NUMBER_ID</code> y <code>WHATSAPP_TOKEN</code>.</li>
-        <li>En <strong>Configuration → Webhooks</strong> pegá la <em>Callback URL</em> de la tarjeta de arriba y un <em>Verify token</em> inventado por vos, que va también en <code>WHATSAPP_VERIFY_TOKEN</code>.</li>
-        <li>Suscribite al campo <strong>messages</strong> y copiá el <em>App Secret</em> en <code>WHATSAPP_APP_SECRET</code> para validar la firma.</li>
-        <li>Recordá la ventana de 24 horas: fuera de ella WhatsApp solo acepta plantillas aprobadas.</li>
+        <li>En Gupshup → <strong>Webhooks</strong>, pegá la <em>Callback URL (Gupshup)</em> de la tarjeta de arriba. Es la única URL que hace falta.</li>
+        <li>Copiá tu <em>API key</em> (Dashboard) en <code>GUPSHUP_API_KEY</code>.</li>
+        <li>El nombre de tu app va en <code>GUPSHUP_APP_NAME</code> (viaja como <code>src.name</code>).</li>
+        <li>El número emisor, sin el «+», en <code>GUPSHUP_SOURCE_NUMBER</code> — en el sandbox es el número que muestra Gupshup.</li>
+        <li>Para probar el sandbox, el destinatario debe haberle escrito primero al número de Gupshup (opt-in).</li>
       </ol>
-      <p class="muted">Tras cargar las variables hay que volver a desplegar para que tomen efecto.</p>
+      <p class="muted">
+        Alternativa: si preferís Meta directo en vez de Gupshup, cargá <code>WHATSAPP_PHONE_NUMBER_ID</code>,
+        <code>WHATSAPP_TOKEN</code>, <code>WHATSAPP_VERIFY_TOKEN</code> y <code>WHATSAPP_APP_SECRET</code>, y usá
+        la Callback URL de Meta. Si están las dos, se usa Gupshup.
+      </p>
+      <p class="muted">
+        Ojo con la ventana de 24 horas: fuera de ella WhatsApp solo acepta plantillas aprobadas.
+        Tras cargar variables hay que volver a desplegar.
+      </p>
       <a class="btn btn--ghost" routerLink="/demo">Ver el flujo de la demo →</a>
     </section>
   }
