@@ -74,6 +74,9 @@ export interface NlpearlTestResult {
   ok: boolean;
   ms: number;
   pearls?: Array<{ id: string; name: string }>;
+  total?: number;
+  /** El Pearl de NLPEARL_PEARL_ID: si no existe en la cuenta, las llamadas fallarían. */
+  pearlEnUso?: { id: string; name: string; valido: boolean };
   error?: string;
 }
 

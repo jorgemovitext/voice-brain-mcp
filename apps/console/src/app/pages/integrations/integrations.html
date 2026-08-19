@@ -84,13 +84,17 @@
             @if (testResult(); as r) {
               <div class="test__result" [class.ok]="r.ok" [class.fail]="!r.ok">
                 @if (r.ok) {
-                  ✓ NL Pearl respondió en {{ r.ms }} ms
+                  ✓ NL Pearl respondió en {{ r.ms }} ms — {{ r.total }} Pearls en la cuenta
+                  @if (r.pearlEnUso; as p) {
+                    <div class="test__inuse" [class.bad]="!p.valido">
+                      {{ p.valido ? '✓ Pearl en uso: ' + p.name : '✗ El NLPEARL_PEARL_ID configurado no existe en la cuenta' }}
+                      <code>{{ p.id }}</code>
+                    </div>
+                  }
                   @if (r.pearls?.length) {
                     <ul class="test__pearls">
                       @for (p of r.pearls; track p.id) { <li>{{ p.name }} <code>{{ p.id }}</code></li> }
                     </ul>
-                  } @else {
-                    <div class="muted">La cuenta no tiene Pearls todavía.</div>
                   }
                 } @else {
                   ✗ {{ r.error }}

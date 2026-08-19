@@ -197,6 +197,14 @@
   }
 }
 
+.test__inuse {
+  margin-top: 0.4rem;
+  font-weight: 800;
+
+  code { color: var(--ink-soft); font-size: 0.75rem; font-weight: 500; }
+  &.bad { color: var(--negative); }
+}
+
 .test__pearls {
   margin: 0.4rem 0 0;
   padding-left: 1.1rem;

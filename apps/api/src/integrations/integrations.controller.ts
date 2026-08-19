@@ -36,13 +36,25 @@ export class IntegrationsController {
       const pearls = (await this.nlpearl.getPearls()) as unknown;
       const list = Array.isArray(pearls) ? pearls : ((pearls as { data?: unknown[] })?.data ?? []);
 
-      const resumen = (list as Array<Record<string, unknown>>).slice(0, 10).map((p) => ({
+      const todos = (list as Array<Record<string, unknown>>).map((p) => ({
         id: String(p['id'] ?? p['pearlId'] ?? ''),
         name: String(p['name'] ?? p['pearlName'] ?? 'sin nombre'),
       }));
 
-      this.webhookLog.push('saliente', `Prueba de conexión con NL Pearl: OK (${resumen.length} Pearls)`, true);
-      return { ok: true, ms: Date.now() - started, pearls: resumen };
+      // El Pearl configurado debe existir en la cuenta: si no, las llamadas
+      // fallarían recién al intentar marcar.
+      const configurado = todos.find((p) => p.id === this.nlpearl.pearlId);
+
+      this.webhookLog.push('saliente', `Prueba de conexión con NL Pearl: OK (${todos.length} Pearls)`, true);
+      return {
+        ok: true,
+        ms: Date.now() - started,
+        pearls: todos.slice(0, 12),
+        total: todos.length,
+        pearlEnUso: configurado
+          ? { id: configurado.id, name: configurado.name, valido: true }
+          : { id: this.nlpearl.pearlId, name: 'no encontrado en la cuenta', valido: false },
+      };
     } catch (err) {
       const message = (err as { response?: { message?: string } }).response?.message ?? (err as Error).message;
       this.webhookLog.push('saliente', `Prueba de conexión con NL Pearl: falló — ${message}`, false);
