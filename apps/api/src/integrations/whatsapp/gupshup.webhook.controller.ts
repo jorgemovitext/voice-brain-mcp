@@ -1,5 +1,6 @@
 import { Controller, HttpCode, Logger, Post, Req } from '@nestjs/common';
 import { FollowupService } from '../../channels/followup.service';
+import { WebhookLogService } from '../../shared/webhook-log.service';
 
 /**
  * Evento de Gupshup (v2). Dos tipos que nos interesan:
@@ -37,7 +38,10 @@ export class GupshupWebhookController {
   /** IDs ya procesados: evita duplicar si Gupshup reintenta. */
   private readonly seen = new Set<string>();
 
-  constructor(private readonly followup: FollowupService) {}
+  constructor(
+    private readonly followup: FollowupService,
+    private readonly webhookLog: WebhookLogService,
+  ) {}
 
   @Post()
   @HttpCode(200)
@@ -46,9 +50,9 @@ export class GupshupWebhookController {
     try {
       if (event.type === 'message-event') {
         // Acuse de estado: se registra pero no entra al hilo del contacto.
-        this.logger.log(
-          `Estado de mensaje ${event.payload?.id ?? ''}: ${event.payload?.type ?? 'desconocido'}`,
-        );
+        const estado = event.payload?.type ?? 'desconocido';
+        this.logger.log(`Estado de mensaje ${event.payload?.id ?? ''}: ${estado}`);
+        this.webhookLog.push('gupshup', `Acuse de entrega: ${estado}`, estado !== 'failed', event.payload);
         return { received: true };
       }
 
@@ -71,10 +75,12 @@ export class GupshupWebhookController {
       // Gupshup entrega el número sin '+'; el Brain llavea en E.164.
       const from = phone.startsWith('+') ? phone : `+${phone}`;
       this.logger.log(`← WhatsApp (Gupshup) de ${from}: "${text}"`);
+      this.webhookLog.push('gupshup', `Mensaje de ${p.sender?.name ?? from}: “${text}”`, true, { from });
       await this.followup.receiveInbound('whatsapp', from, text, p.sender?.name);
     } catch (err) {
       // Nunca propagar el error: Gupshup reintentaría el mismo evento.
       this.logger.error(`Error procesando evento de Gupshup: ${(err as Error).message}`);
+      this.webhookLog.push('gupshup', `Error procesando evento: ${(err as Error).message}`, false);
     }
     return { received: true };
   }

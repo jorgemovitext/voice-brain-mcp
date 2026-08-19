@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { BrainService } from '../brain/brain.service';
 import { FlowLogService } from '../shared/flow-log.service';
+import { WebhookLogService } from '../shared/webhook-log.service';
 
 /**
  * Variables que el nodo PreCallAPI inyecta al agente antes de hablar, para
@@ -9,7 +10,11 @@ import { FlowLogService } from '../shared/flow-log.service';
  */
 @Injectable()
 export class PrecallService {
-  constructor(private readonly brain: BrainService, private readonly flowLog: FlowLogService) {}
+  constructor(
+    private readonly brain: BrainService,
+    private readonly flowLog: FlowLogService,
+    private readonly webhookLog: WebhookLogService,
+  ) {}
 
   async buildVariables(query: { phone?: string; externalId?: string }): Promise<Record<string, string>> {
     const ctx = await this.brain.getContext({ phone: query.phone, externalId: query.externalId });
@@ -28,6 +33,12 @@ export class PrecallService {
     };
 
     this.flowLog.push('precall', 'PreCallAPI: contexto inyectado al agente de voz', variables);
+    this.webhookLog.push(
+      'precall',
+      `PreCallAPI pidió contexto de ${query.phone ?? query.externalId ?? 'desconocido'}`,
+      true,
+      variables,
+    );
     return variables;
   }
 }

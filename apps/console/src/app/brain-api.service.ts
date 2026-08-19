@@ -1,7 +1,7 @@
 import { HttpClient } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
 import { firstValueFrom } from 'rxjs';
-import { Contact, DemoStatus, FlowStep } from './models';
+import { Contact, DemoStatus, FlowStep, NlpearlTestResult } from './models';
 
 /**
  * Acciones (POST) contra el backend. Las lecturas de las vistas usan
@@ -37,6 +37,11 @@ export class BrainApiService {
     return firstValueFrom(
       this.http.post<{ message: string; channel: string }>(`/api/contacts/${contactId}/followup`, { channel }),
     );
+  }
+
+  /** Verifica que NL Pearl responda (lectura, no gasta llamadas). */
+  testNlpearl(): Promise<NlpearlTestResult> {
+    return firstValueFrom(this.http.post<NlpearlTestResult>('/api/integrations/nlpearl/test', {}));
   }
 
   /** Da de alta un número (E.164) para empezar a conversar con él. */

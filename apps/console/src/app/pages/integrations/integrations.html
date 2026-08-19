@@ -73,9 +73,60 @@
               </div>
             }
           </dl>
+
+          @if (i.id === 'nlpearl') {
+            <div class="test">
+              <button class="btn btn--ghost" (click)="testNlpearl()" [disabled]="testing()">
+                @if (testing()) { Probando… } @else { Probar conexión }
+              </button>
+              <span class="muted">Lee tus Pearls; no gasta llamadas ni créditos.</span>
+            </div>
+            @if (testResult(); as r) {
+              <div class="test__result" [class.ok]="r.ok" [class.fail]="!r.ok">
+                @if (r.ok) {
+                  ✓ NL Pearl respondió en {{ r.ms }} ms
+                  @if (r.pearls?.length) {
+                    <ul class="test__pearls">
+                      @for (p of r.pearls; track p.id) { <li>{{ p.name }} <code>{{ p.id }}</code></li> }
+                    </ul>
+                  } @else {
+                    <div class="muted">La cuenta no tiene Pearls todavía.</div>
+                  }
+                } @else {
+                  ✗ {{ r.error }}
+                }
+              </div>
+            }
+          }
         </article>
       }
     </div>
+
+    <!-- Actividad de webhooks: ¿nos están pegando los proveedores? -->
+    <section class="card activity">
+      <div class="activity__head">
+        <h2>Actividad reciente</h2>
+        <button class="btn btn--ghost" (click)="activity.reload()">↻</button>
+      </div>
+      <p class="muted">
+        Lo que entra por los webhooks (NL Pearl, PreCallAPI, Gupshup) y las pruebas salientes.
+        Si acá no aparece nada tras una llamada o un WhatsApp, el proveedor no está llegando.
+      </p>
+      @if (!(activity.value() ?? []).length) {
+        <div class="state">Sin actividad registrada todavía.</div>
+      } @else {
+        <ul class="events">
+          @for (e of activity.value() ?? []; track e.at + e.summary) {
+            <li class="event" [class.event--fail]="!e.ok">
+              <span class="event__dot"></span>
+              <span class="event__time">{{ time(e.at) }}</span>
+              <span class="event__source">{{ e.source }}</span>
+              <span class="event__summary">{{ e.summary }}</span>
+            </li>
+          }
+        </ul>
+      }
+    </section>
 
     <section class="card help">
       <h2>Conectar WhatsApp con Gupshup</h2>

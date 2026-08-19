@@ -2,6 +2,7 @@ import { BadRequestException, Body, Controller, Inject, Logger, Post, UseGuards 
 import { z } from 'zod';
 import { VOICE_ENGINE_PORT, VoiceEnginePort } from '../ports/voice-engine.port';
 import { FlowLogService } from '../shared/flow-log.service';
+import { WebhookLogService } from '../shared/webhook-log.service';
 import { CallIngestService } from './call-ingest.service';
 import { WebhookSignatureGuard } from './webhook-signature.guard';
 
@@ -25,6 +26,7 @@ export class NlpearlWebhookController {
     @Inject(VOICE_ENGINE_PORT) private readonly voice: VoiceEnginePort,
     private readonly ingest: CallIngestService,
     private readonly flowLog: FlowLogService,
+    private readonly webhookLog: WebhookLogService,
   ) {}
 
   @Post('nlpearl')
@@ -36,12 +38,19 @@ export class NlpearlWebhookController {
 
     this.logger.log(`Webhook: llamada ${callId} finalizada; recuperando contexto…`);
     this.flowLog.push('webhook', `Webhook recibido: llamada ${callId} finalizada`);
+    this.webhookLog.push('nlpearl', `Llamada ${callId} finalizada`, true, parsed.data);
 
-    // Con el webhook solo llega el aviso; el contexto completo se pide al motor
-    // (equivale a getCall / getCallsBulk con fields en el modo real).
-    const callContext = await this.voice.getCallContext(callId);
-    const { contactId } = await this.ingest.ingest(callContext);
-
-    return { received: true, contactId };
+    try {
+      // Con el webhook solo llega el aviso; el contexto completo se pide al
+      // motor (equivale a getCall / getCallsBulk con fields en el modo real).
+      const callContext = await this.voice.getCallContext(callId);
+      const { contactId } = await this.ingest.ingest(callContext);
+      this.webhookLog.push('nlpearl', `Contexto de ${callId} guardado en el Brain`, true, { contactId });
+      return { received: true, contactId };
+    } catch (err) {
+      // Queda registrado para diagnosticar desde la consola.
+      this.webhookLog.push('nlpearl', `Error con la llamada ${callId}: ${(err as Error).message}`, false);
+      throw err;
+    }
   }
 }

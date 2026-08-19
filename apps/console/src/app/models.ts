@@ -61,6 +61,22 @@ export interface DemoStatus {
   steps: FlowStep[];
 }
 
+/** Actividad reciente de webhooks (entrantes y pruebas salientes). */
+export interface WebhookEvent {
+  at: string;
+  source: 'nlpearl' | 'gupshup' | 'whatsapp-cloud' | 'precall' | 'saliente';
+  summary: string;
+  ok: boolean;
+  detail?: unknown;
+}
+
+export interface NlpearlTestResult {
+  ok: boolean;
+  ms: number;
+  pearls?: Array<{ id: string; name: string }>;
+  error?: string;
+}
+
 export interface IntegrationStatus {
   id: 'nlpearl' | 'whatsapp' | 'sms';
   name: string;

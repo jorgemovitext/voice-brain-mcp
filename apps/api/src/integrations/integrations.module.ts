@@ -4,6 +4,7 @@ import { ConfigService } from '@nestjs/config';
 import { BrainModule } from '../brain/brain.module';
 import { SmsAdapter } from '../channels/sms.adapter';
 import { WhatsappAdapter } from '../channels/whatsapp.adapter';
+import { NlpearlClient } from '../nlpearl/nlpearl.client';
 import { SMS_CHANNEL, WHATSAPP_CHANNEL } from '../ports/channel.port';
 import { IntegrationsController } from './integrations.controller';
 import { IntegrationsService } from './integrations.service';
@@ -21,6 +22,9 @@ import { WhatsappSignatureGuard } from './whatsapp/whatsapp-signature.guard';
   controllers: [IntegrationsController],
   providers: [
     IntegrationsService,
+    // Solo para la prueba de conexión de esta vista; el motor de voz lo
+    // provee NlpearlModule.
+    NlpearlClient,
     WhatsappSignatureGuard,
     GupshupAdapter,
     WhatsappCloudAdapter,

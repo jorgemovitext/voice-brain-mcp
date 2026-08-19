@@ -4,7 +4,7 @@ import { httpResource } from '@angular/common/http';
 import { Router, RouterLink } from '@angular/router';
 import { BrainApiService } from '../../brain-api.service';
 import { Icon, IconName } from '../../icon';
-import { IntegrationStatus } from '../../models';
+import { IntegrationStatus, NlpearlTestResult, WebhookEvent } from '../../models';
 
 /**
  * Integraciones: estado de cada proveedor y los datos para configurarlo.
@@ -22,6 +22,11 @@ export class IntegrationsPage {
   private readonly router = inject(Router);
 
   readonly integrations = httpResource<IntegrationStatus[]>(() => '/api/integrations');
+  readonly activity = httpResource<WebhookEvent[]>(() => '/api/integrations/activity');
+
+  /** Resultado de la prueba de conexión con NL Pearl. */
+  readonly testing = signal(false);
+  readonly testResult = signal<NlpearlTestResult | null>(null);
 
   readonly phone = signal('');
   readonly name = signal('');
@@ -31,6 +36,24 @@ export class IntegrationsPage {
 
   icon(id: IntegrationStatus['id']): IconName {
     return id === 'nlpearl' ? 'phone' : id === 'whatsapp' ? 'chat' : 'mail';
+  }
+
+  /** Pide el listado de Pearls: verifica credenciales sin gastar llamadas. */
+  async testNlpearl(): Promise<void> {
+    this.testing.set(true);
+    this.testResult.set(null);
+    try {
+      this.testResult.set(await this.api.testNlpearl());
+    } catch {
+      this.testResult.set({ ok: false, ms: 0, error: 'No se pudo contactar a la API del gateway' });
+    } finally {
+      this.testing.set(false);
+      this.activity.reload();
+    }
+  }
+
+  time(iso: string): string {
+    return new Date(iso).toLocaleTimeString('es-NI', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
   }
 
   onPhone(event: Event): void {
