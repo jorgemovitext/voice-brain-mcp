@@ -5,6 +5,7 @@ import { GupshupWebhookController } from '../integrations/whatsapp/gupshup.webho
 import { WhatsappWebhookController } from '../integrations/whatsapp/whatsapp.webhook.controller';
 import { FollowupService } from './followup.service';
 import { ChannelInboundController } from './inbound.controller';
+import { WhatsappInboundService } from './whatsapp-inbound.service';
 
 /**
  * Canales propios (WhatsApp/SMS): seguimiento saliente y entrada de mensajes.
@@ -13,7 +14,7 @@ import { ChannelInboundController } from './inbound.controller';
 @Module({
   imports: [BrainModule, IntegrationsModule],
   controllers: [ChannelInboundController, WhatsappWebhookController, GupshupWebhookController],
-  providers: [FollowupService],
+  providers: [FollowupService, WhatsappInboundService],
   // Se re-exporta el módulo (no los tokens): los canales los provee él.
   exports: [FollowupService, IntegrationsModule],
 })
