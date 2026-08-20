@@ -1,6 +1,7 @@
 import { Inject, Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { BrainService } from '../brain/brain.service';
+import { Interaction } from '../brain/types';
 import { ChannelPort, SMS_CHANNEL, WHATSAPP_CHANNEL } from '../ports/channel.port';
 import { FlowLogService } from '../shared/flow-log.service';
 
@@ -14,6 +15,8 @@ import { FlowLogService } from '../shared/flow-log.service';
 export class FollowupService {
   private readonly logger = new Logger(FollowupService.name);
   private readonly defaultChannel: 'whatsapp' | 'sms';
+  private readonly autoReplyMode: 'first' | 'always' | 'off';
+  private readonly autoReplyCooldownH: number;
 
   constructor(
     private readonly brain: BrainService,
@@ -23,6 +26,8 @@ export class FollowupService {
     @Inject(SMS_CHANNEL) private readonly sms: ChannelPort,
   ) {
     this.defaultChannel = config.get<'whatsapp' | 'sms'>('FOLLOWUP_CHANNEL', 'whatsapp');
+    this.autoReplyMode = config.get<'first' | 'always' | 'off'>('AUTO_REPLY_MODE', 'first');
+    this.autoReplyCooldownH = config.get<number>('AUTO_REPLY_COOLDOWN_HOURS', 12);
   }
 
   async sendFollowup(contactId: string, channel?: 'whatsapp' | 'sms'): Promise<{ message: string; channel: string }> {
@@ -97,6 +102,11 @@ export class FollowupService {
       source: 'own',
     });
 
+    if (!this.debeAutoResponder(ctx.recentInteractions)) {
+      this.flowLog.push('inboundMsg', 'Mensaje registrado sin auto-respuesta (ya hay conversación abierta)');
+      return { contactId, reply: '' };
+    }
+
     // Respuesta automática construida desde el contexto del hilo.
     const reply = await this.brain.suggestFollowup(contactId, channel);
     const port = channel === 'sms' ? this.sms : this.whatsapp;
@@ -113,6 +123,28 @@ export class FollowupService {
     this.flowLog.push('autoReply', 'Respuesta automática enviada usando el contexto del hilo', { reply });
 
     return { contactId, reply };
+  }
+
+  /**
+   * Evita el saludo automático en cada mensaje: repetir siempre el mismo texto
+   * es molesto y hace ruido en el hilo.
+   *
+   * `first` (default): solo si no hubo una respuesta automática reciente, o sea
+   * al abrir la conversación y tras un silencio largo. `always` mantiene el
+   * comportamiento anterior; `off` no responde nunca (el operador contesta).
+   */
+  private debeAutoResponder(previas: Interaction[]): boolean {
+    if (this.autoReplyMode === 'off') return false;
+    if (this.autoReplyMode === 'always') return true;
+
+    const limite = Date.now() - this.autoReplyCooldownH * 3600 * 1000;
+    const respuestaReciente = previas.some(
+      (i) =>
+        i.direction === 'outbound' &&
+        (i.collectedInfo as { auto?: boolean } | undefined)?.auto === true &&
+        new Date(i.occurredAt).getTime() >= limite,
+    );
+    return !respuestaReciente;
   }
 
   /**

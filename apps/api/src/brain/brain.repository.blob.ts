@@ -40,8 +40,12 @@ export class BlobBrainRepository implements BrainRepository {
   /** Copia en memoria + momento de la última lectura remota. */
   private snapshot: BrainSnapshot = { ...EMPTY };
   private loadedAt = 0;
-  /** Ventana en la que se reutiliza la copia local sin volver a leer. */
-  private static readonly FRESH_MS = 1500;
+  /**
+   * Ventana en la que se reutiliza la copia local sin volver a leer.
+   * Corta a propósito: la consola sondea cada ~1 s y un mensaje entrante tiene
+   * que verse enseguida; un valor alto sumaba retraso encima del sondeo.
+   */
+  private static readonly FRESH_MS = 300;
 
   constructor(config: ConfigService) {
     this.token = config.get<string>('BLOB_READ_WRITE_TOKEN', '');

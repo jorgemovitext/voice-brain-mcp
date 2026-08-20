@@ -1,4 +1,15 @@
-import { Component, ElementRef, OnDestroy, computed, effect, inject, input, signal, viewChild } from '@angular/core';
+import {
+  Component,
+  DestroyRef,
+  ElementRef,
+  OnDestroy,
+  computed,
+  effect,
+  inject,
+  input,
+  signal,
+  viewChild,
+} from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { httpResource } from '@angular/common/http';
 import { ActivatedRoute, RouterLink } from '@angular/router';
@@ -51,6 +62,9 @@ export class ContactDetailPage implements OnDestroy {
 
   private readonly api = inject(BrainApiService);
   private readonly route = inject(ActivatedRoute);
+  private readonly destroyRef = inject(DestroyRef);
+  /** El primer render siempre baja al final aunque el hilo sea largo. */
+  private primerRender = true;
 
   /**
    * true solo en /conversations/:id → muestra el sidebar de hilos.
@@ -92,12 +106,20 @@ export class ContactDetailPage implements OnDestroy {
   readonly kycmLabel = kycmLabel;
 
   constructor() {
-    // Auto-scroll al último mensaje cada vez que cambia el hilo.
+    // Auto-scroll al último mensaje, pero solo si ya estabas al final: si
+    // estás leyendo mensajes viejos, el refresco automático no te mueve.
     effect(() => {
       this.chat();
       const el = this.scrollEl()?.nativeElement;
-      if (el) setTimeout(() => (el.scrollTop = el.scrollHeight), 0);
+      if (!el) return;
+      const pegadoAlFondo = el.scrollHeight - el.scrollTop - el.clientHeight < 120;
+      if (pegadoAlFondo || this.primerRender) {
+        this.primerRender = false;
+        setTimeout(() => (el.scrollTop = el.scrollHeight), 0);
+      }
     });
+
+    this.iniciarRefrescoAutomatico();
     // Al alternar de conversación se resetea el estado de llamada/composer.
     effect(() => {
       this.id();
@@ -168,6 +190,32 @@ export class ContactDetailPage implements OnDestroy {
       channel: i.channel,
     })),
   );
+
+  /**
+   * Refresco periódico: los mensajes entrantes llegan por webhook, así que sin
+   * esto no aparecen hasta recargar a mano. Cada 1,2 s para que se sienta
+   * inmediato; se pausa con la pestaña oculta para no gastar invocaciones.
+   */
+  private iniciarRefrescoAutomatico(): void {
+    let vuelta = 0;
+    const tick = setInterval(() => {
+      if (document.visibilityState !== 'visible' || this.sending()) return;
+      this.context.reload();
+      // La lista de hilos cambia menos: se refresca cada 3 vueltas.
+      if (++vuelta % 3 === 0 && this.withThreads()) this.conversations.reload();
+    }, 1200);
+
+    // Al volver a la pestaña, refresco inmediato en vez de esperar el tick.
+    const alVolver = () => {
+      if (document.visibilityState === 'visible') this.context.reload();
+    };
+    document.addEventListener('visibilitychange', alVolver);
+
+    this.destroyRef.onDestroy(() => {
+      clearInterval(tick);
+      document.removeEventListener('visibilitychange', alVolver);
+    });
+  }
 
   activePromise(): BrainSignal | undefined {
     return this.context.value()?.signals.find((s) => s.type === 'promise' && s.status === 'active');

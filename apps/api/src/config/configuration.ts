@@ -21,6 +21,16 @@ export const configSchema = z.object({
 
   FOLLOWUP_CHANNEL: z.enum(['whatsapp', 'sms']).default('whatsapp'),
 
+  /**
+   * Auto-respuesta a mensajes entrantes:
+   *  first  — solo al abrir la conversación o tras un silencio largo (default)
+   *  always — en cada mensaje (repetitivo)
+   *  off    — nunca; contesta el operador desde la consola
+   */
+  AUTO_REPLY_MODE: z.enum(['first', 'always', 'off']).default('first'),
+  /** Horas sin auto-respuesta para volver a saludar en modo `first`. */
+  AUTO_REPLY_COOLDOWN_HOURS: z.coerce.number().nonnegative().default(12),
+
   /** Ruta del respaldo JSON. Vacío = default según entorno (ver abajo). */
   BRAIN_DATA_FILE: z.string().optional(),
 
