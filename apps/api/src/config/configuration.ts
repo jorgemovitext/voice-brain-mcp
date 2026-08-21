@@ -35,6 +35,21 @@ export const configSchema = z.object({
   BRAIN_DATA_FILE: z.string().optional(),
 
   /**
+   * Postgres (Neon vía integración de Vercel). Si está presente, el Brain y
+   * la actividad NL Pearl persisten acá (prioridad sobre Blob y archivo).
+   * Vercel la inyecta al conectar la DB: DATABASE_URL o POSTGRES_URL.
+   */
+  DATABASE_URL: z.string().default(''),
+
+  /**
+   * Pearls de TEXTO (SMS/chat) de la cuenta, separadas por coma. Sus
+   * conversaciones se registran como canal `sms` en el Brain. Además hay una
+   * heurística por nombre (contiene "text" o "sms").
+   * // TODO: confirmar con NL Pearl qué campo del Pearl distingue voz de texto
+   */
+  NLPEARL_TEXT_PEARL_IDS: z.string().default(''),
+
+  /**
    * Token del Blob store de Vercel. Si está presente, el Brain persiste ahí y
    * el estado se comparte entre instancias serverless (lo carga Vercel solo
    * al conectar el store al proyecto).
@@ -116,9 +131,26 @@ export function validateConfig(env: Record<string, unknown>): AppConfig {
     )?.[1] as string | undefined) ||
     '';
 
+  // Igual que con Blob: la integración de Neon puede nombrar la variable con
+  // prefijo (<PREFIJO>_DATABASE_URL / POSTGRES_URL). Se prefiere la variante
+  // "pooled" si existe, que es la indicada para serverless.
+  const databaseUrl =
+    cfg.DATABASE_URL ||
+    (env['POSTGRES_URL'] as string | undefined) ||
+    (Object.entries(env).find(
+      ([key, value]) =>
+        (key.endsWith('_DATABASE_URL') || key.endsWith('_POSTGRES_URL')) &&
+        !key.includes('UNPOOLED') &&
+        !key.includes('NON_POOLING') &&
+        typeof value === 'string' &&
+        (value as string).startsWith('postgres'),
+    )?.[1] as string | undefined) ||
+    '';
+
   return {
     ...cfg,
     BLOB_READ_WRITE_TOKEN: blobToken,
+    DATABASE_URL: databaseUrl,
     SERVERLESS: serverless,
     BRAIN_DATA_FILE: cfg.BRAIN_DATA_FILE ?? (serverless ? '/tmp/brain.json' : './data/brain.json'),
     PUBLIC_BASE_URL: publicBaseUrl,

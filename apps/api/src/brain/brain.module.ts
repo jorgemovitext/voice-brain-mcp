@@ -3,6 +3,7 @@ import { ConfigService } from '@nestjs/config';
 import { BRAIN_REPOSITORY } from './brain.repository';
 import { BlobBrainRepository } from './brain.repository.blob';
 import { JsonBrainRepository } from './brain.repository.json';
+import { PgBrainRepository } from './brain.repository.pg';
 import { BrainController } from './brain.controller';
 import { BrainService } from './brain.service';
 import { IdentityService } from './identity.service';
@@ -17,19 +18,31 @@ import { StorageDiagnosticsController } from './storage-diagnostics.controller';
   providers: [
     BrainService,
     IdentityService,
+    PgBrainRepository,
     BlobBrainRepository,
     JsonBrainRepository,
     {
-      // Con un Blob store conectado el estado es compartido entre instancias
-      // serverless; sin él, archivo local (suficiente para desarrollo).
+      // Prioridad: Postgres (relacional, concurrencia real) > Blob (snapshot
+      // compartido) > archivo JSON local (desarrollo).
       provide: BRAIN_REPOSITORY,
-      inject: [ConfigService, BlobBrainRepository, JsonBrainRepository],
-      useFactory: (config: ConfigService, blob: BlobBrainRepository, json: JsonBrainRepository) => {
-        const usaBlob = !!config.get<string>('BLOB_READ_WRITE_TOKEN');
-        new Logger('BrainModule').log(
-          usaBlob ? 'Persistencia: Vercel Blob (compartida)' : 'Persistencia: archivo JSON local',
-        );
-        return usaBlob ? blob : json;
+      inject: [ConfigService, PgBrainRepository, BlobBrainRepository, JsonBrainRepository],
+      useFactory: (
+        config: ConfigService,
+        pg: PgBrainRepository,
+        blob: BlobBrainRepository,
+        json: JsonBrainRepository,
+      ) => {
+        const logger = new Logger('BrainModule');
+        if (config.get<string>('DATABASE_URL')) {
+          logger.log('Persistencia: Postgres (Neon)');
+          return pg;
+        }
+        if (config.get<string>('BLOB_READ_WRITE_TOKEN')) {
+          logger.log('Persistencia: Vercel Blob (compartida)');
+          return blob;
+        }
+        logger.log('Persistencia: archivo JSON local');
+        return json;
       },
     },
   ],

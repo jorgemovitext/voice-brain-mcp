@@ -110,6 +110,18 @@ export class NlpearlClient {
     }
   }
 
+  /**
+   * Variante para operaciones a nivel cuenta (sync multi-pearl): no exige
+   * NLPEARL_PEARL_ID porque se recorren TODAS las pearls.
+   */
+  assertAccountConfigured(): void {
+    if (!this.accountId || !this.apiKey) {
+      throw new ServiceUnavailableException(
+        'Faltan NLPEARL_ACCOUNT_ID / NLPEARL_API_KEY para sincronizar con NL Pearl.',
+      );
+    }
+  }
+
   // =============== Disparo y leads (Outbound) ===============
 
   /** Dispara la llamada saliente en v2 (no existe "Make Call"; era de v1 legacy). */

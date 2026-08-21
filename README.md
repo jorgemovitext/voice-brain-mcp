@@ -184,6 +184,26 @@ Comparte persistencia (archivo JSON) con el gateway HTTP.
    marcados `// TODO: confirmar con NL Pearl` (igual que el shape exacto del
    webhook y del PreCallAPI en `webhook.controller.ts` / `precall.controller.ts`).
 
+## Espejo NL Pearl (todos los canales) + Postgres
+
+Desde el pivote de 2026-08, la plataforma consume **todos** los canales de
+NL Pearl (voz y texto: SMS "Línea 100 AMDC TEXT", WhatsApp, etc.) y almacena
+la atención a detalle en DB propia.
+
+- **Sync multi-pearl**: `POST /api/nlpearl/sync` recorre todas las pearls de
+  la cuenta, trae la actividad con `Calls/Bulk` (paginado, límite 100 del API)
+  y guarda el raw completo + la interacción normalizada en el Brain. La
+  consola lo dispara sola cada ~30 s (`?soft=true`, con rate-limit).
+  `GET /api/nlpearl/activity` y `GET /api/nlpearl/pearls` exponen lo espejado.
+- **Canal por pearl**: nombre con "Whatsapp" ⇒ `whatsapp`, "TEXT/SMS/Chat" ⇒
+  `sms`, resto ⇒ `voice`. Se puede forzar con `NLPEARL_TEXT_PEARL_IDS`
+  (ids separados por coma ⇒ sms).
+- **Postgres (Neon)**: en Vercel → **Storage → Create Database → Neon
+  (Postgres)** → conectar al proyecto. Vercel inyecta `DATABASE_URL` sola y el
+  Brain migra a Postgres en el próximo deploy (prioridad: Postgres > Blob >
+  archivo JSON). El esquema se crea solo al primer uso; tablas: `contacts`,
+  `interactions`, `signals`, `nlpearl_pearls`, `nlpearl_activity` (raw).
+
 ## Decisiones / notas
 
 - Puertos como injection tokens (`VoiceEnginePort`, `ChannelPort`,

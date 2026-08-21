@@ -82,6 +82,12 @@ export class BrainService {
   }
 
   async appendInteraction(input: Omit<Interaction, 'id'> & { id?: string }): Promise<Interaction> {
+    // Con id explícito (ej. `nlpearl:<callId>` del sync) el append es
+    // idempotente: re-sincronizar el mismo rango no duplica el hilo.
+    if (input.id) {
+      const existing = (await this.repo.listInteractions(input.contactId)).find((i) => i.id === input.id);
+      if (existing) return existing;
+    }
     const interaction: Interaction = {
       id: input.id ?? randomUUID(),
       ...input,
@@ -129,6 +135,9 @@ export class BrainService {
     }
 
     const interaction = await this.appendInteraction({
+      // Id determinista por llamada: webhook + sync pueden traer la misma
+      // llamada y debe quedar una sola interacción.
+      id: call.callId ? `nlpearl:${call.callId}` : undefined,
       contactId,
       channel: 'voice',
       direction: call.direction ?? 'outbound',

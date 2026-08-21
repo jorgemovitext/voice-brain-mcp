@@ -4,8 +4,11 @@ import { ConfigService } from '@nestjs/config';
 import { BrainModule } from '../brain/brain.module';
 import { ChannelsModule } from '../channels/channels.module';
 import { VOICE_ENGINE_PORT } from '../ports/voice-engine.port';
+import { NlpearlActivityStore } from './activity.store';
 import { CallIngestService } from './call-ingest.service';
 import { NlpearlDiagnosticsController } from './nlpearl-diagnostics.controller';
+import { PearlSyncController } from './pearl-sync.controller';
+import { PearlSyncService } from './pearl-sync.service';
 import { NlpearlClient } from './nlpearl.client';
 import { NlpearlVoiceEngine } from './nlpearl.engine';
 import { PrecallService } from './precall.service';
@@ -26,11 +29,14 @@ import { WorkersController } from './workers.controller';
     NlpearlWebhookController,
     WorkersController,
     NlpearlDiagnosticsController,
+    PearlSyncController,
   ],
   providers: [
     NlpearlClient,
     PrecallService,
     CallIngestService,
+    NlpearlActivityStore,
+    PearlSyncService,
     NlpearlMockEngine,
     NlpearlVoiceEngine,
     WebhookSignatureGuard,

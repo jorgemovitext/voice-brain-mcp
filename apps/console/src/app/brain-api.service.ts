@@ -57,4 +57,13 @@ export class BrainApiService {
       this.http.post<{ message: string; channel: string }>(`/api/contacts/${contactId}/messages`, { text, channel }),
     );
   }
+
+  /**
+   * Espejo NL Pearl: trae la actividad nueva de TODAS las pearls (voz y
+   * texto). `soft` respeta el rate-limit del backend (~30 s), pensado para
+   * colgarlo del refresco automático de las vistas.
+   */
+  syncNlpearl(soft = true): Promise<unknown> {
+    return firstValueFrom(this.http.post(`/api/nlpearl/sync?soft=${soft}`, {}));
+  }
 }

@@ -198,11 +198,15 @@ export class ContactDetailPage implements OnDestroy {
    */
   private iniciarRefrescoAutomatico(): void {
     let vuelta = 0;
+    // Espejo NL Pearl: al abrir el hilo y luego cada ~30 s (el backend además
+    // tiene su propio rate-limit, así que abrir varias pestañas no duplica).
+    void this.api.syncNlpearl().catch(() => undefined);
     const tick = setInterval(() => {
       if (document.visibilityState !== 'visible' || this.sending()) return;
       this.context.reload();
       // La lista de hilos cambia menos: se refresca cada 3 vueltas.
       if (++vuelta % 3 === 0 && this.withThreads()) this.conversations.reload();
+      if (vuelta % 25 === 0) void this.api.syncNlpearl().catch(() => undefined);
     }, 1200);
 
     // Al volver a la pestaña, refresco inmediato en vez de esperar el tick.

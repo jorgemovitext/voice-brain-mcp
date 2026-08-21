@@ -6,6 +6,7 @@ import { ChannelsModule } from './channels/channels.module';
 import { DemoModule } from './demo/demo.module';
 import { IntegrationsModule } from './integrations/integrations.module';
 import { NlpearlModule } from './nlpearl/nlpearl.module';
+import { DatabaseModule } from './shared/database.module';
 import { SharedModule } from './shared/flow-log.service';
 
 /**
@@ -20,6 +21,7 @@ import { SharedModule } from './shared/flow-log.service';
       envFilePath: ['../../.env', '.env'],
       validate: validateConfig,
     }),
+    DatabaseModule,
     SharedModule,
     BrainModule,
     IntegrationsModule,
