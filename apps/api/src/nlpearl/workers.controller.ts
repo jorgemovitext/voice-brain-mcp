@@ -1,6 +1,8 @@
 import { Controller, Get, Param } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { NlpearlActivityStore } from './activity.store';
 import { NlpearlClient } from './nlpearl.client';
+import { canalDePearl } from './nlpearl.mapper';
 
 /**
  * "Obreros": los Pearls (agentes de voz) de la cuenta NL Pearl, vistos como
@@ -16,6 +18,17 @@ interface Worker {
   status?: string;
   type?: string;
   raw: Record<string, unknown>;
+  /** Canal por el que conversa: voice | whatsapp | sms (según agentType). */
+  channel?: string;
+  /** Número/canal de texto asignado, ya resuelto a algo legible. */
+  channelLabel?: string;
+  /** ¿Puede recibir una prueba ahora mismo? */
+  ready?: boolean;
+  /** Por qué no está lista, cuando no lo está. */
+  blocker?: string;
+  /** Conversaciones ya espejadas en nuestra DB y la última vista. */
+  synced?: number;
+  lastActivityAt?: string;
 }
 
 /**
@@ -99,11 +112,22 @@ const MOCK_FLOW = {
 export class WorkersController {
   private readonly mock: boolean;
 
-  constructor(private readonly client: NlpearlClient, config: ConfigService) {
+  constructor(
+    private readonly client: NlpearlClient,
+    private readonly store: NlpearlActivityStore,
+    config: ConfigService,
+  ) {
     this.mock = config.get<boolean>('MOCK', true);
   }
 
-  /** El Pearl activo (NLPEARL_PEARL_ID) viaja para resaltarlo en la vista. */
+  /**
+   * El Pearl activo (NLPEARL_PEARL_ID) viaja para resaltarlo en la vista.
+   *
+   * Cada obrero se enriquece con lo que hace falta para saber si una prueba
+   * puede llegarle: canal, número asignado, si está activa y cuántas
+   * conversaciones ya espejamos. Así la vista responde "¿funcionó la prueba
+   * en esta Pearl?" sin salir de la app.
+   */
   @Get()
   async list(): Promise<{ workers: Worker[]; inUseId: string }> {
     if (this.mock) return { workers: MOCK_WORKERS, inUseId: 'pearl_mock_recepcion' };
@@ -111,10 +135,57 @@ export class WorkersController {
     this.client.assertConfigured();
     const res = (await this.client.getPearls()) as unknown;
     const items = Array.isArray(res) ? res : ((res as { data?: unknown[] })?.data ?? []);
-    return {
-      workers: (items as Array<Record<string, unknown>>).map(normalizeWorker),
-      inUseId: this.client.pearlId,
-    };
+    const workers = (items as Array<Record<string, unknown>>).map(normalizeWorker);
+
+    const [espejadas, counts, canales] = await Promise.all([
+      this.store.listPearls(),
+      this.store.countsByPearl(),
+      this.client.getTextChannels().catch(() => []),
+    ]);
+    const canalPorId = new Map(canales.map((c) => [c.channelId, c.displayName]));
+    const espejoPorId = new Map(espejadas.map((p) => [p.id, p]));
+
+    // Settings trae agentType y el canal de texto asignado de una sola vez.
+    // Se piden en paralelo y solo para lo que no esté ya en el espejo, así la
+    // vista es correcta aunque el sync todavía no haya corrido.
+    const settingsPorId = new Map(
+      await Promise.all(
+        workers.map(async (w) => {
+          const espejo = espejoPorId.get(w.id);
+          if (espejo?.agentType !== undefined && espejo.agentType !== 1) {
+            // De texto igual hace falta el textChannelId, que no cacheamos.
+          } else if (espejo?.agentType === 1) {
+            return [w.id, { agentType: 1 as number | undefined, textChannelId: undefined }] as const;
+          }
+          const s = (await this.client.getPearlSettings(w.id).catch(() => null)) as {
+            agentType?: number;
+            inbound?: { textChannelId?: string };
+          } | null;
+          return [w.id, { agentType: s?.agentType, textChannelId: s?.inbound?.textChannelId }] as const;
+        }),
+      ),
+    );
+
+    for (const w of workers) {
+      const settings = settingsPorId.get(w.id);
+      const agentType = settings?.agentType ?? espejoPorId.get(w.id)?.agentType;
+
+      w.channel = canalDePearl(w.name, agentType);
+      const actividad = counts.get(w.id);
+      w.synced = actividad?.total ?? 0;
+      w.lastActivityAt = actividad?.last;
+
+      const channelId = settings?.textChannelId;
+      w.channelLabel = channelId ? (canalPorId.get(channelId) ?? channelId) : undefined;
+
+      const activa = w.status === 'active';
+      const necesitaCanal = w.channel !== 'voice';
+      w.ready = activa && (!necesitaCanal || !!w.channelLabel);
+      if (!activa) w.blocker = 'Pausada en NL Pearl: no recibe nada hasta activarla.';
+      else if (necesitaCanal && !w.channelLabel) w.blocker = 'Activa pero sin canal de texto asignado.';
+    }
+
+    return { workers, inUseId: this.client.pearlId };
   }
 
   @Get(':id')

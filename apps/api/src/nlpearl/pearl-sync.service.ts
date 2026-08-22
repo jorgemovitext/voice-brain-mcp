@@ -5,7 +5,7 @@ import { Channel } from '../brain/types';
 import { FlowLogService } from '../shared/flow-log.service';
 import { NlpearlActivityStore, StoredPearl } from './activity.store';
 import { NlpearlCallApiView, NlpearlClient } from './nlpearl.client';
-import { toCallContext, toChatMessages } from './nlpearl.mapper';
+import { canalDePearl, toCallContext, toChatMessages } from './nlpearl.mapper';
 
 export interface SyncReport {
   pearls: number;
@@ -64,19 +64,12 @@ export class PearlSyncService {
   }
 
   /**
-   * Canal del Brain para los hilos de una pearl. Lo decide `agentType`
-   * (1 = voz, 2 = texto), que es el dato real de NL Pearl; el nombre solo
-   * desempata entre WhatsApp y SMS, y sirve de respaldo en pearls sin
-   * settings legibles (borradores).
+   * Canal del Brain para los hilos de una pearl. `NLPEARL_TEXT_PEARL_IDS`
+   * fuerza texto para casos que la detección automática no cubra.
    */
   private canalDe(pearl: PearlApiView, agentType?: number): Channel {
-    const name = pearl.name ?? '';
-    const forzadaTexto = this.textPearlIds.has(pearl.id);
-    const esTexto =
-      forzadaTexto || agentType === 2 || (agentType === undefined && /\b(text|sms|chat)\b|whats/i.test(name));
-
-    if (!esTexto) return 'voice';
-    return /whats\s?app|\bwa\b/i.test(name) ? 'whatsapp' : 'sms';
+    if (this.textPearlIds.has(pearl.id)) return canalDePearl(pearl.name, 2);
+    return canalDePearl(pearl.name, agentType);
   }
 
   /** La API puede devolver el array pelado o envuelto ({results}/{data}). */

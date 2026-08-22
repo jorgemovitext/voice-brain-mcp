@@ -68,6 +68,17 @@ export interface Worker {
   status?: string;
   type?: string;
   raw: Record<string, string | number | boolean>;
+  /** Canal por el que conversa: voice | whatsapp | sms. */
+  channel?: string;
+  /** Número/canal de texto asignado en NL Pearl. */
+  channelLabel?: string;
+  /** ¿Puede recibir una prueba ahora mismo? */
+  ready?: boolean;
+  /** Motivo por el que no puede recibir, cuando aplica. */
+  blocker?: string;
+  /** Conversaciones ya espejadas en nuestra DB. */
+  synced?: number;
+  lastActivityAt?: string;
 }
 
 export interface WorkersResponse {

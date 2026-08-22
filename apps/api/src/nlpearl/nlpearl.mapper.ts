@@ -1,5 +1,19 @@
-import { Interaction, NlpearlCallContext } from '../brain/types';
+import { Channel, Interaction, NlpearlCallContext } from '../brain/types';
 import { NlpearlCallApiView } from './nlpearl.client';
+
+/**
+ * Canal por el que conversa un Pearl.
+ *
+ * Lo decide `agentType` (1 = voz, 2 = texto), que es el dato real de NL Pearl;
+ * el nombre solo desempata entre WhatsApp y SMS, y sirve de respaldo en
+ * pearls sin settings legibles (borradores).
+ */
+export function canalDePearl(name: string | undefined, agentType: number | undefined): Channel {
+  const nombre = name ?? '';
+  const esTexto = agentType === 2 || (agentType === undefined && (/\b(text|sms|chat)\b/i.test(nombre) || /whats/i.test(nombre)));
+  if (!esTexto) return 'voice';
+  return /whats\s?app|\bwa\b/i.test(nombre) ? 'whatsapp' : 'sms';
+}
 
 /**
  * Normaliza el payload de llamada de NL Pearl (CallApiView de getCall /

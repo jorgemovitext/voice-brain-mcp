@@ -26,9 +26,23 @@
             <span class="worker__name">{{ w.name }}</span>
             <span class="worker__chips">
               <span [class]="'pill ' + statusClass(w)">{{ statusLabel(w) }}</span>
-              @if (w.type) { <span class="pill pill--neutral">{{ w.type }}</span> }
+              @if (w.channel) { <span class="pill pill--neutral">{{ channelName(w) }}</span> }
               @if (w.id === d.inUseId) { <span class="pill pill--primary">En uso por el gateway</span> }
             </span>
+            <!-- Estado de prueba: si puede recibir un mensaje y qué llegó ya -->
+            <span class="worker__test" [class.worker__test--ok]="w.ready">
+              @if (w.ready) {
+                <ui-icon name="check" />
+                Lista para recibir{{ w.channelLabel ? ' en ' + w.channelLabel : '' }}
+              } @else if (w.blocker) {
+                {{ w.blocker }}
+              }
+            </span>
+            @if (w.synced) {
+              <span class="worker__synced">
+                {{ w.synced }} conversación(es) espejada(s) · última {{ shortDate(w.lastActivityAt) }}
+              </span>
+            }
           </span>
           <ui-icon name="chevron" class="worker__chevron" />
         </button>

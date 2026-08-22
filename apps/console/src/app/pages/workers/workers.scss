@@ -70,6 +70,33 @@
   flex-wrap: wrap;
 }
 
+/* Estado de prueba: si la Pearl puede recibir un mensaje ahora mismo. */
+.worker__test {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  margin-top: 0.4rem;
+  font-size: 0.76rem;
+  line-height: 1.35;
+  color: var(--ink-soft);
+  text-align: left;
+
+  ui-icon { flex-shrink: 0; }
+}
+
+.worker__test--ok {
+  color: var(--positive);
+  font-weight: 600;
+}
+
+.worker__synced {
+  display: block;
+  margin-top: 0.2rem;
+  font-size: 0.72rem;
+  color: var(--secondary);
+  text-align: left;
+}
+
 .worker__chevron {
   color: var(--ink-soft);
   flex-shrink: 0;

@@ -121,6 +121,27 @@ export class NlpearlActivityStore {
     return { inserted: res.rows[0]?.inserted === true };
   }
 
+  /**
+   * Cuántas conversaciones se espejaron por Pearl y cuándo fue la última.
+   * Es lo que permite ver de un vistazo si una prueba llegó o no.
+   */
+  async countsByPearl(): Promise<Map<string, { total: number; last?: string }>> {
+    const db = await this.db();
+    const out = new Map<string, { total: number; last?: string }>();
+    if (!db) return out;
+    const res = await db.query(
+      `SELECT pearl_id, count(*)::int AS total, max(occurred_at) AS last
+       FROM nlpearl_activity WHERE pearl_id IS NOT NULL GROUP BY pearl_id`,
+    );
+    for (const r of res.rows) {
+      out.set(r.pearl_id, {
+        total: r.total,
+        last: r.last ? new Date(r.last).toISOString() : undefined,
+      });
+    }
+    return out;
+  }
+
   async listActivity(opts: { pearlId?: string; phone?: string; limit?: number } = {}): Promise<StoredActivity[]> {
     const db = await this.db();
     if (!db) return [];

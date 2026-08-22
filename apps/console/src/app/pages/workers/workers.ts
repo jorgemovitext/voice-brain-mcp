@@ -102,6 +102,30 @@ export class WorkersPage {
     return w.status ?? 'Estado desconocido';
   }
 
+  /** Canal legible: NL Pearl lo expone como agentType, acá se muestra en claro. */
+  channelName(w: Worker): string {
+    switch (w.channel) {
+      case 'whatsapp':
+        return 'WhatsApp';
+      case 'sms':
+        return 'SMS / texto';
+      case 'voice':
+        return 'Voz';
+      default:
+        return w.type ?? '';
+    }
+  }
+
+  shortDate(iso?: string): string {
+    if (!iso) return '—';
+    return new Date(iso).toLocaleString('es-NI', {
+      day: '2-digit',
+      month: 'short',
+      hour: '2-digit',
+      minute: '2-digit',
+    });
+  }
+
   flowJson(flow: WorkerFlow['flow']): string {
     return JSON.stringify(flow, null, 2);
   }
