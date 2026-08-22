@@ -51,6 +51,22 @@ export function ensureSchema(pool: Pool): Promise<void> {
         );
         CREATE INDEX IF NOT EXISTS idx_signals_contact ON signals (contact_id);
 
+        -- Usuarios de la consola (auth: register/login/OTP).
+        CREATE TABLE IF NOT EXISTS users (
+          id text PRIMARY KEY,
+          phone text UNIQUE NOT NULL,
+          name text,
+          password_hash text NOT NULL,
+          verified boolean NOT NULL DEFAULT false,
+          failed_logins integer NOT NULL DEFAULT 0,
+          locked_until timestamptz,
+          otp_hash text,
+          otp_expires_at timestamptz,
+          otp_attempts integer NOT NULL DEFAULT 0,
+          otp_last_sent_at timestamptz,
+          created_at timestamptz NOT NULL DEFAULT now()
+        );
+
         -- Espejo NL Pearl: catálogo de pearls y actividad raw a detalle.
         CREATE TABLE IF NOT EXISTS nlpearl_pearls (
           id text PRIMARY KEY,

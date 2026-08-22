@@ -41,6 +41,20 @@ export const configSchema = z.object({
    */
   DATABASE_URL: z.string().default(''),
 
+  // --- Autenticación de la consola ---
+  /**
+   * Secreto HS256 para firmar la cookie de sesión (JWT). OBLIGATORIO en
+   * producción: sin él se genera uno efímero por proceso (las sesiones se
+   * caen en cada cold start) y se loguea una advertencia.
+   */
+  AUTH_JWT_SECRET: z.string().default(''),
+  /** Duración de la sesión en horas. */
+  AUTH_SESSION_HOURS: z.coerce.number().positive().default(12),
+  /** Vigencia del código OTP en minutos. */
+  AUTH_OTP_TTL_MIN: z.coerce.number().positive().default(5),
+  /** Respaldo local de usuarios cuando no hay Postgres (solo desarrollo). */
+  AUTH_USERS_FILE: z.string().optional(),
+
   /**
    * Pearls de TEXTO (SMS/chat) de la cuenta, separadas por coma. Sus
    * conversaciones se registran como canal `sms` en el Brain. Además hay una
@@ -101,6 +115,7 @@ export type AppConfig = z.infer<typeof configSchema> & {
   /** true en Vercel/Lambda: sin filesystem escribible ni timers de fondo. */
   SERVERLESS: boolean;
   BRAIN_DATA_FILE: string;
+  AUTH_USERS_FILE: string;
   PUBLIC_BASE_URL: string;
   MOCK_CALL_DELAY_MS: number;
   SEED_ON_BOOT: boolean;
@@ -153,6 +168,7 @@ export function validateConfig(env: Record<string, unknown>): AppConfig {
     DATABASE_URL: databaseUrl,
     SERVERLESS: serverless,
     BRAIN_DATA_FILE: cfg.BRAIN_DATA_FILE ?? (serverless ? '/tmp/brain.json' : './data/brain.json'),
+    AUTH_USERS_FILE: cfg.AUTH_USERS_FILE ?? (serverless ? '/tmp/users.json' : './data/users.json'),
     PUBLIC_BASE_URL: publicBaseUrl,
     MOCK_CALL_DELAY_MS: cfg.MOCK_CALL_DELAY_MS ?? (serverless ? 800 : 6000),
     // Los contactos de demo solo tienen sentido en modo simulado.

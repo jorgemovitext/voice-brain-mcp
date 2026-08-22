@@ -1,3 +1,4 @@
+import { Public } from '../../auth/public.decorator';
 import { Controller, Get, HttpCode, Logger, Post, Query, Req, Res, UseGuards } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { WhatsappInboundService } from '../../channels/whatsapp-inbound.service';
@@ -12,6 +13,8 @@ import { WhatsappSignatureGuard } from './whatsapp-signature.guard';
  *  POST /webhooks/whatsapp — mensajes entrantes. Siempre responde 200: Meta
  *       reintenta durante 36 h ante cualquier error.
  */
+// Público: entrada de proveedor externo (verificación propia, no sesión de consola).
+@Public()
 @Controller('webhooks/whatsapp')
 export class WhatsappWebhookController {
   private readonly logger = new Logger('WhatsAppWebhook');

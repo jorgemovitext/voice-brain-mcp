@@ -1,5 +1,8 @@
-import { Component } from '@angular/core';
-import { RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
+import { Component, computed, inject } from '@angular/core';
+import { toSignal } from '@angular/core/rxjs-interop';
+import { NavigationEnd, Router, RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
+import { filter, map } from 'rxjs';
+import { AuthService } from './auth/auth.service';
 
 /** Layout raíz: header con marca + navegación por pills. */
 @Component({
@@ -8,4 +11,34 @@ import { RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
   templateUrl: './app.html',
   styleUrl: './app.scss',
 })
-export class App {}
+export class App {
+  private readonly router = inject(Router);
+  readonly auth = inject(AuthService);
+
+  private readonly url = toSignal(
+    this.router.events.pipe(
+      filter((e) => e instanceof NavigationEnd),
+      map(() => this.router.url),
+    ),
+    { initialValue: this.router.url },
+  );
+
+  /** En la pantalla de acceso el rail no se muestra. */
+  readonly enLogin = computed(() => this.url().startsWith('/login'));
+
+  /** Iniciales del operador con sesión (fallback genérico). */
+  readonly iniciales = computed(() => {
+    const name = this.auth.user()?.name?.trim();
+    if (!name) return '·';
+    return name
+      .split(/\s+/)
+      .slice(0, 2)
+      .map((p) => p[0]?.toUpperCase())
+      .join('');
+  });
+
+  async cerrarSesion(): Promise<void> {
+    await this.auth.logout();
+    await this.router.navigate(['/login']);
+  }
+}

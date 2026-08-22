@@ -1,3 +1,4 @@
+import { Public } from '../auth/public.decorator';
 import { BadRequestException, Body, Controller, Inject, Logger, Post, UseGuards } from '@nestjs/common';
 import { z } from 'zod';
 import { VOICE_ENGINE_PORT, VoiceEnginePort } from '../ports/voice-engine.port';
@@ -18,6 +19,8 @@ const webhookSchema = z.object({
   pearlId: z.string().optional(),
 });
 
+// Público: entrada de proveedor externo (verificación propia, no sesión de consola).
+@Public()
 @Controller('webhooks')
 export class NlpearlWebhookController {
   private readonly logger = new Logger(NlpearlWebhookController.name);

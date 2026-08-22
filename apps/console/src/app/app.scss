@@ -67,6 +67,19 @@
 
 .rail__bottom {
   margin-top: auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+}
+
+.rail__logout {
+  width: 34px;
+  height: 34px;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+  font: inherit;
 }
 
 .rail__avatar {
@@ -90,4 +103,10 @@
   z-index: 1;
   margin: 10px 10px 10px -10px;
   border-radius: 26px;
+}
+
+/* Sin rail (pantalla de acceso): el escenario ocupa todo. */
+.stage--full {
+  margin: 0;
+  border-radius: 0;
 }

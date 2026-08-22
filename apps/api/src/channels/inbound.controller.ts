@@ -1,3 +1,4 @@
+import { Public } from '../auth/public.decorator';
 import { BadRequestException, Body, Controller, Post } from '@nestjs/common';
 import { z } from 'zod';
 import { FollowupService } from './followup.service';
@@ -13,6 +14,8 @@ const inboundSchema = z.object({
   text: z.string().min(1).max(4000),
 });
 
+// Público: entrada de proveedor externo (verificación propia, no sesión de consola).
+@Public()
 @Controller('webhooks')
 export class ChannelInboundController {
   constructor(private readonly followup: FollowupService) {}

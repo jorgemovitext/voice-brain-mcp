@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { validateConfig } from './config/configuration';
+import { AuthModule } from './auth/auth.module';
 import { BrainModule } from './brain/brain.module';
 import { ChannelsModule } from './channels/channels.module';
 import { DemoModule } from './demo/demo.module';
@@ -23,6 +24,7 @@ import { SharedModule } from './shared/flow-log.service';
     }),
     DatabaseModule,
     SharedModule,
+    AuthModule,
     BrainModule,
     IntegrationsModule,
     ChannelsModule,

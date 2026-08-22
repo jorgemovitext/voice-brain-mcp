@@ -1,7 +1,9 @@
-import { Controller, Get, Inject } from '@nestjs/common';
+import { BadRequestException, Controller, Get, Inject, Post } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { get, put } from '@vercel/blob';
 import { BRAIN_REPOSITORY, BrainRepository } from './brain.repository';
+import { PgBrainRepository } from './brain.repository.pg';
+import { Contact, Interaction, Signal } from './types';
 
 /**
  * Diagnóstico de la persistencia: responde si el Brain está guardando de
@@ -61,5 +63,46 @@ export class StorageDiagnosticsController {
     }
 
     return resultado;
+  }
+
+  /**
+   * Migración one-shot Blob → Postgres: copia el snapshot viejo del Blob a la
+   * DB nueva para no perder los hilos existentes. Idempotente (upsert por id):
+   * correrla dos veces no duplica nada.
+   */
+  @Post('migrate-blob')
+  async migrateBlob() {
+    if (!(this.repo instanceof PgBrainRepository)) {
+      throw new BadRequestException('La migración solo aplica cuando la persistencia activa es Postgres.');
+    }
+    const token = this.config.get<string>('BLOB_READ_WRITE_TOKEN', '');
+    if (!token) throw new BadRequestException('No hay token de Blob del cual migrar.');
+
+    const pathname = this.config.get<string>('BRAIN_BLOB_PATH', 'brain/state.json');
+    const estado = await get(pathname, { access: 'private', token, useCache: false }).catch(() => null);
+    if (!estado?.stream) return { migrado: false, nota: 'El Blob no tiene estado guardado.' };
+
+    const snapshot = JSON.parse(await new Response(estado.stream).text()) as {
+      contacts?: Contact[];
+      interactions?: Interaction[];
+      signals?: Signal[];
+    };
+
+    let contacts = 0;
+    let interactions = 0;
+    let signals = 0;
+    for (const c of snapshot.contacts ?? []) {
+      await this.repo.saveContact(c);
+      contacts++;
+    }
+    for (const i of snapshot.interactions ?? []) {
+      await this.repo.appendInteraction(i); // pg: ON CONFLICT DO NOTHING
+      interactions++;
+    }
+    for (const s of snapshot.signals ?? []) {
+      await this.repo.saveSignal(s);
+      signals++;
+    }
+    return { migrado: true, contacts, interactions, signals };
   }
 }

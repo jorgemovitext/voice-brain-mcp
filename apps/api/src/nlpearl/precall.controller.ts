@@ -1,3 +1,4 @@
+import { Public } from '../auth/public.decorator';
 import { BadRequestException, Body, Controller, Post } from '@nestjs/common';
 import { z } from 'zod';
 import { PrecallService } from './precall.service';
@@ -18,6 +19,8 @@ const precallSchema = z
     message: 'Se requiere phoneNumber o externalId',
   });
 
+// Público: entrada de proveedor externo (verificación propia, no sesión de consola).
+@Public()
 @Controller('precall')
 export class PrecallController {
   constructor(private readonly precall: PrecallService) {}

@@ -1,3 +1,4 @@
+import fastifyCookie from '@fastify/cookie';
 import { NestFactory } from '@nestjs/core';
 import { FastifyAdapter, NestFastifyApplication } from '@nestjs/platform-fastify';
 import { AppModule } from './app.module';
@@ -13,8 +14,12 @@ async function bootstrap() {
     rawBody: true,
   });
 
-  // CORS para la consola Angular (dev). El proxy de Angular también aplica.
-  app.enableCors({ origin: true });
+  // Cookies de sesión (httpOnly) del módulo de auth.
+  await app.register(fastifyCookie);
+
+  // CORS para la consola Angular (dev). Con credenciales (cookie de sesión)
+  // el origen no puede ser comodín.
+  app.enableCors({ origin: true, credentials: true });
   app.useGlobalInterceptors(new LoggingInterceptor());
 
   const port = Number(process.env.PORT ?? 3000);

@@ -8,6 +8,7 @@
  * La instancia se cachea entre invocaciones para no re-bootear Nest en cada
  * request de una misma lambda caliente.
  */
+const fastifyCookie = require('@fastify/cookie');
 const { NestFactory } = require('@nestjs/core');
 const { FastifyAdapter } = require('@nestjs/platform-fastify');
 const { AppModule } = require('../apps/api/dist/app.module');
@@ -23,7 +24,9 @@ async function bootstrap() {
     // rawBody: necesario para validar la firma de los webhooks de Meta.
     rawBody: true,
   });
-  app.enableCors({ origin: true });
+  // Cookies de sesión (httpOnly) del módulo de auth.
+  await app.register(fastifyCookie);
+  app.enableCors({ origin: true, credentials: true });
   await app.init();
 
   const instance = adapter.getInstance();

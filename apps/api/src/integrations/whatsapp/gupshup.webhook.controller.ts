@@ -1,3 +1,4 @@
+import { Public } from '../../auth/public.decorator';
 import { Controller, HttpCode, Logger, Post, Req } from '@nestjs/common';
 import { WhatsappInboundService } from '../../channels/whatsapp-inbound.service';
 import { WebhookLogService } from '../../shared/webhook-log.service';
@@ -10,6 +11,8 @@ import { WebhookLogService } from '../../shared/webhook-log.service';
  * configurada la app; WhatsappInboundService detecta cuál llegó. Siempre se
  * responde 200 para que el proveedor no reintente.
  */
+// Público: entrada de proveedor externo (verificación propia, no sesión de consola).
+@Public()
 @Controller('webhooks/gupshup')
 export class GupshupWebhookController {
   private readonly logger = new Logger('GupshupWebhook');
