@@ -204,6 +204,22 @@ la atención a detalle en DB propia.
   archivo JSON). El esquema se crea solo al primer uso; tablas: `contacts`,
   `interactions`, `signals`, `nlpearl_pearls`, `nlpearl_activity` (raw).
 
+## Qué Pearl usa cada canal (sin variables de entorno)
+
+`NLPEARL_PEARL_ID` obligaba a un redeploy para cambiar de Pearl. Ahora la
+asignación vive en la DB y se cambia desde la app:
+
+- En **Obreros**, cada Pearl trae el botón **"Usar para \<canal\>"**. El canal
+  sale de su `agentType` (voz / WhatsApp / SMS), así que cada Pearl solo se
+  puede asignar al canal que realmente atiende.
+- El backend resuelve en este orden: **`pearlId` de la petición** (elección
+  puntual, p. ej. `POST /api/calls/trigger` con `{contactId, pearlId}`) →
+  **Pearl asignada al canal** → **`NLPEARL_PEARL_ID`** como respaldo heredado.
+- API: `GET /api/workers/routing` y `PUT /api/workers/routing`
+  (`{channel, pearlId}`; `pearlId: null` libera el canal).
+- `NLPEARL_PEARL_ID` pasa a ser opcional: solo hacen falta
+  `NLPEARL_ACCOUNT_ID` y `NLPEARL_API_KEY`.
+
 ## Autenticación de la consola
 
 Toda la plataforma exige sesión: sin login, cualquier URL de la consola cae en
