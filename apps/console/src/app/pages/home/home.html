@@ -1,150 +1,156 @@
 <div class="fit">
-  <div class="fit__grid">
-    <!-- ============ Columna izquierda ============ -->
-    <section class="fit__left">
-      <h1 class="fit__hero">
-        @if (nombre()) { <span class="fit__hola">Hola, {{ nombre() }}.</span> }
-        {{ titular() }}
-      </h1>
+  <div class="fit__frame">
+    <div class="fit__grid">
+      <!-- ============ Columna izquierda ============ -->
+      <section class="fit__left">
+        <h1 class="fit__hero">
+          @if (nombre()) { <span class="fit__hola">Hola, {{ nombre() }}.</span> }
+          {{ titular() }}
+        </h1>
 
-      <!-- Progreso de atención del panal -->
-      <a class="goal" routerLink="/conversations">
-        <div class="goal__top">
-          <p>
-            Hilos atendidos por el enjambre:
-            <strong>{{ atencion().pct }}%</strong>
-          </p>
-          <span class="goal__zap"><ui-icon name="zap" /></span>
-        </div>
-        <div class="goal__bar">
-          <div class="goal__fill" [style.width.%]="atencion().pct"></div>
-          <span class="goal__nums">{{ atencion().alDia }}<i>/{{ atencion().total }}</i></span>
-        </div>
-      </a>
-
-      <!-- Accesos rápidos circulares -->
-      <nav class="quick">
-        <a class="quick__item" routerLink="/workers">
-          <span class="quick__circle"><ui-icon name="chip" /></span>
-          Obreros
-        </a>
-        <a class="quick__item" routerLink="/contacts">
-          <span class="quick__circle"><ui-icon name="users" /></span>
-          Contactos
-        </a>
-        <a class="quick__item" routerLink="/conversations">
-          <span class="quick__circle"><ui-icon name="chat" /></span>
-          Chats
-        </a>
-        <a class="quick__item" routerLink="/integrations">
-          <span class="quick__circle"><ui-icon name="database" /></span>
-          Conductos
-        </a>
-        <button class="quick__item" (click)="syncNow()" [disabled]="syncing()">
-          <span class="quick__circle" [class.quick__circle--spin]="syncing()"><ui-icon name="sparkle" /></span>
-          {{ syncing() ? 'Trayendo…' : 'Sincronizar' }}
-        </button>
-      </nav>
-    </section>
-
-    <!-- ============ Panel derecho: la colmena en vivo ============ -->
-    <section class="live">
-      <span class="live__pill"><span class="live__dot"></span> La colmena en vivo</span>
-
-      <div class="live__feed">
-        @if (!feed().length) {
-          <div class="live__empty">
-            Sin movimiento todavía. Cuando entre una llamada o un mensaje, lo ves acá al instante.
+        <!-- Progreso de atención del panal -->
+        <a class="goal" routerLink="/conversations">
+          <div class="goal__top">
+            <p>Hilos atendidos<br />por el enjambre: <strong>{{ atencion().pct }}%</strong></p>
+            <span class="goal__zap"><ui-icon name="zap" /></span>
           </div>
-        }
-        @for (b of feed(); track b.contactId + b.when + b.text) {
-          <a class="live__msg" [class.live__msg--in]="b.side === 'in'" [class.live__msg--wait]="b.waiting"
-             [routerLink]="['/conversations', b.contactId]">
-            <span class="live__who">{{ b.title }} <time>{{ b.when }}</time></span>
-            <span class="live__bubble">
-              {{ b.text }}
-              @if (b.waiting) { <span class="live__answer">Responder →</span> }
-            </span>
-          </a>
-        }
-      </div>
+          <div class="goal__bar">
+            <div class="goal__fill" [style.width.%]="atencion().pct"></div>
+            <span class="goal__nums">{{ atencion().alDia }}<i>/{{ atencion().total }}</i></span>
+          </div>
+        </a>
 
-      <!-- Reparto por canal, con su anillo de participación -->
-      @if (canales().length) {
-        <div class="live__rings">
-          @for (c of canales(); track c.channel) {
-            <div class="ringcard">
-              <span class="ringcard__label">{{ channelLabel(c.channel) }}<strong>{{ c.total }}</strong></span>
-              <svg viewBox="0 0 24 24" class="ringcard__ring">
-                <circle cx="12" cy="12" r="10" />
-                <circle cx="12" cy="12" r="10" class="ringcard__val" [attr.stroke-dasharray]="c.dash" />
-              </svg>
+        <!-- Accesos rápidos circulares (label dentro del círculo) -->
+        <nav class="quick">
+          <a class="quick__circle" routerLink="/workers">
+            <ui-icon name="chip" />
+            <em>Obreros</em>
+          </a>
+          <a class="quick__circle" routerLink="/contacts">
+            <ui-icon name="users" />
+            <em>Contactos</em>
+          </a>
+          <a class="quick__circle" routerLink="/conversations">
+            <ui-icon name="chat" />
+            <em>Chats</em>
+          </a>
+          <a class="quick__circle" routerLink="/integrations">
+            <ui-icon name="database" />
+            <em>Conductos</em>
+          </a>
+          <button class="quick__circle" (click)="syncNow()" [disabled]="syncing()"
+                  [class.quick__circle--spin]="syncing()">
+            <ui-icon name="sparkle" />
+            <em>{{ syncing() ? 'Trayendo…' : 'Sincronizar' }}</em>
+          </button>
+        </nav>
+      </section>
+
+      <!-- ============ Panel derecho: la colmena en vivo ============ -->
+      <section class="live">
+        <span class="live__pill"><span class="live__dot"></span> La colmena en vivo</span>
+
+        <div class="live__feed">
+          @if (!feed().length) {
+            <div class="live__empty">
+              Sin movimiento todavía. Cuando entre una llamada o un mensaje, lo ves acá al instante.
             </div>
           }
+          @for (b of feed(); track b.contactId + b.when + b.text) {
+            <a class="live__msg" [class.live__msg--in]="b.side === 'in'" [class.live__msg--wait]="b.waiting"
+               [routerLink]="['/conversations', b.contactId]">
+              <span class="live__who">{{ b.title }} <time>{{ b.when }}</time></span>
+              <span class="live__bubble">
+                {{ b.text }}
+                @if (b.waiting) { <span class="live__answer">Responder →</span> }
+              </span>
+            </a>
+          }
         </div>
-      }
 
-      <!-- Búsqueda rápida, al pie como el input del chat -->
-      <form class="live__search" (submit)="$event.preventDefault(); search()">
-        <input type="text" placeholder="Buscar contacto por nombre o teléfono…"
-               [value]="query()" (input)="onInput($event)" />
-        <button type="submit" title="Buscar"><ui-icon name="send" /></button>
-      </form>
-    </section>
-
-    <!-- ============ Resumen ============ -->
-    <section class="sum">
-      <header class="sum__head">
-        <h2>Resumen</h2>
-        <div class="sum__toggle">
-          <button [class.sum__mode--on]="vista() === 'hoy'" class="sum__mode" (click)="vista.set('hoy')">Hoy</button>
-          <button [class.sum__mode--on]="vista() === 'total'" class="sum__mode" (click)="vista.set('total')">Total</button>
-        </div>
-      </header>
-
-      <div class="sum__grid">
-        <!-- Anillos de la cola -->
-        <article class="sumcard sumcard--rings">
-          <svg viewBox="0 0 120 120" class="rings">
-            <circle cx="60" cy="60" r="52" class="rings__bg" />
-            <circle cx="60" cy="60" r="52" class="rings__main" [attr.stroke-dasharray]="anillos().alDia" />
-            <circle cx="60" cy="60" r="38" class="rings__bg" />
-            <circle cx="60" cy="60" r="38" class="rings__sub" [attr.stroke-dasharray]="anillos().esperando" />
-          </svg>
-          <div class="sumcard__legend">
-            <p><span class="dot dot--primary"></span> Al día <strong>{{ atencion().alDia }}/{{ atencion().total }}</strong></p>
-            <p><span class="dot dot--ink"></span> Esperando <strong>{{ hive.value()?.metricas?.esperandoRespuesta ?? 0 }}</strong></p>
-          </div>
-        </article>
-
-        <!-- Interacciones (barras por hora u por canal) -->
-        <article class="sumcard sumcard--bars">
-          <div class="sumcard__meta">
-            <span>Interacciones</span>
-            <strong>{{ totalVista() }}</strong>
-          </div>
-          <div class="bars" [class.bars--wide]="vista() === 'total'">
-            @for (b of barras(); track $index) {
-              <div class="bars__col">
-                <i [style.height.%]="8 + b.v * 92" [class.bars__on]="b.v > 0"></i>
-                @if (b.label) { <em>{{ b.label }}</em> }
+        <!-- Chips por canal con su anillo de participación -->
+        @if (canales().length) {
+          <div class="live__rings">
+            @for (c of canales(); track c.channel) {
+              <div class="ringcard">
+                <span class="ringcard__label">{{ channelLabel(c.channel) }}<strong>{{ c.total }}</strong></span>
+                <svg viewBox="0 0 24 24" class="ringcard__ring">
+                  <circle cx="12" cy="12" r="10" />
+                  <circle cx="12" cy="12" r="10" class="ringcard__val" [attr.stroke-dasharray]="c.dash" />
+                </svg>
               </div>
             }
           </div>
-        </article>
+        }
 
-        <!-- Tarjeta oscura: promesas + enjambre -->
-        <article class="sumcard sumcard--dark">
-          <svg viewBox="0 0 100 34" class="sumcard__spark" preserveAspectRatio="none">
-            <polyline points="0,26 14,22 28,27 42,12 56,18 70,7 84,14 100,9" />
-          </svg>
-          <div>
-            <span>Promesas activas</span>
-            <strong>{{ hive.value()?.metricas?.promesasActivas ?? 0 }}</strong>
+        <!-- Búsqueda rápida, con el botón dentro del pill -->
+        <form class="live__search" (submit)="$event.preventDefault(); search()">
+          <input type="text" placeholder="Buscar contacto por nombre o teléfono…"
+                 [value]="query()" (input)="onInput($event)" />
+          <button type="submit" title="Buscar"><ui-icon name="send" /></button>
+        </form>
+      </section>
+
+      <!-- ============ Resumen ============ -->
+      <section class="sum">
+        <header class="sum__head">
+          <h2>Resumen</h2>
+          <div class="sum__toggle">
+            <button [class.sum__mode--on]="vista() === 'hoy'" class="sum__mode" (click)="vista.set('hoy')">Hoy</button>
+            <button [class.sum__mode--on]="vista() === 'total'" class="sum__mode" (click)="vista.set('total')">Total</button>
           </div>
-          <footer>{{ hive.value()?.obreros?.activos ?? 0 }} obrero(s) en el panal · {{ hive.value()?.metricas?.contactos ?? 0 }} contactos</footer>
-        </article>
-      </div>
-    </section>
+        </header>
+
+        <div class="sum__grid">
+          <!-- Anillos de la cola + leyenda en tarjeta anidada -->
+          <article class="sumcard sumcard--rings">
+            <svg viewBox="0 0 120 120" class="rings">
+              <circle cx="60" cy="60" r="52" class="rings__bg" />
+              <circle cx="60" cy="60" r="52" class="rings__main" [attr.stroke-dasharray]="anillos().alDia" />
+              <circle cx="60" cy="60" r="38" class="rings__bg" />
+              <circle cx="60" cy="60" r="38" class="rings__sub" [attr.stroke-dasharray]="anillos().esperando" />
+            </svg>
+            <div class="sumcard__legend">
+              <p>
+                <span class="dot dot--primary"></span>
+                <span class="sumcard__legend-text">Al día <strong>{{ atencion().alDia }}/{{ atencion().total }}</strong></span>
+              </p>
+              <p>
+                <span class="dot dot--ink"></span>
+                <span class="sumcard__legend-text">Esperando <strong>{{ hive.value()?.metricas?.esperandoRespuesta ?? 0 }}</strong></span>
+              </p>
+            </div>
+          </article>
+
+          <!-- Interacciones: barras con pista completa, número abajo -->
+          <article class="sumcard sumcard--bars">
+            <div class="bars" [class.bars--wide]="vista() === 'total'">
+              @for (b of barras(); track $index) {
+                <div class="bars__col">
+                  <span class="bars__track"><i [style.height.%]="b.v * 100" [class.bars__on]="b.v > 0"></i></span>
+                  @if (b.label) { <em>{{ b.label }}</em> }
+                </div>
+              }
+            </div>
+            <div class="sumcard__meta">
+              <span>Interacciones</span>
+              <strong>{{ totalVista() }}</strong>
+            </div>
+          </article>
+
+          <!-- Tarjeta oscura: promesas + enjambre -->
+          <article class="sumcard sumcard--dark">
+            <svg viewBox="0 0 100 34" class="sumcard__spark" preserveAspectRatio="none">
+              <polyline points="0,26 14,22 28,27 42,12 56,18 70,7 84,14 100,9" />
+            </svg>
+            <div class="sumcard__dark-meta">
+              <span>Promesas activas</span>
+              <strong>{{ hive.value()?.metricas?.promesasActivas ?? 0 }}</strong>
+            </div>
+            <footer>{{ hive.value()?.obreros?.activos ?? 0 }} obrero(s) en el panal · {{ hive.value()?.metricas?.contactos ?? 0 }} contactos</footer>
+          </article>
+        </div>
+      </section>
+    </div>
   </div>
 </div>
