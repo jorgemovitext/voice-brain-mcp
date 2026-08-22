@@ -120,7 +120,15 @@ export interface HiveStatus {
     conversacionesHoy: number;
     esperandoRespuesta: number;
     promesasActivas: number;
+    /** Hilos cuyo último mensaje lo puso el enjambre. */
+    hilosAlDia: number;
+    /** La espera más larga de la cola, en minutos. */
+    maxEsperaMin: number;
+    /** Interacciones de hoy por hora (24 casillas). */
+    porHora: number[];
   };
+  /** Tráfico total por canal, para los anillos y las barras. */
+  porCanal: Array<{ channel: Channel; total: number; inbound: number }>;
   esperando: Array<{
     contactId: string;
     displayName?: string;

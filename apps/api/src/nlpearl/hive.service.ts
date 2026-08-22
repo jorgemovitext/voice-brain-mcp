@@ -38,7 +38,15 @@ export interface HiveStatus {
     conversacionesHoy: number;
     esperandoRespuesta: number;
     promesasActivas: number;
+    /** Hilos al día: el último mensaje lo puso el enjambre. */
+    hilosAlDia: number;
+    /** La espera más larga de la cola, en minutos (0 si nadie espera). */
+    maxEsperaMin: number;
+    /** Interacciones de hoy por hora (24 casillas) para el sparkline. */
+    porHora: number[];
   };
+  /** Tráfico total por canal, para el mapa de flujo. */
+  porCanal: Array<{ channel: Channel; total: number; inbound: number }>;
   esperando: WaitingThread[];
   actividad: Array<{
     contactId: string;
@@ -68,6 +76,7 @@ export interface HiveStatus {
 export class HiveService {
   private readonly dbMode: HiveStatus['canales']['db'];
   private readonly nlpearlOk: boolean;
+  private readonly mock: boolean;
 
   /** Canal de texto NL Pearl, cacheado: cambia casi nunca y el panel refresca cada 5 s. */
   private textChannelCache: { value: string | null; at: number } | null = null;
@@ -80,6 +89,7 @@ export class HiveService {
     private readonly client: NlpearlClient,
     config: ConfigService,
   ) {
+    this.mock = config.get<boolean>('MOCK', true);
     this.dbMode = config.get<string>('DATABASE_URL')
       ? 'postgres'
       : config.get<string>('BLOB_READ_WRITE_TOKEN')
@@ -138,9 +148,23 @@ export class HiveService {
     const hoy = new Date();
     hoy.setHours(0, 0, 0, 0);
     // Solo interacciones con clientes: los apuntes internos no son tráfico.
-    const conversacionesHoy = interacciones.filter(
-      (i) => i.channel !== 'note' && new Date(i.occurredAt) >= hoy,
-    ).length;
+    const deHoy = interacciones.filter((i) => i.channel !== 'note' && new Date(i.occurredAt) >= hoy);
+    const conversacionesHoy = deHoy.length;
+
+    // Sparkline: casillas por hora del día.
+    const porHora = new Array<number>(24).fill(0);
+    for (const i of deHoy) porHora[new Date(i.occurredAt).getHours()]++;
+
+    // Tráfico por canal (histórico completo): alimenta el mapa de flujo.
+    const porCanalMap = new Map<Channel, { total: number; inbound: number }>();
+    for (const i of interacciones) {
+      if (i.channel === 'note') continue;
+      const acc = porCanalMap.get(i.channel) ?? { total: 0, inbound: 0 };
+      acc.total++;
+      if (i.direction === 'inbound') acc.inbound++;
+      porCanalMap.set(i.channel, acc);
+    }
+    const porCanal = [...porCanalMap.entries()].map(([channel, v]) => ({ channel, ...v }));
 
     let promesasActivas = 0;
     for (const c of contactos) {
@@ -162,12 +186,25 @@ export class HiveService {
         source: i.source,
       }));
 
+    // Hilos al día = hilos totales con actividad menos los que esperan.
+    const hilosAlDia = Math.max(0, porContacto.size - esperando.length);
+
     // --- Obreros en el panal (espejo local: fresco por el sync periódico) ---
     const asignadas = new Set(Object.values(routing));
-    const activos = pearls.filter((p) => p.status === 1);
+    let activos = pearls.filter((p) => p.status === 1);
+    let totalPearls = pearls.length;
+    if (this.mock && !pearls.length) {
+      // Modo demo sin espejo: enjambre de muestra para que el tablero viva.
+      activos = [
+        { id: 'mock_voz', name: 'Recepcionista (demo)', channel: 'voice', status: 1 },
+        { id: 'mock_wa', name: 'Línea 100 WhatsApp (demo)', channel: 'whatsapp', status: 1 },
+        { id: 'mock_sms', name: 'Línea 100 TEXT (demo)', channel: 'sms', status: 1 },
+      ];
+      totalPearls = 3;
+    }
     return {
       obreros: {
-        total: pearls.length,
+        total: totalPearls,
         activos: activos.length,
         enElPanal: activos.map((p) => ({
           id: p.id,
@@ -182,7 +219,11 @@ export class HiveService {
         conversacionesHoy,
         esperandoRespuesta: esperando.length,
         promesasActivas,
+        hilosAlDia,
+        maxEsperaMin: esperando[0]?.waitingMin ?? 0,
+        porHora,
       },
+      porCanal,
       esperando: esperando.slice(0, 8),
       actividad,
       canales: {
