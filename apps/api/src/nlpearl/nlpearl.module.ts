@@ -7,6 +7,7 @@ import { VOICE_ENGINE_PORT } from '../ports/voice-engine.port';
 import { NlpearlActivityStore } from './activity.store';
 import { CallIngestService } from './call-ingest.service';
 import { NlpearlDiagnosticsController } from './nlpearl-diagnostics.controller';
+import { PearlRoutingService } from './pearl-routing.service';
 import { PearlSyncController } from './pearl-sync.controller';
 import { PearlSyncService } from './pearl-sync.service';
 import { NlpearlClient } from './nlpearl.client';
@@ -36,6 +37,7 @@ import { WorkersController } from './workers.controller';
     PrecallService,
     CallIngestService,
     NlpearlActivityStore,
+    PearlRoutingService,
     PearlSyncService,
     NlpearlMockEngine,
     NlpearlVoiceEngine,
@@ -47,6 +49,6 @@ import { WorkersController } from './workers.controller';
         config.get<boolean>('MOCK') ? mock : real,
     },
   ],
-  exports: [VOICE_ENGINE_PORT, NlpearlClient],
+  exports: [VOICE_ENGINE_PORT, NlpearlClient, PearlRoutingService],
 })
 export class NlpearlModule {}

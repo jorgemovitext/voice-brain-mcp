@@ -55,12 +55,13 @@ export class DemoService {
   }
 
   /** Dispara una llamada para un contacto existente (botón "Llamar (demo)"). */
-  async triggerCall(contactId: string): Promise<{ leadId: string }> {
+  async triggerCall(contactId: string, pearlId?: string): Promise<{ leadId: string }> {
     const ctx = await this.brain.getContext({ contactId });
     const phone = ctx.contact.phones[0];
     if (!phone) throw new Error(`El contacto ${contactId} no tiene teléfono`);
     // externalId = nuestro contactId: la llave de unión con NL Pearl.
-    return this.voice.startCall({ phone, externalId: contactId });
+    // pearlId opcional: permite llamar con otra Pearl sin cambiar la config.
+    return this.voice.startCall({ phone, externalId: contactId, pearlId });
   }
 
   /** Flujo completo desde cero, con datos sembrados. */

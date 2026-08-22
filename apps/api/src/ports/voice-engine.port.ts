@@ -9,6 +9,11 @@ export interface StartCallInput {
   phone: string; // E.164
   externalId: string; // nuestro contactId — llave de unión con NL Pearl
   variables?: Record<string, string>;
+  /**
+   * Pearl a usar en ESTA llamada. Si se omite se toma la asignada al canal
+   * de voz en la app, así se puede alternar sin tocar configuración.
+   */
+  pearlId?: string;
 }
 
 export interface VoiceEnginePort {

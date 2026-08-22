@@ -27,7 +27,9 @@
             <span class="worker__chips">
               <span [class]="'pill ' + statusClass(w)">{{ statusLabel(w) }}</span>
               @if (w.channel) { <span class="pill pill--neutral">{{ channelName(w) }}</span> }
-              @if (w.id === d.inUseId) { <span class="pill pill--primary">En uso por el gateway</span> }
+              @if (isAssigned(w)) {
+                <span class="pill pill--primary">En uso para {{ channelName(w) }}</span>
+              }
             </span>
             <!-- Estado de prueba: si puede recibir un mensaje y qué llegó ya -->
             <span class="worker__test" [class.worker__test--ok]="w.ready">
@@ -41,6 +43,25 @@
             @if (w.synced) {
               <span class="worker__synced">
                 {{ w.synced }} conversación(es) espejada(s) · última {{ shortDate(w.lastActivityAt) }}
+              </span>
+            }
+            <!-- Elegir qué Pearl atiende cada canal, sin tocar variables de entorno -->
+            @if (w.channel) {
+              <span
+                class="worker__assign"
+                [class.worker__assign--on]="isAssigned(w)"
+                role="button"
+                tabindex="0"
+                (click)="toggleAssign(w, $event)"
+                (keydown.enter)="toggleAssign(w, $event)"
+              >
+                @if (assigning() === w.id) {
+                  Guardando…
+                } @else if (isAssigned(w)) {
+                  Dejar de usar para {{ channelName(w) }}
+                } @else {
+                  Usar para {{ channelName(w) }}
+                }
               </span>
             }
           </span>

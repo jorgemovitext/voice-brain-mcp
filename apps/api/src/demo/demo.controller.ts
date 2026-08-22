@@ -3,7 +3,11 @@ import { z } from 'zod';
 import { FollowupService } from '../channels/followup.service';
 import { DemoService } from './demo.service';
 
-const triggerSchema = z.object({ contactId: z.string().min(1) });
+const triggerSchema = z.object({
+  contactId: z.string().min(1),
+  /** Pearl puntual para esta llamada; si falta se usa la asignada a voz. */
+  pearlId: z.string().trim().max(64).optional(),
+});
 const followupSchema = z.object({ channel: z.enum(['whatsapp', 'sms']).optional() });
 const messageSchema = z.object({
   text: z.string().min(1).max(2000),
@@ -39,7 +43,7 @@ export class DemoController {
   trigger(@Body() body: unknown) {
     const parsed = triggerSchema.safeParse(body ?? {});
     if (!parsed.success) throw new BadRequestException(parsed.error.issues);
-    return this.demo.triggerCall(parsed.data.contactId);
+    return this.demo.triggerCall(parsed.data.contactId, parsed.data.pearlId);
   }
 
   /** Mensaje libre del operador desde el composer del chat. */

@@ -81,10 +81,15 @@ export interface Worker {
   lastActivityAt?: string;
 }
 
+/** Qué Pearl atiende cada canal. */
+export type PearlRouting = Partial<Record<'voice' | 'whatsapp' | 'sms', string>>;
+
 export interface WorkersResponse {
   workers: Worker[];
-  /** El Pearl configurado en NLPEARL_PEARL_ID (se resalta en la vista). */
+  /** Pearl asignada al canal de voz (se resalta en la vista). */
   inUseId: string;
+  /** Asignación completa canal → Pearl. */
+  routing: PearlRouting;
 }
 
 export interface WorkerFlow {

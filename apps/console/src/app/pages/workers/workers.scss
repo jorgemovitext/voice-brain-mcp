@@ -97,6 +97,31 @@
   text-align: left;
 }
 
+/* Asignar la Pearl a su canal (reemplazo del env NLPEARL_PEARL_ID). */
+.worker__assign {
+  display: inline-block;
+  margin-top: 0.5rem;
+  padding: 0.28rem 0.7rem;
+  border: 1.5px solid var(--border);
+  border-radius: 999px;
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--ink-soft);
+  cursor: pointer;
+  transition: border-color 0.15s, color 0.15s, background 0.15s;
+
+  &:hover {
+    border-color: var(--secondary);
+    color: var(--secondary);
+  }
+}
+
+.worker__assign--on {
+  border-color: transparent;
+  background: color-mix(in srgb, var(--primary) 18%, transparent);
+  color: var(--primary);
+}
+
 .worker__chevron {
   color: var(--ink-soft);
   flex-shrink: 0;

@@ -66,4 +66,12 @@ export class BrainApiService {
   syncNlpearl(soft = true): Promise<unknown> {
     return firstValueFrom(this.http.post(`/api/nlpearl/sync?soft=${soft}`, {}));
   }
+
+  /**
+   * Asigna qué Pearl atiende un canal. Reemplaza al viejo NLPEARL_PEARL_ID:
+   * se cambia con un clic, sin redeploy.
+   */
+  setPearlRouting(channel: 'voice' | 'whatsapp' | 'sms', pearlId: string | null): Promise<unknown> {
+    return firstValueFrom(this.http.put('/api/workers/routing', { channel, pearlId }));
+  }
 }

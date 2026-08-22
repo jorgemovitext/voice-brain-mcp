@@ -1,6 +1,7 @@
-import { Component, computed, signal } from '@angular/core';
+import { Component, computed, inject, signal } from '@angular/core';
 import { httpResource } from '@angular/common/http';
 import { RouterLink } from '@angular/router';
+import { BrainApiService } from '../../brain-api.service';
 import { Icon, IconName } from '../../icon';
 import { VoiceNebula } from '../../nebula';
 import { Worker, WorkerFlow, WorkersResponse } from '../../models';
@@ -62,7 +63,11 @@ const GATEWAY_WORKFLOWS: GatewayWorkflow[] = [
   styleUrl: './workers.scss',
 })
 export class WorkersPage {
+  private readonly api = inject(BrainApiService);
+
   readonly data = httpResource<WorkersResponse>(() => '/api/workers');
+  /** Id de la Pearl cuya asignación se está guardando. */
+  readonly assigning = signal<string | null>(null);
 
   readonly selectedId = signal<string | null>(null);
   readonly flow = httpResource<WorkerFlow>(() =>
@@ -100,6 +105,29 @@ export class WorkersPage {
     if (['active', 'running', 'run', '1', 'true'].includes(s)) return 'Activo';
     if (['paused', 'pause', 'stopped', '0', 'false'].includes(s)) return 'En pausa';
     return w.status ?? 'Estado desconocido';
+  }
+
+  /** ¿Esta Pearl es la asignada a su propio canal? */
+  isAssigned(w: Worker): boolean {
+    const routing = this.data.value()?.routing;
+    return !!w.channel && routing?.[w.channel as 'voice' | 'whatsapp' | 'sms'] === w.id;
+  }
+
+  /**
+   * Asigna o libera esta Pearl para su canal. Es el reemplazo del
+   * NLPEARL_PEARL_ID del entorno: alternar es un clic, sin redeploy.
+   */
+  async toggleAssign(w: Worker, ev: Event): Promise<void> {
+    ev.stopPropagation(); // no abrir/cerrar el detalle al asignar
+    if (!w.channel) return;
+    this.assigning.set(w.id);
+    try {
+      const canal = w.channel as 'voice' | 'whatsapp' | 'sms';
+      await this.api.setPearlRouting(canal, this.isAssigned(w) ? null : w.id);
+      this.data.reload();
+    } finally {
+      this.assigning.set(null);
+    }
   }
 
   /** Canal legible: NL Pearl lo expone como agentType, acá se muestra en claro. */

@@ -1,8 +1,16 @@
-import { Controller, Get, Param } from '@nestjs/common';
+import { BadRequestException, Body, Controller, Get, Param, Put } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { z } from 'zod';
 import { NlpearlActivityStore } from './activity.store';
 import { NlpearlClient } from './nlpearl.client';
 import { canalDePearl } from './nlpearl.mapper';
+import { PearlRouting, PearlRoutingService } from './pearl-routing.service';
+
+const routingSchema = z.object({
+  channel: z.enum(['voice', 'whatsapp', 'sms']),
+  /** null / vacío libera el canal. */
+  pearlId: z.string().trim().max(64).nullable().optional(),
+});
 
 /**
  * "Obreros": los Pearls (agentes de voz) de la cuenta NL Pearl, vistos como
@@ -115,9 +123,29 @@ export class WorkersController {
   constructor(
     private readonly client: NlpearlClient,
     private readonly store: NlpearlActivityStore,
+    private readonly routing: PearlRoutingService,
     config: ConfigService,
   ) {
     this.mock = config.get<boolean>('MOCK', true);
+  }
+
+  /** Qué Pearl atiende cada canal, y de dónde sale esa asignación. */
+  @Get('routing')
+  async getRouting() {
+    return { routing: await this.routing.withOrigin() };
+  }
+
+  /**
+   * Asigna la Pearl de un canal desde la app. Reemplaza al viejo
+   * NLPEARL_PEARL_ID: no hace falta redeploy ni recordar ids.
+   */
+  @Put('routing')
+  async setRouting(@Body() body: unknown) {
+    const parsed = routingSchema.safeParse(body ?? {});
+    if (!parsed.success) throw new BadRequestException(parsed.error.issues[0]?.message ?? 'Datos inválidos');
+    const { channel, pearlId } = parsed.data;
+    await this.routing.assign(channel, pearlId || null);
+    return { routing: await this.routing.withOrigin() };
   }
 
   /**
@@ -129,8 +157,10 @@ export class WorkersController {
    * en esta Pearl?" sin salir de la app.
    */
   @Get()
-  async list(): Promise<{ workers: Worker[]; inUseId: string }> {
-    if (this.mock) return { workers: MOCK_WORKERS, inUseId: 'pearl_mock_recepcion' };
+  async list(): Promise<{ workers: Worker[]; inUseId: string; routing: PearlRouting }> {
+    if (this.mock) {
+      return { workers: MOCK_WORKERS, inUseId: 'pearl_mock_recepcion', routing: { voice: 'pearl_mock_recepcion' } };
+    }
 
     this.client.assertConfigured();
     const res = (await this.client.getPearls()) as unknown;
@@ -185,7 +215,9 @@ export class WorkersController {
       else if (necesitaCanal && !w.channelLabel) w.blocker = 'Activa pero sin canal de texto asignado.';
     }
 
-    return { workers, inUseId: this.client.pearlId };
+    // El "en uso" ya no sale del entorno: es la Pearl asignada a voz.
+    const routing = await this.routing.all();
+    return { workers, inUseId: routing.voice ?? '', routing };
   }
 
   @Get(':id')

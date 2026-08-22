@@ -94,10 +94,11 @@ export class NlpearlClient {
    * diría qué falta; mejor fallar acá con un mensaje accionable.
    */
   assertConfigured(): void {
+    // El Pearl ya NO se exige acá: se elige por canal desde la app
+    // (PearlRoutingService) y el env quedó solo como respaldo.
     const faltantes = [
       ['NLPEARL_ACCOUNT_ID', this.accountId],
       ['NLPEARL_API_KEY', this.apiKey],
-      ['NLPEARL_PEARL_ID', this.pearlId],
     ]
       .filter(([, value]) => !value)
       .map(([name]) => name);

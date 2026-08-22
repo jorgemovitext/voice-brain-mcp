@@ -3,6 +3,7 @@ import { NlpearlCallContext } from '../brain/types';
 import { StartCallInput, VoiceEnginePort } from '../ports/voice-engine.port';
 import { NlpearlClient } from './nlpearl.client';
 import { toCallContext } from './nlpearl.mapper';
+import { PearlRoutingService } from './pearl-routing.service';
 
 /**
  * Implementación REAL del puerto de voz sobre el cliente NL Pearl v2.
@@ -10,11 +11,16 @@ import { toCallContext } from './nlpearl.mapper';
  */
 @Injectable()
 export class NlpearlVoiceEngine implements VoiceEnginePort {
-  constructor(private readonly client: NlpearlClient) {}
+  constructor(
+    private readonly client: NlpearlClient,
+    private readonly routing: PearlRoutingService,
+  ) {}
 
   async startCall(input: StartCallInput): Promise<{ leadId: string }> {
     this.client.assertConfigured();
-    const lead = await this.client.addLead(this.client.pearlId, {
+    // El Pearl sale de la elección puntual, o de la asignada al canal de voz.
+    const pearlId = await this.routing.resolve('voice', input.pearlId);
+    const lead = await this.client.addLead(pearlId, {
       phoneNumber: input.phone,
       externalId: input.externalId, // llave de unión: nuestro contactId
       callData: input.variables,
