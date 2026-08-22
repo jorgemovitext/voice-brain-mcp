@@ -203,9 +203,13 @@ export class NlpearlClient {
     return this.request('GET', `/v2/Pearl/${pearlId}`);
   }
 
-  /** run | pause. // TODO: confirmar con NL Pearl el valor del body */
-  setActivityState(pearlId: string, state: 'run' | 'pause'): Promise<unknown> {
-    return this.request('PUT', `/v2/Pearl/${pearlId}/ActivityState`, { state });
+  /**
+   * Activa o pausa el Pearl (path y body verificados contra el API real; el
+   * `/ActivityState` con `{state}` que se suponía antes no existe).
+   * Devuelve el estado resultante: 1 Running, 2 Paused, 3 Suspended.
+   */
+  setActivityState(pearlId: string, isActive: boolean): Promise<number> {
+    return this.request('PUT', `/v2/Pearl/${pearlId}/Active`, { isActive });
   }
 
   /**
@@ -248,9 +252,21 @@ export class NlpearlClient {
     return this.request('PATCH', `/v2/PearlFlow/${pearlId}/Outbound`, settings);
   }
 
-  /** // TODO: confirmar con NL Pearl */
-  updateInboundSettings(pearlId: string, settings: Record<string, unknown>): Promise<unknown> {
-    return this.request('PATCH', `/v2/PearlFlow/${pearlId}/Inbound`, settings);
+  /**
+   * Ajustes de entrada del Pearl (path verificado). OJO: es un PUT que
+   * REEMPLAZA el bloque entero — hay que reenviar los valores actuales o se
+   * pierden la frase de espera y las opciones de grabación.
+   *
+   * `phoneNumberId` asigna el número. Solo sirven números cuyo `direction`
+   * sea 1 (InboundOutbound) o 2 (Inbound); con 10 (NotSet) el API responde
+   * "this phone number is not authorized for Inbound calls". Y un número no
+   * puede estar en dos Pearls entrantes ACTIVAS a la vez.
+   */
+  updateInboundSettings(
+    pearlId: string,
+    settings: { phoneNumberId?: string } & Record<string, unknown>,
+  ): Promise<unknown> {
+    return this.request('PUT', `/v2/Pearl/${pearlId}/Settings/Inbound`, settings);
   }
 
   /** Credenciales para acciones API dentro del flujo (p. ej. KYCM). // TODO: confirmar path */
@@ -263,9 +279,13 @@ export class NlpearlClient {
     return this.request('GET', `/v2/PearlSettings/Voices`);
   }
 
-  /** // TODO: confirmar con NL Pearl */
-  getPhoneNumbers(): Promise<unknown> {
-    return this.request('GET', `/v2/PearlSettings/Phones`);
+  /**
+   * Números de la cuenta (path verificado). `direction`:
+   * 1 InboundOutbound, 2 Inbound, 3 Outbound, 10 NotSet — solo 1 y 2 sirven
+   * para asignar a un Pearl entrante.
+   */
+  getPhoneNumbers(): Promise<Array<{ id: string; number: string; displayName: string; direction: number }>> {
+    return this.request('GET', `/v2/Account/PhoneNumbers`);
   }
 
   /**

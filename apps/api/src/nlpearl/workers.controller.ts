@@ -167,12 +167,18 @@ export class WorkersController {
     const items = Array.isArray(res) ? res : ((res as { data?: unknown[] })?.data ?? []);
     const workers = (items as Array<Record<string, unknown>>).map(normalizeWorker);
 
-    const [espejadas, counts, canales] = await Promise.all([
+    const [espejadas, counts, canales, numeros] = await Promise.all([
       this.store.listPearls(),
       this.store.countsByPearl(),
       this.client.getTextChannels().catch(() => []),
+      this.client.getPhoneNumbers().catch(() => []),
     ]);
-    const canalPorId = new Map(canales.map((c) => [c.channelId, c.displayName]));
+    // Un Pearl de voz guarda un phoneNumberId y uno de texto un textChannelId:
+    // los dos se resuelven a algo legible con el mismo mapa.
+    const canalPorId = new Map<string, string>([
+      ...canales.map((c) => [c.channelId, c.displayName] as const),
+      ...numeros.map((n) => [n.id, n.number] as const),
+    ]);
     const espejoPorId = new Map(espejadas.map((p) => [p.id, p]));
 
     // Settings trae agentType y el canal de texto asignado de una sola vez.
@@ -189,9 +195,15 @@ export class WorkersController {
           }
           const s = (await this.client.getPearlSettings(w.id).catch(() => null)) as {
             agentType?: number;
-            inbound?: { textChannelId?: string };
+            inbound?: { textChannelId?: string; phoneNumberId?: string };
           } | null;
-          return [w.id, { agentType: s?.agentType, textChannelId: s?.inbound?.textChannelId }] as const;
+          return [
+            w.id,
+            {
+              agentType: s?.agentType,
+              textChannelId: s?.inbound?.textChannelId ?? s?.inbound?.phoneNumberId,
+            },
+          ] as const;
         }),
       ),
     );
@@ -209,10 +221,18 @@ export class WorkersController {
       w.channelLabel = channelId ? (canalPorId.get(channelId) ?? channelId) : undefined;
 
       const activa = w.status === 'active';
-      const necesitaCanal = w.channel !== 'voice';
+      // Toda Pearl entrante (type 1) necesita por dónde entrar: número si es
+      // de voz, canal de texto si es de texto. Las salientes no.
+      const entrante = w.type === '1';
+      const necesitaCanal = w.channel !== 'voice' || entrante;
       w.ready = activa && (!necesitaCanal || !!w.channelLabel);
       if (!activa) w.blocker = 'Pausada en NL Pearl: no recibe nada hasta activarla.';
-      else if (necesitaCanal && !w.channelLabel) w.blocker = 'Activa pero sin canal de texto asignado.';
+      else if (necesitaCanal && !w.channelLabel) {
+        w.blocker =
+          w.channel === 'voice'
+            ? 'Activa pero sin número asignado: no puede recibir llamadas.'
+            : 'Activa pero sin canal de texto asignado.';
+      }
     }
 
     // El "en uso" ya no sale del entorno: es la Pearl asignada a voz.
