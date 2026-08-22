@@ -128,10 +128,15 @@
           }
         </section>
 
-        <!-- Salud de los conductos de la colmena -->
+        <!-- Salud de los conductos de la colmena.
+             Los agentes conversan por el WhatsApp de NL Pearl;
+             Gupshup quedó solo para entregar los OTP del acceso. -->
         <section class="card panel panel--channels">
           <span class="chip" [class.chip--ok]="h.canales.nlpearl">NL Pearl {{ h.canales.nlpearl ? 'conectado' : 'sin credenciales' }}</span>
-          <span class="chip" [class.chip--ok]="h.canales.whatsapp !== 'stub'">WhatsApp {{ h.canales.whatsapp === 'stub' ? 'simulado' : h.canales.whatsapp }}</span>
+          <span class="chip" [class.chip--ok]="!!h.canales.whatsappAgentes">
+            WhatsApp agentes {{ h.canales.whatsappAgentes || 'sin canal' }}
+          </span>
+          <span class="chip" [class.chip--ok]="h.canales.otp !== 'stub'">OTP vía {{ h.canales.otp === 'stub' ? 'log (dev)' : h.canales.otp }}</span>
           <span class="chip" [class.chip--ok]="h.canales.db === 'postgres'">Memoria {{ h.canales.db }}</span>
         </section>
       </div>

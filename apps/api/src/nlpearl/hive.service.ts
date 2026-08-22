@@ -51,7 +51,10 @@ export interface HiveStatus {
   }>;
   canales: {
     nlpearl: boolean;
-    whatsapp: string;
+    /** Canal de texto de NL Pearl por el que conversan los AGENTES (o null). */
+    whatsappAgentes: string | null;
+    /** Proveedor de entrega de OTP (Gupshup); los agentes NO salen por acá. */
+    otp: string;
     db: 'postgres' | 'blob' | 'archivo';
   };
 }
@@ -66,12 +69,15 @@ export class HiveService {
   private readonly dbMode: HiveStatus['canales']['db'];
   private readonly nlpearlOk: boolean;
 
+  /** Canal de texto NL Pearl, cacheado: cambia casi nunca y el panel refresca cada 5 s. */
+  private textChannelCache: { value: string | null; at: number } | null = null;
+
   constructor(
     private readonly brain: BrainService,
     private readonly store: NlpearlActivityStore,
     private readonly routing: PearlRoutingService,
     private readonly integrations: IntegrationsService,
-    client: NlpearlClient,
+    private readonly client: NlpearlClient,
     config: ConfigService,
   ) {
     this.dbMode = config.get<string>('DATABASE_URL')
@@ -175,9 +181,26 @@ export class HiveService {
       actividad,
       canales: {
         nlpearl: this.nlpearlOk,
-        whatsapp: this.integrations.whatsappProvider(),
+        // Los agentes conversan por el canal de texto de NL Pearl; Gupshup
+        // quedó únicamente para entregar los OTP del login.
+        whatsappAgentes: await this.textChannel(),
+        otp: this.integrations.whatsappProvider(),
         db: this.dbMode,
       },
     };
+  }
+
+  private async textChannel(): Promise<string | null> {
+    if (this.textChannelCache && Date.now() - this.textChannelCache.at < 60_000) {
+      return this.textChannelCache.value;
+    }
+    const value = this.nlpearlOk
+      ? await this.client
+          .getTextChannels()
+          .then((c) => c[0]?.displayName ?? null)
+          .catch(() => null)
+      : null;
+    this.textChannelCache = { value, at: Date.now() };
+    return value;
   }
 }

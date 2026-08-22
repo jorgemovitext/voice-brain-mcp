@@ -138,7 +138,7 @@ export interface HiveStatus {
     occurredAt: string;
     source?: string;
   }>;
-  canales: { nlpearl: boolean; whatsapp: string; db: string };
+  canales: { nlpearl: boolean; whatsappAgentes: string | null; otp: string; db: string };
 }
 
 /** Actividad reciente de webhooks (entrantes y pruebas salientes). */
