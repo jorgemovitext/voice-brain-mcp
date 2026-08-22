@@ -3,7 +3,11 @@
  * independiente del canal (voz / WhatsApp / SMS).
  */
 
-export type Channel = 'voice' | 'whatsapp' | 'sms';
+/**
+ * `note` no es un canal de salida: es un apunte interno del operador que
+ * vive en el hilo pero JAMÁS viaja al cliente.
+ */
+export type Channel = 'voice' | 'whatsapp' | 'sms' | 'note';
 
 export interface Contact {
   id: string; // ID unificado propio

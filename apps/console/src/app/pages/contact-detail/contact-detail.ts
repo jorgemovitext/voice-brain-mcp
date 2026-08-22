@@ -346,23 +346,26 @@ export class ContactDetailPage implements OnDestroy {
    */
   private describeSendError(err: unknown): string {
     const message = (err as { error?: { message?: string } })?.error?.message;
-    return message ?? 'No se pudo enviar el mensaje. Revisá el estado en Integraciones.';
+    return message ?? 'No se pudo guardar la nota. Intentá de nuevo.';
   }
 
   onDraft(event: Event): void {
     this.draft.set((event.target as HTMLInputElement).value);
   }
 
-  async sendMessage(): Promise<void> {
+  /**
+   * Composer = NOTA INTERNA: los agentes (Pearls) conversan con el cliente;
+   * lo que escribe el operador acá queda en el hilo solo para el equipo.
+   */
+  async addNote(): Promise<void> {
     const text = this.draft().trim();
     if (!text || this.sending()) return;
     this.sending.set(true);
     this.sendError.set(null);
     try {
-      await this.api.sendMessage(this.id(), text, 'whatsapp');
+      await this.api.addNote(this.id(), text);
       this.draft.set('');
       this.context.reload();
-      this.conversations.reload();
     } catch (err) {
       // El texto se conserva en el composer para poder reintentar.
       this.sendError.set(this.describeSendError(err));

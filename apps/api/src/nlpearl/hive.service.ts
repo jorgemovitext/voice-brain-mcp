@@ -105,8 +105,11 @@ export class HiveService {
     ]);
 
     // --- Hilos esperando respuesta: el último mensaje es del cliente ---
+    // Las notas internas no cuentan: son apuntes del equipo, no una
+    // respuesta — el cliente sigue esperando aunque el operador anote.
     const porContacto = new Map<string, Interaction[]>();
     for (const i of interacciones) {
+      if (i.channel === 'note') continue;
       const lista = porContacto.get(i.contactId) ?? [];
       lista.push(i);
       porContacto.set(i.contactId, lista);
@@ -134,7 +137,10 @@ export class HiveService {
     // --- Métricas del día ---
     const hoy = new Date();
     hoy.setHours(0, 0, 0, 0);
-    const conversacionesHoy = interacciones.filter((i) => new Date(i.occurredAt) >= hoy).length;
+    // Solo interacciones con clientes: los apuntes internos no son tráfico.
+    const conversacionesHoy = interacciones.filter(
+      (i) => i.channel !== 'note' && new Date(i.occurredAt) >= hoy,
+    ).length;
 
     let promesasActivas = 0;
     for (const c of contactos) {

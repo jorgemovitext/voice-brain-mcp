@@ -117,6 +117,22 @@ export class BrainService {
   }
 
   /**
+   * Nota interna del operador: queda en el timeline del hilo (canal `note`)
+   * pero no sale por ningún canal. Los agentes conversan; el humano apunta.
+   */
+  addInternalNote(contactId: string, text: string, author?: string): Promise<Interaction> {
+    return this.appendInteraction({
+      contactId,
+      channel: 'note',
+      direction: 'outbound',
+      occurredAt: new Date().toISOString(),
+      summary: text,
+      source: 'own',
+      collectedInfo: author ? { author } : undefined,
+    });
+  }
+
+  /**
    * Punto de entrada del contexto de una llamada NL Pearl (webhook o bulk):
    * resuelve identidad, guarda la interacción de voz y actualiza señales
    * si la llamada capturó una promesa de pago.

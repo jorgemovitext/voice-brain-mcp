@@ -3,7 +3,8 @@
  * la consola autocontenida; ver apps/api/src/brain/types.ts).
  */
 
-export type Channel = 'voice' | 'whatsapp' | 'sms';
+/** `note` = apunte interno del operador: vive en el hilo, nunca viaja al cliente. */
+export type Channel = 'voice' | 'whatsapp' | 'sms' | 'note';
 export type Sentiment = 'positive' | 'neutral' | 'negative';
 
 export interface Contact {

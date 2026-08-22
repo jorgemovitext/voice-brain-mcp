@@ -1,5 +1,7 @@
-import { BadRequestException, Body, Controller, Get, Param, Post } from '@nestjs/common';
+import { BadRequestException, Body, Controller, Get, Param, Post, Req } from '@nestjs/common';
+import { FastifyRequest } from 'fastify';
 import { z } from 'zod';
+import { BrainService } from '../brain/brain.service';
 import { FollowupService } from '../channels/followup.service';
 import { DemoService } from './demo.service';
 
@@ -9,10 +11,7 @@ const triggerSchema = z.object({
   pearlId: z.string().trim().max(64).optional(),
 });
 const followupSchema = z.object({ channel: z.enum(['whatsapp', 'sms']).optional() });
-const messageSchema = z.object({
-  text: z.string().min(1).max(2000),
-  channel: z.enum(['whatsapp', 'sms']).optional(),
-});
+const noteSchema = z.object({ text: z.string().trim().min(1).max(2000) });
 
 /**
  * Acciones de la consola: correr la demo, disparar llamadas y
@@ -20,7 +19,11 @@ const messageSchema = z.object({
  */
 @Controller('api')
 export class DemoController {
-  constructor(private readonly demo: DemoService, private readonly followup: FollowupService) {}
+  constructor(
+    private readonly demo: DemoService,
+    private readonly followup: FollowupService,
+    private readonly brain: BrainService,
+  ) {}
 
   @Post('demo/run')
   run() {
@@ -46,12 +49,21 @@ export class DemoController {
     return this.demo.triggerCall(parsed.data.contactId, parsed.data.pearlId);
   }
 
-  /** Mensaje libre del operador desde el composer del chat. */
-  @Post('contacts/:id/messages')
-  sendMessage(@Param('id') id: string, @Body() body: unknown) {
-    const parsed = messageSchema.safeParse(body ?? {});
+  /**
+   * Composer del chat = NOTA INTERNA. Los agentes (Pearls) conversan con el
+   * cliente por sus propios canales; lo que escribe el operador acá queda en
+   * el hilo para el equipo y no sale por ningún canal. Se firma con el
+   * teléfono de la sesión para saber quién la dejó.
+   */
+  @Post('contacts/:id/notes')
+  addNote(
+    @Param('id') id: string,
+    @Body() body: unknown,
+    @Req() req: FastifyRequest & { user?: { phone?: string } },
+  ) {
+    const parsed = noteSchema.safeParse(body ?? {});
     if (!parsed.success) throw new BadRequestException(parsed.error.issues);
-    return this.followup.sendMessage(id, parsed.data.text, parsed.data.channel);
+    return this.brain.addInternalNote(id, parsed.data.text, req.user?.phone);
   }
 
   /** Botón "Enviar seguimiento por WhatsApp" de la vista de contexto. */

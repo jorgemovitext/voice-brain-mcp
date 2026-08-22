@@ -15,6 +15,7 @@ export type IconName =
   | 'play'
   | 'sparkle'
   | 'clock'
+  | 'note'
   | 'chevron';
 
 /**
@@ -87,6 +88,10 @@ export type IconName =
         @case ('clock') {
           <circle cx="12" cy="12" r="9"/>
           <path d="M12 7v5l3.5 2"/>
+        }
+        @case ('note') {
+          <path d="M13 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-9"/>
+          <path d="m18.4 2.6 2 2L13 12l-3 1 1-3z"/>
         }
         @case ('chevron') {
           <path d="m9 6 6 6-6 6"/>

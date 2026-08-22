@@ -8,15 +8,17 @@ export function channelIcon(channel: Channel): string {
     case 'voice': return '📞';
     case 'whatsapp': return '💬';
     case 'sms': return '✉️';
+    case 'note': return '📝';
   }
 }
 
 /** Nombre de icono SVG del canal (para la interfaz; ver icon.ts). */
-export function channelIconName(channel: Channel): 'phone' | 'chat' | 'mail' {
+export function channelIconName(channel: Channel): 'phone' | 'chat' | 'mail' | 'note' {
   switch (channel) {
     case 'voice': return 'phone';
     case 'whatsapp': return 'chat';
     case 'sms': return 'mail';
+    case 'note': return 'note';
   }
 }
 
@@ -25,6 +27,7 @@ export function channelLabel(channel: Channel): string {
     case 'voice': return 'Voz';
     case 'whatsapp': return 'WhatsApp';
     case 'sms': return 'SMS';
+    case 'note': return 'Nota interna';
   }
 }
 

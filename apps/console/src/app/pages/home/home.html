@@ -116,7 +116,11 @@
                     <ui-icon [name]="channelIconName(a.channel)" class="feed__icon" [class.feed__icon--out]="a.direction === 'outbound'" />
                     <span class="feed__text">
                       <strong>{{ a.displayName || 'Contacto' }}</strong>
-                      {{ a.direction === 'inbound' ? 'escribió' : (a.source === 'nlpearl' ? '← obrero respondió' : '← respondimos') }}
+                      @if (a.channel === 'note') {
+                        · nota interna del equipo
+                      } @else {
+                        {{ a.direction === 'inbound' ? 'escribió' : (a.source === 'nlpearl' ? '← obrero respondió' : '← respondimos') }}
+                      }
                     </span>
                     <time>{{ hora(a.occurredAt) }}</time>
                   </a>

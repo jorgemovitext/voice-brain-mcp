@@ -310,6 +310,25 @@ $overlap: 44px;
   border-radius: 16px 16px 4px 16px;
 }
 
+/* Nota interna: post-it del equipo — se distingue a propósito del hilo real. */
+.bubble--note,
+.msg--out .bubble--note {
+  background: #fff7d6;
+  border: 1.5px dashed #e3c95f;
+  border-radius: 12px;
+  color: #5c4d13;
+}
+
+.bubble__note-tag {
+  display: block;
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #a8891f;
+  margin-bottom: 3px;
+}
+
 .bubble--voice {
   display: inline-flex;
   align-items: center;
@@ -436,6 +455,15 @@ $overlap: 44px;
   svg { width: 18px; height: 18px; }
 
   &:disabled { opacity: 0.4; cursor: not-allowed; }
+}
+
+/* Variante nota: ámbar post-it, para que se note que NO envía al cliente. */
+.chat__send--note {
+  background: #e3aa1f;
+}
+
+.chat__composer--note .chat__input:focus {
+  border-color: #e3aa1f;
 }
 
 /* ================= Contexto en vivo (panel oscuro) ================= */

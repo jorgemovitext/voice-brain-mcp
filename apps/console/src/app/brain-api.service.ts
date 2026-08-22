@@ -51,11 +51,12 @@ export class BrainApiService {
     );
   }
 
-  /** Mensaje libre del operador (composer del chat). */
-  sendMessage(contactId: string, text: string, channel?: 'whatsapp' | 'sms'): Promise<{ message: string; channel: string }> {
-    return firstValueFrom(
-      this.http.post<{ message: string; channel: string }>(`/api/contacts/${contactId}/messages`, { text, channel }),
-    );
+  /**
+   * Nota interna del operador (composer del chat). Queda en el hilo para el
+   * equipo; NO viaja al cliente — los agentes conversan por sus canales.
+   */
+  addNote(contactId: string, text: string): Promise<unknown> {
+    return firstValueFrom(this.http.post(`/api/contacts/${contactId}/notes`, { text }));
   }
 
   /**

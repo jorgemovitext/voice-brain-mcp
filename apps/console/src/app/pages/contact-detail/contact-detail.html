@@ -89,11 +89,18 @@
                 @if (expanded().has(m.interaction.id) && m.interaction.transcript) {
                   <pre class="bubble bubble--transcript">{{ m.interaction.transcript }}</pre>
                 }
+              } @else if (m.interaction.channel === 'note') {
+                <!-- Apunte interno: post-it del equipo, el cliente nunca lo ve -->
+                <div class="bubble bubble--note">
+                  <span class="bubble__note-tag">📝 Nota interna</span>
+                  {{ m.interaction.summary }}
+                </div>
               } @else {
                 <div class="bubble">{{ m.interaction.summary }}</div>
               }
               <span class="msg__time">
-                {{ channelIcon(m.interaction.channel) }} {{ m.time }} @if (m.side === 'out') { ✓✓ }
+                {{ channelIcon(m.interaction.channel) }} {{ m.time }}
+                @if (m.side === 'out' && m.interaction.channel !== 'note') { ✓✓ }
               </span>
             </div>
           </div>
@@ -111,18 +118,19 @@
         </div>
       }
 
-      <footer class="chat__composer">
+      <!-- Composer = nota interna: los agentes conversan; el operador apunta -->
+      <footer class="chat__composer chat__composer--note">
         <input
           class="chat__input"
           type="text"
-          [placeholder]="'Mensaje a ' + (ctx.contact.displayName || 'contacto') + '…'"
+          placeholder="Nota interna del equipo (el contacto no la ve)…"
           [value]="draft()"
           (input)="onDraft($event)"
-          (keydown.enter)="sendMessage()"
+          (keydown.enter)="addNote()"
           [disabled]="sending()"
         />
-        <button class="chat__send" (click)="sendMessage()" [disabled]="sending() || !draft().trim()" title="Enviar por WhatsApp">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m22 2-11 11"/><path d="M22 2 15 22l-4-9-9-4z"/></svg>
+        <button class="chat__send chat__send--note" (click)="addNote()" [disabled]="sending() || !draft().trim()" title="Guardar nota interna">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M13 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-9"/><path d="m18.4 2.6 2 2L13 12l-3 1 1-3z"/></svg>
         </button>
       </footer>
     </section>

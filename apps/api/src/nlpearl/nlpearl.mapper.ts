@@ -1,6 +1,9 @@
 import { Channel, Interaction, NlpearlCallContext } from '../brain/types';
 import { NlpearlCallApiView } from './nlpearl.client';
 
+/** Canales por los que puede conversar un Pearl (una Pearl nunca "anota"). */
+export type PearlChannel = Exclude<Channel, 'note'>;
+
 /**
  * Canal por el que conversa un Pearl.
  *
@@ -8,7 +11,7 @@ import { NlpearlCallApiView } from './nlpearl.client';
  * el nombre solo desempata entre WhatsApp y SMS, y sirve de respaldo en
  * pearls sin settings legibles (borradores).
  */
-export function canalDePearl(name: string | undefined, agentType: number | undefined): Channel {
+export function canalDePearl(name: string | undefined, agentType: number | undefined): PearlChannel {
   const nombre = name ?? '';
   const esTexto = agentType === 2 || (agentType === undefined && (/\b(text|sms|chat)\b/i.test(nombre) || /whats/i.test(nombre)));
   if (!esTexto) return 'voice';

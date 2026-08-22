@@ -5,7 +5,7 @@ import { Channel } from '../brain/types';
 import { FlowLogService } from '../shared/flow-log.service';
 import { NlpearlActivityStore, StoredPearl } from './activity.store';
 import { NlpearlCallApiView, NlpearlClient } from './nlpearl.client';
-import { canalDePearl, toCallContext, toChatMessages } from './nlpearl.mapper';
+import { canalDePearl, PearlChannel, toCallContext, toChatMessages } from './nlpearl.mapper';
 
 export interface SyncReport {
   pearls: number;
@@ -67,7 +67,7 @@ export class PearlSyncService {
    * Canal del Brain para los hilos de una pearl. `NLPEARL_TEXT_PEARL_IDS`
    * fuerza texto para casos que la detección automática no cubra.
    */
-  private canalDe(pearl: PearlApiView, agentType?: number): Channel {
+  private canalDe(pearl: PearlApiView, agentType?: number): PearlChannel {
     if (this.textPearlIds.has(pearl.id)) return canalDePearl(pearl.name, 2);
     return canalDePearl(pearl.name, agentType);
   }
