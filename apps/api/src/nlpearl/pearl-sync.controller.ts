@@ -1,6 +1,26 @@
-import { Controller, Get, Post, Query } from '@nestjs/common';
+import { BadRequestException, Body, Controller, Get, Post, Query } from '@nestjs/common';
+import { z } from 'zod';
 import { NlpearlActivityStore } from './activity.store';
 import { PearlSyncService } from './pearl-sync.service';
+
+const simulateChatSchema = z.object({
+  phone: z
+    .string()
+    .trim()
+    .regex(/^\+[1-9]\d{6,14}$/, 'Teléfono en formato E.164, por ejemplo +50499998888'),
+  channel: z.enum(['whatsapp', 'sms']).default('whatsapp'),
+  displayName: z.string().trim().max(120).optional(),
+  mensajes: z
+    .array(
+      z.object({
+        role: z.enum(['agent', 'customer']),
+        content: z.string().trim().min(1).max(2000),
+      }),
+    )
+    .min(1)
+    .max(50)
+    .optional(),
+});
 
 /**
  * Espejo NL Pearl vía HTTP:
@@ -39,5 +59,35 @@ export class PearlSyncController {
   @Get('pearls')
   pearls() {
     return this.store.listPearls();
+  }
+
+  /**
+   * Inyecta una conversación de texto de ejemplo por el mismo camino que el
+   * sync real: sirve para ver en la consola cómo queda el hilo (mensajes del
+   * ciudadano a la izquierda, respuestas del agente a la derecha) sin esperar
+   * a que llegue una conversación de verdad.
+   */
+  @Post('simulate-chat')
+  simulateChat(@Body() body: unknown) {
+    const parsed = simulateChatSchema.safeParse(body ?? {});
+    if (!parsed.success) throw new BadRequestException(parsed.error.issues[0]?.message ?? 'Datos inválidos');
+    const { phone, channel, displayName } = parsed.data;
+
+    const mensajes = parsed.data.mensajes ?? [
+      { role: 'customer' as const, content: 'Buenas, quiero reportar un bache grande en el Boulevard Morazán.' },
+      {
+        role: 'agent' as const,
+        content:
+          'Buenas, soy Línea 100 de la AMDC. Con gusto le ayudo con su reporte. ¿Me confirma la altura o punto de referencia más cercano?',
+      },
+      { role: 'customer' as const, content: 'Frente al Mall Multiplaza, en el carril hacia el centro.' },
+      {
+        role: 'agent' as const,
+        content:
+          'Registrado: bache en Boulevard Morazán frente a Multiplaza, carril hacia el centro. Su número de reporte es AMDC-4417 y lo trasladamos a la cuadrilla de bacheo. ¿Algo más en que le pueda ayudar?',
+      },
+    ];
+
+    return this.sync.simulateChat({ phone, channel, displayName, mensajes });
   }
 }

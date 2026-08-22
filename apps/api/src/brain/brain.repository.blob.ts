@@ -133,6 +133,10 @@ export class BlobBrainRepository implements BrainRepository {
     return contactId ? snap.interactions.filter((i) => i.contactId === contactId) : [...snap.interactions];
   }
 
+  async findInteraction(id: string): Promise<Interaction | undefined> {
+    return (await this.fresh()).interactions.find((i) => i.id === id);
+  }
+
   async appendInteraction(interaction: Interaction): Promise<Interaction> {
     const snap = await this.fresh(true);
     snap.interactions.push(interaction);

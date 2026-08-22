@@ -73,10 +73,13 @@ export function ensureSchema(pool: Pool): Promise<void> {
           name text,
           type integer,
           status integer,
+          agent_type integer,
           channel text NOT NULL DEFAULT 'voice',
           raw jsonb,
           synced_at timestamptz NOT NULL DEFAULT now()
         );
+        -- Tablas creadas antes de conocer agentType (1=voz, 2=texto).
+        ALTER TABLE nlpearl_pearls ADD COLUMN IF NOT EXISTS agent_type integer;
         CREATE TABLE IF NOT EXISTS nlpearl_activity (
           id text PRIMARY KEY,
           pearl_id text,

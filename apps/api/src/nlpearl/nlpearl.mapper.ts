@@ -26,6 +26,46 @@ function mapCollectedInfo(info?: NlpearlCallApiView['collectedInfo']): Record<st
   return Object.fromEntries(info.map((v) => [v.name, v.value]));
 }
 
+/** Un mensaje suelto de una conversación de texto (SMS/WhatsApp). */
+export interface ChatMessage {
+  /** `agent` = la Pearl contestando; `customer` = la persona escribiendo. */
+  role: 'agent' | 'customer';
+  content: string;
+  /** Momento del mensaje, ISO 8601. */
+  at: string;
+}
+
+/**
+ * Convierte el transcript en mensajes sueltos para pintarlos como chat.
+ *
+ * En voz el transcript es el registro de una llamada y se guarda como un solo
+ * bloque; en texto CADA entrada es un mensaje real del hilo, así que se
+ * separan para que la conversación se vea como tal (y se distinga quién
+ * escribió qué).
+ */
+export function toChatMessages(call: NlpearlCallApiView): ChatMessage[] {
+  const base = call.startTime ? new Date(call.startTime).getTime() : Date.now();
+
+  return (call.transcript ?? [])
+    .filter((m) => typeof m.content === 'string' && m.content.trim())
+    .map((m, i) => ({
+      role: /assistant|agent|bot|pearl/i.test(m.role ?? '') ? ('agent' as const) : ('customer' as const),
+      content: m.content.trim(),
+      at: new Date(momentoDe(base, m.startTime, i)).toISOString(),
+    }));
+}
+
+/**
+ * `startTime` viene como offset en segundos desde el inicio; en algunos
+ * payloads llega como epoch en milisegundos. Se distingue por magnitud, y sin
+ * dato se separa un segundo por mensaje para conservar el orden del hilo.
+ */
+function momentoDe(base: number, startTime: number | undefined, index: number): number {
+  if (typeof startTime !== 'number' || !Number.isFinite(startTime)) return base + index * 1000;
+  if (startTime > 1e11) return startTime; // epoch en ms
+  return base + startTime * 1000; // offset en segundos
+}
+
 export function toCallContext(call: NlpearlCallApiView): NlpearlCallContext {
   const direction = call.direction ?? 'outbound';
   return {

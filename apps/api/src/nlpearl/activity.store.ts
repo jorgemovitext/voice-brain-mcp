@@ -8,6 +8,8 @@ export interface StoredPearl {
   name?: string;
   type?: number;
   status?: number;
+  /** agentType de NL Pearl: 1 = voz, 2 = texto. Cacheado para no re-consultar. */
+  agentType?: number;
   /** Canal con el que se registran sus conversaciones en el Brain. */
   channel: 'voice' | 'sms' | 'whatsapp';
   raw?: unknown;
@@ -53,16 +55,25 @@ export class NlpearlActivityStore {
     const db = await this.db();
     if (!db) return;
     await db.query(
-      `INSERT INTO nlpearl_pearls (id, name, type, status, channel, raw, synced_at)
-       VALUES ($1, $2, $3, $4, $5, $6::jsonb, now())
+      `INSERT INTO nlpearl_pearls (id, name, type, status, agent_type, channel, raw, synced_at)
+       VALUES ($1, $2, $3, $4, $5, $6, $7::jsonb, now())
        ON CONFLICT (id) DO UPDATE SET
          name = EXCLUDED.name,
          type = EXCLUDED.type,
          status = EXCLUDED.status,
+         agent_type = COALESCE(EXCLUDED.agent_type, nlpearl_pearls.agent_type),
          channel = EXCLUDED.channel,
          raw = EXCLUDED.raw,
          synced_at = now()`,
-      [pearl.id, pearl.name ?? null, pearl.type ?? null, pearl.status ?? null, pearl.channel, JSON.stringify(pearl.raw ?? null)],
+      [
+        pearl.id,
+        pearl.name ?? null,
+        pearl.type ?? null,
+        pearl.status ?? null,
+        pearl.agentType ?? null,
+        pearl.channel,
+        JSON.stringify(pearl.raw ?? null),
+      ],
     );
   }
 
@@ -75,6 +86,7 @@ export class NlpearlActivityStore {
       name: r.name ?? undefined,
       type: r.type ?? undefined,
       status: r.status ?? undefined,
+      agentType: r.agent_type ?? undefined,
       channel: r.channel,
       raw: r.raw ?? undefined,
       syncedAt: r.synced_at ? new Date(r.synced_at).toISOString() : undefined,

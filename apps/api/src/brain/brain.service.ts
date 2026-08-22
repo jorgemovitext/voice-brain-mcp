@@ -85,7 +85,7 @@ export class BrainService {
     // Con id explícito (ej. `nlpearl:<callId>` del sync) el append es
     // idempotente: re-sincronizar el mismo rango no duplica el hilo.
     if (input.id) {
-      const existing = (await this.repo.listInteractions(input.contactId)).find((i) => i.id === input.id);
+      const existing = await this.repo.findInteraction(input.id);
       if (existing) return existing;
     }
     const interaction: Interaction = {
@@ -109,6 +109,11 @@ export class BrainService {
 
   listInteractions(contactId?: string): Promise<Interaction[]> {
     return this.repo.listInteractions(contactId);
+  }
+
+  /** ¿Ya está ingerida esta interacción? La usa el sync para no reprocesar. */
+  getInteraction(id: string): Promise<Interaction | undefined> {
+    return this.repo.findInteraction(id);
   }
 
   /**

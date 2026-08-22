@@ -108,6 +108,12 @@ export class PgBrainRepository implements BrainRepository {
     return res.rows.map((r) => this.rowToInteraction(r));
   }
 
+  async findInteraction(id: string): Promise<Interaction | undefined> {
+    const db = await this.db();
+    const res = await db.query('SELECT * FROM interactions WHERE id = $1', [id]);
+    return res.rows[0] ? this.rowToInteraction(res.rows[0]) : undefined;
+  }
+
   async appendInteraction(interaction: Interaction): Promise<Interaction> {
     const db = await this.db();
     await db.query(

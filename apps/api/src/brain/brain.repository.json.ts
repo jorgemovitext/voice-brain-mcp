@@ -99,6 +99,11 @@ export class JsonBrainRepository implements BrainRepository {
     return contactId ? this.interactions.filter((i) => i.contactId === contactId) : [...this.interactions];
   }
 
+  async findInteraction(id: string): Promise<Interaction | undefined> {
+    await this.ensureLoaded();
+    return this.interactions.find((i) => i.id === id);
+  }
+
   async appendInteraction(interaction: Interaction): Promise<Interaction> {
     await this.ensureLoaded();
     this.interactions.push(interaction);

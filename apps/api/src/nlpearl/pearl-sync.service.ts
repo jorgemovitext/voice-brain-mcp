@@ -1,34 +1,40 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { BrainService } from '../brain/brain.service';
+import { Channel } from '../brain/types';
 import { FlowLogService } from '../shared/flow-log.service';
 import { NlpearlActivityStore, StoredPearl } from './activity.store';
 import { NlpearlCallApiView, NlpearlClient } from './nlpearl.client';
-import { toCallContext } from './nlpearl.mapper';
+import { toCallContext, toChatMessages } from './nlpearl.mapper';
 
 export interface SyncReport {
   pearls: number;
   actividades: number;
+  /** Interacciones nuevas en el Brain (en texto, mensajes sueltos). */
   nuevas: number;
   errores: Array<{ pearlId: string; name?: string; error: string }>;
   desde: string;
   hasta: string;
 }
 
-/** Forma parcial del Pearl en GET /v2/Pearl. // TODO: confirmar con NL Pearl */
+/** Forma parcial del Pearl en GET /v2/Pearl. */
 interface PearlApiView {
   id: string;
   name?: string;
   status?: number; // 1 = activa, 2 = pausada
-  type?: number; // 1 = inbound, 2 = outbound  // TODO: confirmar con NL Pearl
+  type?: number; // 1 = inbound, 2 = outbound
   [key: string]: unknown;
 }
 
 /**
- * El "espejo NL Pearl": recorre TODAS las pearls de la cuenta (voz y texto,
- * ej. "Línea 100 AMDC TEXT"), trae la actividad del rango con Calls/Bulk,
- * guarda el detalle raw en nuestra DB y alimenta el Brain con cada
- * conversación nueva (canal voice o sms según la pearl).
+ * El "espejo NL Pearl": recorre TODAS las pearls de la cuenta (voz y texto),
+ * trae la actividad del rango, guarda el detalle raw en nuestra DB y alimenta
+ * el Brain.
+ *
+ * Voz → una interacción por llamada (con su transcripción completa).
+ * Texto → una interacción POR MENSAJE, para que el hilo se vea como el chat
+ * que es: lo que escribe la persona entra como `inbound` y lo que contesta la
+ * Pearl como `outbound`, o sea, nuestra app mostrando al agente respondiendo.
  *
  * Serverless: no hay timers de fondo, así que el sync se dispara por endpoint
  * (la consola lo invoca al refrescar, o manualmente / cron externo).
@@ -58,18 +64,19 @@ export class PearlSyncService {
   }
 
   /**
-   * Canal del Brain para los hilos de una pearl. El API no expone un campo
-   * voz/texto (verificado contra GET /v2/Pearl/{id}: mismo shape para ambas),
-   * así que se decide por lista explícita (NLPEARL_TEXT_PEARL_IDS ⇒ sms) o
-   * por nombre: "...Whatsapp" ⇒ whatsapp, "...TEXT/SMS/Chat" ⇒ sms.
-   * // TODO: confirmar con NL Pearl si existe un campo real de canal
+   * Canal del Brain para los hilos de una pearl. Lo decide `agentType`
+   * (1 = voz, 2 = texto), que es el dato real de NL Pearl; el nombre solo
+   * desempata entre WhatsApp y SMS, y sirve de respaldo en pearls sin
+   * settings legibles (borradores).
    */
-  private canalDe(pearl: PearlApiView): StoredPearl['channel'] {
-    if (this.textPearlIds.has(pearl.id)) return 'sms';
+  private canalDe(pearl: PearlApiView, agentType?: number): Channel {
     const name = pearl.name ?? '';
-    if (/whats\s?app|\bwa\b/i.test(name)) return 'whatsapp';
-    if (/\b(text|sms|chat)\b/i.test(name)) return 'sms';
-    return 'voice';
+    const forzadaTexto = this.textPearlIds.has(pearl.id);
+    const esTexto =
+      forzadaTexto || agentType === 2 || (agentType === undefined && /\b(text|sms|chat)\b|whats/i.test(name));
+
+    if (!esTexto) return 'voice';
+    return /whats\s?app|\bwa\b/i.test(name) ? 'whatsapp' : 'sms';
   }
 
   /** La API puede devolver el array pelado o envuelto ({results}/{data}). */
@@ -103,14 +110,25 @@ export class PearlSyncService {
     let pearls = this.desenvolver<PearlApiView>(await this.client.getPearls());
     if (opts.pearlId) pearls = pearls.filter((p) => p.id === opts.pearlId);
 
+    // agentType ya conocido: evita re-consultar Settings de las 20+ pearls
+    // en cada sync (el dato no cambia).
+    const conocidas = new Map((await this.store.listPearls()).map((p) => [p.id, p]));
+
     for (const pearl of pearls) {
-      const channel = this.canalDe(pearl);
       report.pearls++;
+      let agentType = conocidas.get(pearl.id)?.agentType;
+      if (agentType === undefined) {
+        const settings = await this.client.getPearlSettings(pearl.id).catch(() => null);
+        agentType = settings?.agentType;
+      }
+
+      const channel = this.canalDe(pearl, agentType);
       await this.store.upsertPearl({
         id: pearl.id,
         name: pearl.name,
         type: pearl.type,
         status: pearl.status,
+        agentType,
         channel,
         raw: pearl,
       });
@@ -130,7 +148,7 @@ export class PearlSyncService {
           );
           for (const call of calls) {
             report.actividades++;
-            if (await this.ingestar(pearl, channel, call)) report.nuevas++;
+            report.nuevas += await this.ingestar(pearl, channel, call);
           }
           if (calls.length < PAGE) break;
         }
@@ -144,7 +162,7 @@ export class PearlSyncService {
     if (report.nuevas > 0) {
       this.flowLog.push(
         'brain',
-        `Sync NL Pearl: ${report.nuevas} conversación(es) nueva(s) de ${report.pearls} pearls guardadas a detalle`,
+        `Sync NL Pearl: ${report.nuevas} mensaje(s)/llamada(s) nueva(s) de ${report.pearls} pearls`,
         { nuevas: report.nuevas, pearls: report.pearls },
       );
     }
@@ -154,21 +172,63 @@ export class PearlSyncService {
     return report;
   }
 
-  /** Guarda el raw y, si es actividad nueva, la refleja en el Brain. Devuelve si era nueva. */
-  private async ingestar(
-    pearl: PearlApiView,
-    channel: StoredPearl['channel'],
-    call: NlpearlCallApiView,
-  ): Promise<boolean> {
+  /**
+   * Inyecta una conversación de texto como si la hubiera traído el sync.
+   * Usa exactamente el mismo camino de ingesta que una real (`ingestarChat`),
+   * así que sirve para validar cómo se ve el hilo en la consola sin depender
+   * de que alguien escriba a la Pearl.
+   */
+  async simulateChat(input: {
+    phone: string;
+    channel?: Extract<Channel, 'sms' | 'whatsapp'>;
+    displayName?: string;
+    mensajes: Array<{ role: 'agent' | 'customer'; content: string }>;
+  }): Promise<{ callId: string; nuevas: number }> {
+    const callId = `sim_chat_${Date.now().toString(36)}`;
+    const inicio = new Date(Date.now() - input.mensajes.length * 30_000);
+
+    const call: NlpearlCallApiView = {
+      id: callId,
+      from: input.phone,
+      to: input.phone,
+      direction: 'inbound',
+      startTime: inicio.toISOString(),
+      transcript: input.mensajes.map((m, i) => ({
+        role: m.role === 'agent' ? 'assistant' : 'user',
+        content: m.content,
+        startTime: i * 30,
+      })),
+      collectedInfo: input.displayName ? [{ id: 'n', name: 'First Name', value: input.displayName }] : undefined,
+      overallSentiment: 4,
+    };
+
+    await this.store.recordActivity({
+      id: callId,
+      phone: input.phone,
+      kind: 'chat',
+      occurredAt: inicio.toISOString(),
+      raw: call,
+    });
+    const nuevas = await this.ingestarChat(input.channel ?? 'whatsapp', call, input.phone);
+    return { callId, nuevas };
+  }
+
+  /**
+   * Guarda el raw y refleja la actividad en el Brain.
+   * Devuelve cuántas interacciones NUEVAS se crearon (0 si ya estaba todo).
+   */
+  private async ingestar(pearl: PearlApiView, channel: Channel, call: NlpearlCallApiView): Promise<number> {
     // Dirección: si el CallApiView no la trae, se hereda del tipo de pearl
-    // (inbound recibe, outbound llama). // TODO: confirmar con NL Pearl
+    // (inbound recibe, outbound llama).
     const conDireccion: NlpearlCallApiView = {
       ...call,
       direction: call.direction ?? (pearl.type === 2 ? 'outbound' : 'inbound'),
     };
     const ctx = toCallContext(conDireccion);
 
-    const { inserted } = await this.store.recordActivity({
+    // Siempre se refresca el raw: una conversación en curso crece entre syncs
+    // (primero llega sin transcript, después con más mensajes).
+    await this.store.recordActivity({
       id: call.id,
       pearlId: pearl.id,
       phone: ctx.phoneNumber,
@@ -176,43 +236,98 @@ export class PearlSyncService {
       occurredAt: ctx.endedAt ?? ctx.startedAt,
       raw: call,
     });
-    if (!inserted) return false;
-    if (!ctx.phoneNumber) return false; // sin teléfono no hay identidad que resolver
+
+    if (!ctx.phoneNumber) return 0; // sin teléfono no hay identidad que resolver
 
     if (channel === 'voice') {
-      // Reusa el flujo de voz completo: identidad + interacción + señales (promesas).
+      // Una llamada ya ingerida no se reprocesa (el id es determinista).
+      if (await this.brain.getInteraction(`nlpearl:${call.id}`)) return 0;
       await this.brain.recordCallContext(ctx);
-      return true;
+      return 1;
     }
 
-    // Texto (SMS/WhatsApp/chat): mismo hilo del contacto, con el canal de la pearl.
+    return this.ingestarChat(channel, conDireccion, ctx.phoneNumber);
+  }
+
+  /**
+   * Conversación de texto → un mensaje del chat por cada turno, con el rol
+   * traducido a dirección: la Pearl contestando sale como `outbound`, que es
+   * como la consola pinta "nuestro agente respondió".
+   */
+  private async ingestarChat(
+    channel: Channel,
+    call: NlpearlCallApiView,
+    phone: string,
+  ): Promise<number> {
+    const ctx = toCallContext(call);
+    const mensajes = toChatMessages(call);
+
     const { contactId } = await this.brain.resolveIdentity({
-      phone: ctx.phoneNumber,
+      phone,
       externalId: ctx.externalId,
       system: 'nlpearl',
     });
-    await this.brain.appendInteraction({
-      id: `nlpearl:${call.id}`,
-      contactId,
-      channel,
-      direction: ctx.direction ?? 'inbound',
-      occurredAt: ctx.endedAt ?? ctx.startedAt ?? new Date().toISOString(),
-      summary: ctx.summary ?? this.resumenDesdeTranscript(ctx.transcript),
-      transcript: ctx.transcript,
-      sentiment: ctx.sentiment,
-      collectedInfo: ctx.collectedInfo,
-      source: 'nlpearl',
-    });
-    return true;
+
+    // Nombre capturado por el agente durante el chat: enriquece el contacto.
+    const nombre = this.nombreDe(ctx.collectedInfo);
+    if (nombre) {
+      const contacto = await this.brain.getContext({ contactId });
+      if (!contacto.contact.displayName) {
+        await this.brain.upsertContact({ id: contactId, displayName: nombre });
+      }
+    }
+
+    // Sin transcript todavía (conversación recién abierta): se registra el
+    // resumen como una sola interacción para que el hilo no quede vacío.
+    if (!mensajes.length) {
+      const id = `nlpearl:${call.id}`;
+      if (await this.brain.getInteraction(id)) return 0;
+      if (!ctx.summary) return 0;
+      await this.brain.appendInteraction({
+        id,
+        contactId,
+        channel,
+        direction: ctx.direction ?? 'inbound',
+        occurredAt: ctx.startedAt ?? new Date().toISOString(),
+        summary: ctx.summary,
+        source: 'nlpearl',
+      });
+      return 1;
+    }
+
+    let nuevas = 0;
+    for (const [i, mensaje] of mensajes.entries()) {
+      // Id por turno: al re-sincronizar una conversación en curso solo entran
+      // los mensajes que aún no estaban.
+      const id = `nlpearl:${call.id}:${i}`;
+      if (await this.brain.getInteraction(id)) continue;
+
+      await this.brain.appendInteraction({
+        id,
+        contactId,
+        channel,
+        direction: mensaje.role === 'agent' ? 'outbound' : 'inbound',
+        occurredAt: mensaje.at,
+        summary: mensaje.content,
+        source: 'nlpearl',
+        // El análisis de la conversación (sentimiento, datos capturados) se
+        // cuelga del último mensaje, que es cuando NL Pearl ya lo calculó.
+        sentiment: i === mensajes.length - 1 ? ctx.sentiment : undefined,
+        collectedInfo: i === mensajes.length - 1 ? ctx.collectedInfo : undefined,
+      });
+      nuevas++;
+    }
+    return nuevas;
   }
 
-  /** Un chat sin summary igual necesita algo legible en el timeline. */
-  private resumenDesdeTranscript(transcript?: string): string | undefined {
-    if (!transcript) return undefined;
-    const primeraDelCliente = transcript
-      .split('\n')
-      .find((l) => l.startsWith('Cliente:'))
-      ?.replace('Cliente: ', '');
-    return primeraDelCliente ?? transcript.split('\n')[0];
+  /** Busca un nombre entre los datos capturados, sin confundirlo con el del agente. */
+  private nombreDe(collectedInfo?: Record<string, unknown>): string | undefined {
+    if (!collectedInfo) return undefined;
+    for (const [clave, valor] of Object.entries(collectedInfo)) {
+      if (typeof valor !== 'string' || !valor.trim()) continue;
+      if (/agent/i.test(clave)) continue;
+      if (/^(first\s*name|contact\s*name|nombre|full\s*name)$/i.test(clave.trim())) return valor.trim();
+    }
+    return undefined;
   }
 }

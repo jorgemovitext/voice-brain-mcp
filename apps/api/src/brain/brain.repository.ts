@@ -12,6 +12,8 @@ export interface BrainRepository {
   saveContact(contact: Contact): Promise<Contact>;
 
   listInteractions(contactId?: string): Promise<Interaction[]>;
+  /** Búsqueda por id: hace barata la idempotencia de la ingesta. */
+  findInteraction(id: string): Promise<Interaction | undefined>;
   appendInteraction(interaction: Interaction): Promise<Interaction>;
 
   listSignals(contactId: string): Promise<Signal[]>;

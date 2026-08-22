@@ -221,9 +221,22 @@ export class NlpearlClient {
     return this.request('PATCH', `/v2/PearlFlow/VoicePearl/${pearlId}`, graph);
   }
 
-  /** // TODO: confirmar con NL Pearl */
-  getPearlSettings(pearlId: string): Promise<unknown> {
-    return this.request('GET', `/v2/PearlFlow/${pearlId}`);
+  /**
+   * Configuración del Pearl (path verificado contra el API real; el
+   * `/v2/PearlFlow/{id}` que se suponía antes devuelve 404).
+   * Trae `agentType`: 1 = voz, 2 = texto — así se sabe por qué canal
+   * conversa cada Pearl sin adivinar por el nombre.
+   */
+  getPearlSettings(pearlId: string): Promise<{ agentType?: number; name?: string; type?: number }> {
+    return this.request('GET', `/v2/Pearl/${pearlId}/Settings`);
+  }
+
+  /**
+   * Canales de texto conectados a la cuenta (SMS/WhatsApp).
+   * Path verificado: devuelve [{ channel, channelId, displayName }].
+   */
+  getTextChannels(): Promise<Array<{ channel: number; channelId: string; displayName: string }>> {
+    return this.request('GET', `/v2/Account/TextChannels`);
   }
 
   /**
