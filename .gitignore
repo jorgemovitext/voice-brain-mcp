@@ -16,3 +16,5 @@ data/brain.json
 .vercel
 data/users.json
 **/data/users.json
+data/settings.json
+**/data/settings.json
