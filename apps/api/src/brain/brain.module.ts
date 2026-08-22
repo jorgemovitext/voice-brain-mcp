@@ -4,6 +4,7 @@ import { BRAIN_REPOSITORY } from './brain.repository';
 import { BlobBrainRepository } from './brain.repository.blob';
 import { JsonBrainRepository } from './brain.repository.json';
 import { PgBrainRepository } from './brain.repository.pg';
+import { BlobImportService } from './blob-import.service';
 import { BrainController } from './brain.controller';
 import { BrainService } from './brain.service';
 import { IdentityService } from './identity.service';
@@ -18,6 +19,7 @@ import { StorageDiagnosticsController } from './storage-diagnostics.controller';
   providers: [
     BrainService,
     IdentityService,
+    BlobImportService,
     PgBrainRepository,
     BlobBrainRepository,
     JsonBrainRepository,
