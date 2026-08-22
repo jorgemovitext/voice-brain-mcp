@@ -101,6 +101,46 @@ export interface WorkerFlow {
   message?: string;
 }
 
+/** Estado de la colmena (primera pantalla): GET /api/hive. */
+export interface HiveStatus {
+  obreros: {
+    total: number;
+    activos: number;
+    enElPanal: Array<{
+      id: string;
+      name: string;
+      channel: Channel;
+      synced: number;
+      asignada?: boolean;
+    }>;
+  };
+  metricas: {
+    contactos: number;
+    conversacionesHoy: number;
+    esperandoRespuesta: number;
+    promesasActivas: number;
+  };
+  esperando: Array<{
+    contactId: string;
+    displayName?: string;
+    phone?: string;
+    channel: Channel;
+    summary?: string;
+    occurredAt: string;
+    waitingMin: number;
+  }>;
+  actividad: Array<{
+    contactId: string;
+    displayName?: string;
+    channel: Channel;
+    direction: 'inbound' | 'outbound';
+    summary?: string;
+    occurredAt: string;
+    source?: string;
+  }>;
+  canales: { nlpearl: boolean; whatsapp: string; db: string };
+}
+
 /** Actividad reciente de webhooks (entrantes y pruebas salientes). */
 export interface WebhookEvent {
   at: string;

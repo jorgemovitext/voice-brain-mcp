@@ -6,6 +6,8 @@ import { ChannelsModule } from '../channels/channels.module';
 import { VOICE_ENGINE_PORT } from '../ports/voice-engine.port';
 import { NlpearlActivityStore } from './activity.store';
 import { CallIngestService } from './call-ingest.service';
+import { HiveController } from './hive.controller';
+import { HiveService } from './hive.service';
 import { NlpearlDiagnosticsController } from './nlpearl-diagnostics.controller';
 import { PearlRoutingService } from './pearl-routing.service';
 import { PearlSyncController } from './pearl-sync.controller';
@@ -31,6 +33,7 @@ import { WorkersController } from './workers.controller';
     WorkersController,
     NlpearlDiagnosticsController,
     PearlSyncController,
+    HiveController,
   ],
   providers: [
     NlpearlClient,
@@ -39,6 +42,7 @@ import { WorkersController } from './workers.controller';
     NlpearlActivityStore,
     PearlRoutingService,
     PearlSyncService,
+    HiveService,
     NlpearlMockEngine,
     NlpearlVoiceEngine,
     WebhookSignatureGuard,

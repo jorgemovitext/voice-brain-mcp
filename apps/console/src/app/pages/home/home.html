@@ -1,44 +1,140 @@
-<div class="home">
-  <voice-nebula class="home__orb" [size]="130" />
+<div class="hive">
+  <!-- Cabecera: pulso del panal + búsqueda rápida -->
+  <header class="hive__head">
+    <div class="hive__title">
+      <voice-nebula [size]="52" />
+      <div>
+        <h1>La colmena</h1>
+        <p class="hive__pulse" [class.hive__pulse--ok]="pulso().ok">
+          <span class="hive__dot"></span>{{ pulso().label }}
+        </p>
+      </div>
+    </div>
 
-  <p class="home__hi">Hola, operador</p>
-  <h1 class="home__title">¿En qué te ayudo hoy?</h1>
-  <p class="home__sub">
-    Voz con NL Pearl + contexto unificado en el Brain —
-    del precall al seguimiento por WhatsApp.
-  </p>
-
-  <form class="ask" (submit)="$event.preventDefault(); search()">
-    <span class="ask__hint"><ui-icon name="zap" /> Todo corre en modo mock, sin credenciales</span>
-    <div class="ask__box">
+    <form class="hive__search" (submit)="$event.preventDefault(); search()">
       <input
-        class="ask__input"
         type="text"
-        placeholder="Buscá un contacto por nombre o teléfono…"
+        placeholder="Buscar contacto por nombre o teléfono…"
         [value]="query()"
         (input)="onInput($event)"
       />
-      <button class="ask__send" type="submit" title="Buscar">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M5 12h13"/><path d="m12 5 7 7-7 7"/></svg>
-      </button>
-    </div>
-  </form>
+      <button class="btn btn--secondary" type="submit" title="Buscar"><ui-icon name="send" /></button>
+    </form>
+  </header>
 
-  <div class="quick">
-    <a routerLink="/workers" class="quick__card">
-      <span class="quick__icon quick__icon--primary"><ui-icon name="chip" /></span>
-      <span class="quick__title">Obreros</span>
-      <span class="quick__desc">Tus Pearls de voz y los workflows del gateway.</span>
-    </a>
-    <a routerLink="/contacts" class="quick__card">
-      <span class="quick__icon quick__icon--secondary"><ui-icon name="users" /></span>
-      <span class="quick__title">Ver contactos</span>
-      <span class="quick__desc">Identidad y contexto unificado por contacto.</span>
-    </a>
-    <a routerLink="/conversations" class="quick__card">
-      <span class="quick__icon quick__icon--secondary"><ui-icon name="chat" /></span>
-      <span class="quick__title">Conversaciones</span>
-      <span class="quick__desc">Todos los hilos en un solo lugar, con contexto en vivo.</span>
-    </a>
-  </div>
+  @if (hive.isLoading() && !hive.value()) {
+    <div class="state"><div class="spinner"></div>Leyendo el estado del panal…</div>
+  } @else if (hive.error() && !hive.value()) {
+    <div class="state state--error">
+      No se pudo leer la colmena.
+      <div><button class="btn btn--primary" (click)="hive.reload()">Reintentar</button></div>
+    </div>
+  } @else if (hive.value(); as h) {
+    <!-- Métricas: el estado del enjambre en cuatro números -->
+    <section class="kpis">
+      <a class="kpi" routerLink="/workers">
+        <span class="kpi__num">{{ h.obreros.activos }}<small>/{{ h.obreros.total }}</small></span>
+        <span class="kpi__label">Obreros en el panal</span>
+      </a>
+      <div class="kpi" [class.kpi--alert]="h.metricas.esperandoRespuesta > 0">
+        <span class="kpi__num">{{ h.metricas.esperandoRespuesta }}</span>
+        <span class="kpi__label">Esperando respuesta</span>
+      </div>
+      <a class="kpi" routerLink="/conversations">
+        <span class="kpi__num">{{ h.metricas.conversacionesHoy }}</span>
+        <span class="kpi__label">Interacciones hoy</span>
+      </a>
+      <a class="kpi" routerLink="/contacts">
+        <span class="kpi__num">{{ h.metricas.contactos }}</span>
+        <span class="kpi__label">Contactos en el Brain</span>
+      </a>
+    </section>
+
+    <div class="hive__grid">
+      <!-- Cola de atención: la razón de ser de esta pantalla -->
+      <section class="card panel">
+        <h2><ui-icon name="chat" /> Esperando respuesta</h2>
+        @if (h.esperando.length) {
+          <ul class="queue">
+            @for (t of h.esperando; track t.contactId) {
+              <li>
+                <a class="queue__row" [routerLink]="['/conversations', t.contactId]">
+                  <span class="queue__who">
+                    <strong>{{ t.displayName || t.phone || 'Sin nombre' }}</strong>
+                    <span class="queue__msg">{{ t.summary || '(sin resumen)' }}</span>
+                  </span>
+                  <span class="queue__meta">
+                    <span class="pill pill--neutral"><ui-icon [name]="channelIconName(t.channel)" /> {{ channelLabel(t.channel) }}</span>
+                    <span class="queue__wait" [class.queue__wait--long]="t.waitingMin >= 30">{{ espera(t.waitingMin) }}</span>
+                  </span>
+                </a>
+              </li>
+            }
+          </ul>
+        } @else {
+          <p class="panel__empty">
+            Nadie espera: el enjambre está al día.
+            <span>Los hilos cuyo último mensaje es del cliente aparecen acá, ordenados por quién lleva más esperando.</span>
+          </p>
+        }
+      </section>
+
+      <div class="hive__side">
+        <!-- El enjambre activo -->
+        <section class="card panel">
+          <h2><ui-icon name="chip" /> El enjambre</h2>
+          @if (h.obreros.enElPanal.length) {
+            <ul class="swarm">
+              @for (w of h.obreros.enElPanal; track w.id) {
+                <li class="swarm__row">
+                  <voice-nebula [size]="30" />
+                  <span class="swarm__name">{{ w.name }}</span>
+                  <span class="swarm__tags">
+                    <span class="pill pill--neutral">{{ channelLabel(w.channel) }}</span>
+                    @if (w.asignada) { <span class="pill pill--primary" title="Asignada a su canal en la app">en uso</span> }
+                  </span>
+                </li>
+              }
+            </ul>
+            <a class="panel__link" routerLink="/workers">Administrar obreros →</a>
+          } @else {
+            <p class="panel__empty">
+              Sin obreros activos.
+              <span>Activá una Pearl en <a routerLink="/workers">Obreros</a> para que la colmena reciba llamadas o mensajes.</span>
+            </p>
+          }
+        </section>
+
+        <!-- Últimos movimientos del panal -->
+        <section class="card panel">
+          <h2><ui-icon name="zap" /> Actividad reciente</h2>
+          @if (h.actividad.length) {
+            <ul class="feed">
+              @for (a of h.actividad; track a.contactId + a.occurredAt) {
+                <li>
+                  <a class="feed__row" [routerLink]="['/conversations', a.contactId]">
+                    <ui-icon [name]="channelIconName(a.channel)" class="feed__icon" [class.feed__icon--out]="a.direction === 'outbound'" />
+                    <span class="feed__text">
+                      <strong>{{ a.displayName || 'Contacto' }}</strong>
+                      {{ a.direction === 'inbound' ? 'escribió' : (a.source === 'nlpearl' ? '← obrero respondió' : '← respondimos') }}
+                    </span>
+                    <time>{{ hora(a.occurredAt) }}</time>
+                  </a>
+                </li>
+              }
+            </ul>
+          } @else {
+            <p class="panel__empty">Todavía sin actividad. <span>Cuando entre una llamada o un mensaje, lo vas a ver acá.</span></p>
+          }
+        </section>
+
+        <!-- Salud de los conductos de la colmena -->
+        <section class="card panel panel--channels">
+          <span class="chip" [class.chip--ok]="h.canales.nlpearl">NL Pearl {{ h.canales.nlpearl ? 'conectado' : 'sin credenciales' }}</span>
+          <span class="chip" [class.chip--ok]="h.canales.whatsapp !== 'stub'">WhatsApp {{ h.canales.whatsapp === 'stub' ? 'simulado' : h.canales.whatsapp }}</span>
+          <span class="chip" [class.chip--ok]="h.canales.db === 'postgres'">Memoria {{ h.canales.db }}</span>
+        </section>
+      </div>
+    </div>
+  }
 </div>

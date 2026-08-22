@@ -12,7 +12,7 @@ export const routes: Routes = [
     path: 'home',
     canActivate: [authGuard],
     loadComponent: () => import('./pages/home/home').then((m) => m.HomePage),
-    title: 'Inicio · Brain',
+    title: 'La colmena · Brain',
   },
   {
     path: 'contacts',
