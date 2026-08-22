@@ -204,6 +204,26 @@ la atención a detalle en DB propia.
   archivo JSON). El esquema se crea solo al primer uso; tablas: `contacts`,
   `interactions`, `signals`, `nlpearl_pearls`, `nlpearl_activity` (raw).
 
+## Autenticación de la consola
+
+Toda la plataforma exige sesión: sin login, cualquier URL de la consola cae en
+`/login` y **toda** la API responde 401 (guard global deny-by-default; solo
+son públicos los webhooks de proveedores y `/precall`, que llevan su propia
+verificación).
+
+- **Registro / login**: teléfono E.164 + contraseña (scrypt) y **OTP de 6
+  dígitos por WhatsApp** como segundo factor (vía el canal Gupshup propio).
+- **Hardening**: OTP hasheado con vencimiento (5 min), 5 intentos y un solo
+  uso; cooldown de reenvío (60 s); bloqueo de cuenta 15 min tras 5
+  contraseñas fallidas; mensajes de error genéricos (sin enumeración de
+  usuarios); sesión JWT en cookie httpOnly + Secure + SameSite=Lax (12 h).
+- **Variables**: `AUTH_JWT_SECRET` (obligatoria en prod — ya cargada en
+  Vercel), `AUTH_SESSION_HOURS`, `AUTH_OTP_TTL_MIN`.
+- En `MOCK=true` (desarrollo) el OTP se imprime en el log del server en vez
+  de enviarse por WhatsApp.
+- Usuarios en Postgres (tabla `users`); sin `DATABASE_URL` caen a un archivo
+  local solo apto para desarrollo.
+
 ## Decisiones / notas
 
 - Puertos como injection tokens (`VoiceEnginePort`, `ChannelPort`,
