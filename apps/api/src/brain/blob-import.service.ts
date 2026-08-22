@@ -37,7 +37,11 @@ export class BlobImportService implements OnModuleInit {
     if (!(this.repo instanceof PgBrainRepository)) return;
     const token = this.config.get<string>('BLOB_READ_WRITE_TOKEN', '');
     if (!token) return;
-    if ((await this.repo.listContacts()).length > 0) return;
+    const existentes = (await this.repo.listContacts()).length;
+    if (existentes > 0) {
+      this.logger.log(`Postgres ya tiene ${existentes} contactos: no se importa del Blob`);
+      return;
+    }
 
     const pathname = this.config.get<string>('BRAIN_BLOB_PATH', 'brain/state.json');
     const estado = await get(pathname, { access: 'private', token, useCache: false }).catch(() => null);
