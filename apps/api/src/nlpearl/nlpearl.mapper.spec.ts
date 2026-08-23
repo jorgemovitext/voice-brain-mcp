@@ -1,5 +1,5 @@
 import { NlpearlCallApiView } from './nlpearl.client';
-import { toChatMessages } from './nlpearl.mapper';
+import { normalizarTranscript, toChatMessages } from './nlpearl.mapper';
 
 /**
  * El transcript de una conversación de texto tiene que quedar como mensajes
@@ -55,6 +55,47 @@ describe('toChatMessages', () => {
     });
 
     expect(mensajes[0].role).toBe('customer');
+  });
+
+  /**
+   * La acción post-conversación del flujo manda `post_call_transcript`, que
+   * llega como TEXTO formateado y no como el array del CallApiView.
+   */
+  describe('normalizarTranscript', () => {
+    it('parsea el texto con etiquetas y respeta quién habló', () => {
+      const t = normalizarTranscript(
+        ['Cliente: Hay un bache en el bulevar', 'Agente: ¿En qué altura?', 'Cliente: Frente al estadio'].join('\n'),
+      )!;
+
+      expect(t.map((m) => m.content)).toEqual([
+        'Hay un bache en el bulevar',
+        '¿En qué altura?',
+        'Frente al estadio',
+      ]);
+      // Y al pasar por toChatMessages, el agente cae de nuestro lado.
+      expect(toChatMessages({ ...base, transcript: t }).map((m) => m.role)).toEqual([
+        'customer',
+        'agent',
+        'customer',
+      ]);
+    });
+
+    it('une las líneas sueltas al turno anterior', () => {
+      const t = normalizarTranscript('Agente: Buenas.\n¿En qué le ayudo?\nCliente: Gracias')!;
+
+      expect(t).toHaveLength(2);
+      expect(t[0].content).toBe('Buenas.\n¿En qué le ayudo?');
+    });
+
+    it('un array ya normalizado pasa tal cual', () => {
+      const array = [{ role: 2, content: 'Hola' }];
+      expect(normalizarTranscript(array)).toBe(array);
+    });
+
+    it('sin transcript devuelve undefined', () => {
+      expect(normalizarTranscript(undefined)).toBeUndefined();
+      expect(normalizarTranscript('   ')).toBeUndefined();
+    });
   });
 
   it('sin startTime conserva el orden separando un segundo por mensaje', () => {

@@ -23,6 +23,40 @@ export function canalDePearl(name: string | undefined, agentType: number | undef
  * getCallsBulk / webhook) a la forma que consume el Brain.
  */
 
+/**
+ * Normaliza el transcript que manda una acción post-conversación del flujo.
+ *
+ * La variable `post_call_transcript` no siempre llega como el array de
+ * `{role, content}` del CallApiView: el nodo castea cada variable a su tipo
+ * configurado y suele entregarla como TEXTO ya formateado, una línea por
+ * turno con la etiqueta de quién habló. Se aceptan las dos formas.
+ *
+ * Del texto solo se toman las líneas con etiqueta reconocible; una línea sin
+ * etiqueta se cuelga del turno anterior (mensajes de varias líneas) y, si no
+ * hay turno previo, se atribuye al cliente, que es el lado seguro.
+ */
+export function normalizarTranscript(crudo: unknown): NlpearlCallApiView['transcript'] {
+  if (Array.isArray(crudo)) return crudo as NlpearlCallApiView['transcript'];
+  if (typeof crudo !== 'string' || !crudo.trim()) return undefined;
+
+  const ETIQUETA = /^\s*(agent|agente|pearl|assistant|bot|ia|client|cliente|user|usuario|persona|caller)\s*[:>-]\s*/i;
+  const turnos: Array<{ role: string; content: string }> = [];
+
+  for (const linea of crudo.split(/\r?\n/)) {
+    if (!linea.trim()) continue;
+    const etiqueta = linea.match(ETIQUETA);
+    if (etiqueta) {
+      turnos.push({ role: etiqueta[1].toLowerCase(), content: linea.replace(ETIQUETA, '').trim() });
+    } else if (turnos.length) {
+      turnos[turnos.length - 1].content += `\n${linea.trim()}`;
+    } else {
+      turnos.push({ role: 'client', content: linea.trim() });
+    }
+  }
+
+  return turnos.filter((t) => t.content) as NlpearlCallApiView['transcript'];
+}
+
 /** overallSentiment v2 es un entero 1 (negativo) .. 5 (positivo). */
 function mapSentiment(overall?: number): NlpearlCallContext['sentiment'] {
   if (overall === undefined || overall === null) return undefined;
@@ -48,7 +82,7 @@ function esDelAgente(role: unknown): boolean {
     const limpio = role.trim();
     // Un número servido como texto ("2") sigue siendo el enum.
     if (/^\d+$/.test(limpio)) return esDelAgente(Number(limpio));
-    return /assistant|agent|bot|pearl/i.test(limpio);
+    return /^ia$/i.test(limpio) || /assistant|agent|bot|pearl/i.test(limpio);
   }
   return false;
 }

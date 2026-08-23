@@ -2,6 +2,8 @@ import { Public } from '../auth/public.decorator';
 import { BadRequestException, Body, Controller, Logger, Post, UseGuards } from '@nestjs/common';
 import { FlowLogService } from '../shared/flow-log.service';
 import { WebhookLogService } from '../shared/webhook-log.service';
+import { NlpearlCallApiView } from './nlpearl.client';
+import { normalizarTranscript } from './nlpearl.mapper';
 import { PearlSyncService } from './pearl-sync.service';
 import { TurnCredentialGuard } from './turn-credential.guard';
 import { WebhookSignatureGuard } from './webhook-signature.guard';
@@ -105,12 +107,25 @@ export class NlpearlWebhookController {
     const faltan = [
       ['conversationId', conversationId],
       ['phone', phone],
-      ['content', content],
     ]
       .filter(([, v]) => !v)
       .map(([k]) => k);
     if (faltan.length) {
       throw new BadRequestException(`Faltan campos en el turno: ${faltan.join(', ')}`);
+    }
+
+    // Una acción post-conversación manda la conversación ENTERA en vez de un
+    // turno (`post_call_transcript` y compañía). Se reconoce por traer
+    // transcript, y se ingiere por el camino de conversación completa, que es
+    // autoritativo y pisa lo que se haya visto turno a turno.
+    const transcript = normalizarTranscript(p['transcript'] ?? p['post_call_transcript']);
+    if (transcript?.length) {
+      const nuevas = await this.ingerirConversacion(conversationId!, pearlId, phone!, transcript, p);
+      return { received: true, conversacionCompleta: true, nuevas };
+    }
+
+    if (!content) {
+      throw new BadRequestException('Faltan campos en el turno: content (o transcript)');
     }
 
     // El rol puede venir como texto ("agent"/"pearl") o como el enum numérico
@@ -135,6 +150,36 @@ export class NlpearlWebhookController {
       // 200 igual: que el flujo de la Pearl no se trabe por un fallo nuestro.
       return { received: true, procesado: false, motivo };
     }
+  }
+
+  /**
+   * Ingiere la conversación completa que llega desde una acción
+   * post-conversación, reusando el mismo camino que el Call Webhook: mismo
+   * esquema de ids, así que reescribe los turnos ya vistos en vez de duplicar.
+   */
+  private async ingerirConversacion(
+    conversationId: string,
+    pearlId: string | undefined,
+    phone: string,
+    transcript: NonNullable<NlpearlCallApiView['transcript']>,
+    p: Record<string, unknown>,
+  ): Promise<number> {
+    const { nuevas } = await this.sync.ingestCall(conversationId, pearlId, {
+      ...p,
+      id: conversationId,
+      // El teléfono del ciudadano llega en un solo campo; el mapeo de
+      // dirección espera `from` en las entrantes.
+      from: phone,
+      direction: 'inbound',
+      transcript,
+      summary: p['summary'] ?? p['post_call_summary'],
+    });
+    this.webhookLog.push('nlpearl', `Conversación ${conversationId}: ${nuevas} mensaje(s)`, true, {
+      conversationId,
+      nuevas,
+    });
+    this.flowLog.push('webhook', `Conversación completa ${conversationId} (${nuevas})`);
+    return nuevas;
   }
 
   /**
