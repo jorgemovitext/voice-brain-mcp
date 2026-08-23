@@ -34,8 +34,18 @@ const usernameSchema = z
       .regex(/^[a-z0-9._-]+$/, 'El usuario solo admite letras, números y . _ -'),
   );
 
-/** Para iniciar sesión se acepta el usuario (o el teléfono de cuentas viejas). */
-const identificadorSchema = z.string().trim().toLowerCase().min(3).max(32);
+/**
+ * Para iniciar sesión se acepta el usuario o el teléfono de las cuentas
+ * creadas antes de que el acceso fuera por usuario. Se quitan espacios y
+ * guiones para que un número tecleado como "+504 9999-8888" resuelva igual
+ * que en E.164; un usuario válido nunca los lleva.
+ */
+const identificadorSchema = z
+  .string()
+  .trim()
+  .toLowerCase()
+  .transform((s) => s.replace(/[\s-]/g, ''))
+  .pipe(z.string().min(3, 'Indicá tu usuario o teléfono').max(32));
 
 /** Mínimo 8, al menos una letra y un número. */
 const passwordSchema = z

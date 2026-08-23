@@ -41,11 +41,14 @@ type Paso = 'credenciales' | 'otp';
               </label>
             }
             <label class="auth__field">
-              <span>Usuario</span>
+              <span>{{ modo() === 'login' ? 'Usuario o teléfono' : 'Usuario' }}</span>
               <input type="text" autocomplete="username" spellcheck="false"
                      [value]="username()" (input)="username.set(asValue($event))"
-                     placeholder="tu.usuario" required />
+                     [placeholder]="modo() === 'login' ? 'tu.usuario o +50499998888' : 'tu.usuario'" required />
             </label>
+            @if (modo() === 'login') {
+              <p class="auth__hint">¿Cuenta creada antes? Entrá con tu teléfono.</p>
+            }
             @if (modo() === 'register') {
               <label class="auth__field">
                 <span>Teléfono (WhatsApp)</span>

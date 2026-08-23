@@ -176,6 +176,18 @@ describe('AuthService (seguridad)', () => {
     expect(ctx.users.users[0].passwordHash).toBe(hashOriginal);
   });
 
+  it('una cuenta vieja sin username entra con su teléfono', async () => {
+    const ctx = build();
+    await registered(ctx);
+    // Cuentas creadas cuando el teléfono era el identificador: sin username.
+    ctx.users.users[0].username = undefined;
+
+    const res = await ctx.service.login(PHONE, PASSWORD);
+    expect(res).toEqual({ otpRequired: true });
+    const { user } = await ctx.service.verifyOtp(PHONE, ctx.otp.last);
+    expect(user.phone).toBe(PHONE);
+  });
+
   it('un usuario sin verificar no puede hacer login con contraseña', async () => {
     const ctx = build();
     await ctx.service.register(USER, PASSWORD, PHONE);
