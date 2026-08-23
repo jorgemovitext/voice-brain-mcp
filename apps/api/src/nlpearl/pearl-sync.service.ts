@@ -131,9 +131,22 @@ export class PearlSyncService {
     const pearlId = pearlIdHint ?? call.pearlId;
     if (!pearlId) return { nuevas: 0 };
 
-    const stored = (await this.store.listPearls()).find(
-      (p) => p.id === pearlId,
-    );
+    const { channel, nombre, type } = await this.resolverPearl(pearlId);
+
+    // Si el payload trae la conversación entera, es la versión autoritativa:
+    // pisa lo ingerido turno a turno desde el nodo API del flujo (mismo
+    // esquema de ids), en vez de dejar dos copias del hilo.
+    const nuevas = await this.ingestar({ id: pearlId, name: nombre, type }, channel, call, {
+      overwrite: Boolean(delPayload),
+    });
+    return { nuevas, channel };
+  }
+
+  /** Canal, nombre y tipo de una Pearl: del espejo local, o del API si falta. */
+  private async resolverPearl(
+    pearlId: string,
+  ): Promise<{ channel: Channel; nombre?: string; type?: number }> {
+    const stored = (await this.store.listPearls()).find((p) => p.id === pearlId);
     let channel = stored?.channel as Channel | undefined;
     let nombre = stored?.name;
     let type = stored?.type;
@@ -141,9 +154,7 @@ export class PearlSyncService {
     if (!channel || !nombre) {
       // Pearl aún no espejada: se resuelve contra el API.
       const [detalle, settings] = await Promise.all([
-        this.client
-          .getPearl(pearlId)
-          .catch(() => null) as Promise<PearlApiView | null>,
+        this.client.getPearl(pearlId).catch(() => null) as Promise<PearlApiView | null>,
         this.client.getPearlSettings(pearlId).catch(() => null),
       ]);
       nombre = nombre ?? detalle?.name;
@@ -151,12 +162,60 @@ export class PearlSyncService {
       type = type ?? detalle?.type;
     }
 
-    const nuevas = await this.ingestar(
-      { id: pearlId, name: nombre, type },
+    return { channel: channel ?? 'whatsapp', nombre, type };
+  }
+
+  /**
+   * Ingesta de UN turno suelto, en el momento en que ocurre.
+   *
+   * La dispara el nodo API del flujo de la Pearl. Existe porque NL Pearl NO
+   * tiene webhook por mensaje: el Call Webhook avisa al inicio y al final, así
+   * que sin esto la conversación solo se ve cuando ya terminó.
+   *
+   * El id se arma como `nlpearl:<conversación>:<posición>`, EXACTAMENTE el
+   * mismo esquema que usa la transcripción completa al cerrar el chat. Así el
+   * webhook final no duplica lo que ya se vio en vivo: reescribe esas mismas
+   * filas con la versión autoritativa.
+   */
+  async ingestarTurnoEnVivo(input: {
+    conversationId: string;
+    pearlId?: string;
+    phone: string;
+    role: 'agent' | 'customer';
+    content: string;
+    at?: string;
+  }): Promise<{ posicion: number }> {
+    const { channel, nombre } = input.pearlId
+      ? await this.resolverPearl(input.pearlId)
+      : { channel: 'whatsapp' as Channel, nombre: undefined };
+
+    const { contactId } = await this.brain.resolveIdentity({
+      phone: input.phone,
+      system: 'nlpearl',
+    });
+
+    // Posición = primer hueco libre de la conversación. Los chats son cortos,
+    // así que recorrerlos es más simple que llevar un contador aparte (y no
+    // depende de que el flujo sepa numerar sus propios turnos).
+    let posicion = 0;
+    while (await this.brain.getInteraction(`nlpearl:${input.conversationId}:${posicion}`)) {
+      posicion++;
+      if (posicion > 500) break; // tope de cordura
+    }
+
+    await this.brain.appendInteraction({
+      id: `nlpearl:${input.conversationId}:${posicion}`,
+      contactId,
       channel,
-      call,
-    );
-    return { nuevas, channel };
+      direction: input.role === 'agent' ? 'outbound' : 'inbound',
+      occurredAt: input.at ?? new Date().toISOString(),
+      summary: input.content,
+      source: 'nlpearl',
+      handledBy: nombre,
+    });
+
+    this.logger.log(`Turno en vivo #${posicion} de ${input.conversationId} (${input.role})`);
+    return { posicion };
   }
 
   /**
@@ -373,6 +432,8 @@ export class PearlSyncService {
     pearl: PearlApiView,
     channel: Channel,
     call: NlpearlCallApiView,
+    /** La conversación completa pisa lo que se vio turno a turno. */
+    opciones?: { overwrite?: boolean },
   ): Promise<number> {
     // Dirección: si el CallApiView no la trae, se hereda del tipo de pearl
     // (inbound recibe, outbound llama).
@@ -402,12 +463,7 @@ export class PearlSyncService {
       return 1;
     }
 
-    return this.ingestarChat(
-      channel,
-      conDireccion,
-      ctx.phoneNumber,
-      pearl.name,
-    );
+    return this.ingestarChat(channel, conDireccion, ctx.phoneNumber, pearl.name, opciones);
   }
 
   /**

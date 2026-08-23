@@ -6,6 +6,7 @@ import { BrainApiService } from '../../brain-api.service';
 import { Icon } from '../../icon';
 import { HiveStatus } from '../../models';
 import { VoiceNebula } from '../../nebula';
+import { crearSondeo } from '../../sondeo';
 import { channelIconName, channelLabel } from '../../ui';
 
 /** Una burbuja del panel "en vivo": quien espera primero, luego lo último. */
@@ -146,12 +147,21 @@ export class HomePage {
   constructor() {
     void this.api.syncNlpearl().catch(() => undefined);
     let vuelta = 0;
-    const tick = setInterval(() => {
-      if (document.visibilityState !== 'visible') return;
-      this.hive.reload();
-      if (++vuelta % 6 === 0) void this.api.syncNlpearl().catch(() => undefined);
-    }, 5000);
-    this.destroyRef.onDestroy(() => clearInterval(tick));
+    // Ritmo adaptativo: 5 s cuando la colmena se mueve, hasta 30 s si está
+    // quieta. Con la pestaña de fondo no pide nada.
+    const detener = crearSondeo({
+      base: 5_000,
+      max: 30_000,
+      firma: () => {
+        const m = this.hive.value()?.metricas;
+        return m ? `${m.conversacionesHoy}:${m.esperandoRespuesta}:${m.maxEsperaMin}` : undefined;
+      },
+      alSondear: () => {
+        this.hive.reload();
+        if (++vuelta % 6 === 0) void this.api.syncNlpearl().catch(() => undefined);
+      },
+    });
+    this.destroyRef.onDestroy(detener);
   }
 
   /** Botón "Sincronizar": trae ya mismo lo nuevo de NL Pearl. */

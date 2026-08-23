@@ -17,6 +17,7 @@ import { map } from 'rxjs';
 import { BrainApiService } from '../../brain-api.service';
 import { Icon } from '../../icon';
 import { VoiceNebula } from '../../nebula';
+import { crearSondeo } from '../../sondeo';
 import { ContactListItem, Interaction, Sentiment, Signal as BrainSignal, UnifiedContext } from '../../models';
 import { channelIcon, channelLabel, kycmLabel, sentimentClass, sentimentLabel } from '../../ui';
 
@@ -205,32 +206,37 @@ export class ContactDetailPage implements OnDestroy {
 
   /**
    * Refresco periódico: los mensajes entrantes llegan por webhook, así que sin
-   * esto no aparecen hasta recargar a mano. Cada 1,2 s para que se sienta
-   * inmediato; se pausa con la pestaña oculta para no gastar invocaciones.
+   * esto no aparecen hasta recargar a mano.
+   *
+   * Ritmo adaptativo (ver `crearSondeo`): arranca en 2 s y se estira hasta 20 s
+   * mientras el hilo no cambie. El fijo de 1,2 s anterior era plata tirada —
+   * con varias pestañas abiertas llegaba a ~8 req/s contra la API.
    */
   private iniciarRefrescoAutomatico(): void {
     let vuelta = 0;
-    // Espejo NL Pearl: al abrir el hilo y luego cada ~30 s (el backend además
-    // tiene su propio rate-limit, así que abrir varias pestañas no duplica).
+    // Espejo NL Pearl: al abrir el hilo y luego cada ~10 vueltas (el backend
+    // además tiene su propio rate-limit, así que varias pestañas no duplican).
     void this.api.syncNlpearl().catch(() => undefined);
-    const tick = setInterval(() => {
-      if (document.visibilityState !== 'visible' || this.sending()) return;
-      this.context.reload();
-      // La lista de hilos cambia menos: se refresca cada 3 vueltas.
-      if (++vuelta % 3 === 0 && this.withThreads()) this.conversations.reload();
-      if (vuelta % 25 === 0) void this.api.syncNlpearl().catch(() => undefined);
-    }, 1200);
 
-    // Al volver a la pestaña, refresco inmediato en vez de esperar el tick.
-    const alVolver = () => {
-      if (document.visibilityState === 'visible') this.context.reload();
-    };
-    document.addEventListener('visibilitychange', alVolver);
-
-    this.destroyRef.onDestroy(() => {
-      clearInterval(tick);
-      document.removeEventListener('visibilitychange', alVolver);
+    const detener = crearSondeo({
+      base: 2_000,
+      max: 20_000,
+      activo: () => !this.sending(),
+      // Cantidad de mensajes + el más reciente: si eso no cambió, el hilo
+      // está igual y no hace falta seguir preguntando al mismo ritmo.
+      firma: () => {
+        const inter = this.context.value()?.recentInteractions;
+        return inter ? `${inter.length}:${inter[0]?.occurredAt ?? ''}` : undefined;
+      },
+      alSondear: () => {
+        this.context.reload();
+        // La lista de hilos cambia menos: se refresca cada 3 vueltas.
+        if (++vuelta % 3 === 0 && this.withThreads()) this.conversations.reload();
+        if (vuelta % 10 === 0) void this.api.syncNlpearl().catch(() => undefined);
+      },
     });
+
+    this.destroyRef.onDestroy(detener);
   }
 
   activePromise(): BrainSignal | undefined {

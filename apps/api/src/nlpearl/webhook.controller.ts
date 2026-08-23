@@ -78,11 +78,74 @@ export class NlpearlWebhookController {
     }
   }
 
-  /** Primer campo con texto útil entre varios nombres posibles. */
+  /**
+   * POST /webhooks/nlpearl/turno — UN mensaje suelto, apenas ocurre.
+   *
+   * Lo llama el nodo API del flujo de la Pearl. Es la única forma de ver la
+   * conversación en vivo: el Call Webhook solo avisa al inicio y al final, así
+   * que sin esto el hilo aparece cuando el chat ya cerró.
+   *
+   * Los nombres de los campos los arma quien configura el nodo, así que se
+   * aceptan varias formas para cada concepto en vez de exigir una sola.
+   */
+  @Post('nlpearl/turno')
+  @UseGuards(WebhookSignatureGuard)
+  async onTurno(@Body() body: unknown) {
+    const p = (body ?? {}) as Record<string, unknown>;
+
+    const conversationId = this.primerTexto(p, ['conversationId', 'callId', 'chatId', 'id']);
+    const phone = this.primerTexto(p, ['phone', 'phoneNumber', 'from', 'to']);
+    const content = this.primerTexto(p, ['content', 'message', 'text', 'lastMessage']);
+    const pearlId = this.primerTexto(p, ['pearlId', 'projectId']);
+    const rol = this.primerTexto(p, ['role', 'sender', 'speaker']) ?? 'customer';
+
+    this.webhookLog.push('nlpearl', `Turno en vivo${conversationId ? ` (${conversationId})` : ''}`, true, p);
+
+    const faltan = [
+      ['conversationId', conversationId],
+      ['phone', phone],
+      ['content', content],
+    ]
+      .filter(([, v]) => !v)
+      .map(([k]) => k);
+    if (faltan.length) {
+      throw new BadRequestException(`Faltan campos en el turno: ${faltan.join(', ')}`);
+    }
+
+    // El rol puede venir como texto ("agent"/"pearl") o como el enum numérico
+    // de NL Pearl (2 = Pearl, 4 = PlatformUser). Ante la duda, cliente.
+    const esAgente = /^(2|4)$/.test(rol) || /agent|pearl|assistant|bot/i.test(rol);
+
+    try {
+      const { posicion } = await this.sync.ingestarTurnoEnVivo({
+        conversationId: conversationId!,
+        pearlId,
+        phone: phone!,
+        role: esAgente ? 'agent' : 'customer',
+        content: content!,
+        at: this.primerTexto(p, ['at', 'timestamp', 'occurredAt']),
+      });
+      this.flowLog.push('webhook', `Turno #${posicion} de ${conversationId}`);
+      return { received: true, posicion };
+    } catch (err) {
+      const motivo = (err as Error).message;
+      this.logger.warn(`No se pudo ingerir el turno de ${conversationId}: ${motivo}`);
+      this.webhookLog.push('nlpearl', `Turno no ingerido: ${motivo}`, false, p);
+      // 200 igual: que el flujo de la Pearl no se trabe por un fallo nuestro.
+      return { received: true, procesado: false, motivo };
+    }
+  }
+
+  /**
+   * Primer campo con texto útil entre varios nombres posibles. Acepta números
+   * porque el nodo API castea cada variable a su tipo configurado, y un rol o
+   * un id pueden llegar como número.
+   */
   private primerTexto(payload: Record<string, unknown>, claves: string[]): string | undefined {
     for (const clave of claves) {
       const valor = payload[clave];
       if (typeof valor === 'string' && valor.trim()) return valor.trim();
+      if (typeof valor === 'number' && Number.isFinite(valor)) return String(valor);
     }
     return undefined;
   }
