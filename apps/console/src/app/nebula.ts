@@ -1,15 +1,41 @@
 import { ChangeDetectionStrategy, Component, OnDestroy, effect, input, signal } from '@angular/core';
 
 /**
- * Avatar de voz tipo nebulosa: capas de "gas" (blobs con blur + blend screen)
- * sobre un remolino cónico que gira, en deriva constante (idle).
+ * Avatar del agente: una CELDA DE PANAL — hexágono de esquinas redondeadas —
+ * con la nebulosa de gas adentro (blobs con blur + blend screen sobre un
+ * remolino cónico) y un anillo de luces recorriendo el borde.
  *
- * Con [active]=true (llamada en curso) se simula la envolvente del audio con
- * un random-walk tipo habla (~11 ticks/seg): la amplitud escala y abrillanta
- * la nebulosa y mueve las barras de sonido.
+ * El anillo lleva dos capas sobre el mismo trazo hexagonal:
+ *  - puntitos fijos a lo largo de todo el perímetro (los "leds" tenues), y
+ *  - un cometa de segmentos brillantes que barre el borde, como un
+ *    ecualizador dando la vuelta. En reposo pasea lento; con [active]=true
+ *    (el agente hablando/respondiendo) acelera y su brillo y grosor siguen
+ *    la envolvente de la voz.
+ *
+ * Con [active]=true la envolvente se simula con un random-walk tipo habla
+ * (~11 ticks/seg) que también agita la nebulosa y las barras de sonido.
  * // Hook real: si algún día hay audio de verdad, alimentar `amp` desde un
  * // AnalyserNode de WebAudio en lugar del random-walk.
+ *
+ * Los defs SVG (gradiente y clip) llevan id único por instancia: si fueran
+ * compartidos y la primera instancia saliera del DOM, las demás perderían la
+ * referencia (clásica trampa de los url(#id) de SVG).
  */
+
+/** Hexágono "flat-top" (celda de panal) con esquinas redondeadas, en 0..100. */
+const HEX =
+  'M 90 60.4 L 79 79.4 Q 73 89.8 61 89.8 L 39 89.8 Q 27 89.8 21 79.4 ' +
+  'L 10 60.4 Q 4 50 10 39.6 L 21 20.6 Q 27 10.2 39 10.2 L 61 10.2 ' +
+  'Q 73 10.2 79 20.6 L 90 39.6 Q 96 50 90 60.4 Z';
+
+/** El mismo trazo en coordenadas 0..1 (clipPath objectBoundingBox). */
+const HEX_CLIP =
+  'M.9.604 L.79.794 Q.73.898.61.898 L.39.898 Q.27.898.21.794 ' +
+  'L.1.604 Q.04.5.1.396 L.21.206 Q.27.102.39.102 L.61.102 ' +
+  'Q.73.102.79.206 L.9.396 Q.96.5.9.604 Z';
+
+let siguienteUid = 0;
+
 @Component({
   selector: 'voice-nebula',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -22,8 +48,28 @@ import { ChangeDetectionStrategy, Component, OnDestroy, effect, input, signal } 
       [style.--amp]="amp()"
     >
       <span class="neb__glow"></span>
+
+      <svg class="neb__ring" viewBox="0 0 100 100" aria-hidden="true">
+        <defs>
+          <linearGradient [attr.id]="'nebGrad' + uid" x1="0" y1="0" x2="1" y2="1">
+            <stop offset="0" stop-color="#f34700" />
+            <stop offset="0.4" stop-color="#d63aa8" />
+            <stop offset="0.72" stop-color="#7c5cff" />
+            <stop offset="1" stop-color="#00bafe" />
+          </linearGradient>
+          <clipPath [attr.id]="'nebClip' + uid" clipPathUnits="objectBoundingBox">
+            <path [attr.d]="hexClip" />
+          </clipPath>
+        </defs>
+        <path class="ring ring--glow" [attr.stroke]="grad" [attr.d]="hex" pathLength="100" />
+        <path class="ring ring--line" [attr.stroke]="grad" [attr.d]="hex" pathLength="100" />
+        <path class="ring ring--ticks" [attr.d]="hex" pathLength="100" />
+        <path class="ring ring--comet-glow" [attr.stroke]="grad" [attr.d]="hex" pathLength="100" />
+        <path class="ring ring--comet" [attr.d]="hex" pathLength="100" />
+      </svg>
+
       <span class="neb__scale">
-        <span class="neb__disc">
+        <span class="neb__disc" [style.clip-path]="clip">
           <span class="neb__swirl"></span>
           <span class="neb__blob neb__blob--a"></span>
           <span class="neb__blob neb__blob--b"></span>
@@ -53,7 +99,8 @@ import { ChangeDetectionStrategy, Component, OnDestroy, effect, input, signal } 
       --amp: 0;
     }
 
-    /* Halo exterior: respira solo y se intensifica con la voz */
+    /* Halo exterior: respira solo y se intensifica con la voz.
+       Va tan difuminado que su forma no se distingue: no hace falta hexagonarlo. */
     .neb__glow {
       position: absolute;
       inset: -22%;
@@ -67,11 +114,76 @@ import { ChangeDetectionStrategy, Component, OnDestroy, effect, input, signal } 
       transition: opacity 100ms linear;
     }
 
-    /* Escala/brillo reactivo al sonido */
-    .neb__scale {
+    /* ===== Anillo hexagonal de luces ===== */
+    .neb__ring {
       position: absolute;
       inset: 0;
-      scale: calc(1 + var(--amp) * 0.2);
+      width: 100%;
+      height: 100%;
+      overflow: visible;
+    }
+
+    .ring {
+      fill: none;
+      stroke-linecap: round;
+    }
+
+    /* Resplandor del borde */
+    .ring--glow {
+      stroke-width: 5;
+      filter: blur(5px);
+      opacity: calc(0.35 + var(--amp) * 0.5);
+      transition: opacity 100ms linear;
+    }
+
+    /* El trazo fino del hexágono */
+    .ring--line {
+      stroke-width: 1.4;
+      opacity: 0.85;
+    }
+
+    /* Los "leds" tenues de todo el perímetro, con deriva lenta */
+    .ring--ticks {
+      stroke: #eaf2ff;
+      stroke-width: 2.3;
+      stroke-dasharray: 0.9 2.4;
+      opacity: 0.42;
+      animation: ring-sweep 40s linear infinite;
+    }
+
+    /* Cometa: ráfaga de segmentos brillantes que da la vuelta al borde
+       (dasharray = 8 segmentos cortos + un hueco de 77: pathLength 100). */
+    .ring--comet-glow {
+      stroke-width: calc(3px + var(--amp) * 3px);
+      stroke-dasharray: 22 78;
+      filter: blur(3px);
+      opacity: calc(0.3 + var(--amp) * 0.65);
+      animation: ring-sweep 9s linear infinite;
+      transition: opacity 100ms linear, stroke-width 100ms linear;
+    }
+
+    .ring--comet {
+      stroke: #fff;
+      stroke-width: calc(2.2px + var(--amp) * 2.2px);
+      stroke-dasharray: 2 1 2 1 2 1 2 1 2 1 2 1 2 1 2 77;
+      opacity: calc(0.5 + var(--amp) * 0.5);
+      animation: ring-sweep 9s linear infinite;
+      transition: opacity 100ms linear, stroke-width 100ms linear;
+    }
+
+    /* Hablando: el barrido corre y brilla más */
+    .neb--live .ring--comet,
+    .neb--live .ring--comet-glow {
+      animation-duration: 2.6s;
+    }
+
+    /* ===== Nebulosa interior (recortada a la celda) ===== */
+
+    /* Escala/brillo reactivo al sonido; el inset deja ver el anillo alrededor */
+    .neb__scale {
+      position: absolute;
+      inset: 7%;
+      scale: calc(1 + var(--amp) * 0.16);
       filter: brightness(calc(0.95 + var(--amp) * 0.55)) saturate(calc(1 + var(--amp) * 0.3));
       transition: scale 100ms linear, filter 100ms linear;
     }
@@ -79,7 +191,6 @@ import { ChangeDetectionStrategy, Component, OnDestroy, effect, input, signal } 
     .neb__disc {
       position: absolute;
       inset: 0;
-      border-radius: 50%;
       overflow: hidden;
       box-shadow: inset 0 0 28px rgba(255, 255, 255, 0.12);
     }
@@ -128,7 +239,6 @@ import { ChangeDetectionStrategy, Component, OnDestroy, effect, input, signal } 
     .neb__shade {
       position: absolute;
       inset: 0;
-      border-radius: 50%;
       background: radial-gradient(circle at 62% 72%, rgba(6, 11, 22, 0.5), transparent 62%);
     }
 
@@ -151,6 +261,10 @@ import { ChangeDetectionStrategy, Component, OnDestroy, effect, input, signal } 
         background: var(--secondary, #00bafe);
         transition: height 90ms linear;
       }
+    }
+
+    @keyframes ring-sweep {
+      to { stroke-dashoffset: -100; }
     }
 
     @keyframes neb-spin {
@@ -184,8 +298,14 @@ import { ChangeDetectionStrategy, Component, OnDestroy, effect, input, signal } 
 export class VoiceNebula implements OnDestroy {
   /** true durante la llamada: activa la reactividad "al sonido". */
   readonly active = input(false);
-  /** Diámetro en px. */
+  /** Ancho en px. */
   readonly size = input(150);
+
+  readonly uid = ++siguienteUid;
+  readonly hex = HEX;
+  readonly hexClip = HEX_CLIP;
+  readonly grad = `url(#nebGrad${this.uid})`;
+  readonly clip = `url(#nebClip${this.uid})`;
 
   /** Envolvente 0..1 de la "voz" (simulada en mock). */
   readonly amp = signal(0);
