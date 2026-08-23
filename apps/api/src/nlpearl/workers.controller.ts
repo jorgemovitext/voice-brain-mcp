@@ -259,8 +259,25 @@ export class WorkersController {
 
     try {
       this.client.assertConfigured();
-      const flow = await this.client.getPearlSettings(id);
-      return { available: true, flow };
+      // El grafo real vive en `pearl.nodes` del Settings, con la forma
+      // {nodeId, name, transitions}. Se normaliza a lo que espera la vista.
+      const settings = (await this.client.getPearlSettings(id)) as {
+        pearl?: { nodes?: Array<{ nodeId?: string; name?: string; transitions?: unknown[] }> };
+      };
+      const nodos = settings.pearl?.nodes ?? [];
+      if (nodos.length) {
+        return {
+          available: true,
+          flow: {
+            nodes: nodos.map((n, i) => ({
+              id: n.nodeId ?? `n${i}`,
+              type: `Paso ${i + 1}`,
+              label: n.name ?? n.nodeId ?? `Paso ${i + 1}`,
+            })),
+          },
+        };
+      }
+      return { available: true, flow: settings };
     } catch (err) {
       return {
         available: false,

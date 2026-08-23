@@ -69,6 +69,18 @@ export class WorkersPage {
   /** Id de la Pearl cuya asignación se está guardando. */
   readonly assigning = signal<string | null>(null);
 
+  /**
+   * El enjambre se parte en dos: los despiertos se muestran como perfiles
+   * vivos (son los que están atendiendo), y los dormidos quedan en una fila
+   * compacta para no robarles protagonismo.
+   */
+  readonly vivos = computed(() =>
+    (this.data.value()?.workers ?? []).filter((w) => (w.status ?? '').toLowerCase() === 'active'),
+  );
+  readonly dormidos = computed(() =>
+    (this.data.value()?.workers ?? []).filter((w) => (w.status ?? '').toLowerCase() !== 'active'),
+  );
+
   readonly selectedId = signal<string | null>(null);
   readonly flow = httpResource<WorkerFlow>(() =>
     this.selectedId() ? `/api/workers/${this.selectedId()}/flow` : undefined,

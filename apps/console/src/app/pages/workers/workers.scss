@@ -19,115 +19,267 @@
   font-size: 0.85rem;
 }
 
-/* --- Grid de obreros --- */
-.grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
-  gap: 0.9rem;
-  margin-bottom: 1.1rem;
+/* ===== El enjambre: perfiles de agente vivo ===== */
+.squad {
+  margin-bottom: 1.6rem;
 }
 
-.worker {
+.squad__title {
   display: flex;
   align-items: center;
-  gap: 0.8rem;
-  text-align: left;
-  background: var(--panel);
-  border: 1px solid var(--border);
-  border-radius: 20px;
-  padding: 0.9rem 1rem;
-  color: var(--ink);
-  font-family: inherit;
-  cursor: pointer;
-  transition: border-color 0.15s, transform 0.1s;
+  gap: 0.55rem;
+  margin: 0 0 0.9rem;
+  font-size: 0.95rem;
+  font-weight: 700;
+  letter-spacing: -0.01em;
 
-  &:hover {
-    border-color: var(--secondary);
-    transform: translateY(-2px);
+  em {
+    font-style: normal;
+    color: var(--ink-soft);
+    font-weight: 600;
   }
 }
 
-.worker--selected {
-  border-color: var(--primary);
+.squad__title--muted { color: var(--ink-soft); font-weight: 600; }
+
+/* Latido del encabezado: el panal está despierto. */
+.squad__pulse {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: var(--positive);
+  box-shadow: 0 0 0 0 color-mix(in srgb, var(--positive) 70%, transparent);
+  animation: squad-beat 2.2s ease-out infinite;
 }
 
-.worker__body {
-  flex: 1;
-  min-width: 0;
+@keyframes squad-beat {
+  0% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--positive) 65%, transparent); }
+  70% { box-shadow: 0 0 0 9px transparent; }
+  100% { box-shadow: 0 0 0 0 transparent; }
+}
+
+.agents {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: 0.9rem;
+}
+
+/* --- Tarjeta de agente: se siente viva y se puede "entrar" --- */
+.agent {
+  position: relative;
   display: flex;
   flex-direction: column;
-  gap: 0.25rem;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 1.4rem 1.1rem 1.1rem;
+  border-radius: 24px;
+  border: 1.5px solid var(--border);
+  background:
+    radial-gradient(120% 70% at 50% -10%, rgba(0, 186, 254, 0.10), transparent 62%),
+    var(--panel);
+  cursor: pointer;
+  text-align: center;
+  overflow: hidden;
+  transition: transform 0.16s ease, border-color 0.16s ease, box-shadow 0.16s ease;
+
+  &:hover,
+  &:focus-visible {
+    transform: translateY(-4px);
+    border-color: color-mix(in srgb, var(--secondary) 55%, var(--border));
+    box-shadow: 0 18px 34px rgba(4, 12, 28, 0.45);
+    outline: none;
+  }
 }
 
-.worker__name {
-  font-weight: 800;
+.agent--open {
+  border-color: var(--secondary);
+  box-shadow: 0 0 0 1px var(--secondary), 0 18px 34px rgba(4, 12, 28, 0.5);
+}
+
+.agent--mine {
+  background:
+    radial-gradient(120% 70% at 50% -10%, rgba(243, 71, 0, 0.14), transparent 62%),
+    var(--panel);
+}
+
+/* Avatar con aura: la nebulosa respira dentro de un halo que late. */
+.agent__avatar {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 76px;
+  height: 76px;
+  animation: agent-breathe 4s ease-in-out infinite;
+}
+
+.agent:nth-child(2n) .agent__avatar { animation-delay: 0.7s; }
+.agent:nth-child(3n) .agent__avatar { animation-delay: 1.4s; }
+
+@keyframes agent-breathe {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.06); }
+}
+
+.agent__aura {
+  position: absolute;
+  inset: -12px;
+  border-radius: 50%;
+  background: radial-gradient(closest-side, rgba(0, 186, 254, 0.28), transparent 72%);
+  animation: agent-aura 3.2s ease-in-out infinite;
+  pointer-events: none;
+}
+
+.agent--mine .agent__aura {
+  background: radial-gradient(closest-side, rgba(243, 71, 0, 0.32), transparent 72%);
+}
+
+@keyframes agent-aura {
+  0%, 100% { opacity: 0.5; transform: scale(0.94); }
+  50% { opacity: 1; transform: scale(1.08); }
+}
+
+/* Punto "despierto" con onda expansiva. */
+.agent__online {
+  position: absolute;
+  right: 4px;
+  bottom: 4px;
+  width: 11px;
+  height: 11px;
+  border-radius: 50%;
+  background: var(--positive);
+  border: 2.5px solid var(--panel);
+  box-sizing: content-box;
+
+  &::after {
+    content: '';
+    position: absolute;
+    inset: -3px;
+    border-radius: 50%;
+    border: 1.5px solid var(--positive);
+    animation: agent-ping 2.4s ease-out infinite;
+  }
+}
+
+@keyframes agent-ping {
+  0% { transform: scale(0.7); opacity: 0.9; }
+  80%, 100% { transform: scale(1.9); opacity: 0; }
+}
+
+.agent__name {
+  margin: 0.2rem 0 0;
   font-size: 0.95rem;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  line-height: 1.25;
 }
 
-.worker__chips {
+.agent__chips {
   display: flex;
   gap: 0.35rem;
   flex-wrap: wrap;
+  justify-content: center;
 }
 
-/* Estado de prueba: si la Pearl puede recibir un mensaje ahora mismo. */
-.worker__test {
+.chip {
+  font-size: 0.68rem;
+  font-weight: 700;
+  padding: 0.22rem 0.6rem;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  color: var(--ink-soft);
+}
+
+.chip--live {
+  color: var(--secondary);
+  border-color: color-mix(in srgb, var(--secondary) 45%, transparent);
+}
+
+.chip--mine {
+  color: var(--primary);
+  border-color: color-mix(in srgb, var(--primary) 50%, transparent);
+  background: color-mix(in srgb, var(--primary) 12%, transparent);
+}
+
+.agent__where {
+  margin: 0;
   display: flex;
   align-items: center;
-  gap: 0.35rem;
-  margin-top: 0.4rem;
-  font-size: 0.76rem;
-  line-height: 1.35;
-  color: var(--ink-soft);
-  text-align: left;
-
-  ui-icon { flex-shrink: 0; }
-}
-
-.worker__test--ok {
+  justify-content: center;
+  gap: 0.3rem;
+  font-size: 0.74rem;
   color: var(--positive);
   font-weight: 600;
+  line-height: 1.35;
 }
 
-.worker__synced {
-  display: block;
-  margin-top: 0.2rem;
-  font-size: 0.72rem;
-  color: var(--secondary);
-  text-align: left;
-}
+.agent__warn { color: var(--ink-soft); font-weight: 500; }
 
-/* Asignar la Pearl a su canal (reemplazo del env NLPEARL_PEARL_ID). */
-.worker__assign {
-  display: inline-block;
-  margin-top: 0.5rem;
-  padding: 0.28rem 0.7rem;
-  border: 1.5px solid var(--border);
-  border-radius: 999px;
-  font-size: 0.72rem;
-  font-weight: 600;
+.agent__stat {
+  font-size: 0.7rem;
   color: var(--ink-soft);
+  line-height: 1.4;
+
+  strong { color: var(--secondary); font-weight: 800; }
+}
+
+.agent__cta {
+  margin-top: 0.45rem;
+  width: 100%;
+  border: 1.5px solid var(--border);
+  background: transparent;
+  color: var(--ink-soft);
+  font: inherit;
+  font-size: 0.72rem;
+  font-weight: 700;
+  padding: 0.5rem 0.7rem;
+  border-radius: 999px;
   cursor: pointer;
   transition: border-color 0.15s, color 0.15s, background 0.15s;
 
-  &:hover {
-    border-color: var(--secondary);
-    color: var(--secondary);
-  }
+  &:hover:not(:disabled) { border-color: var(--secondary); color: var(--secondary); }
+  &:disabled { opacity: 0.6; cursor: wait; }
 }
 
-.worker__assign--on {
+.agent__cta--on {
   border-color: transparent;
   background: color-mix(in srgb, var(--primary) 18%, transparent);
   color: var(--primary);
 }
 
-.worker__chevron {
-  color: var(--ink-soft);
-  flex-shrink: 0;
+/* --- Agentes dormidos: fila compacta --- */
+.squad--asleep { margin-top: 1.6rem; }
+
+.sleepers {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
 }
 
-/* --- Detalle del obrero --- */
+.sleeper {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.45rem 0.85rem 0.45rem 0.45rem;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: var(--panel);
+  color: var(--ink-soft);
+  font: inherit;
+  font-size: 0.76rem;
+  cursor: pointer;
+  opacity: 0.72;
+  transition: opacity 0.15s, border-color 0.15s;
+
+  voice-nebula { filter: saturate(0.35); }
+
+  &:hover { opacity: 1; border-color: var(--secondary); }
+}
+
+.sleeper--open { opacity: 1; border-color: var(--secondary); }
+
+.sleeper__name { font-weight: 600; color: var(--ink); }
+.sleeper__ch { font-size: 0.68rem; }
+
 .detail {
   margin-bottom: 1.4rem;
 }
