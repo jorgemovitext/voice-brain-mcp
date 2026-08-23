@@ -1,15 +1,12 @@
-/* "Device" redondeado sobre fondo claro, como la referencia:
-   sidebar de iconos plano (sin contenedor) integrado al marco oscuro,
-   y el contenido en paneles redondeados que se superponen al sidebar. */
+/* La app ocupa la ventana COMPLETA: sin margen ni marco exterior, que daba
+   la sensación de estar dentro de otra ventana. El sidebar de iconos va
+   plano sobre el fondo oscuro y el contenido se superpone a él. */
 .shell {
   display: flex;
-  height: calc(100dvh - 32px);
-  margin: 16px;
-  border-radius: 34px;
+  height: 100dvh;
   background:
     radial-gradient(900px 500px at 80% -10%, #14284a 0%, transparent 60%),
     linear-gradient(160deg, #0e1b33, #081020 70%);
-  box-shadow: 0 24px 60px rgba(10, 20, 40, 0.45);
   overflow: hidden;
 }
 
@@ -95,14 +92,16 @@
 }
 
 /* --- Escenario: se superpone levemente al rail, con esquinas redondeadas --- */
+/* Pegado a los bordes de la ventana; solo conserva el redondeo izquierdo
+   con el que se sobrepone al rail. */
 .stage {
   flex: 1;
   min-width: 0;
   overflow-y: auto;
   position: relative;
   z-index: 1;
-  margin: 10px 10px 10px -10px;
-  border-radius: 26px;
+  margin-left: -14px;
+  border-radius: 26px 0 0 26px;
 }
 
 /* Sin rail (pantalla de acceso): el escenario ocupa todo. */

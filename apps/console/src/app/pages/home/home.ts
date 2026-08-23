@@ -5,6 +5,7 @@ import { AuthService } from '../../auth/auth.service';
 import { BrainApiService } from '../../brain-api.service';
 import { Icon } from '../../icon';
 import { HiveStatus } from '../../models';
+import { VoiceNebula } from '../../nebula';
 import { channelIconName, channelLabel } from '../../ui';
 
 /** Una burbuja del panel "en vivo": quien espera primero, luego lo último. */
@@ -26,7 +27,7 @@ interface FeedBubble {
  */
 @Component({
   selector: 'app-home',
-  imports: [RouterLink, Icon],
+  imports: [RouterLink, Icon, VoiceNebula],
   templateUrl: './home.html',
   styleUrl: './home.scss',
 })
@@ -53,8 +54,11 @@ export class HomePage {
     if (!h) return '¡Hola!';
     const n = h.metricas.esperandoRespuesta;
     if (n > 0) return n === 1 ? 'Alguien espera respuesta.' : `${n} personas esperan respuesta.`;
-    return 'La colmena está al día.';
+    return h.obreros.activos ? 'Tu enjambre está listo.' : 'La colmena está en reposo.';
   });
+
+  /** Obreros activos: se pintan como avatares vivos, no como un número. */
+  readonly enjambre = computed(() => this.hive.value()?.obreros.enElPanal ?? []);
 
   /** Progreso de atención: hilos al día sobre hilos con actividad. */
   readonly atencion = computed(() => {

@@ -136,17 +136,34 @@
             </div>
           </article>
 
-          <!-- Tarjeta oscura: promesas + enjambre -->
-          <article class="sumcard sumcard--dark">
-            <svg viewBox="0 0 100 34" class="sumcard__spark" preserveAspectRatio="none">
-              <polyline points="0,26 14,22 28,27 42,12 56,18 70,7 84,14 100,9" />
-            </svg>
-            <div class="sumcard__dark-meta">
-              <span>Promesas activas</span>
-              <strong>{{ hive.value()?.metricas?.promesasActivas ?? 0 }}</strong>
-            </div>
-            <footer>{{ hive.value()?.obreros?.activos ?? 0 }} obrero(s) en el panal · {{ hive.value()?.metricas?.contactos ?? 0 }} contactos</footer>
-          </article>
+          <!-- El enjambre, vivo: avatares que respiran esperando trabajo -->
+          <a class="sumcard sumcard--dark swarm" routerLink="/workers">
+            <header class="swarm__head">
+              <span>Tu enjambre</span>
+              <strong>{{ enjambre().length }} listo(s)</strong>
+            </header>
+
+            @if (enjambre().length) {
+              <ul class="swarm__list">
+                @for (w of enjambre().slice(0, 4); track w.id) {
+                  <li class="swarm__one" [title]="w.name + ' · ' + channelLabel(w.channel)">
+                    <span class="swarm__avatar">
+                      <voice-nebula [size]="34" />
+                      <i class="swarm__ping"></i>
+                    </span>
+                    <em>{{ channelLabel(w.channel) }}</em>
+                  </li>
+                }
+              </ul>
+            } @else {
+              <p class="swarm__empty">Sin obreros activos. Activá una Pearl para que la colmena trabaje.</p>
+            }
+
+            <footer>
+              @if (enjambre().length) { Esperando trabajo · }
+              {{ hive.value()?.metricas?.promesasActivas ?? 0 }} promesa(s) activa(s)
+            </footer>
+          </a>
         </div>
       </section>
     </div>
