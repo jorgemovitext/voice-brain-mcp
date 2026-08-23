@@ -166,59 +166,6 @@ export class PearlSyncService {
   }
 
   /**
-   * Ingesta de UN turno suelto, en el momento en que ocurre.
-   *
-   * La dispara el nodo API del flujo de la Pearl. Existe porque NL Pearl NO
-   * tiene webhook por mensaje: el Call Webhook avisa al inicio y al final, así
-   * que sin esto la conversación solo se ve cuando ya terminó.
-   *
-   * El id se arma como `nlpearl:<conversación>:<posición>`, EXACTAMENTE el
-   * mismo esquema que usa la transcripción completa al cerrar el chat. Así el
-   * webhook final no duplica lo que ya se vio en vivo: reescribe esas mismas
-   * filas con la versión autoritativa.
-   */
-  async ingestarTurnoEnVivo(input: {
-    conversationId: string;
-    pearlId?: string;
-    phone: string;
-    role: 'agent' | 'customer';
-    content: string;
-    at?: string;
-  }): Promise<{ posicion: number }> {
-    const { channel, nombre } = input.pearlId
-      ? await this.resolverPearl(input.pearlId)
-      : { channel: 'whatsapp' as Channel, nombre: undefined };
-
-    const { contactId } = await this.brain.resolveIdentity({
-      phone: input.phone,
-      system: 'nlpearl',
-    });
-
-    // Posición = primer hueco libre de la conversación. Los chats son cortos,
-    // así que recorrerlos es más simple que llevar un contador aparte (y no
-    // depende de que el flujo sepa numerar sus propios turnos).
-    let posicion = 0;
-    while (await this.brain.getInteraction(`nlpearl:${input.conversationId}:${posicion}`)) {
-      posicion++;
-      if (posicion > 500) break; // tope de cordura
-    }
-
-    await this.brain.appendInteraction({
-      id: `nlpearl:${input.conversationId}:${posicion}`,
-      contactId,
-      channel,
-      direction: input.role === 'agent' ? 'outbound' : 'inbound',
-      occurredAt: input.at ?? new Date().toISOString(),
-      summary: input.content,
-      source: 'nlpearl',
-      handledBy: nombre,
-    });
-
-    this.logger.log(`Turno en vivo #${posicion} de ${input.conversationId} (${input.role})`);
-    return { posicion };
-  }
-
-  /**
    * ¿El webhook trae la conversación completa? Se acepta `transcript` o
    * `messages` (NL Pearl no documenta el shape de los eventos de texto).
    */

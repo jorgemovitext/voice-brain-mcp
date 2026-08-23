@@ -84,27 +84,27 @@ export class NlpearlWebhookController {
   }
 
   /**
-   * POST /webhooks/nlpearl/turno — UN mensaje suelto, apenas ocurre.
+   * POST /webhooks/nlpearl/turno — la conversación completa, al cerrarse.
    *
-   * Lo llama el nodo API del flujo de la Pearl. Es la única forma de ver la
-   * conversación en vivo: el Call Webhook solo avisa al inicio y al final, así
-   * que sin esto el hilo aparece cuando el chat ya cerró.
+   * Lo llama la acción post-conversación del flujo, con `post_call_transcript`
+   * y compañía. Es la ÚNICA vía para traer un chat de texto: la API no permite
+   * leerlos y el Call Webhook no dispara para pearls de texto.
    *
-   * Los nombres de los campos los arma quien configura el nodo, así que se
-   * aceptan varias formas para cada concepto en vez de exigir una sola.
+   * La ruta se llama `/turno` por historia: se creó pensando en recibir un
+   * mensaje por vez, hasta confirmar que NL Pearl no expone el texto de los
+   * turnos en vivo. Se conserva el nombre porque es la URL ya configurada en
+   * el flujo y renombrarla solo rompería la única ingesta que funciona.
    */
   @Post('nlpearl/turno')
   @UseGuards(TurnCredentialGuard)
-  async onTurno(@Body() body: unknown) {
+  async onConversacionCerrada(@Body() body: unknown) {
     const p = (body ?? {}) as Record<string, unknown>;
 
     const conversationId = this.primerTexto(p, ['conversationId', 'callId', 'chatId', 'id']);
     const phone = this.primerTexto(p, ['phone', 'phoneNumber', 'from', 'to']);
-    const content = this.primerTexto(p, ['content', 'message', 'text', 'lastMessage']);
     const pearlId = this.primerTexto(p, ['pearlId', 'projectId']);
-    const rol = this.primerTexto(p, ['role', 'sender', 'speaker']) ?? 'customer';
 
-    this.webhookLog.push('nlpearl', `Turno en vivo${conversationId ? ` (${conversationId})` : ''}`, true, p);
+    this.webhookLog.push('nlpearl', `Conversación cerrada${conversationId ? ` (${conversationId})` : ''}`, true, p);
 
     const faltan = [
       ['conversationId', conversationId],
@@ -113,45 +113,16 @@ export class NlpearlWebhookController {
       .filter(([, v]) => !v)
       .map(([k]) => k);
     if (faltan.length) {
-      throw new BadRequestException(`Faltan campos en el turno: ${faltan.join(', ')}`);
+      throw new BadRequestException(`Faltan campos: ${faltan.join(', ')}`);
     }
 
-    // Una acción post-conversación manda la conversación ENTERA en vez de un
-    // turno (`post_call_transcript` y compañía). Se reconoce por traer
-    // transcript, y se ingiere por el camino de conversación completa, que es
-    // autoritativo y pisa lo que se haya visto turno a turno.
     const transcript = normalizarTranscript(p['transcript'] ?? p['post_call_transcript']);
-    if (transcript?.length) {
-      const nuevas = await this.ingerirConversacion(conversationId!, pearlId, phone!, transcript, p);
-      return { received: true, conversacionCompleta: true, nuevas };
+    if (!transcript?.length) {
+      throw new BadRequestException('Falta la transcripción de la conversación');
     }
 
-    if (!content) {
-      throw new BadRequestException('Faltan campos en el turno: content (o transcript)');
-    }
-
-    // El rol puede venir como texto ("agent"/"pearl") o como el enum numérico
-    // de NL Pearl (2 = Pearl, 4 = PlatformUser). Ante la duda, cliente.
-    const esAgente = /^(2|4)$/.test(rol) || /agent|pearl|assistant|bot/i.test(rol);
-
-    try {
-      const { posicion } = await this.sync.ingestarTurnoEnVivo({
-        conversationId: conversationId!,
-        pearlId,
-        phone: phone!,
-        role: esAgente ? 'agent' : 'customer',
-        content: content!,
-        at: this.primerTexto(p, ['at', 'timestamp', 'occurredAt']),
-      });
-      this.flowLog.push('webhook', `Turno #${posicion} de ${conversationId}`);
-      return { received: true, posicion };
-    } catch (err) {
-      const motivo = (err as Error).message;
-      this.logger.warn(`No se pudo ingerir el turno de ${conversationId}: ${motivo}`);
-      this.webhookLog.push('nlpearl', `Turno no ingerido: ${motivo}`, false, p);
-      // 200 igual: que el flujo de la Pearl no se trabe por un fallo nuestro.
-      return { received: true, procesado: false, motivo };
-    }
+    const nuevas = await this.ingerirConversacion(conversationId!, pearlId, phone!, transcript, p);
+    return { received: true, nuevas };
   }
 
   /**
