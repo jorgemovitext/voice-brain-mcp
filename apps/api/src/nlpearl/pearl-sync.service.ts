@@ -46,6 +46,8 @@ export class PearlSyncService {
   /** Rate-limit por instancia: la consola sondea seguido y NL Pearl no es gratis. */
   private lastSyncAt = 0;
   private static readonly MIN_INTERVAL_MS = 30_000;
+  /** Ventana corta: revisa solo las pearls activas, para ver el hilo en vivo. */
+  private static readonly LIVE_INTERVAL_MS = 8_000;
 
   constructor(
     private readonly client: NlpearlClient,
@@ -79,13 +81,49 @@ export class PearlSyncService {
     return wrapped?.results ?? wrapped?.data ?? wrapped?.items ?? [];
   }
 
-  /** Sync a demanda, con rate-limit para poder colgarlo del refresh de la consola. */
+  /**
+   * Sync a demanda, con rate-limit para poder colgarlo del refresh de la consola.
+   *
+   * Dos velocidades: cada ~8 s se revisan SOLO las pearls activas (son pocas y
+   * es lo que está pasando ahora mismo), y cada ~30 s se recorre la cuenta
+   * completa. Así una conversación en curso aparece casi al instante sin
+   * castigar al API con 20+ pearls dormidas.
+   */
   async syncIfDue(hours = 24): Promise<SyncReport | { skipped: true }> {
-    if (Date.now() - this.lastSyncAt < PearlSyncService.MIN_INTERVAL_MS) return { skipped: true };
+    const desde = Date.now() - this.lastSyncAt;
+    if (desde < PearlSyncService.LIVE_INTERVAL_MS) return { skipped: true };
+    if (desde < PearlSyncService.MIN_INTERVAL_MS) return this.syncAll({ hours: 2, soloActivas: true });
     return this.syncAll({ hours });
   }
 
-  async syncAll(opts: { hours?: number; pearlId?: string } = {}): Promise<SyncReport> {
+  /**
+   * Ingesta inmediata de UNA conversación (la dispara el webhook de NL Pearl).
+   * Es lo que hace que el hilo aparezca en vivo sin esperar al sondeo.
+   */
+  async ingestCall(callId: string, pearlIdHint?: string): Promise<{ nuevas: number; channel?: Channel }> {
+    const call = (await this.client.getCall(callId)) as NlpearlCallApiView;
+    const pearlId = pearlIdHint ?? call.pearlId;
+    if (!pearlId) return { nuevas: 0 };
+
+    const stored = (await this.store.listPearls()).find((p) => p.id === pearlId);
+    let channel = stored?.channel as Channel | undefined;
+    let type = stored?.type;
+
+    if (!channel) {
+      // Pearl aún no espejada: se resuelve contra el API.
+      const [detalle, settings] = await Promise.all([
+        this.client.getPearl(pearlId).catch(() => null) as Promise<PearlApiView | null>,
+        this.client.getPearlSettings(pearlId).catch(() => null),
+      ]);
+      channel = canalDePearl(detalle?.name, settings?.agentType);
+      type = detalle?.type;
+    }
+
+    const nuevas = await this.ingestar({ id: pearlId, name: stored?.name, type }, channel, call);
+    return { nuevas, channel };
+  }
+
+  async syncAll(opts: { hours?: number; pearlId?: string; soloActivas?: boolean } = {}): Promise<SyncReport> {
     this.client.assertAccountConfigured();
     this.lastSyncAt = Date.now();
 
@@ -102,6 +140,8 @@ export class PearlSyncService {
 
     let pearls = this.desenvolver<PearlApiView>(await this.client.getPearls());
     if (opts.pearlId) pearls = pearls.filter((p) => p.id === opts.pearlId);
+    // status 1 = activa: las pausadas no pueden tener actividad nueva.
+    if (opts.soloActivas) pearls = pearls.filter((p) => p.status === 1);
 
     // agentType ya conocido: evita re-consultar Settings de las 20+ pearls
     // en cada sync (el dato no cambia).
