@@ -116,11 +116,33 @@ export class PgBrainRepository implements BrainRepository {
   }
 
   async appendInteraction(interaction: Interaction): Promise<Interaction> {
+    return this.guardar(interaction, 'DO NOTHING');
+  }
+
+  /** Misma fila, pisando los campos: corrige lo ingerido con un mapeo viejo. */
+  async replaceInteraction(interaction: Interaction): Promise<Interaction> {
+    return this.guardar(
+      interaction,
+      `DO UPDATE SET
+         contact_id = EXCLUDED.contact_id,
+         channel = EXCLUDED.channel,
+         direction = EXCLUDED.direction,
+         occurred_at = EXCLUDED.occurred_at,
+         summary = EXCLUDED.summary,
+         transcript = EXCLUDED.transcript,
+         sentiment = EXCLUDED.sentiment,
+         collected_info = EXCLUDED.collected_info,
+         source = EXCLUDED.source,
+         handled_by = EXCLUDED.handled_by`,
+    );
+  }
+
+  private async guardar(interaction: Interaction, alConflicto: string): Promise<Interaction> {
     const db = await this.db();
     await db.query(
       `INSERT INTO interactions (id, contact_id, channel, direction, occurred_at, summary, transcript, sentiment, collected_info, source, handled_by)
        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9::jsonb, $10, $11)
-       ON CONFLICT (id) DO NOTHING`,
+       ON CONFLICT (id) ${alConflicto}`,
       [
         interaction.id,
         interaction.contactId,

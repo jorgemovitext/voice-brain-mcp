@@ -39,6 +39,13 @@ class InMemoryRepo implements BrainRepository {
     this.interactions.push(interaction);
     return interaction;
   }
+  async replaceInteraction(interaction: Interaction) {
+    const i = this.interactions.findIndex((x) => x.id === interaction.id);
+    if (i >= 0) this.interactions[i] = interaction;
+    else this.interactions.push(interaction);
+    return interaction;
+  }
+
   async listSignals(contactId: string) {
     return this.signals.filter((s) => s.contactId === contactId);
   }

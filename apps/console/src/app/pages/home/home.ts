@@ -160,6 +160,10 @@ export class HomePage {
     this.syncing.set(true);
     try {
       await this.api.syncNlpearl(false);
+      // De paso repara hilos ingeridos con un mapeo viejo. Es idempotente y
+      // no depende de la API de NL Pearl (que no permite releer los chats),
+      // así que si falla no arruina el sync.
+      await this.api.reprocessChats().catch(() => undefined);
       this.hive.reload();
     } catch {
       /* el refresco periódico reintenta */

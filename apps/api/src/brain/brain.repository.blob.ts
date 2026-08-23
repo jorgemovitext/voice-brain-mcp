@@ -144,6 +144,15 @@ export class BlobBrainRepository implements BrainRepository {
     return interaction;
   }
 
+  async replaceInteraction(interaction: Interaction): Promise<Interaction> {
+    const snap = await this.fresh(true);
+    const i = snap.interactions.findIndex((x) => x.id === interaction.id);
+    if (i >= 0) snap.interactions[i] = interaction;
+    else snap.interactions.push(interaction);
+    await this.persist();
+    return interaction;
+  }
+
   async listSignals(contactId: string): Promise<Signal[]> {
     return (await this.fresh()).signals.filter((s) => s.contactId === contactId);
   }

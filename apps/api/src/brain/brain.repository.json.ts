@@ -111,6 +111,15 @@ export class JsonBrainRepository implements BrainRepository {
     return interaction;
   }
 
+  async replaceInteraction(interaction: Interaction): Promise<Interaction> {
+    await this.ensureLoaded();
+    const i = this.interactions.findIndex((x) => x.id === interaction.id);
+    if (i >= 0) this.interactions[i] = interaction;
+    else this.interactions.push(interaction);
+    this.schedulePersist();
+    return interaction;
+  }
+
   async listSignals(contactId: string): Promise<Signal[]> {
     await this.ensureLoaded();
     return this.signals.filter((s) => s.contactId === contactId);

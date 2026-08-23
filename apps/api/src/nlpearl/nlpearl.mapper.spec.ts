@@ -29,6 +29,34 @@ describe('toChatMessages', () => {
     expect(mensajes[1].at).toBe('2026-08-22T10:00:30.000Z');
   });
 
+  /**
+   * El caso real: v2 manda `role` como enum numérico (2 = Pearl, 3 = Client,
+   * 4 = PlatformUser). Tratándolo como texto, las respuestas del agente
+   * caían del lado del cliente y el hilo se veía a una sola voz.
+   */
+  it('entiende el rol numérico de la API v2', () => {
+    const mensajes = toChatMessages({
+      ...base,
+      transcript: [
+        { role: 3, content: 'Buenas, necesito ayuda', startTime: 0 },
+        { role: 2, content: 'Claro, ¿en qué le colaboro?', startTime: 10 },
+        { role: 4, content: 'Le escribe Jorge del equipo', startTime: 20 },
+        { role: '2', content: 'Sigo yo desde acá', startTime: 30 },
+      ],
+    });
+
+    expect(mensajes.map((m) => m.role)).toEqual(['customer', 'agent', 'agent', 'agent']);
+  });
+
+  it('ante un rol desconocido no le atribuye el mensaje al agente', () => {
+    const mensajes = toChatMessages({
+      ...base,
+      transcript: [{ role: 99, content: 'Origen no identificado' }],
+    });
+
+    expect(mensajes[0].role).toBe('customer');
+  });
+
   it('sin startTime conserva el orden separando un segundo por mensaje', () => {
     const mensajes = toChatMessages({
       ...base,

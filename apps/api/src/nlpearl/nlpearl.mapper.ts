@@ -31,10 +31,35 @@ function mapSentiment(overall?: number): NlpearlCallContext['sentiment'] {
   return 'neutral';
 }
 
+/**
+ * ¿Ese turno lo escribió nuestro lado?
+ *
+ * En NL Pearl v2 `role` es un enum NUMÉRICO: 2 = Pearl (el agente),
+ * 3 = Client (la persona), 4 = PlatformUser (un humano del equipo tomando el
+ * hilo — también nuestro lado). Se aceptan además las variantes en texto
+ * porque las usan el simulador y algunos payloads de webhook.
+ *
+ * Ante un rol desconocido se asume cliente: atribuirle al agente algo que no
+ * dijo es peor que lo contrario.
+ */
+function esDelAgente(role: unknown): boolean {
+  if (typeof role === 'number') return role === ROLE_PEARL || role === ROLE_PLATFORM_USER;
+  if (typeof role === 'string') {
+    const limpio = role.trim();
+    // Un número servido como texto ("2") sigue siendo el enum.
+    if (/^\d+$/.test(limpio)) return esDelAgente(Number(limpio));
+    return /assistant|agent|bot|pearl/i.test(limpio);
+  }
+  return false;
+}
+
+const ROLE_PEARL = 2;
+const ROLE_PLATFORM_USER = 4;
+
 /** transcript v2 es un array de mensajes {role, content}; lo aplanamos a texto legible. */
 function mapTranscript(transcript?: NlpearlCallApiView['transcript']): string | undefined {
   if (!transcript?.length) return undefined;
-  return transcript.map((m) => `${m.role === 'assistant' ? 'Agente' : 'Cliente'}: ${m.content}`).join('\n');
+  return transcript.map((m) => `${esDelAgente(m.role) ? 'Agente' : 'Cliente'}: ${m.content}`).join('\n');
 }
 
 /** collectedInfo v2 es un array {id, name, value}; lo volvemos un objeto por nombre. */
@@ -66,7 +91,7 @@ export function toChatMessages(call: NlpearlCallApiView): ChatMessage[] {
   return (call.transcript ?? [])
     .filter((m) => typeof m.content === 'string' && m.content.trim())
     .map((m, i) => ({
-      role: /assistant|agent|bot|pearl/i.test(m.role ?? '') ? ('agent' as const) : ('customer' as const),
+      role: esDelAgente(m.role) ? ('agent' as const) : ('customer' as const),
       content: m.content.trim(),
       at: new Date(momentoDe(base, m.startTime, i)).toISOString(),
     }));

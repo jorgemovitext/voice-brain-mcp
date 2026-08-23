@@ -69,6 +69,17 @@ export class BrainApiService {
   }
 
   /**
+   * Vuelve a proyectar los chats guardados. Es idempotente y corrige hilos
+   * ingeridos con un mapeo viejo (p. ej. respuestas del agente atribuidas al
+   * cliente); la API de NL Pearl no permite releerlos, así que esta es la vía.
+   */
+  reprocessChats(): Promise<{ conversaciones: number; mensajes: number }> {
+    return firstValueFrom(
+      this.http.post<{ conversaciones: number; mensajes: number }>('/api/nlpearl/reprocess', {}),
+    );
+  }
+
+  /**
    * Asigna qué Pearl atiende un canal. Reemplaza al viejo NLPEARL_PEARL_ID:
    * se cambia con un clic, sin redeploy.
    */

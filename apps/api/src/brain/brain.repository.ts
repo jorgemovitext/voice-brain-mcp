@@ -15,6 +15,12 @@ export interface BrainRepository {
   /** Búsqueda por id: hace barata la idempotencia de la ingesta. */
   findInteraction(id: string): Promise<Interaction | undefined>;
   appendInteraction(interaction: Interaction): Promise<Interaction>;
+  /**
+   * Reescribe una interacción ya guardada. Solo lo usa la reingesta, cuando
+   * un dato mal mapeado en su momento (p. ej. quién habló) hay que corregirlo
+   * sobre el registro que ya existe.
+   */
+  replaceInteraction(interaction: Interaction): Promise<Interaction>;
 
   listSignals(contactId: string): Promise<Signal[]>;
   saveSignal(signal: Signal): Promise<Signal>;

@@ -1,11 +1,16 @@
-import { Injectable, Logger } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
-import { BrainService } from '../brain/brain.service';
-import { Channel } from '../brain/types';
-import { FlowLogService } from '../shared/flow-log.service';
-import { NlpearlActivityStore, StoredPearl } from './activity.store';
-import { NlpearlCallApiView, NlpearlClient } from './nlpearl.client';
-import { canalDePearl, PearlChannel, toCallContext, toChatMessages } from './nlpearl.mapper';
+import { Injectable, Logger } from "@nestjs/common";
+import { ConfigService } from "@nestjs/config";
+import { BrainService } from "../brain/brain.service";
+import { Channel } from "../brain/types";
+import { FlowLogService } from "../shared/flow-log.service";
+import { NlpearlActivityStore, StoredPearl } from "./activity.store";
+import { NlpearlCallApiView, NlpearlClient } from "./nlpearl.client";
+import {
+  canalDePearl,
+  PearlChannel,
+  toCallContext,
+  toChatMessages,
+} from "./nlpearl.mapper";
 
 export interface SyncReport {
   pearls: number;
@@ -58,8 +63,8 @@ export class PearlSyncService {
   ) {
     this.textPearlIds = new Set(
       config
-        .get<string>('NLPEARL_TEXT_PEARL_IDS', '')
-        .split(',')
+        .get<string>("NLPEARL_TEXT_PEARL_IDS", "")
+        .split(",")
         .map((s) => s.trim())
         .filter(Boolean),
     );
@@ -92,7 +97,8 @@ export class PearlSyncService {
   async syncIfDue(hours = 24): Promise<SyncReport | { skipped: true }> {
     const desde = Date.now() - this.lastSyncAt;
     if (desde < PearlSyncService.LIVE_INTERVAL_MS) return { skipped: true };
-    if (desde < PearlSyncService.MIN_INTERVAL_MS) return this.syncAll({ hours: 2, soloActivas: true });
+    if (desde < PearlSyncService.MIN_INTERVAL_MS)
+      return this.syncAll({ hours: 2, soloActivas: true });
     return this.syncAll({ hours });
   }
 
@@ -112,11 +118,22 @@ export class PearlSyncService {
     payload?: Record<string, unknown>,
   ): Promise<{ nuevas: number; channel?: Channel }> {
     const delPayload = this.conversacionDelPayload(payload);
-    const call = delPayload ?? ((await this.client.getCall(callId)) as NlpearlCallApiView);
+    const crudo =
+      delPayload ?? ((await this.client.getCall(callId)) as NlpearlCallApiView);
+
+    // El webhook identifica la conversación como `callId`, no como `id`: sin
+    // normalizarlo, cada turno se guardaba bajo `nlpearl:undefined:N` y la
+    // conversación siguiente chocaba con esos mismos ids — sus mensajes se
+    // descartaban por "ya ingeridos".
+    const call: NlpearlCallApiView = { ...crudo, id: crudo.id || callId };
+    if (!call.id) return { nuevas: 0 };
+
     const pearlId = pearlIdHint ?? call.pearlId;
     if (!pearlId) return { nuevas: 0 };
 
-    const stored = (await this.store.listPearls()).find((p) => p.id === pearlId);
+    const stored = (await this.store.listPearls()).find(
+      (p) => p.id === pearlId,
+    );
     let channel = stored?.channel as Channel | undefined;
     let nombre = stored?.name;
     let type = stored?.type;
@@ -124,7 +141,9 @@ export class PearlSyncService {
     if (!channel || !nombre) {
       // Pearl aún no espejada: se resuelve contra el API.
       const [detalle, settings] = await Promise.all([
-        this.client.getPearl(pearlId).catch(() => null) as Promise<PearlApiView | null>,
+        this.client
+          .getPearl(pearlId)
+          .catch(() => null) as Promise<PearlApiView | null>,
         this.client.getPearlSettings(pearlId).catch(() => null),
       ]);
       nombre = nombre ?? detalle?.name;
@@ -132,7 +151,11 @@ export class PearlSyncService {
       type = type ?? detalle?.type;
     }
 
-    const nuevas = await this.ingestar({ id: pearlId, name: nombre, type }, channel, call);
+    const nuevas = await this.ingestar(
+      { id: pearlId, name: nombre, type },
+      channel,
+      call,
+    );
     return { nuevas, channel };
   }
 
@@ -140,19 +163,27 @@ export class PearlSyncService {
    * ¿El webhook trae la conversación completa? Se acepta `transcript` o
    * `messages` (NL Pearl no documenta el shape de los eventos de texto).
    */
-  private conversacionDelPayload(payload?: Record<string, unknown>): NlpearlCallApiView | undefined {
+  private conversacionDelPayload(
+    payload?: Record<string, unknown>,
+  ): NlpearlCallApiView | undefined {
     if (!payload) return undefined;
-    const crudo = (payload['call'] ?? payload['conversation'] ?? payload) as Record<string, unknown>;
-    const turnos = (crudo['transcript'] ?? crudo['messages'] ?? crudo['chat']) as unknown;
+    const crudo = (payload["call"] ??
+      payload["conversation"] ??
+      payload) as Record<string, unknown>;
+    const turnos = (crudo["transcript"] ??
+      crudo["messages"] ??
+      crudo["chat"]) as unknown;
     if (!Array.isArray(turnos) || !turnos.length) return undefined;
 
     return {
       ...(crudo as unknown as NlpearlCallApiView),
-      transcript: turnos as NlpearlCallApiView['transcript'],
+      transcript: turnos as NlpearlCallApiView["transcript"],
     };
   }
 
-  async syncAll(opts: { hours?: number; pearlId?: string; soloActivas?: boolean } = {}): Promise<SyncReport> {
+  async syncAll(
+    opts: { hours?: number; pearlId?: string; soloActivas?: boolean } = {},
+  ): Promise<SyncReport> {
     this.client.assertAccountConfigured();
     this.lastSyncAt = Date.now();
 
@@ -174,13 +205,17 @@ export class PearlSyncService {
 
     // agentType ya conocido: evita re-consultar Settings de las 20+ pearls
     // en cada sync (el dato no cambia).
-    const conocidas = new Map((await this.store.listPearls()).map((p) => [p.id, p]));
+    const conocidas = new Map(
+      (await this.store.listPearls()).map((p) => [p.id, p]),
+    );
 
     for (const pearl of pearls) {
       report.pearls++;
       let agentType = conocidas.get(pearl.id)?.agentType;
       if (agentType === undefined) {
-        const settings = await this.client.getPearlSettings(pearl.id).catch(() => null);
+        const settings = await this.client
+          .getPearlSettings(pearl.id)
+          .catch(() => null);
         agentType = settings?.agentType;
       }
 
@@ -217,13 +252,17 @@ export class PearlSyncService {
       } catch (err) {
         // Una pearl con error (p.ej. sin permisos o sin actividad soportada)
         // no debe frenar el resto del recorrido.
-        report.errores.push({ pearlId: pearl.id, name: pearl.name, error: (err as Error).message });
+        report.errores.push({
+          pearlId: pearl.id,
+          name: pearl.name,
+          error: (err as Error).message,
+        });
       }
     }
 
     if (report.nuevas > 0) {
       this.flowLog.push(
-        'brain',
+        "brain",
         `Sync NL Pearl: ${report.nuevas} mensaje(s)/llamada(s) nueva(s) de ${report.pearls} pearls`,
         { nuevas: report.nuevas, pearls: report.pearls },
       );
@@ -242,9 +281,9 @@ export class PearlSyncService {
    */
   async simulateChat(input: {
     phone: string;
-    channel?: Extract<Channel, 'sms' | 'whatsapp'>;
+    channel?: Extract<Channel, "sms" | "whatsapp">;
     displayName?: string;
-    mensajes: Array<{ role: 'agent' | 'customer'; content: string }>;
+    mensajes: Array<{ role: "agent" | "customer"; content: string }>;
   }): Promise<{ callId: string; nuevas: number }> {
     const callId = `sim_chat_${Date.now().toString(36)}`;
     const inicio = new Date(Date.now() - input.mensajes.length * 30_000);
@@ -253,38 +292,93 @@ export class PearlSyncService {
       id: callId,
       from: input.phone,
       to: input.phone,
-      direction: 'inbound',
+      direction: "inbound",
       startTime: inicio.toISOString(),
       transcript: input.mensajes.map((m, i) => ({
-        role: m.role === 'agent' ? 'assistant' : 'user',
+        role: m.role === "agent" ? "assistant" : "user",
         content: m.content,
         startTime: i * 30,
       })),
-      collectedInfo: input.displayName ? [{ id: 'n', name: 'First Name', value: input.displayName }] : undefined,
+      collectedInfo: input.displayName
+        ? [{ id: "n", name: "First Name", value: input.displayName }]
+        : undefined,
       overallSentiment: 4,
     };
 
     await this.store.recordActivity({
       id: callId,
       phone: input.phone,
-      kind: 'chat',
+      kind: "chat",
       occurredAt: inicio.toISOString(),
       raw: call,
     });
-    const nuevas = await this.ingestarChat(input.channel ?? 'whatsapp', call, input.phone);
+    const nuevas = await this.ingestarChat(
+      input.channel ?? "whatsapp",
+      call,
+      input.phone,
+    );
     return { callId, nuevas };
+  }
+
+  /**
+   * Vuelve a proyectar al Brain las conversaciones de texto YA guardadas,
+   * pisando lo que se ingirió antes.
+   *
+   * Existe porque la API no permite releer los chats (solo llegan por webhook):
+   * el raw almacenado es la única copia, así que cuando un mapeo estaba mal
+   * —como el rol numérico que ponía las respuestas del agente del lado del
+   * cliente— este es el camino para corregir el historial.
+   */
+  async reprocesarChats(
+    limite = 500,
+  ): Promise<{ conversaciones: number; mensajes: number }> {
+    const guardadas = await this.store.listActivity({ limit: limite });
+    const pearls = await this.store.listPearls();
+    const nombrePorId = new Map(pearls.map((p) => [p.id, p.name]));
+    const canalPorId = new Map(pearls.map((p) => [p.id, p.channel]));
+
+    let conversaciones = 0;
+    let mensajes = 0;
+    for (const act of guardadas) {
+      if (act.kind !== "chat") continue;
+      const call = act.raw as NlpearlCallApiView;
+      const phone = act.phone ?? toCallContext(call).phoneNumber;
+      if (!phone || !call?.id) continue;
+
+      const canal = (canalPorId.get(act.pearlId ?? "") ??
+        "whatsapp") as Channel;
+      mensajes += await this.ingestarChat(
+        canal,
+        call,
+        phone,
+        nombrePorId.get(act.pearlId ?? ""),
+        {
+          overwrite: true,
+        },
+      );
+      conversaciones++;
+    }
+
+    this.logger.log(
+      `Reingesta: ${conversaciones} conversación(es), ${mensajes} mensaje(s) corregidos`,
+    );
+    return { conversaciones, mensajes };
   }
 
   /**
    * Guarda el raw y refleja la actividad en el Brain.
    * Devuelve cuántas interacciones NUEVAS se crearon (0 si ya estaba todo).
    */
-  private async ingestar(pearl: PearlApiView, channel: Channel, call: NlpearlCallApiView): Promise<number> {
+  private async ingestar(
+    pearl: PearlApiView,
+    channel: Channel,
+    call: NlpearlCallApiView,
+  ): Promise<number> {
     // Dirección: si el CallApiView no la trae, se hereda del tipo de pearl
     // (inbound recibe, outbound llama).
     const conDireccion: NlpearlCallApiView = {
       ...call,
-      direction: call.direction ?? (pearl.type === 2 ? 'outbound' : 'inbound'),
+      direction: call.direction ?? (pearl.type === 2 ? "outbound" : "inbound"),
     };
     const ctx = toCallContext(conDireccion);
 
@@ -294,21 +388,26 @@ export class PearlSyncService {
       id: call.id,
       pearlId: pearl.id,
       phone: ctx.phoneNumber,
-      kind: channel === 'voice' ? 'call' : 'chat',
+      kind: channel === "voice" ? "call" : "chat",
       occurredAt: ctx.endedAt ?? ctx.startedAt,
       raw: call,
     });
 
     if (!ctx.phoneNumber) return 0; // sin teléfono no hay identidad que resolver
 
-    if (channel === 'voice') {
+    if (channel === "voice") {
       // Una llamada ya ingerida no se reprocesa (el id es determinista).
       if (await this.brain.getInteraction(`nlpearl:${call.id}`)) return 0;
       await this.brain.recordCallContext(ctx);
       return 1;
     }
 
-    return this.ingestarChat(channel, conDireccion, ctx.phoneNumber, pearl.name);
+    return this.ingestarChat(
+      channel,
+      conDireccion,
+      ctx.phoneNumber,
+      pearl.name,
+    );
   }
 
   /**
@@ -321,6 +420,8 @@ export class PearlSyncService {
     call: NlpearlCallApiView,
     phone: string,
     handledBy?: string,
+    /** Reingesta: pisa lo ya proyectado en vez de saltearlo. */
+    opciones?: { overwrite?: boolean },
   ): Promise<number> {
     const ctx = toCallContext(call);
     const mensajes = toChatMessages(call);
@@ -328,7 +429,7 @@ export class PearlSyncService {
     const { contactId } = await this.brain.resolveIdentity({
       phone,
       externalId: ctx.externalId,
-      system: 'nlpearl',
+      system: "nlpearl",
     });
 
     // Nombre capturado por el agente durante el chat: enriquece el contacto.
@@ -344,18 +445,22 @@ export class PearlSyncService {
     // resumen como una sola interacción para que el hilo no quede vacío.
     if (!mensajes.length) {
       const id = `nlpearl:${call.id}`;
-      if (await this.brain.getInteraction(id)) return 0;
+      if (!opciones?.overwrite && (await this.brain.getInteraction(id)))
+        return 0;
       if (!ctx.summary) return 0;
-      await this.brain.appendInteraction({
-        id,
-        contactId,
-        channel,
-        direction: ctx.direction ?? 'inbound',
-        occurredAt: ctx.startedAt ?? new Date().toISOString(),
-        summary: ctx.summary,
-        source: 'nlpearl',
-        handledBy,
-      });
+      await this.brain.appendInteraction(
+        {
+          id,
+          contactId,
+          channel,
+          direction: ctx.direction ?? "inbound",
+          occurredAt: ctx.startedAt ?? new Date().toISOString(),
+          summary: ctx.summary,
+          source: "nlpearl",
+          handledBy,
+        },
+        opciones,
+      );
       return 1;
     }
 
@@ -364,35 +469,45 @@ export class PearlSyncService {
       // Id por turno: al re-sincronizar una conversación en curso solo entran
       // los mensajes que aún no estaban.
       const id = `nlpearl:${call.id}:${i}`;
-      if (await this.brain.getInteraction(id)) continue;
+      if (!opciones?.overwrite && (await this.brain.getInteraction(id)))
+        continue;
 
-      await this.brain.appendInteraction({
-        id,
-        contactId,
-        channel,
-        direction: mensaje.role === 'agent' ? 'outbound' : 'inbound',
-        occurredAt: mensaje.at,
-        summary: mensaje.content,
-        source: 'nlpearl',
-        // Quién contestó: con varios agentes conviviendo, es parte del hilo.
-        handledBy,
-        // El análisis de la conversación (sentimiento, datos capturados) se
-        // cuelga del último mensaje, que es cuando NL Pearl ya lo calculó.
-        sentiment: i === mensajes.length - 1 ? ctx.sentiment : undefined,
-        collectedInfo: i === mensajes.length - 1 ? ctx.collectedInfo : undefined,
-      });
+      await this.brain.appendInteraction(
+        {
+          id,
+          contactId,
+          channel,
+          direction: mensaje.role === "agent" ? "outbound" : "inbound",
+          occurredAt: mensaje.at,
+          summary: mensaje.content,
+          source: "nlpearl",
+          // Quién contestó: con varios agentes conviviendo, es parte del hilo.
+          handledBy,
+          // El análisis de la conversación (sentimiento, datos capturados) se
+          // cuelga del último mensaje, que es cuando NL Pearl ya lo calculó.
+          sentiment: i === mensajes.length - 1 ? ctx.sentiment : undefined,
+          collectedInfo:
+            i === mensajes.length - 1 ? ctx.collectedInfo : undefined,
+        },
+        opciones,
+      );
       nuevas++;
     }
     return nuevas;
   }
 
   /** Busca un nombre entre los datos capturados, sin confundirlo con el del agente. */
-  private nombreDe(collectedInfo?: Record<string, unknown>): string | undefined {
+  private nombreDe(
+    collectedInfo?: Record<string, unknown>,
+  ): string | undefined {
     if (!collectedInfo) return undefined;
     for (const [clave, valor] of Object.entries(collectedInfo)) {
-      if (typeof valor !== 'string' || !valor.trim()) continue;
+      if (typeof valor !== "string" || !valor.trim()) continue;
       if (/agent/i.test(clave)) continue;
-      if (/^(first\s*name|contact\s*name|nombre|full\s*name)$/i.test(clave.trim())) return valor.trim();
+      if (
+        /^(first\s*name|contact\s*name|nombre|full\s*name)$/i.test(clave.trim())
+      )
+        return valor.trim();
     }
     return undefined;
   }

@@ -81,10 +81,14 @@ export class BrainService {
     };
   }
 
-  async appendInteraction(input: Omit<Interaction, 'id'> & { id?: string }): Promise<Interaction> {
+  async appendInteraction(
+    input: Omit<Interaction, 'id'> & { id?: string },
+    /** Pisa la interacción existente en vez de respetarla (reingesta). */
+    opciones?: { overwrite?: boolean },
+  ): Promise<Interaction> {
     // Con id explícito (ej. `nlpearl:<callId>` del sync) el append es
     // idempotente: re-sincronizar el mismo rango no duplica el hilo.
-    if (input.id) {
+    if (input.id && !opciones?.overwrite) {
       const existing = await this.repo.findInteraction(input.id);
       if (existing) return existing;
     }
@@ -93,7 +97,8 @@ export class BrainService {
       ...input,
       occurredAt: input.occurredAt ?? new Date().toISOString(),
     };
-    await this.repo.appendInteraction(interaction);
+    if (opciones?.overwrite) await this.repo.replaceInteraction(interaction);
+    else await this.repo.appendInteraction(interaction);
     this.logger.log(`Interacción ${interaction.channel}/${interaction.direction} → contacto ${interaction.contactId}`);
     return interaction;
   }

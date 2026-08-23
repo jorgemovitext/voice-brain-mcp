@@ -47,6 +47,16 @@ export class PearlSyncController {
     return this.sync.syncAll({ hours: h, pearlId });
   }
 
+  /**
+   * Reproyecta al Brain las conversaciones ya guardadas. Se usa cuando se
+   * corrige un mapeo: la API no permite releer los chats, así que el raw
+   * almacenado es la única fuente para reparar el historial.
+   */
+  @Post('reprocess')
+  reprocess(@Query('limit') limit?: string) {
+    return this.sync.reprocesarChats(limit ? Number(limit) : undefined);
+  }
+
   @Get('activity')
   activity(
     @Query('pearlId') pearlId?: string,

@@ -41,7 +41,11 @@ export interface NlpearlCallApiView {
   to?: string;
   duration?: number;
   recording?: string;
-  transcript?: Array<{ role: string; content: string; startTime?: number }>;
+  /**
+   * `role` es un enum numérico en v2 (2 = Pearl, 3 = Client, 4 = PlatformUser);
+   * se admite `string` porque el simulador y algunos webhooks mandan el nombre.
+   */
+  transcript?: Array<{ role: string | number; content: string; startTime?: number }>;
   summary?: string;
   collectedInfo?: Array<{ id: string; name: string; value: unknown }>;
   tags?: string[];
