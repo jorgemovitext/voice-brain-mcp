@@ -12,6 +12,9 @@ import { AuthUser, UsersRepository } from './users.repository';
 
 class MemoryUsers implements UsersRepository {
   users: AuthUser[] = [];
+  async findByUsername(username: string) {
+    return this.users.find((u) => u.username === username);
+  }
   async findByPhone(phone: string) {
     return this.users.find((u) => u.phone === phone);
   }
@@ -36,6 +39,7 @@ class CaptureOtp {
   }
 }
 
+const USER = 'jorge';
 const PHONE = '+50499990000';
 const PASSWORD = 'segura123';
 
@@ -57,19 +61,20 @@ function build() {
 
 /** Registro + verificación completos: deja un usuario listo para login. */
 async function registered(ctx: ReturnType<typeof build>) {
-  await ctx.service.register(PHONE, PASSWORD, 'Jorge');
-  await ctx.service.verifyOtp(PHONE, ctx.otp.last);
+  await ctx.service.register(USER, PASSWORD, PHONE, 'Jorge');
+  await ctx.service.verifyOtp(USER, ctx.otp.last);
 }
 
 describe('AuthService (seguridad)', () => {
   it('registra, envía OTP y la verificación abre sesión', async () => {
     const ctx = build();
-    await ctx.service.register(PHONE, PASSWORD, 'Jorge');
+    await ctx.service.register(USER, PASSWORD, PHONE, 'Jorge');
     expect(ctx.otp.sent).toHaveLength(1);
     expect(ctx.otp.last).toMatch(/^\d{6}$/);
 
-    const { token, user } = await ctx.service.verifyOtp(PHONE, ctx.otp.last);
+    const { token, user } = await ctx.service.verifyOtp(USER, ctx.otp.last);
     expect(token.length).toBeGreaterThan(20);
+    expect(user.username).toBe(USER);
     expect(user.phone).toBe(PHONE);
     expect(ctx.users.users[0].verified).toBe(true);
     // El código no queda en texto plano en el almacén.
@@ -87,17 +92,17 @@ describe('AuthService (seguridad)', () => {
   it('login correcto exige el segundo factor (OTP)', async () => {
     const ctx = build();
     await registered(ctx);
-    const res = await ctx.service.login(PHONE, PASSWORD);
+    const res = await ctx.service.login(USER, PASSWORD);
     expect(res).toEqual({ otpRequired: true });
     // Sin verificar el OTP nuevo no hay token: verify con código viejo falla.
-    await expect(ctx.service.verifyOtp(PHONE, '000000')).rejects.toBeInstanceOf(UnauthorizedException);
+    await expect(ctx.service.verifyOtp(USER, '000000')).rejects.toBeInstanceOf(UnauthorizedException);
   });
 
   it('mismo mensaje de error para usuario inexistente y contraseña mala (anti-enumeración)', async () => {
     const ctx = build();
     await registered(ctx);
-    const e1 = await ctx.service.login('+50488887777', 'loQueSea1').catch((e) => e.message);
-    const e2 = await ctx.service.login(PHONE, 'contraseñaMala1').catch((e) => e.message);
+    const e1 = await ctx.service.login('noexiste', 'loQueSea1').catch((e) => e.message);
+    const e2 = await ctx.service.login(USER, 'contraseñaMala1').catch((e) => e.message);
     expect(e1).toBe(e2);
   });
 
@@ -105,62 +110,75 @@ describe('AuthService (seguridad)', () => {
     const ctx = build();
     await registered(ctx);
     for (let i = 0; i < 5; i++) {
-      await expect(ctx.service.login(PHONE, 'incorrecta9')).rejects.toBeInstanceOf(UnauthorizedException);
+      await expect(ctx.service.login(USER, 'incorrecta9')).rejects.toBeInstanceOf(UnauthorizedException);
     }
     expect(ctx.users.users[0].lockedUntil).toBeDefined();
     // Incluso con la contraseña buena, bloqueado = mismo error genérico.
-    await expect(ctx.service.login(PHONE, PASSWORD)).rejects.toBeInstanceOf(UnauthorizedException);
+    await expect(ctx.service.login(USER, PASSWORD)).rejects.toBeInstanceOf(UnauthorizedException);
   });
 
   it('el OTP expira', async () => {
     const ctx = build();
-    await ctx.service.register(PHONE, PASSWORD);
+    await ctx.service.register(USER, PASSWORD, PHONE);
     ctx.users.users[0].otpExpiresAt = new Date(Date.now() - 1000).toISOString();
-    await expect(ctx.service.verifyOtp(PHONE, ctx.otp.last)).rejects.toBeInstanceOf(UnauthorizedException);
+    await expect(ctx.service.verifyOtp(USER, ctx.otp.last)).rejects.toBeInstanceOf(UnauthorizedException);
     // Y quedó invalidado: reintentar con el mismo código tampoco entra.
-    await expect(ctx.service.verifyOtp(PHONE, ctx.otp.last)).rejects.toBeInstanceOf(UnauthorizedException);
+    await expect(ctx.service.verifyOtp(USER, ctx.otp.last)).rejects.toBeInstanceOf(UnauthorizedException);
   });
 
   it('el OTP admite máximo 5 intentos y luego queda inutilizado', async () => {
     const ctx = build();
-    await ctx.service.register(PHONE, PASSWORD);
+    await ctx.service.register(USER, PASSWORD, PHONE);
     const bueno = ctx.otp.last;
     for (let i = 0; i < 5; i++) {
-      await expect(ctx.service.verifyOtp(PHONE, '999999')).rejects.toBeInstanceOf(UnauthorizedException);
+      await expect(ctx.service.verifyOtp(USER, '999999')).rejects.toBeInstanceOf(UnauthorizedException);
     }
     // El sexto intento con el código CORRECTO también falla (se agotó).
-    await expect(ctx.service.verifyOtp(PHONE, bueno)).rejects.toBeInstanceOf(UnauthorizedException);
+    await expect(ctx.service.verifyOtp(USER, bueno)).rejects.toBeInstanceOf(UnauthorizedException);
   });
 
   it('el OTP es de un solo uso', async () => {
     const ctx = build();
-    await ctx.service.register(PHONE, PASSWORD);
+    await ctx.service.register(USER, PASSWORD, PHONE);
     const code = ctx.otp.last;
-    await ctx.service.verifyOtp(PHONE, code);
-    await expect(ctx.service.verifyOtp(PHONE, code)).rejects.toBeInstanceOf(UnauthorizedException);
+    await ctx.service.verifyOtp(USER, code);
+    await expect(ctx.service.verifyOtp(USER, code)).rejects.toBeInstanceOf(UnauthorizedException);
   });
 
   it('reenvío dentro del cooldown no genera código nuevo', async () => {
     const ctx = build();
-    await ctx.service.register(PHONE, PASSWORD);
+    await ctx.service.register(USER, PASSWORD, PHONE);
     expect(ctx.otp.sent).toHaveLength(1);
-    await ctx.service.resendOtp(PHONE); // inmediato: dentro de los 60 s
+    await ctx.service.resendOtp(USER); // inmediato: dentro de los 60 s
     expect(ctx.otp.sent).toHaveLength(1);
+  });
+
+  it('el login emite código nuevo aunque el anterior sea reciente (no queda esperando)', async () => {
+    const ctx = build();
+    await registered(ctx); // deja otpLastSentAt de hace un instante
+    const enviadosAntes = ctx.otp.sent.length;
+
+    await ctx.service.login(USER, PASSWORD);
+    expect(ctx.otp.sent.length).toBe(enviadosAntes + 1);
+
+    // Y el código recién enviado sirve para abrir sesión.
+    const { token } = await ctx.service.verifyOtp(USER, ctx.otp.last);
+    expect(token.length).toBeGreaterThan(20);
   });
 
   it('registro sobre un número YA verificado no reenvía OTP ni cambia la contraseña', async () => {
     const ctx = build();
     await registered(ctx);
     const hashOriginal = ctx.users.users[0].passwordHash;
-    const res = await ctx.service.register(PHONE, 'otraClave123');
-    expect(res.message).toContain('Si el número está disponible');
+    const res = await ctx.service.register(USER, 'otraClave123', PHONE);
+    expect(res.message).toContain('Si el usuario está disponible');
     expect(ctx.otp.sent).toHaveLength(1); // solo el del registro original
     expect(ctx.users.users[0].passwordHash).toBe(hashOriginal);
   });
 
   it('un usuario sin verificar no puede hacer login con contraseña', async () => {
     const ctx = build();
-    await ctx.service.register(PHONE, PASSWORD);
-    await expect(ctx.service.login(PHONE, PASSWORD)).rejects.toBeInstanceOf(UnauthorizedException);
+    await ctx.service.register(USER, PASSWORD, PHONE);
+    await expect(ctx.service.login(USER, PASSWORD)).rejects.toBeInstanceOf(UnauthorizedException);
   });
 });

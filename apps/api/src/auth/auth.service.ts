@@ -27,6 +27,7 @@ const GENERIC_FAIL = 'Credenciales inválidas o cuenta bloqueada temporalmente.'
 
 export interface SessionUser {
   id: string;
+  username?: string;
   phone: string;
   name?: string;
 }
@@ -66,20 +67,31 @@ export class AuthService {
   // =============== Registro ===============
 
   /**
-   * Alta de usuario. La respuesta es SIEMPRE la misma exista o no el número
-   * (anti-enumeración): si el número está libre o pendiente de verificar, se
-   * crea/actualiza y se envía OTP; si ya está verificado, no se hace nada.
+   * Alta de usuario: se identifica con `username`; el teléfono solo sirve para
+   * recibir el código. La respuesta es SIEMPRE la misma existan o no el
+   * usuario y el número (anti-enumeración): si están libres o pendientes de
+   * verificar se crea/actualiza y se envía OTP; si ya están tomados, nada.
    */
-  async register(phone: string, password: string, name?: string): Promise<{ message: string }> {
-    const existing = await this.users.findByPhone(phone);
+  async register(
+    username: string,
+    password: string,
+    phone: string,
+    name?: string,
+  ): Promise<{ message: string }> {
+    const porUsuario = await this.users.findByUsername(username);
+    const porTelefono = await this.users.findByPhone(phone);
 
-    if (existing?.verified) {
-      // Número ya en uso: respuesta idéntica, sin OTP (el dueño real no
-      // recibe spam y el atacante no aprende nada).
-      this.logger.warn(`Registro sobre número ya verificado: ${phone.slice(0, 6)}…`);
+    // El usuario o el teléfono ya pertenecen a alguien verificado: no se toca
+    // nada ni se manda OTP (ni spam al dueño real, ni pistas al atacante).
+    const tomado = porUsuario?.verified || (porTelefono?.verified && porTelefono.id !== porUsuario?.id);
+
+    if (tomado) {
+      this.logger.warn(`Registro sobre usuario/teléfono ya verificado: ${username}`);
     } else {
+      const existing = porUsuario ?? porTelefono;
       const user: AuthUser = existing ?? {
         id: randomUUID(),
+        username,
         phone,
         passwordHash: '',
         verified: false,
@@ -87,18 +99,31 @@ export class AuthService {
         otpAttempts: 0,
         createdAt: new Date().toISOString(),
       };
+      user.username = username;
+      user.phone = phone;
       user.name = name ?? user.name;
       user.passwordHash = await this.hashPassword(password);
       await this.issueOtp(user);
     }
 
-    return { message: 'Si el número está disponible, te enviamos un código por WhatsApp.' };
+    return { message: 'Si el usuario está disponible, te enviamos un código por WhatsApp.' };
+  }
+
+  /**
+   * Resuelve la cuenta por nombre de usuario. Como respaldo acepta el teléfono
+   * en E.164, para no dejar afuera a las cuentas creadas antes de que el login
+   * fuera por usuario.
+   */
+  private async buscarCuenta(identificador: string): Promise<AuthUser | undefined> {
+    const porUsuario = await this.users.findByUsername(identificador);
+    if (porUsuario) return porUsuario;
+    return /^\+[1-9]\d{7,14}$/.test(identificador) ? this.users.findByPhone(identificador) : undefined;
   }
 
   // =============== Login (password + OTP como segundo factor) ===============
 
-  async login(phone: string, password: string): Promise<{ otpRequired: true }> {
-    const user = await this.users.findByPhone(phone);
+  async login(usuario: string, password: string): Promise<{ otpRequired: true }> {
+    const user = await this.buscarCuenta(usuario);
 
     // Usuario inexistente: se verifica contra un hash de sacrificio para que
     // el tiempo de respuesta no delate si el número existe.
@@ -121,14 +146,14 @@ export class AuthService {
       if (user.failedLogins >= MAX_LOGIN_FAILS) {
         user.lockedUntil = new Date(Date.now() + LOCK_MINUTES * 60_000).toISOString();
         user.failedLogins = 0;
-        this.logger.warn(`Cuenta bloqueada ${LOCK_MINUTES} min por intentos fallidos: ${phone.slice(0, 6)}…`);
+        this.logger.warn(`Cuenta bloqueada ${LOCK_MINUTES} min por intentos fallidos: ${usuario}`);
       }
       await this.users.save(user);
       throw new UnauthorizedException(GENERIC_FAIL);
     }
 
     user.failedLogins = 0;
-    await this.issueOtp(user);
+    await this.issueOtp(user, true);
     return { otpRequired: true };
   }
 
@@ -139,9 +164,18 @@ export class AuthService {
     return createHash('sha256').update(`${userId}:${code}`).digest('hex');
   }
 
-  /** Genera, guarda (solo hash) y envía el código. Respeta el cooldown de reenvío. */
-  private async issueOtp(user: AuthUser): Promise<void> {
-    if (user.otpLastSentAt && Date.now() - new Date(user.otpLastSentAt).getTime() < OTP_RESEND_COOLDOWN_S * 1000) {
+  /**
+   * Genera, guarda (solo hash) y envía el código.
+   *
+   * `forzar` salta el cooldown: lo usa el login, donde la contraseña ya se
+   * validó y dejar al usuario esperando un código que nunca salió sería un
+   * callejón sin salida. El cooldown sigue protegiendo los caminos que no
+   * exigen contraseña (registro y reenvío) contra el spam a un número.
+   */
+  private async issueOtp(user: AuthUser, forzar = false): Promise<void> {
+    const enCooldown =
+      user.otpLastSentAt && Date.now() - new Date(user.otpLastSentAt).getTime() < OTP_RESEND_COOLDOWN_S * 1000;
+    if (enCooldown && !forzar) {
       // Dentro del cooldown no se reenvía; la respuesta externa no cambia.
       await this.users.save(user);
       return;
@@ -163,18 +197,18 @@ export class AuthService {
   }
 
   /** Reenvío explícito. Respuesta genérica exista o no el número. */
-  async resendOtp(phone: string): Promise<{ message: string }> {
-    const user = await this.users.findByPhone(phone);
+  async resendOtp(usuario: string): Promise<{ message: string }> {
+    const user = await this.buscarCuenta(usuario);
     if (user) await this.issueOtp(user);
-    return { message: 'Si el número está registrado, te reenviamos un código.' };
+    return { message: 'Si la cuenta existe, te reenviamos un código.' };
   }
 
   /**
    * Verifica el OTP y, si es válido, devuelve el JWT de sesión.
    * El código expira, admite 5 intentos y es de un solo uso.
    */
-  async verifyOtp(phone: string, code: string): Promise<{ token: string; user: SessionUser }> {
-    const user = await this.users.findByPhone(phone);
+  async verifyOtp(usuario: string, code: string): Promise<{ token: string; user: SessionUser }> {
+    const user = await this.buscarCuenta(usuario);
     if (!user?.otpHash || !user.otpExpiresAt) throw new UnauthorizedException(GENERIC_FAIL);
 
     if (new Date(user.otpExpiresAt).getTime() < Date.now()) {
@@ -205,8 +239,13 @@ export class AuthService {
     user.lockedUntil = undefined;
     await this.users.save(user);
 
-    const sessionUser: SessionUser = { id: user.id, phone: user.phone, name: user.name };
-    const token = await this.jwt.signAsync({ sub: user.id, phone: user.phone });
+    const sessionUser: SessionUser = {
+      id: user.id,
+      username: user.username,
+      phone: user.phone,
+      name: user.name,
+    };
+    const token = await this.jwt.signAsync({ sub: user.id, username: user.username });
     return { token, user: sessionUser };
   }
 
@@ -222,7 +261,7 @@ export class AuthService {
   async me(userId: string): Promise<SessionUser> {
     const user = await this.users.findById(userId);
     if (!user) throw new UnauthorizedException('Sesión inválida');
-    return { id: user.id, phone: user.phone, name: user.name };
+    return { id: user.id, username: user.username, phone: user.phone, name: user.name };
   }
 
   /** Hash fijo para igualar tiempos cuando el usuario no existe. */

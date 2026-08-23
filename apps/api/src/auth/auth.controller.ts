@@ -21,6 +21,22 @@ const phoneSchema = z
   .transform((s) => s.replace(/[\s-]/g, ''))
   .pipe(z.string().regex(/^\+[1-9]\d{7,14}$/, 'Teléfono inválido: usá formato E.164, ej. +50499998888'));
 
+/** Usuario: 3–32 caracteres, letras/números/._- Se normaliza a minúsculas. */
+const usernameSchema = z
+  .string()
+  .trim()
+  .toLowerCase()
+  .pipe(
+    z
+      .string()
+      .min(3, 'El usuario debe tener al menos 3 caracteres')
+      .max(32, 'El usuario no puede pasar de 32 caracteres')
+      .regex(/^[a-z0-9._-]+$/, 'El usuario solo admite letras, números y . _ -'),
+  );
+
+/** Para iniciar sesión se acepta el usuario (o el teléfono de cuentas viejas). */
+const identificadorSchema = z.string().trim().toLowerCase().min(3).max(32);
+
 /** Mínimo 8, al menos una letra y un número. */
 const passwordSchema = z
   .string()
@@ -29,13 +45,18 @@ const passwordSchema = z
   .regex(/\d/, 'La contraseña debe incluir números');
 
 const registerSchema = z.object({
-  phone: phoneSchema,
+  username: usernameSchema,
   password: passwordSchema,
+  /** Solo para recibir el código: no es el identificador de acceso. */
+  phone: phoneSchema,
   name: z.string().trim().min(2).max(80).optional(),
 });
-const loginSchema = z.object({ phone: phoneSchema, password: z.string().min(1).max(200) });
-const otpSchema = z.object({ phone: phoneSchema, code: z.string().regex(/^\d{6}$/, 'El código son 6 dígitos') });
-const resendSchema = z.object({ phone: phoneSchema });
+const loginSchema = z.object({ username: identificadorSchema, password: z.string().min(1).max(200) });
+const otpSchema = z.object({
+  username: identificadorSchema,
+  code: z.string().regex(/^\d{6}$/, 'El código son 6 dígitos'),
+});
+const resendSchema = z.object({ username: identificadorSchema });
 
 @Controller('api/auth')
 export class AuthController {
@@ -58,29 +79,29 @@ export class AuthController {
   @Public()
   @Post('register')
   register(@Body() body: unknown) {
-    const { phone, password, name } = this.parse(registerSchema, body);
-    return this.auth.register(phone, password, name);
+    const { username, password, phone, name } = this.parse(registerSchema, body);
+    return this.auth.register(username, password, phone, name);
   }
 
   @Public()
   @Post('login')
   login(@Body() body: unknown) {
-    const { phone, password } = this.parse(loginSchema, body);
-    return this.auth.login(phone, password);
+    const { username, password } = this.parse(loginSchema, body);
+    return this.auth.login(username, password);
   }
 
   @Public()
   @Post('resend-otp')
   resend(@Body() body: unknown) {
-    const { phone } = this.parse(resendSchema, body);
-    return this.auth.resendOtp(phone);
+    const { username } = this.parse(resendSchema, body);
+    return this.auth.resendOtp(username);
   }
 
   @Public()
   @Post('verify-otp')
   async verifyOtp(@Body() body: unknown, @Res({ passthrough: true }) res: FastifyReply) {
-    const { phone, code } = this.parse(otpSchema, body);
-    const { token, user } = await this.auth.verifyOtp(phone, code);
+    const { username, code } = this.parse(otpSchema, body);
+    const { token, user } = await this.auth.verifyOtp(username, code);
 
     res.setCookie(SESSION_COOKIE, token, {
       httpOnly: true,

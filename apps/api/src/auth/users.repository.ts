@@ -7,7 +7,9 @@ import { ensureSchema, PG_POOL } from '../shared/database.module';
 
 export interface AuthUser {
   id: string;
-  phone: string; // E.164 — identidad de login y destino del OTP
+  /** Identificador de acceso. El teléfono ya no identifica: solo recibe el OTP. */
+  username?: string;
+  phone: string; // E.164 — destino del OTP
   name?: string;
   passwordHash: string;
   verified: boolean;
@@ -21,6 +23,7 @@ export interface AuthUser {
 }
 
 export interface UsersRepository {
+  findByUsername(username: string): Promise<AuthUser | undefined>;
   findByPhone(phone: string): Promise<AuthUser | undefined>;
   findById(id: string): Promise<AuthUser | undefined>;
   save(user: AuthUser): Promise<AuthUser>;
@@ -43,6 +46,7 @@ export class PgUsersRepository implements UsersRepository {
     const iso = (v: unknown) => (v ? new Date(v as string).toISOString() : undefined);
     return {
       id: r['id'] as string,
+      username: (r['username'] as string | null) ?? undefined,
       phone: r['phone'] as string,
       name: (r['name'] as string | null) ?? undefined,
       passwordHash: r['password_hash'] as string,
@@ -55,6 +59,12 @@ export class PgUsersRepository implements UsersRepository {
       otpLastSentAt: iso(r['otp_last_sent_at']),
       createdAt: iso(r['created_at']) ?? new Date().toISOString(),
     };
+  }
+
+  async findByUsername(username: string): Promise<AuthUser | undefined> {
+    const db = await this.db();
+    const res = await db.query('SELECT * FROM users WHERE username = $1', [username]);
+    return res.rows[0] ? this.rowToUser(res.rows[0]) : undefined;
   }
 
   async findByPhone(phone: string): Promise<AuthUser | undefined> {
@@ -72,10 +82,11 @@ export class PgUsersRepository implements UsersRepository {
   async save(user: AuthUser): Promise<AuthUser> {
     const db = await this.db();
     await db.query(
-      `INSERT INTO users (id, phone, name, password_hash, verified, failed_logins, locked_until,
+      `INSERT INTO users (id, username, phone, name, password_hash, verified, failed_logins, locked_until,
                           otp_hash, otp_expires_at, otp_attempts, otp_last_sent_at, created_at)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
        ON CONFLICT (id) DO UPDATE SET
+         username = EXCLUDED.username,
          phone = EXCLUDED.phone,
          name = EXCLUDED.name,
          password_hash = EXCLUDED.password_hash,
@@ -88,6 +99,7 @@ export class PgUsersRepository implements UsersRepository {
          otp_last_sent_at = EXCLUDED.otp_last_sent_at`,
       [
         user.id,
+        user.username ?? null,
         user.phone,
         user.name ?? null,
         user.passwordHash,
@@ -131,6 +143,10 @@ export class JsonUsersRepository implements UsersRepository {
   private async persist(): Promise<void> {
     await fs.mkdir(dirname(this.file), { recursive: true }).catch(() => undefined);
     await fs.writeFile(this.file, JSON.stringify(this.users ?? [], null, 2));
+  }
+
+  async findByUsername(username: string): Promise<AuthUser | undefined> {
+    return (await this.load()).find((u) => u.username === username);
   }
 
   async findByPhone(phone: string): Promise<AuthUser | undefined> {

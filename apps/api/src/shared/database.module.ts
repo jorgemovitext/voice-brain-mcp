@@ -65,6 +65,7 @@ export function ensureSchema(pool: Pool): Promise<void> {
         -- Usuarios de la consola (auth: register/login/OTP).
         CREATE TABLE IF NOT EXISTS users (
           id text PRIMARY KEY,
+          username text UNIQUE,
           phone text UNIQUE NOT NULL,
           name text,
           password_hash text NOT NULL,
@@ -77,6 +78,9 @@ export function ensureSchema(pool: Pool): Promise<void> {
           otp_last_sent_at timestamptz,
           created_at timestamptz NOT NULL DEFAULT now()
         );
+        -- Tabla creada cuando el login era por teléfono: ahora identifica el usuario.
+        ALTER TABLE users ADD COLUMN IF NOT EXISTS username text;
+        CREATE UNIQUE INDEX IF NOT EXISTS users_username_key ON users (username);
 
         -- Espejo NL Pearl: catálogo de pearls y actividad raw a detalle.
         CREATE TABLE IF NOT EXISTS nlpearl_pearls (

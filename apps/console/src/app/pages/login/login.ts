@@ -1,5 +1,5 @@
 import { HttpErrorResponse } from '@angular/common/http';
-import { Component, inject, signal } from '@angular/core';
+import { Component, computed, inject, signal } from '@angular/core';
 import { Router } from '@angular/router';
 import { AuthService } from '../../auth/auth.service';
 
@@ -7,8 +7,8 @@ type Modo = 'login' | 'register';
 type Paso = 'credenciales' | 'otp';
 
 /**
- * Acceso a la consola: iniciar sesión o crear cuenta, siempre con el código
- * OTP por WhatsApp como segundo paso. Sin sesión, toda ruta cae acá.
+ * Acceso a la consola: usuario + contraseña (o alta de cuenta), con el código
+ * OTP por WhatsApp como segundo factor. Sin sesión, toda ruta cae acá.
  */
 @Component({
   selector: 'app-login',
@@ -41,9 +41,17 @@ type Paso = 'credenciales' | 'otp';
               </label>
             }
             <label class="auth__field">
-              <span>Teléfono (WhatsApp)</span>
-              <input type="tel" autocomplete="tel" [value]="phone()" (input)="phone.set(asValue($event))" placeholder="+50499998888" required />
+              <span>Usuario</span>
+              <input type="text" autocomplete="username" spellcheck="false"
+                     [value]="username()" (input)="username.set(asValue($event))"
+                     placeholder="tu.usuario" required />
             </label>
+            @if (modo() === 'register') {
+              <label class="auth__field">
+                <span>Teléfono (WhatsApp)</span>
+                <input type="tel" autocomplete="tel" [value]="phone()" (input)="phone.set(asValue($event))" placeholder="+50499998888" required />
+              </label>
+            }
             <label class="auth__field">
               <span>Contraseña</span>
               <input type="password" [attr.autocomplete]="modo() === 'login' ? 'current-password' : 'new-password'"
@@ -63,7 +71,7 @@ type Paso = 'credenciales' | 'otp';
         } @else {
           <div class="auth__otp">
             <h2>Revisá tu WhatsApp</h2>
-            <p>Te enviamos un código de 6 dígitos a <strong>{{ phone() }}</strong>. Vence en 5 minutos.</p>
+            <p>Te enviamos un código de 6 dígitos a <strong>{{ destino() }}</strong>. Vence en 5 minutos.</p>
             <form (submit)="enviarOtp($event)">
               <input class="auth__code" type="text" inputmode="numeric" maxlength="6" autocomplete="one-time-code"
                      [value]="code()" (input)="code.set(soloDigitos($event))" placeholder="••••••" />
@@ -79,7 +87,7 @@ type Paso = 'credenciales' | 'otp';
               <button class="auth__link" (click)="reenviar()" [disabled]="busy() || reenviado()">
                 {{ reenviado() ? 'Código reenviado' : 'Reenviar código' }}
               </button>
-              <button class="auth__link" (click)="volver()">Usar otro número</button>
+              <button class="auth__link" (click)="volver()">Usar otro usuario</button>
             </div>
           </div>
         }
@@ -95,12 +103,16 @@ export class LoginPage {
   readonly modo = signal<Modo>('login');
   readonly paso = signal<Paso>('credenciales');
   readonly name = signal('');
+  readonly username = signal('');
   readonly phone = signal('');
   readonly password = signal('');
   readonly code = signal('');
   readonly busy = signal(false);
   readonly error = signal('');
   readonly reenviado = signal(false);
+
+  /** Al registrarse se conoce el número; al iniciar sesión no se revela. */
+  readonly destino = computed(() => this.phone().trim() || 'tu WhatsApp registrado');
 
   asValue(ev: Event): string {
     return (ev.target as HTMLInputElement).value;
@@ -127,10 +139,11 @@ export class LoginPage {
     this.error.set('');
     this.busy.set(true);
     try {
+      const usuario = this.username().trim().toLowerCase();
       if (this.modo() === 'register') {
-        await this.auth.register(this.phone().trim(), this.password(), this.name().trim() || undefined);
+        await this.auth.register(usuario, this.password(), this.phone().trim(), this.name().trim() || undefined);
       } else {
-        await this.auth.login(this.phone().trim(), this.password());
+        await this.auth.login(usuario, this.password());
       }
       this.paso.set('otp');
     } catch (err) {
@@ -145,7 +158,7 @@ export class LoginPage {
     this.error.set('');
     this.busy.set(true);
     try {
-      await this.auth.verifyOtp(this.phone().trim(), this.code());
+      await this.auth.verifyOtp(this.username().trim().toLowerCase(), this.code());
       await this.router.navigate(['/home']);
     } catch (err) {
       this.error.set(this.mensajeDe(err));
@@ -157,7 +170,7 @@ export class LoginPage {
   async reenviar(): Promise<void> {
     this.error.set('');
     try {
-      await this.auth.resendOtp(this.phone().trim());
+      await this.auth.resendOtp(this.username().trim().toLowerCase());
       this.reenviado.set(true);
       setTimeout(() => this.reenviado.set(false), 60_000);
     } catch (err) {

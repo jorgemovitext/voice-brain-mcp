@@ -28,7 +28,8 @@ export class App {
 
   /** Iniciales del operador con sesión (fallback genérico). */
   readonly iniciales = computed(() => {
-    const name = this.auth.user()?.name?.trim();
+    const sesion = this.auth.user();
+    const name = sesion?.name?.trim() || sesion?.username?.trim();
     if (!name) return '·';
     return name
       .split(/\s+/)
