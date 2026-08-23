@@ -3,6 +3,7 @@ import { BadRequestException, Body, Controller, Logger, Post, UseGuards } from '
 import { FlowLogService } from '../shared/flow-log.service';
 import { WebhookLogService } from '../shared/webhook-log.service';
 import { PearlSyncService } from './pearl-sync.service';
+import { TurnCredentialGuard } from './turn-credential.guard';
 import { WebhookSignatureGuard } from './webhook-signature.guard';
 
 /**
@@ -89,7 +90,7 @@ export class NlpearlWebhookController {
    * aceptan varias formas para cada concepto en vez de exigir una sola.
    */
   @Post('nlpearl/turno')
-  @UseGuards(WebhookSignatureGuard)
+  @UseGuards(TurnCredentialGuard)
   async onTurno(@Body() body: unknown) {
     const p = (body ?? {}) as Record<string, unknown>;
 

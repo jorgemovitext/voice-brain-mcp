@@ -17,6 +17,7 @@ import { NlpearlVoiceEngine } from './nlpearl.engine';
 import { PrecallService } from './precall.service';
 import { NlpearlMockEngine } from './nlpearl.mock';
 import { PrecallController } from './precall.controller';
+import { TurnCredentialGuard } from './turn-credential.guard';
 import { WebhookSignatureGuard } from './webhook-signature.guard';
 import { NlpearlWebhookController } from './webhook.controller';
 import { WorkersController } from './workers.controller';
@@ -46,6 +47,7 @@ import { WorkersController } from './workers.controller';
     NlpearlMockEngine,
     NlpearlVoiceEngine,
     WebhookSignatureGuard,
+    TurnCredentialGuard,
     {
       provide: VOICE_ENGINE_PORT,
       inject: [ConfigService, NlpearlMockEngine, NlpearlVoiceEngine],

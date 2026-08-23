@@ -3,17 +3,22 @@ import { ConfigService } from '@nestjs/config';
 import { timingSafeEqual } from 'crypto';
 
 /**
- * Verifica el "Credential" del webhook de NL Pearl.
+ * Verifica el "Credential" del Call Webhook de NL Pearl.
  *
- * Según la doc oficial (developers.nlpearl.ai/pages/webhooks), NL Pearl NO
- * firma con HMAC: al configurar el webhook podés adjuntar un Credential
- * (token) que se envía en cada entrega para autenticar el origen.
- * El valor lo creás vos en NL Pearl (settings del Pearl → Webhooks →
- * credential) y debe coincidir con NLPEARL_WEBHOOK_SECRET del .env.
+ * NL Pearl no firma con HMAC: adjunta un Credential que viaja en cada entrega.
+ * OJO con la letra chica — esa credencial la activa la plataforma y la
+ * mantiene INTERNA: no la muestra ni deja fijarle un valor propio. O sea, del
+ * lado nuestro no hay contra qué compararla, y por eso en producción
+ * `NLPEARL_WEBHOOK_SECRET` va vacío y este guard deja pasar.
  *
- * Sin secreto configurado, deja pasar (modo dev/mock).
- * // TODO: confirmar con NL Pearl el header exacto en que viaja el credential
- * //       (acá se aceptan `Authorization: Bearer <token>` y `x-nlpearl-credential`).
+ * Consecuencia asumida: `/webhooks/nlpearl` queda abierto a quien conozca la
+ * URL. El daño está acotado porque la ingesta exige un `pearlId` que exista en
+ * el espejo de la cuenta, pero no es autenticación. Donde SÍ elegimos nosotros
+ * el secreto —el nodo API del flujo, que configuramos— se usa
+ * `TurnCredentialGuard`, que falla cerrado.
+ *
+ * En local el secreto sí está seteado y se exige, que es lo que permite
+ * probar el rechazo.
  */
 @Injectable()
 export class WebhookSignatureGuard implements CanActivate {
