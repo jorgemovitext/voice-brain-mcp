@@ -2,6 +2,7 @@ import { Public } from '../auth/public.decorator';
 import { BadRequestException, Body, Controller, Logger, Post, UseGuards } from '@nestjs/common';
 import { FlowLogService } from '../shared/flow-log.service';
 import { WebhookLogService } from '../shared/webhook-log.service';
+import { NlpearlActivityStore } from './activity.store';
 import { NlpearlCallApiView } from './nlpearl.client';
 import { normalizarTranscript } from './nlpearl.mapper';
 import { PearlSyncService } from './pearl-sync.service';
@@ -27,6 +28,7 @@ export class NlpearlWebhookController {
 
   constructor(
     private readonly sync: PearlSyncService,
+    private readonly store: NlpearlActivityStore,
     private readonly flowLog: FlowLogService,
     private readonly webhookLog: WebhookLogService,
   ) {}
@@ -150,6 +152,53 @@ export class NlpearlWebhookController {
       // 200 igual: que el flujo de la Pearl no se trabe por un fallo nuestro.
       return { received: true, procesado: false, motivo };
     }
+  }
+
+  /**
+   * POST /webhooks/nlpearl/avance — el flujo avanzó un paso.
+   *
+   * Los nodos API in-call de NL Pearl NO pueden mandar el texto de los
+   * mensajes: solo las variables que el flujo recopila. Así que esto no es
+   * una conversación, es el ESTADO de una: "ya recopiló la ubicación", "ya
+   * tiene el tipo de problema". Se guarda aparte de las interacciones a
+   * propósito — meterlo en el hilo sería inventar mensajes que nadie escribió.
+   *
+   * Los nombres de los campos los define quien arma el nodo, así que todo lo
+   * que no sea de control se guarda como dato capturado, sin exigir un shape.
+   */
+  @Post('nlpearl/avance')
+  @UseGuards(TurnCredentialGuard)
+  async onAvance(@Body() body: unknown) {
+    const p = (body ?? {}) as Record<string, unknown>;
+
+    const conversationId = this.primerTexto(p, ['conversationId', 'callId', 'chatId', 'id']);
+    const phone = this.primerTexto(p, ['phone', 'phoneNumber', 'from']);
+    const pearlId = this.primerTexto(p, ['pearlId', 'projectId']);
+    const paso = this.primerTexto(p, ['paso', 'step', 'node', 'nodeId']) ?? 'avance';
+
+    if (!conversationId || !phone) {
+      throw new BadRequestException('Faltan campos en el avance: conversationId y phone');
+    }
+
+    const CONTROL = new Set(['conversationId', 'callId', 'chatId', 'id', 'phone', 'phoneNumber', 'from', 'pearlId', 'projectId', 'paso', 'step', 'node', 'nodeId']);
+    const datos = Object.fromEntries(
+      Object.entries(p).filter(([k, v]) => !CONTROL.has(k) && v !== null && v !== ''),
+    );
+
+    // Un registro por paso y conversación: si el flujo repite el mismo paso
+    // (el ciudadano corrige la ubicación), se actualiza en vez de acumular.
+    await this.store.recordActivity({
+      id: `avance:${conversationId}:${paso}`,
+      pearlId,
+      phone,
+      kind: 'progress',
+      occurredAt: new Date().toISOString(),
+      raw: { conversationId, paso, datos },
+    });
+
+    this.webhookLog.push('nlpearl', `Avance «${paso}» en ${conversationId}`, true, p);
+    this.flowLog.push('webhook', `Avance ${paso} · ${Object.keys(datos).join(', ') || 'sin datos'}`);
+    return { received: true, paso, datos: Object.keys(datos) };
   }
 
   /**

@@ -21,7 +21,12 @@ export interface StoredActivity {
   id: string;
   pearlId?: string;
   phone?: string;
-  kind: 'call' | 'chat';
+  /**
+   * `progress` son los avances estructurados que empuja el flujo durante la
+   * conversación (ubicación recopilada, tipo de problema…). No son mensajes:
+   * NL Pearl no expone el texto de cada turno en vivo.
+   */
+  kind: 'call' | 'chat' | 'progress';
   occurredAt?: string;
   raw: unknown;
   ingestedAt?: string;
