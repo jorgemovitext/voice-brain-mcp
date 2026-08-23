@@ -1,6 +1,5 @@
 <div class="fit">
-  <div class="fit__frame">
-    <div class="fit__grid">
+  <div class="fit__grid">
       <!-- ============ Columna izquierda ============ -->
       <section class="fit__left">
         <h1 class="fit__hero">
@@ -20,27 +19,26 @@
           </div>
         </a>
 
-        <!-- Accesos rápidos circulares (label dentro del círculo) -->
+        <!-- Accesos: círculo blanco dentro de una pill vertical, como la referencia -->
         <nav class="quick">
-          <a class="quick__circle" routerLink="/workers">
-            <ui-icon name="chip" />
+          <a class="quick__pill" routerLink="/workers">
+            <span class="quick__circle"><ui-icon name="chip" /></span>
             <em>Obreros</em>
           </a>
-          <a class="quick__circle" routerLink="/contacts">
-            <ui-icon name="users" />
+          <a class="quick__pill" routerLink="/contacts">
+            <span class="quick__circle"><ui-icon name="users" /></span>
             <em>Contactos</em>
           </a>
-          <a class="quick__circle" routerLink="/conversations">
-            <ui-icon name="chat" />
+          <a class="quick__pill" routerLink="/conversations">
+            <span class="quick__circle"><ui-icon name="chat" /></span>
             <em>Chats</em>
           </a>
-          <a class="quick__circle" routerLink="/integrations">
-            <ui-icon name="database" />
+          <a class="quick__pill" routerLink="/integrations">
+            <span class="quick__circle"><ui-icon name="database" /></span>
             <em>Conductos</em>
           </a>
-          <button class="quick__circle" (click)="syncNow()" [disabled]="syncing()"
-                  [class.quick__circle--spin]="syncing()">
-            <ui-icon name="sparkle" />
+          <button class="quick__pill" (click)="syncNow()" [disabled]="syncing()">
+            <span class="quick__circle" [class.quick__circle--spin]="syncing()"><ui-icon name="sparkle" /></span>
             <em>{{ syncing() ? 'Trayendo…' : 'Sincronizar' }}</em>
           </button>
         </nav>
@@ -153,4 +151,3 @@
       </section>
     </div>
   </div>
-</div>
