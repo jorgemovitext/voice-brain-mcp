@@ -839,3 +839,77 @@ $overlap: 44px;
 
   &:hover:not(:disabled) { filter: brightness(1.08); border-color: var(--call); }
 }
+
+/* --- Línea de tiempo del flujo ---
+   Estado de la conversación, NO mensajes: NL Pearl no expone el texto de los
+   turnos en vivo. Va deliberadamente sin forma de burbuja para que no se
+   confunda con lo que alguien escribió. */
+.avance {
+  align-self: stretch;
+  margin: 0.4rem 0.2rem 0.2rem;
+  padding: 0.7rem 0.85rem;
+  border-radius: 14px;
+  border: 1px dashed var(--chat-border);
+  background: rgba(255, 255, 255, 0.55);
+}
+
+.avance__titulo {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  font-size: 0.76rem;
+  font-weight: 700;
+  color: var(--chat-ink-soft);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  margin-bottom: 0.5rem;
+}
+
+/* Punto latiendo: el hilo está vivo aunque no haya mensajes nuevos. */
+.avance__pulso {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--primary);
+  animation: avance-late 1.8s ease-in-out infinite;
+}
+
+@keyframes avance-late {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.35; transform: scale(0.75); }
+}
+
+.avance__paso {
+  display: flex;
+  gap: 0.6rem;
+  padding: 0.3rem 0;
+  border-left: 2px solid var(--chat-border);
+  margin-left: 3px;
+  padding-left: 0.7rem;
+}
+
+.avance__hora {
+  flex-shrink: 0;
+  font-size: 0.7rem;
+  color: var(--chat-ink-soft);
+  font-variant-numeric: tabular-nums;
+  padding-top: 0.1rem;
+}
+
+.avance__cuerpo {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  min-width: 0;
+
+  strong {
+    font-size: 0.82rem;
+    color: var(--chat-ink);
+  }
+}
+
+.avance__dato {
+  font-size: 0.76rem;
+  color: var(--chat-ink-soft);
+  overflow-wrap: anywhere;
+}

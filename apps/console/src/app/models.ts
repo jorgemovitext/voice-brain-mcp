@@ -182,3 +182,15 @@ export interface IntegrationStatus {
   /** Datos públicos para configurar el proveedor (nunca secretos). */
   details: Record<string, string>;
 }
+
+/**
+ * Un paso del flujo de la Pearl empujado durante la conversación.
+ * NO es un mensaje: NL Pearl no expone el texto de los turnos en vivo, solo
+ * las variables que el agente va recopilando.
+ */
+export interface AvanceFlujo {
+  conversationId?: string;
+  paso: string;
+  datos: Record<string, unknown>;
+  occurredAt?: string;
+}

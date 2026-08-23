@@ -18,7 +18,14 @@ import { BrainApiService } from '../../brain-api.service';
 import { Icon } from '../../icon';
 import { VoiceNebula } from '../../nebula';
 import { crearSondeo } from '../../sondeo';
-import { ContactListItem, Interaction, Sentiment, Signal as BrainSignal, UnifiedContext } from '../../models';
+import {
+  AvanceFlujo,
+  ContactListItem,
+  Interaction,
+  Sentiment,
+  Signal as BrainSignal,
+  UnifiedContext,
+} from '../../models';
 import { channelIcon, channelLabel, kycmLabel, sentimentClass, sentimentLabel } from '../../ui';
 
 /** Mensaje del hilo, listo para pintar como burbuja. */
@@ -86,6 +93,19 @@ export class ContactDetailPage implements OnDestroy {
   readonly conversations = httpResource<ContactListItem[]>(() =>
     this.withThreads() ? '/api/contacts' : undefined,
   );
+
+  /**
+   * Avances que el flujo de la Pearl empuja DURANTE la conversación. No son
+   * mensajes: NL Pearl no expone el texto de los turnos en vivo, solo las
+   * variables que va recopilando. Se piden por teléfono porque así los
+   * identifica el nodo del flujo.
+   */
+  readonly progreso = httpResource<AvanceFlujo[]>(() => {
+    const tel = this.context.value()?.contact.phones?.[0];
+    return tel ? `/api/nlpearl/progress?phone=${encodeURIComponent(tel)}` : undefined;
+  });
+
+  readonly avances = computed(() => this.progreso.value() ?? []);
 
   /** Base de las rutas del sidebar, para no salirse del módulo. */
   readonly threadBase = computed(() => (this.withThreads() ? '/conversations' : '/contacts'));
@@ -159,6 +179,35 @@ export class ContactDetailPage implements OnDestroy {
       return item;
     });
   });
+
+  /** Nombres técnicos de los nodos → algo legible en la línea de tiempo. */
+  private static readonly PASOS: Record<string, string> = {
+    identifyNeed: 'Identificó la necesidad',
+    collectProblem: 'Recopiló el tipo de problema',
+    collectLocation: 'Recopiló la ubicación',
+    collectDesc: 'Recopiló la descripción',
+    collectContact: 'Recopiló los datos de contacto',
+    confirmInfo: 'Confirmó la información',
+    registered: 'Registró el reporte',
+    consultaTramite: 'Orientó sobre el trámite',
+  };
+
+  etiquetaPaso(paso: string): string {
+    return ContactDetailPage.PASOS[paso] ?? paso;
+  }
+
+  /** Los datos capturados en ese paso, listos para pintar. */
+  datosDe(avance: AvanceFlujo): Array<{ clave: string; valor: string }> {
+    return Object.entries(avance.datos ?? {}).map(([clave, valor]) => ({
+      clave,
+      valor: typeof valor === 'string' ? valor : JSON.stringify(valor),
+    }));
+  }
+
+  horaCorta(iso?: string): string {
+    if (!iso) return '';
+    return new Date(iso).toLocaleTimeString('es-NI', { hour: '2-digit', minute: '2-digit' });
+  }
 
   readonly initials = computed(() => this.initialsOf(this.context.value()?.contact.displayName));
 

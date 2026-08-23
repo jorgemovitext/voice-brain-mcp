@@ -44,6 +44,14 @@ export interface StoredActivity {
 export class NlpearlActivityStore {
   private readonly logger = new Logger(NlpearlActivityStore.name);
 
+  /**
+   * Respaldo en memoria SOLO para los avances del flujo y solo cuando no hay
+   * Postgres (desarrollo local). Sin esto la línea de tiempo no se puede
+   * probar fuera de producción. En serverless no sirve —cada invocación es un
+   * proceso nuevo— pero ahí siempre hay DB.
+   */
+  private readonly avancesEnMemoria = new Map<string, StoredActivity>();
+
   constructor(@Optional() @Inject(PG_POOL) private readonly pool: Pool | null) {}
 
   get available(): boolean {
@@ -106,9 +114,13 @@ export class NlpearlActivityStore {
    */
   async recordActivity(activity: StoredActivity): Promise<{ inserted: boolean }> {
     const db = await this.db();
-    // Sin DB no hay dedupe por tabla: se reporta como nueva y el dedupe lo
-    // hace el id determinista de la interacción (nlpearl:<id>).
-    if (!db) return { inserted: true };
+    if (!db) {
+      // Sin DB no hay dedupe por tabla: se reporta como nueva y el dedupe lo
+      // hace el id determinista de la interacción (nlpearl:<id>). Los avances
+      // sí se guardan en memoria para poder probar la vista en local.
+      if (activity.kind === 'progress') this.avancesEnMemoria.set(activity.id, activity);
+      return { inserted: true };
+    }
     const res = await db.query(
       `INSERT INTO nlpearl_activity (id, pearl_id, phone, kind, occurred_at, raw)
        VALUES ($1, $2, $3, $4, $5, $6::jsonb)
@@ -147,9 +159,14 @@ export class NlpearlActivityStore {
     return out;
   }
 
-  async listActivity(opts: { pearlId?: string; phone?: string; limit?: number } = {}): Promise<StoredActivity[]> {
+  async listActivity(
+    opts: { pearlId?: string; phone?: string; kind?: StoredActivity['kind']; limit?: number } = {},
+  ): Promise<StoredActivity[]> {
     const db = await this.db();
-    if (!db) return [];
+    if (!db) {
+      if (opts.kind !== 'progress') return [];
+      return [...this.avancesEnMemoria.values()].filter((a) => !opts.phone || a.phone === opts.phone);
+    }
     const limit = Math.min(opts.limit ?? 50, 500);
     const where: string[] = [];
     const params: unknown[] = [];
@@ -160,6 +177,10 @@ export class NlpearlActivityStore {
     if (opts.phone) {
       params.push(opts.phone);
       where.push(`phone = $${params.length}`);
+    }
+    if (opts.kind) {
+      params.push(opts.kind);
+      where.push(`kind = $${params.length}`);
     }
     params.push(limit);
     const res = await db.query(

@@ -57,6 +57,31 @@ export class PearlSyncController {
     return this.sync.reprocesarChats(limit ? Number(limit) : undefined);
   }
 
+  /**
+   * Avances del flujo para un teléfono, del más viejo al más nuevo: así se
+   * lee como línea de tiempo. No son mensajes — NL Pearl no expone el texto
+   * de los turnos en vivo — sino el estado de la conversación.
+   */
+  @Get('progress')
+  async progress(@Query('phone') phone: string, @Query('limit') limit?: string) {
+    const eventos = await this.store.listActivity({
+      phone,
+      kind: 'progress',
+      limit: limit ? Number(limit) : 50,
+    });
+    return eventos
+      .map((e) => {
+        const raw = (e.raw ?? {}) as { conversationId?: string; paso?: string; datos?: Record<string, unknown> };
+        return {
+          conversationId: raw.conversationId,
+          paso: raw.paso ?? 'avance',
+          datos: raw.datos ?? {},
+          occurredAt: e.occurredAt,
+        };
+      })
+      .sort((a, b) => (a.occurredAt ?? '').localeCompare(b.occurredAt ?? ''));
+  }
+
   @Get('activity')
   activity(
     @Query('pearlId') pearlId?: string,
