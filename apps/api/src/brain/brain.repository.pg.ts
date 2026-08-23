@@ -97,6 +97,7 @@ export class PgBrainRepository implements BrainRepository {
       sentiment: ((r['sentiment'] as string | null) ?? undefined) as Interaction['sentiment'],
       collectedInfo: (r['collected_info'] as Record<string, unknown> | null) ?? undefined,
       source: ((r['source'] as string | null) ?? undefined) as Interaction['source'],
+      handledBy: (r['handled_by'] as string | null) ?? undefined,
     };
   }
 
@@ -117,8 +118,8 @@ export class PgBrainRepository implements BrainRepository {
   async appendInteraction(interaction: Interaction): Promise<Interaction> {
     const db = await this.db();
     await db.query(
-      `INSERT INTO interactions (id, contact_id, channel, direction, occurred_at, summary, transcript, sentiment, collected_info, source)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9::jsonb, $10)
+      `INSERT INTO interactions (id, contact_id, channel, direction, occurred_at, summary, transcript, sentiment, collected_info, source, handled_by)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9::jsonb, $10, $11)
        ON CONFLICT (id) DO NOTHING`,
       [
         interaction.id,
@@ -131,6 +132,7 @@ export class PgBrainRepository implements BrainRepository {
         interaction.sentiment ?? null,
         interaction.collectedInfo ? JSON.stringify(interaction.collectedInfo) : null,
         interaction.source ?? null,
+        interaction.handledBy ?? null,
       ],
     );
     return interaction;

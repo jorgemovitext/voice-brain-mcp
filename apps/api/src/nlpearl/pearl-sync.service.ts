@@ -100,27 +100,56 @@ export class PearlSyncService {
    * Ingesta inmediata de UNA conversación (la dispara el webhook de NL Pearl).
    * Es lo que hace que el hilo aparezca en vivo sin esperar al sondeo.
    */
-  async ingestCall(callId: string, pearlIdHint?: string): Promise<{ nuevas: number; channel?: Channel }> {
-    const call = (await this.client.getCall(callId)) as NlpearlCallApiView;
+  async ingestCall(
+    callId: string,
+    pearlIdHint?: string,
+    /**
+     * Cuerpo del webhook. Si ya trae la conversación (transcript/mensajes) se
+     * usa tal cual: los chats de texto NO se pueden recuperar con getCall —
+     * la API los reporta en cero aunque existan— así que el payload del
+     * webhook es la única fuente para ellos.
+     */
+    payload?: Record<string, unknown>,
+  ): Promise<{ nuevas: number; channel?: Channel }> {
+    const delPayload = this.conversacionDelPayload(payload);
+    const call = delPayload ?? ((await this.client.getCall(callId)) as NlpearlCallApiView);
     const pearlId = pearlIdHint ?? call.pearlId;
     if (!pearlId) return { nuevas: 0 };
 
     const stored = (await this.store.listPearls()).find((p) => p.id === pearlId);
     let channel = stored?.channel as Channel | undefined;
+    let nombre = stored?.name;
     let type = stored?.type;
 
-    if (!channel) {
+    if (!channel || !nombre) {
       // Pearl aún no espejada: se resuelve contra el API.
       const [detalle, settings] = await Promise.all([
         this.client.getPearl(pearlId).catch(() => null) as Promise<PearlApiView | null>,
         this.client.getPearlSettings(pearlId).catch(() => null),
       ]);
-      channel = canalDePearl(detalle?.name, settings?.agentType);
-      type = detalle?.type;
+      nombre = nombre ?? detalle?.name;
+      channel = channel ?? canalDePearl(detalle?.name, settings?.agentType);
+      type = type ?? detalle?.type;
     }
 
-    const nuevas = await this.ingestar({ id: pearlId, name: stored?.name, type }, channel, call);
+    const nuevas = await this.ingestar({ id: pearlId, name: nombre, type }, channel, call);
     return { nuevas, channel };
+  }
+
+  /**
+   * ¿El webhook trae la conversación completa? Se acepta `transcript` o
+   * `messages` (NL Pearl no documenta el shape de los eventos de texto).
+   */
+  private conversacionDelPayload(payload?: Record<string, unknown>): NlpearlCallApiView | undefined {
+    if (!payload) return undefined;
+    const crudo = (payload['call'] ?? payload['conversation'] ?? payload) as Record<string, unknown>;
+    const turnos = (crudo['transcript'] ?? crudo['messages'] ?? crudo['chat']) as unknown;
+    if (!Array.isArray(turnos) || !turnos.length) return undefined;
+
+    return {
+      ...(crudo as unknown as NlpearlCallApiView),
+      transcript: turnos as NlpearlCallApiView['transcript'],
+    };
   }
 
   async syncAll(opts: { hours?: number; pearlId?: string; soloActivas?: boolean } = {}): Promise<SyncReport> {
@@ -279,7 +308,7 @@ export class PearlSyncService {
       return 1;
     }
 
-    return this.ingestarChat(channel, conDireccion, ctx.phoneNumber);
+    return this.ingestarChat(channel, conDireccion, ctx.phoneNumber, pearl.name);
   }
 
   /**
@@ -291,6 +320,7 @@ export class PearlSyncService {
     channel: Channel,
     call: NlpearlCallApiView,
     phone: string,
+    handledBy?: string,
   ): Promise<number> {
     const ctx = toCallContext(call);
     const mensajes = toChatMessages(call);
@@ -324,6 +354,7 @@ export class PearlSyncService {
         occurredAt: ctx.startedAt ?? new Date().toISOString(),
         summary: ctx.summary,
         source: 'nlpearl',
+        handledBy,
       });
       return 1;
     }
@@ -343,6 +374,8 @@ export class PearlSyncService {
         occurredAt: mensaje.at,
         summary: mensaje.content,
         source: 'nlpearl',
+        // Quién contestó: con varios agentes conviviendo, es parte del hilo.
+        handledBy,
         // El análisis de la conversación (sentimiento, datos capturados) se
         // cuelga del último mensaje, que es cuando NL Pearl ya lo calculó.
         sentiment: i === mensajes.length - 1 ? ctx.sentiment : undefined,

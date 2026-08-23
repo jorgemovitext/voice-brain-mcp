@@ -26,6 +26,8 @@ export interface Interaction {
   sentiment?: Sentiment;
   collectedInfo?: Record<string, unknown>;
   source?: 'nlpearl' | 'own';
+  /** Agente (Pearl) que atendió esta interacción. */
+  handledBy?: string;
 }
 
 export interface Signal {

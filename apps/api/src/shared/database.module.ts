@@ -51,6 +51,9 @@ export function ensureSchema(pool: Pool): Promise<void> {
         );
         CREATE INDEX IF NOT EXISTS idx_signals_contact ON signals (contact_id);
 
+        -- Qué agente (Pearl) atendió cada interacción.
+        ALTER TABLE interactions ADD COLUMN IF NOT EXISTS handled_by text;
+
         -- Configuración editable desde la app (p. ej. qué Pearl usa cada canal),
         -- para no depender de variables de entorno que exigen redeploy.
         CREATE TABLE IF NOT EXISTS app_settings (

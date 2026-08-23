@@ -10,6 +10,12 @@ import { FollowupService } from './followup.service';
  * de Meta/Cloud API (`{entry:[{changes:[{value:{messages:[...]}}]}]}`).
  * Detectarlo acá evita depender de qué endpoint se configuró en el proveedor
  * y que un mensaje se pierda en silencio por no reconocer el shape.
+ *
+ * IMPORTANTE: Gupshup quedó SOLO para entregar los OTP del acceso. Las
+ * conversaciones con clientes las atienden los agentes por el canal de texto
+ * de NL Pearl, así que lo que llega acá se registra en la bitácora (sirve para
+ * diagnosticar la entrega del OTP) pero NO entra al Brain: si entrara,
+ * aparecerían hilos duplicados y sin agente en Conversaciones.
  */
 
 interface MensajeNormalizado {
@@ -38,9 +44,13 @@ export class WhatsappInboundService {
 
     for (const m of mensajes) {
       if (this.yaVisto(m.id)) continue;
-      this.logger.log(`← WhatsApp de ${m.from}: "${m.text}"`);
-      this.webhookLog.push(origen, `Mensaje de ${m.profileName ?? m.from}: “${m.text}”`, true, { from: m.from });
-      await this.followup.receiveInbound('whatsapp', m.from, m.text, m.profileName);
+      this.logger.log(`← ${origen} de ${m.from}: "${m.text}" (solo bitácora)`);
+      this.webhookLog.push(
+        origen,
+        `Mensaje de ${m.profileName ?? m.from}: “${m.text}” — no entra al Brain (este canal es solo para OTP)`,
+        true,
+        { from: m.from },
+      );
     }
   }
 

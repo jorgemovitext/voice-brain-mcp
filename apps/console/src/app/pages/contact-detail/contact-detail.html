@@ -51,6 +51,17 @@
             · {{ kycmLabel(ctx.contact.kycmStatus) }}
           </div>
         </div>
+        <!-- Qué agente atiende este hilo: con varios canales conviviendo,
+             saber quién contesta es tan importante como el mensaje. -->
+        @if (agente(); as a) {
+          <span class="chat__agent" [title]="'Atendido por ' + a.nombre">
+            <voice-nebula [size]="26" />
+            <span class="chat__agent-txt">
+              <em>{{ a.nombre }}</em>
+              {{ channelLabel(a.channel) }}
+            </span>
+          </span>
+        }
         <span class="chat__dots">⋯</span>
       </header>
 

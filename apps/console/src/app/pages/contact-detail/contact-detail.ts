@@ -128,6 +128,18 @@ export class ContactDetailPage implements OnDestroy {
   }
 
   /** Hilo en orden cronológico (el API lo trae descendente) + separadores. */
+  /**
+   * Agente que atiende el hilo: el de la última interacción que trae
+   * `handledBy`. Se muestra en la cabecera del chat porque con voz, SMS,
+   * WhatsApp y varios Pearls conviviendo, quién contesta es parte del hilo.
+   */
+  readonly agente = computed(() => {
+    const conAgente = [...(this.context.value()?.recentInteractions ?? [])]
+      .filter((i) => i.handledBy)
+      .sort((a, b) => b.occurredAt.localeCompare(a.occurredAt))[0];
+    return conAgente ? { nombre: conAgente.handledBy!, channel: conAgente.channel } : null;
+  });
+
   readonly chat = computed<ChatItem[]>(() => {
     const interactions = [...(this.context.value()?.recentInteractions ?? [])].sort((a, b) =>
       a.occurredAt.localeCompare(b.occurredAt),

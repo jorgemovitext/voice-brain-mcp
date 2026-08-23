@@ -28,6 +28,11 @@ export interface Interaction {
   sentiment?: 'positive' | 'neutral' | 'negative';
   collectedInfo?: Record<string, unknown>;
   source?: 'nlpearl' | 'own';
+  /**
+   * Qué agente atendió esta interacción (nombre del Pearl). Con varios
+   * canales y funciones conviviendo, saber quién contestó es parte del hilo.
+   */
+  handledBy?: string;
 }
 
 export interface Signal {

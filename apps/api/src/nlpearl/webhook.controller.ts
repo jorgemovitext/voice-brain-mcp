@@ -33,8 +33,13 @@ export class NlpearlWebhookController {
   async onActivityFinished(@Body() body: unknown) {
     const payload = (body ?? {}) as Record<string, unknown>;
 
-    const id = this.primerTexto(payload, ['callId', 'id', 'conversationId', 'chatId']);
-    const pearlId = this.primerTexto(payload, ['pearlId', 'projectId']);
+    const anidado = (payload['call'] ?? payload['conversation'] ?? {}) as Record<string, unknown>;
+    const id =
+      this.primerTexto(payload, ['callId', 'id', 'conversationId', 'chatId']) ??
+      this.primerTexto(anidado, ['id', 'callId', 'conversationId']);
+    const pearlId =
+      this.primerTexto(payload, ['pearlId', 'projectId']) ??
+      this.primerTexto(anidado, ['pearlId', 'projectId']);
     const evento = this.primerTexto(payload, ['event', 'type', 'eventType']) ?? 'actividad';
 
     // Siempre se deja rastro, aunque no se pueda procesar: es la única forma
@@ -49,7 +54,9 @@ export class NlpearlWebhookController {
     this.flowLog.push('webhook', `NL Pearl avisó: ${evento} ${id}`);
 
     try {
-      const { nuevas, channel } = await this.sync.ingestCall(id, pearlId);
+      // Se pasa el cuerpo entero: si ya trae la conversación, se ingiere de
+      // ahí sin llamar al API (los chats de texto no son consultables).
+      const { nuevas, channel } = await this.sync.ingestCall(id, pearlId, payload);
       this.webhookLog.push(
         'nlpearl',
         nuevas

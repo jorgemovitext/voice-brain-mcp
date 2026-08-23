@@ -204,6 +204,19 @@ $overlap: 44px;
   border-bottom: 1px solid var(--chat-border);
 }
 
+/* Cede el ancho al badge del agente en vez de empujarlo fuera. */
+.chat__who {
+  min-width: 0;
+  flex: 1;
+
+  .chat__name,
+  .chat__meta {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+}
+
 .chat__back {
   font-size: 1.5rem;
   line-height: 1;
@@ -221,6 +234,40 @@ $overlap: 44px;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+/* Agente que atiende el hilo, en la cabecera del chat.
+   `flex-shrink: 0` + el `min-width: 0` de .chat__who evitan que el badge se
+   monte sobre el nombre cuando la columna es angosta. */
+.chat__agent {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  margin-left: auto;
+  flex-shrink: 0;
+  padding: 0.3rem 0.7rem 0.3rem 0.35rem;
+  border-radius: 999px;
+  background: var(--chat-bg);
+  border: 1px solid var(--chat-border);
+}
+
+.chat__agent-txt {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.15;
+  font-size: 0.62rem;
+  color: var(--chat-ink-soft);
+
+  em {
+    font-style: normal;
+    font-size: 0.72rem;
+    font-weight: 700;
+    color: var(--chat-ink);
+    max-width: 150px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
 }
 
 .chat__dots { color: var(--chat-ink-soft); font-weight: 800; }
