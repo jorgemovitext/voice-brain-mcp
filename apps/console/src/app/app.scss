@@ -26,12 +26,16 @@
   margin-bottom: 1.6rem;
 }
 
+/* El logo es la celda madre del panal: misma forma que los agentes.
+   El resplandor va con drop-shadow y no con box-shadow, porque el recorte
+   se aplica antes que el filtro: así la luz sigue el hexágono en vez de
+   quedar recortada con él. */
 .rail__logo-orb {
   width: 30px;
   height: 30px;
-  border-radius: 50%;
+  clip-path: url(#hexCell);
   background: conic-gradient(from 210deg, var(--primary), #ff9d5c, var(--secondary), var(--primary));
-  box-shadow: 0 0 14px rgba(0, 186, 254, 0.5);
+  filter: drop-shadow(0 0 7px rgba(0, 186, 254, 0.55));
 }
 
 .rail__nav {

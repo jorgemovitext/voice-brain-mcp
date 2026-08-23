@@ -50,6 +50,19 @@ h1, h2, h3 { font-weight: 800; margin: 0 0 0.5rem; }
 a { color: var(--secondary); text-decoration: none; }
 
 /* --- Tarjetas (oscuras) --- */
+/* El SVG con el clipPath del panal: presente pero invisible y sin ocupar sitio. */
+.hex-defs {
+  position: absolute;
+  width: 0;
+  height: 0;
+  overflow: hidden;
+}
+
+/* Recorta cualquier elemento con la forma de celda de panal. */
+.hex-cell {
+  clip-path: url(#hexCell);
+}
+
 .card {
   background: var(--panel);
   border: 1px solid var(--border);

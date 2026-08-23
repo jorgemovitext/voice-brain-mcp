@@ -1,3 +1,17 @@
+<!-- Celda de panal compartida: cualquier elemento con .hex-cell se recorta con
+     esta forma. Vive acá, fuera de todo @if, porque un clipPath referenciado
+     por url(#…) deja de aplicar si su SVG sale del DOM. En coordenadas
+     relativas (objectBoundingBox), así sirve para 30 px o para 150. -->
+<svg class="hex-defs" aria-hidden="true" focusable="false">
+  <defs>
+    <clipPath id="hexCell" clipPathUnits="objectBoundingBox">
+      <path
+        d="M.9.604 L.79.794 Q.73.898.61.898 L.39.898 Q.27.898.21.794 L.1.604 Q.04.5.1.396 L.21.206 Q.27.102.39.102 L.61.102 Q.73.102.79.206 L.9.396 Q.96.5.9.604 Z"
+      />
+    </clipPath>
+  </defs>
+</svg>
+
 <div class="shell">
   <!-- Rail de iconos (como la referencia: logo arriba, avatar abajo).
        Oculto en /login: sin sesión no hay navegación que mostrar. -->

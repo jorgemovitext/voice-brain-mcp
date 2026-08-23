@@ -36,14 +36,16 @@
   }
 }
 
+/* Misma celda de panal que el logo del rail: la marca es una celda del enjambre.
+   El resplandor va en drop-shadow para que siga el hexágono (box-shadow lo
+   recortaría el clip-path). */
 .auth__orb {
   width: 40px;
   height: 40px;
-  border-radius: 50%;
+  clip-path: url(#hexCell);
   flex-shrink: 0;
   background: conic-gradient(from 210deg, var(--primary), #ff8a4c, var(--secondary), var(--primary));
-  filter: saturate(1.15);
-  box-shadow: 0 0 24px rgba(243, 71, 0, 0.35);
+  filter: saturate(1.15) drop-shadow(0 0 12px rgba(243, 71, 0, 0.45));
 }
 
 .auth__tabs {
