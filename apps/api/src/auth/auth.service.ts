@@ -1,4 +1,4 @@
-import { Inject, Injectable, Logger, UnauthorizedException } from '@nestjs/common';
+import { ConflictException, Inject, Injectable, Logger, UnauthorizedException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 import { createHash, randomBytes, randomInt, randomUUID, scrypt as scryptCb, timingSafeEqual } from 'crypto';
@@ -254,6 +254,46 @@ export class AuthService {
     user.otpExpiresAt = undefined;
     user.otpAttempts = 0;
     await this.users.save(user);
+  }
+
+  // =============== Perfil ===============
+
+  /**
+   * Fija o cambia el usuario de acceso. Exige la contraseña actual aunque ya
+   * haya sesión: el usuario es el identificador con el que se entra, y
+   * cambiarlo con una cookie robada dejaría afuera al dueño real. Acá SÍ se
+   * dice si el nombre está tomado — quien pide necesita saber que elija otro,
+   * y ya está autenticado, así que no hay enumeración que proteger.
+   */
+  async setUsername(userId: string, username: string, password: string): Promise<SessionUser> {
+    const user = await this.users.findById(userId);
+    if (!user) throw new UnauthorizedException('Sesión inválida');
+
+    if (user.lockedUntil && new Date(user.lockedUntil).getTime() > Date.now()) {
+      throw new UnauthorizedException(GENERIC_FAIL);
+    }
+
+    const ok = await this.verifyPassword(password, user.passwordHash);
+    if (!ok) {
+      user.failedLogins += 1;
+      if (user.failedLogins >= MAX_LOGIN_FAILS) {
+        user.lockedUntil = new Date(Date.now() + LOCK_MINUTES * 60_000).toISOString();
+        user.failedLogins = 0;
+      }
+      await this.users.save(user);
+      throw new UnauthorizedException('La contraseña no coincide.');
+    }
+
+    const dueno = await this.users.findByUsername(username);
+    if (dueno && dueno.id !== user.id) {
+      throw new ConflictException('Ese usuario ya está tomado. Probá con otro.');
+    }
+
+    user.username = username;
+    user.failedLogins = 0;
+    await this.users.save(user);
+    this.logger.log(`Usuario de acceso asignado a la cuenta ${user.id}`);
+    return { id: user.id, username: user.username, phone: user.phone, name: user.name };
   }
 
   // =============== Sesión ===============

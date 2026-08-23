@@ -67,6 +67,7 @@ const otpSchema = z.object({
   code: z.string().regex(/^\d{6}$/, 'El código son 6 dígitos'),
 });
 const resendSchema = z.object({ username: identificadorSchema });
+const setUsernameSchema = z.object({ username: usernameSchema, password: z.string().min(1).max(200) });
 
 @Controller('api/auth')
 export class AuthController {
@@ -121,6 +122,16 @@ export class AuthController {
       maxAge: this.auth.sessionHours * 3600,
     });
     return { user };
+  }
+
+  /**
+   * Fija el usuario de acceso de la cuenta con sesión. Protegido por el guard
+   * global y, además, por la contraseña actual (ver AuthService.setUsername).
+   */
+  @Post('username')
+  setUsername(@Body() body: unknown, @Req() req: FastifyRequest & { user?: { sub: string } }) {
+    const { username, password } = this.parse(setUsernameSchema, body);
+    return this.auth.setUsername(req.user?.sub ?? '', username, password);
   }
 
   /** Protegido por el guard global: sirve para validar la sesión al cargar la consola. */

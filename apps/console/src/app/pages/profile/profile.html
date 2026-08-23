@@ -1,0 +1,76 @@
+<div class="page">
+  <header class="head">
+    <div>
+      <h1>Tu cuenta</h1>
+      <p class="muted">Con qué datos entrás a la consola.</p>
+    </div>
+  </header>
+
+  <section class="card ficha">
+    <div class="ficha__avatar">{{ (cuenta()?.name || cuenta()?.username || '·')[0]?.toUpperCase() }}</div>
+    <dl class="ficha__datos">
+      <div>
+        <dt>Nombre</dt>
+        <dd>{{ cuenta()?.name || '—' }}</dd>
+      </div>
+      <div>
+        <dt>Usuario</dt>
+        <dd>
+          @if (cuenta()?.username) {
+            {{ cuenta()?.username }}
+          } @else {
+            <span class="ficha__falta">sin asignar</span>
+          }
+        </dd>
+      </div>
+      <div>
+        <dt>Teléfono</dt>
+        <dd>
+          <span class="ficha__valor">{{ cuenta()?.phone }}</span>
+          <span class="ficha__nota">recibe el código</span>
+        </dd>
+      </div>
+    </dl>
+  </section>
+
+  <section class="card forma">
+    <h2>{{ sinUsuario() ? 'Asigná tu usuario' : 'Cambiá tu usuario' }}</h2>
+    <p class="muted">
+      @if (sinUsuario()) {
+        Tu cuenta se creó cuando el acceso era por teléfono. Poniéndole un usuario
+        vas a poder entrar con él en vez del número.
+      } @else {
+        Con el usuario nuevo entrás la próxima vez. El teléfono sigue funcionando.
+      }
+    </p>
+
+    <form (submit)="guardar($event)">
+      <label class="campo">
+        <span>Usuario nuevo</span>
+        <input type="text" autocomplete="username" spellcheck="false"
+               [value]="username()" (input)="username.set(asValue($event))"
+               placeholder="tu.usuario" />
+        <small>3 a 32 caracteres: letras, números y . _ -</small>
+      </label>
+
+      <label class="campo">
+        <span>Tu contraseña actual</span>
+        <input type="password" autocomplete="current-password"
+               [value]="password()" (input)="password.set(asValue($event))"
+               placeholder="Para confirmar que sos vos" />
+      </label>
+
+      @if (error()) {
+        <p class="forma__error">{{ error() }}</p>
+      }
+      @if (listo()) {
+        <p class="forma__ok">Listo. Ya podés entrar con <strong>{{ cuenta()?.username }}</strong>.</p>
+      }
+
+      <button class="btn btn--primary" type="submit" [disabled]="!puedeGuardar()">
+        @if (busy()) { <span class="spinner spinner--sm"></span> }
+        Guardar usuario
+      </button>
+    </form>
+  </section>
+</div>

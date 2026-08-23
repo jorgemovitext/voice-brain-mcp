@@ -55,6 +55,12 @@ export const routes: Routes = [
     title: 'Integraciones · Brain',
   },
   {
+    path: 'perfil',
+    canActivate: [authGuard],
+    loadComponent: () => import('./pages/profile/profile').then((m) => m.ProfilePage),
+    title: 'Tu cuenta · Brain',
+  },
+  {
     path: 'demo',
     canActivate: [authGuard],
     loadComponent: () => import('./pages/demo/demo').then((m) => m.DemoPage),

@@ -26,6 +26,9 @@ export class App {
   /** En la pantalla de acceso el rail no se muestra. */
   readonly enLogin = computed(() => this.url().startsWith('/login'));
 
+  /** Cuentas anteriores al login por usuario: el rail lo señala. */
+  readonly sinUsuario = computed(() => !!this.auth.user() && !this.auth.user()?.username);
+
   /** Iniciales del operador con sesión (fallback genérico). */
   readonly iniciales = computed(() => {
     const sesion = this.auth.user();

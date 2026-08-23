@@ -1,0 +1,138 @@
+.page {
+  padding: 1.4rem 1.5rem;
+  max-width: 640px;
+  margin-inline: auto;
+}
+
+.head {
+  margin-bottom: 1.1rem;
+
+  h1 {
+    margin: 0 0 0.2rem;
+  }
+}
+
+.muted {
+  color: var(--ink-soft);
+  font-size: 0.85rem;
+  margin: 0;
+}
+
+/* --- Ficha de la cuenta --- */
+.ficha {
+  display: flex;
+  align-items: center;
+  gap: 1.1rem;
+  margin-bottom: 1rem;
+}
+
+.ficha__avatar {
+  flex-shrink: 0;
+  width: 56px;
+  height: 56px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background: linear-gradient(135deg, var(--primary), var(--secondary));
+  color: #fff;
+  font-weight: 800;
+  font-size: 1.4rem;
+}
+
+.ficha__datos {
+  display: grid;
+  gap: 0.55rem;
+  margin: 0;
+  min-width: 0;
+
+  dt {
+    color: var(--ink-soft);
+    font-size: 0.72rem;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+  }
+
+  dd {
+    margin: 0;
+    font-weight: 600;
+  }
+}
+
+/* Solo el valor puede partirse; la nota va aparte para no quebrarse. */
+.ficha__valor {
+  overflow-wrap: anywhere;
+}
+
+.ficha__falta {
+  color: var(--ink-soft);
+  font-style: italic;
+  font-weight: 500;
+}
+
+.ficha__nota {
+  display: block;
+  color: var(--ink-soft);
+  font-size: 0.74rem;
+  font-weight: 500;
+}
+
+/* --- Formulario --- */
+.forma {
+  h2 {
+    margin: 0 0 0.3rem;
+    font-size: 1.05rem;
+  }
+
+  form {
+    display: flex;
+    flex-direction: column;
+    gap: 0.9rem;
+    margin-top: 1rem;
+  }
+
+  button {
+    align-self: flex-start;
+  }
+}
+
+.campo {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+
+  > span {
+    font-size: 0.82rem;
+    font-weight: 600;
+  }
+
+  input {
+    padding: 0.7rem 0.85rem;
+    border-radius: 12px;
+    border: 1px solid var(--border);
+    background: var(--panel-2);
+    color: var(--ink);
+    font: inherit;
+
+    &:focus-visible {
+      outline: 2px solid var(--secondary);
+      outline-offset: 1px;
+    }
+  }
+
+  small {
+    color: var(--ink-soft);
+    font-size: 0.74rem;
+  }
+}
+
+.forma__error {
+  margin: 0;
+  color: var(--negative);
+  font-size: 0.84rem;
+}
+
+.forma__ok {
+  margin: 0;
+  color: var(--positive);
+  font-size: 0.84rem;
+}

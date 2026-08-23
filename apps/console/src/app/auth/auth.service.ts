@@ -59,6 +59,15 @@ export class AuthService {
     return firstValueFrom(this.http.post<{ message: string }>('/api/auth/resend-otp', { username }));
   }
 
+  /** Fija el usuario de acceso. Exige la contraseña actual aunque haya sesión. */
+  async setUsername(username: string, password: string): Promise<SessionUser> {
+    const user = await firstValueFrom(
+      this.http.post<SessionUser>('/api/auth/username', { username, password }),
+    );
+    this.user.set(user);
+    return user;
+  }
+
   async logout(): Promise<void> {
     await firstValueFrom(this.http.post('/api/auth/logout', {})).catch(() => undefined);
     this.user.set(null);

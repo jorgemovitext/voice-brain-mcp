@@ -89,6 +89,27 @@
   font-weight: 800;
   color: #fff;
   background: linear-gradient(135deg, var(--primary), #b33500);
+  position: relative;
+  text-decoration: none;
+  transition: box-shadow 0.18s ease;
+}
+
+.rail__avatar--active,
+.rail__avatar:hover {
+  box-shadow: 0 0 0 2px var(--bg), 0 0 0 4px var(--secondary);
+}
+
+/* Punto de aviso: la cuenta todavía entra por teléfono. */
+.rail__avatar--pendiente::after {
+  content: '';
+  position: absolute;
+  top: -1px;
+  right: -1px;
+  width: 11px;
+  height: 11px;
+  border-radius: 50%;
+  background: var(--secondary);
+  border: 2px solid var(--bg);
 }
 
 /* --- Escenario: se superpone levemente al rail, con esquinas redondeadas --- */

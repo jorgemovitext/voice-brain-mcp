@@ -188,6 +188,39 @@ describe('AuthService (seguridad)', () => {
     expect(user.phone).toBe(PHONE);
   });
 
+  it('asignar usuario exige la contraseña actual y deja entrar con el nombre nuevo', async () => {
+    const ctx = build();
+    await registered(ctx);
+    const id = ctx.users.users[0].id;
+    ctx.users.users[0].username = undefined; // cuenta vieja, sin usuario
+
+    // Sin la contraseña correcta no se toca nada.
+    await expect(ctx.service.setUsername(id, 'nuevo.user', 'claveMala1')).rejects.toBeInstanceOf(
+      UnauthorizedException,
+    );
+    expect(ctx.users.users[0].username).toBeUndefined();
+
+    const perfil = await ctx.service.setUsername(id, 'nuevo.user', PASSWORD);
+    expect(perfil.username).toBe('nuevo.user');
+
+    // Y a partir de acá el login por usuario funciona.
+    const res = await ctx.service.login('nuevo.user', PASSWORD);
+    expect(res).toEqual({ otpRequired: true });
+  });
+
+  it('no se puede tomar el usuario de otra cuenta', async () => {
+    const ctx = build();
+    await registered(ctx); // USER queda tomado por la primera cuenta
+
+    // Segunda cuenta, con otro teléfono.
+    await ctx.service.register('otro.user', PASSWORD, '+50411112222');
+    await ctx.service.verifyOtp('otro.user', ctx.otp.last);
+    const segunda = ctx.users.users.find((u) => u.username === 'otro.user')!;
+
+    await expect(ctx.service.setUsername(segunda.id, USER, PASSWORD)).rejects.toThrow(/tomado/i);
+    expect(segunda.username).toBe('otro.user');
+  });
+
   it('un usuario sin verificar no puede hacer login con contraseña', async () => {
     const ctx = build();
     await ctx.service.register(USER, PASSWORD, PHONE);
