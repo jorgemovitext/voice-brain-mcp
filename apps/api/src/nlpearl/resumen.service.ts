@@ -25,14 +25,22 @@ const INSTRUCCIONES = [
   'Resumí la conversación para el operador municipal que la va a atender.',
   '',
   'Reglas:',
-  '- Máximo 2 oraciones. Menos de 40 palabras en total.',
+  '- UNA sola oración. Máximo 25 palabras. Es un titular, no un párrafo.',
   '- Español de Centroamérica, en tercera persona. Nunca en primera persona del agente.',
-  '- Empezá por el problema o la gestión, no por saludos ni por el procedimiento del bot.',
-  '- Incluí el dato que ubica el caso (lugar, tipo de problema, desde cuándo) si está.',
-  '- No repitas el nombre ni el teléfono: ya se muestran aparte en la ficha.',
-  '- Si la conversación no llegó a nada concreto, decilo en una sola oración.',
-  '- Devolvé SOLO el resumen, sin encabezados, sin comillas y sin viñetas.',
+  '- Empezá por el problema. Nada de saludos, ni del procedimiento del bot, ni de que se registró el reporte.',
+  '- Incluí el lugar si está. Omití todo lo demás antes que pasarte de largo.',
+  '- No repitas el nombre ni el teléfono: ya se muestran en la ficha de al lado.',
+  '- Si no se llegó a nada concreto, decilo en pocas palabras.',
+  '- Devolvé SOLO la oración, sin encabezados, sin comillas y sin viñetas.',
+  '',
+  'Ejemplos del largo esperado:',
+  'Fuga de agua por tubería rota en Calle Palermo, Tegucigalpa, desde hace dos horas.',
+  'Hundimiento grande bloquea el paso en la primera entrada de la colonia Kennedy.',
+  'Vehículo abandonado sobre la acera frente a la Escuela Policarpo, colonia Villa Nueva.',
 ].join('\n');
+
+/** Tope duro: si el modelo se pasa igual, se recorta antes de mostrarlo. */
+const TOPE = 160;
 
 @Injectable()
 export class ResumenService {
@@ -56,6 +64,15 @@ export class ResumenService {
     return createHash('sha256').update(texto).digest('hex').slice(0, 16);
   }
 
+  /** Primera oración, y si aun así se pasa del tope, se corta por palabra. */
+  private static aUnaOracion(texto: string): string {
+    const limpio = texto.replace(/\s+/g, ' ').trim().replace(/^["“']|["”']$/g, '');
+    const primera = limpio.match(/^[^.!?]+[.!?]/)?.[0]?.trim() ?? limpio;
+    if (primera.length <= TOPE) return primera;
+    const corte = primera.slice(0, TOPE);
+    return `${corte.slice(0, corte.lastIndexOf(' ') || TOPE)}…`;
+  }
+
   /**
    * Devuelve el resumen corto de esa transcripción, generándolo solo si no
    * hay uno cacheado para su huella. Nunca lanza: si el modelo no está
@@ -67,7 +84,13 @@ export class ResumenService {
     if (texto.length < 160) return null;
 
     const huella = ResumenService.huella(texto);
-    const id = `resumen:${huella}`;
+    /*
+     * La versión va en la clave a propósito: la caché es por huella de la
+     * transcripción, así que sin esto un cambio de instrucciones seguiría
+     * sirviendo los resúmenes redactados con las viejas. Subila cuando
+     * cambien INSTRUCCIONES o el tope.
+     */
+    const id = `resumen:v2:${huella}`;
 
     const cacheado = await this.leerCache(id);
     if (cacheado) return cacheado;
@@ -82,12 +105,15 @@ export class ResumenService {
         messages: [{ role: 'user', content: `Conversación:\n\n${texto.slice(0, 12000)}` }],
       });
 
-      const salida = res.content
+      const crudo = res.content
         .filter((b): b is Anthropic.TextBlock => b.type === 'text')
         .map((b) => b.text)
         .join(' ')
         .trim();
 
+      // El prompt pide una oración, pero el tope no se deja a su criterio:
+      // esta tarjeta vive en una columna angosta al lado de la ficha.
+      const salida = ResumenService.aUnaOracion(crudo);
       if (!salida) return null;
 
       await this.store.recordActivity({
