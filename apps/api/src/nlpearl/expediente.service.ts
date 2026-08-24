@@ -5,6 +5,17 @@ import { HubspotClient } from '../hubspot/hubspot.client';
 import { NlpearlActivityStore, StoredActivity } from './activity.store';
 import { ResumenService } from './resumen.service';
 
+/**
+ * Variable que el propio agente de NL Pearl redacta al cerrar.
+ *
+ * En NL Pearl la `description` de una variable ES el prompt: así se llenan
+ * `tipoProblema`, `ubicacion` y las demás. Declarando una variable con la
+ * instrucción "una sola oración, en español…" el agente la escribe igual que
+ * el resto, y llega por el mismo webhook. Es la fuente preferida: sale corta
+ * de origen y no depende de ningún modelo nuestro.
+ */
+const RESUMEN_DEL_FLUJO = 'resumenCorto';
+
 /** Etiquetas legibles de los pasos del flujo, para redactar el resumen. */
 const CAMPO: Record<string, string> = {
   tipoProblema: 'Problema',
@@ -24,11 +35,14 @@ export interface Expediente {
   resumen: {
     texto: string | null;
     /**
-     * `propio` = lo redactamos nosotros desde la transcripción (lo preferido).
-     * `agente` = el post_call_summary crudo de NL Pearl, respaldo cuando no
-     * hay modelo configurado. `datos` = compuesto con lo que el flujo capturó.
+     * `flujo` = lo redactó el agente de NL Pearl en una variable del flujo (lo
+     * preferido: corto de origen y sin depender de un modelo nuestro).
+     * `propio` = lo redactamos nosotros desde la transcripción.
+     * `agente` = el post_call_summary crudo de NL Pearl, recortado; es el
+     * respaldo y se marca como "sin resumir" en la consola.
+     * `datos` = compuesto con lo que el flujo capturó.
      */
-    fuente: 'propio' | 'agente' | 'datos' | null;
+    fuente: 'flujo' | 'propio' | 'agente' | 'datos' | null;
     /** Datos capturados, para mostrarlos como ficha bajo el resumen. */
     capturado: Array<{ campo: string; valor: string }>;
   };
@@ -139,10 +153,20 @@ export class ExpedienteService {
       }
     }
 
-    const ficha = [...capturado.entries()].map(([campo, valor]) => ({
-      campo: CAMPO[campo] ?? campo,
-      valor,
-    }));
+    // El resumen no es un dato más de la ficha: se muestra como resumen.
+    const ficha = [...capturado.entries()]
+      .filter(([campo]) => campo !== RESUMEN_DEL_FLUJO)
+      .map(([campo, valor]) => ({ campo: CAMPO[campo] ?? campo, valor }));
+
+    /*
+     * Primero de todo, el que redacta el agente en el flujo. Ya viene corto y
+     * en español, no cuesta una llamada a ningún modelo y es lo que ve quien
+     * edita el flujo. Solo si no está se recurre a lo demás.
+     */
+    const delFlujo = capturado.get(RESUMEN_DEL_FLUJO);
+    if (delFlujo) {
+      return { texto: ExpedienteService.recorte(delFlujo), fuente: 'flujo', capturado: ficha };
+    }
 
     /*
      * La transcripción se toma de las interacciones del Brain, no del raw de

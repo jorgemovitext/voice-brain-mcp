@@ -250,8 +250,12 @@ export interface Analytics {
 export interface Expediente {
   resumen: {
     texto: string | null;
-    /** `propio` = redactado por nosotros desde la transcripción. */
-    fuente: 'propio' | 'agente' | 'datos' | null;
+    /**
+     * `flujo` = lo escribió el agente en una variable del flujo de NL Pearl.
+     * `propio` = lo redactamos nosotros desde la transcripción.
+     * `agente` = el texto crudo de NL Pearl, solo recortado.
+     */
+    fuente: 'flujo' | 'propio' | 'agente' | 'datos' | null;
     capturado: Array<{ campo: string; valor: string }>;
   };
   caso: {
