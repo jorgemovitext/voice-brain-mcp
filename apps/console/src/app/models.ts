@@ -237,4 +237,11 @@ export interface Analytics {
     esperaMin: number;
     resumen?: string;
   }>;
+  /** Aristas canal → problema → resultado para el mapa de flujo. */
+  flujo: Array<{
+    canal: Channel;
+    problema: string;
+    resultado: 'atendida' | 'esperando';
+    total: number;
+  }>;
 }

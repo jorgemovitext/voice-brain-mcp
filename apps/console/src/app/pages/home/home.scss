@@ -7,7 +7,7 @@
      oscuro es ahora todo el contenido, así que el fondo del host es el
      mismo oscuro del tablero — si no, un contenido más corto que el
      viewport dejaría ver un hueco claro por debajo. */
-  background: #0b0d10;
+  background: var(--bg, #060b16);
   height: 100%;
   overflow-y: auto;
   overflow-x: hidden;

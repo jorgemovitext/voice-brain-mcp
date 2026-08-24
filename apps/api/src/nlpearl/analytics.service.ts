@@ -49,6 +49,17 @@ export interface Analytics {
     esperaMin: number;
     resumen?: string;
   }>;
+  /**
+   * Aristas canal → problema → resultado, una por combinación, para el mapa
+   * de flujo. El problema sale de los avances del flujo casados por teléfono
+   * (dígitos): una conversación sin avance queda "Sin clasificar".
+   */
+  flujo: Array<{
+    canal: Channel;
+    problema: string;
+    resultado: 'atendida' | 'esperando';
+    total: number;
+  }>;
 }
 
 /** Mediana: robusta ante los pocos hilos absurdamente largos que siempre hay. */
@@ -194,16 +205,33 @@ export class AnalyticsService {
     // --- Rankings desde los avances del flujo ---
     const problemas = new Map<string, number>();
     const ubicaciones = new Map<string, number>();
+    const digitos = (t?: string) => (t ?? '').replace(/\D/g, '');
+    /** Último problema reportado por teléfono, para casar con la conversación. */
+    const problemaPorTel = new Map<string, string>();
     for (const a of avances) {
       const datos = ((a.raw ?? {}) as { datos?: Record<string, unknown> }).datos ?? {};
       const problema = datos['tipoProblema'] ?? datos['tipoConsulta'];
       const lugar = datos['ubicacion'];
       if (typeof problema === 'string' && problema.trim()) {
         problemas.set(problema.trim(), (problemas.get(problema.trim()) ?? 0) + 1);
+        problemaPorTel.set(digitos(a.phone), problema.trim());
       }
       if (typeof lugar === 'string' && lugar.trim()) {
         ubicaciones.set(lugar.trim(), (ubicaciones.get(lugar.trim()) ?? 0) + 1);
       }
+    }
+
+    // --- Aristas del mapa de flujo: canal → problema → resultado ---
+    const aristas = new Map<string, Analytics['flujo'][number]>();
+    for (const [contactId, lista] of porContacto) {
+      const canal = lista.find((i) => i.direction === 'inbound')?.channel ?? lista[0].channel;
+      const resultado = lista[lista.length - 1].direction === 'inbound' ? ('esperando' as const) : ('atendida' as const);
+      const tel = digitos(contactos.find((c) => c.id === contactId)?.phones?.[0]);
+      const problema = problemaPorTel.get(tel) ?? 'Sin clasificar';
+      const clave = `${canal}|${problema}|${resultado}`;
+      const e = aristas.get(clave) ?? { canal, problema, resultado, total: 0 };
+      e.total++;
+      aristas.set(clave, e);
     }
 
     return {
@@ -234,6 +262,7 @@ export class AnalyticsService {
       sentimiento,
       casos: await this.casos(porContacto.size),
       esperandoMas: esperandoMas.slice(0, 8),
+      flujo: [...aristas.values()],
     };
   }
 
