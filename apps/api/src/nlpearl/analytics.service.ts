@@ -11,7 +11,7 @@ export interface Conteo {
 }
 
 export interface Analytics {
-  rango: { desde: string; hasta: string; dias: number };
+  rango: { desde: string; hasta: string; dias: number; canal?: Channel };
   resumen: {
     conversaciones: number;
     mensajes: number;
@@ -95,7 +95,8 @@ export class AnalyticsService {
     private readonly hubspot: HubspotClient,
   ) {}
 
-  async resumen(dias = 14): Promise<Analytics> {
+  /** `canal` filtra el tablero entero; sin él se cuenta todo el tráfico. */
+  async resumen(dias = 14, canal?: Channel): Promise<Analytics> {
     const hasta = new Date();
     const desde = new Date(hasta.getTime() - dias * 86_400_000);
 
@@ -107,7 +108,7 @@ export class AnalyticsService {
 
     // Las notas internas son del equipo, no conversación: no cuentan como tráfico.
     const enRango = todas.filter(
-      (i) => i.channel !== 'note' && new Date(i.occurredAt) >= desde,
+      (i) => i.channel !== 'note' && new Date(i.occurredAt) >= desde && (!canal || i.channel === canal),
     );
 
     const porContacto = new Map<string, Interaction[]>();
@@ -235,7 +236,7 @@ export class AnalyticsService {
     }
 
     return {
-      rango: { desde: desde.toISOString(), hasta: hasta.toISOString(), dias },
+      rango: { desde: desde.toISOString(), hasta: hasta.toISOString(), dias, canal },
       resumen: {
         conversaciones: porContacto.size,
         mensajes: enRango.length,

@@ -13,8 +13,12 @@ export class AnalyticsController {
   constructor(private readonly analytics: AnalyticsService) {}
 
   @Get()
-  resumen(@Query('dias') dias?: string) {
+  resumen(@Query('dias') dias?: string, @Query('canal') canal?: string) {
     const d = Number(dias);
-    return this.analytics.resumen(Number.isFinite(d) && d > 0 && d <= 90 ? d : 14);
+    const canales = ['voice', 'whatsapp', 'sms', 'email'];
+    return this.analytics.resumen(
+      Number.isFinite(d) && d > 0 && d <= 90 ? d : 14,
+      canal && canales.includes(canal) ? (canal as never) : undefined,
+    );
   }
 }

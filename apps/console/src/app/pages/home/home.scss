@@ -3,11 +3,9 @@
 
 :host {
   display: block;
-  /* La colmena clara está oculta (@if false en el template): el tablero
-     oscuro es ahora todo el contenido, así que el fondo del host es el
-     mismo oscuro del tablero — si no, un contenido más corto que el
-     viewport dejaría ver un hueco claro por debajo. */
-  background: var(--bg, #060b16);
+  /* Sin fondo propio: el tablero es transparente y deja ver el degradado
+     del shell, que es el fondo del resto de la app. */
+  background: transparent;
   height: 100%;
   overflow-y: auto;
   overflow-x: hidden;

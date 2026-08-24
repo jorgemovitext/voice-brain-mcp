@@ -245,3 +245,22 @@ export interface Analytics {
     total: number;
   }>;
 }
+
+/** Resumen del hilo y su caso en el CRM. */
+export interface Expediente {
+  resumen: {
+    texto: string | null;
+    fuente: 'agente' | 'datos' | null;
+    capturado: Array<{ campo: string; valor: string }>;
+  };
+  caso: {
+    hay: boolean;
+    motivo?: string;
+    id?: string;
+    asunto?: string;
+    etapa?: string;
+    cerrado?: boolean;
+    creado?: string;
+    actualizado?: string;
+  };
+}

@@ -7,7 +7,6 @@
       <span class="dash__star">☆</span>
     </div>
     <div class="dash__controls">
-      <span class="ctrl">Tendencia diaria <i>▾</i></span>
       <div class="ctrl ctrl--grupo" role="group" aria-label="Rango de análisis">
         @for (r of [7, 14, 30]; track r) {
           <button class="ctrl__btn" [class.ctrl__btn--on]="dias() === r" (click)="cambiarRango(r)">
@@ -18,16 +17,20 @@
     </div>
   </header>
 
-  <!-- ===== Barra de filtros (chips) ===== -->
+  <!-- ===== Filtros: cada uno filtra de verdad el tablero entero ===== -->
   <div class="dash__filters">
-    <span class="chip"><b>Pertenece a:</b> Línea 100 <i>▾</i></span>
-    <span class="chip"><b>Canal:</b> Todos <i>▾</i></span>
-    <span class="chip"><b>Fuente:</b> NL Pearl <i>▾</i></span>
-    <span class="chip"><b>Activos:</b> {{ dias() }} días <i>▾</i></span>
-    <span class="dash__filters-right">
-      <span class="tag">Conversaciones <i>×</i></span>
-      <span class="tag">Avances <i>×</i></span>
-    </span>
+    <span class="chip chip--label"><b>Canal</b></span>
+    <button class="chip chip--btn" [class.chip--on]="!canal()" (click)="canal.set(null)">Todos</button>
+    @for (c of canalesDisponibles(); track c) {
+      <button class="chip chip--btn" [class.chip--on]="canal() === c" (click)="alternarCanal(c)">
+        <i class="chip__punto" [style.background]="colorCanal(c)"></i>{{ channelLabel(c) }}
+      </button>
+    }
+    @if (canal()) {
+      <button class="tag tag--activo" (click)="canal.set(null)">
+        Filtrando {{ channelLabel(canal()!) }} <i>×</i>
+      </button>
+    }
   </div>
 
   @if (datos.isLoading() && !a()) {
@@ -44,8 +47,8 @@
         <div class="flowzone">
           <article class="flow">
             <div class="flow__bar">
-              <span class="chip"><b>Mapa de flujo</b> <i>▾</i></span>
-              <span class="flow__zoom"><i>+</i><i>−</i><i>⤢</i></span>
+              <span class="chip chip--label"><b>Mapa de flujo</b></span>
+              <span class="flow__leyenda">canal → problema → resultado</span>
             </div>
 
             @if (sankey(); as sk) {
@@ -93,7 +96,7 @@
           <!-- Resultados (los "Net result" de la referencia) -->
           <div class="netcol">
             <article class="net">
-              <span class="net__head">Resultado neto <i>↗</i></span>
+              <a class="net__head" routerLink="/conversations">Resultado neto <i>↗</i></a>
               <div class="net__fila">
                 <span class="net__big">{{ an.resumen.conversaciones }}</span>
                 <span class="net__mini">{{ an.resumen.mensajes }}<em>mensajes</em></span>
@@ -101,7 +104,7 @@
               <span class="net__pie">conversaciones</span>
             </article>
             <article class="net">
-              <span class="net__head">Tiempos <i>↗</i></span>
+              <a class="net__head" routerLink="/conversations">Tiempos <i>↗</i></a>
               <div class="net__fila">
                 <span class="net__big net__big--md">{{ duracion(an.resumen.primeraRespuestaMin) }}</span>
                 <span class="net__mini">{{ duracion(an.resumen.duracionMin) }}<em>hilo</em></span>
@@ -109,7 +112,7 @@
               <span class="net__pie">1ª respuesta (mediana)</span>
             </article>
             <article class="net" [class.net--alerta]="an.resumen.sinRespuesta > 0">
-              <span class="net__head">Sin respuesta <i>↗</i></span>
+              <a class="net__head" routerLink="/conversations">Sin respuesta <i>↗</i></a>
               <div class="net__fila">
                 <span class="net__big" [style.color]="an.resumen.sinRespuesta ? MAL : null">{{ an.resumen.sinRespuesta }}</span>
                 <span class="net__mini">{{ duracion(a()?.esperandoMas?.[0]?.esperaMin ?? null) }}<em>espera máx</em></span>
@@ -122,7 +125,7 @@
         <!-- ===== Fila inferior: carga · dispersión · medidor ===== -->
         <div class="abajo">
           <article class="baja">
-            <span class="baja__head">Carga <i>↗</i></span>
+            <a class="baja__head" routerLink="/conversations">Carga <i>↗</i></a>
             <div class="baja__nums">
               <span><b>{{ an.resumen.mensajes }}</b><em>mensajes</em></span>
               <span><b>{{ porDiaProm() }}</b><em>msj/día</em></span>
@@ -146,7 +149,7 @@
           </article>
 
           <article class="baja">
-            <span class="baja__head">Actividad por hora <i>↗</i></span>
+            <a class="baja__head" routerLink="/actividad">Actividad por hora <i>↗</i></a>
             <div class="baja__nums">
               <span><b>{{ horaPico()?.hora ?? '—' }}:00</b><em>hora pico</em></span>
               <span><b>{{ horaPico()?.total ?? 0 }}</b><em>mensajes</em></span>
@@ -169,7 +172,7 @@
           </article>
 
           <article class="baja">
-            <span class="baja__head">Sin respuesta <i>↗</i></span>
+            <a class="baja__head" routerLink="/conversations">Sin respuesta <i>↗</i></a>
             <div class="baja__nums">
               <span><b>{{ gauge().pct }}%</b><em>del total</em></span>
               <span><b [style.color]="an.resumen.sinRespuesta ? MAL : OK">{{ an.resumen.sinRespuesta }}</b><em>hilos</em></span>
@@ -190,7 +193,7 @@
       <!-- ===== Riel derecho ===== -->
       <aside class="rail">
         <section class="sec">
-          <span class="sec__head">Diagnóstico <i>↗</i></span>
+          <a class="sec__head" routerLink="/conversations">Diagnóstico <i>↗</i></a>
           <div class="menu__mini">
             <a class="mini" routerLink="/conversations" [class.mini--alerta]="an.resumen.sinRespuesta > 0">
               <span class="mini__num">{{ an.resumen.sinRespuesta }}</span>
@@ -204,7 +207,7 @@
         </section>
 
         <section class="sec">
-          <span class="sec__head">Eventos <i>↗</i></span>
+          <a class="sec__head" routerLink="/actividad">Eventos <i>↗</i></a>
           <ul class="lead">
             <li>
               <i class="lead__dot" [style.background]="an.resumen.sinRespuesta ? MAL : OK"></i>
@@ -220,7 +223,7 @@
         </section>
 
         <section class="sec">
-          <span class="sec__head">Salud de conversaciones <i>↗</i></span>
+          <a class="sec__head" routerLink="/conversations">Salud de conversaciones <i>↗</i></a>
           @if (saludConversaciones(); as s) {
             <div class="pills">
               @for (color of s.pills; track $index) { <i [style.background]="color"></i> }
@@ -230,7 +233,7 @@
         </section>
 
         <section class="sec">
-          <span class="sec__head">Salud de casos (CRM) <i>↗</i></span>
+          <a class="sec__head" routerLink="/actividad">Salud de casos (CRM) <i>↗</i></a>
           @if (saludCasos(); as s) {
             <div class="pills">
               @for (color of s.pills; track $index) { <i [style.background]="color"></i> }
@@ -242,7 +245,7 @@
         </section>
 
         <section class="sec">
-          <span class="sec__head">Marcador de reportes <i>↗</i></span>
+          <a class="sec__head" routerLink="/actividad">Marcador de reportes <i>↗</i></a>
           @if (marcador().length) {
             <ul class="score">
               @for (m of marcador(); track m.etiqueta) {
@@ -261,7 +264,7 @@
         </section>
 
         <section class="sec">
-          <span class="sec__head">En espera <i>↗</i></span>
+          <a class="sec__head" routerLink="/conversations">En espera <i>↗</i></a>
           @if (a()?.esperandoMas?.length) {
             <ul class="lead">
               @for (e of a()!.esperandoMas.slice(0, 4); track e.contactId) {

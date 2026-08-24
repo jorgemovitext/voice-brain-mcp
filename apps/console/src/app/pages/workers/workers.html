@@ -154,26 +154,5 @@
     }
   }
 
-  <!-- Workflows del gateway -->
-  <section class="workflows">
-    <h2>Workflows del gateway</h2>
-    <p class="muted">Las orquestaciones propias: cómo la voz, el Brain y los canales se encadenan.</p>
-    <div class="wf-grid">
-      @for (wf of gatewayWorkflows; track wf.name) {
-        <article class="card wf">
-          <div class="wf__head">
-            <span class="wf__icon"><ui-icon [name]="wf.icon" /></span>
-            <div class="wf__titles">
-              <span class="wf__name">{{ wf.name }}</span>
-              <span class="wf__trigger">Disparador: {{ wf.trigger }}</span>
-            </div>
-          </div>
-          <ol class="wf__steps">
-            @for (s of wf.steps; track $index) { <li>{{ s }}</li> }
-          </ol>
-          <a class="btn btn--ghost" [routerLink]="wf.link">{{ wf.linkLabel }} →</a>
-        </article>
-      }
-    </div>
-  </section>
+
 </div>

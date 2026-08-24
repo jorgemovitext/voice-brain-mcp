@@ -1,7 +1,7 @@
 import { ChangeDetectionStrategy, Component, computed, signal } from '@angular/core';
 import { httpResource } from '@angular/common/http';
 import { RouterLink } from '@angular/router';
-import { Analytics } from '../../models';
+import { Analytics, Channel } from '../../models';
 import { channelLabel } from '../../ui';
 
 /**
@@ -68,7 +68,17 @@ interface CintaSankey {
 })
 export class TableroPage {
   readonly dias = signal(14);
-  readonly datos = httpResource<Analytics>(() => `/api/analytics?dias=${this.dias()}`);
+  /** null = todos los canales. Filtra el tablero completo, no solo un gráfico. */
+  readonly canal = signal<Channel | null>(null);
+  readonly datos = httpResource<Analytics>(() => {
+    const c = this.canal();
+    return `/api/analytics?dias=${this.dias()}${c ? `&canal=${c}` : ''}`;
+  });
+
+  /** Canales con tráfico, para ofrecer solo filtros que devuelven algo. */
+  readonly canalesDisponibles = computed(() =>
+    (this.a()?.porCanal ?? []).map((c) => c.channel).filter((c) => c !== 'note'),
+  );
 
   readonly a = computed(() => this.datos.value());
   readonly channelLabel = channelLabel;
@@ -81,6 +91,11 @@ export class TableroPage {
 
   cambiarRango(dias: number): void {
     this.dias.set(dias);
+  }
+
+  /** Alterna el filtro: volver a pulsar el canal activo lo quita. */
+  alternarCanal(canal: Channel): void {
+    this.canal.update((actual) => (actual === canal ? null : canal));
   }
 
   // ===== Mapa de flujo (sankey de 3 columnas) =====

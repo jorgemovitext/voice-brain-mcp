@@ -9,6 +9,8 @@ import { CallIngestService } from './call-ingest.service';
 import { HiveController } from './hive.controller';
 import { HubspotModule } from '../hubspot/hubspot.module';
 import { AnalyticsController } from './analytics.controller';
+import { ExpedienteController } from './expediente.controller';
+import { ExpedienteService } from './expediente.service';
 import { AnalyticsService } from './analytics.service';
 import { HiveService } from './hive.service';
 import { NlpearlDiagnosticsController } from './nlpearl-diagnostics.controller';
@@ -39,6 +41,7 @@ import { WorkersController } from './workers.controller';
     PearlSyncController,
     HiveController,
     AnalyticsController,
+    ExpedienteController,
   ],
   providers: [
     NlpearlClient,
@@ -49,6 +52,7 @@ import { WorkersController } from './workers.controller';
     PearlSyncService,
     HiveService,
     AnalyticsService,
+    ExpedienteService,
     NlpearlMockEngine,
     NlpearlVoiceEngine,
     WebhookSignatureGuard,

@@ -45,12 +45,12 @@ export class NlpearlActivityStore {
   private readonly logger = new Logger(NlpearlActivityStore.name);
 
   /**
-   * Respaldo en memoria SOLO para los avances del flujo y solo cuando no hay
-   * Postgres (desarrollo local). Sin esto la línea de tiempo no se puede
-   * probar fuera de producción. En serverless no sirve —cada invocación es un
-   * proceso nuevo— pero ahí siempre hay DB.
+   * Respaldo en memoria de la actividad, solo cuando no hay Postgres
+   * (desarrollo local). Sin esto no se pueden probar fuera de producción ni
+   * la línea de tiempo ni el resumen del agente. En serverless no sirve —cada
+   * invocación es un proceso nuevo— pero ahí siempre hay DB.
    */
-  private readonly avancesEnMemoria = new Map<string, StoredActivity>();
+  private readonly enMemoria = new Map<string, StoredActivity>();
 
   constructor(@Optional() @Inject(PG_POOL) private readonly pool: Pool | null) {}
 
@@ -118,7 +118,7 @@ export class NlpearlActivityStore {
       // Sin DB no hay dedupe por tabla: se reporta como nueva y el dedupe lo
       // hace el id determinista de la interacción (nlpearl:<id>). Los avances
       // sí se guardan en memoria para poder probar la vista en local.
-      if (activity.kind === 'progress') this.avancesEnMemoria.set(activity.id, activity);
+      this.enMemoria.set(activity.id, activity);
       return { inserted: true };
     }
     const res = await db.query(
@@ -164,10 +164,12 @@ export class NlpearlActivityStore {
   ): Promise<StoredActivity[]> {
     const db = await this.db();
     if (!db) {
-      if (opts.kind !== 'progress') return [];
       const soloDigitos = (t?: string) => (t ?? '').replace(/\D/g, '');
       const buscado = soloDigitos(opts.phone);
-      return [...this.avancesEnMemoria.values()].filter((a) => !buscado || soloDigitos(a.phone) === buscado);
+      return [...this.enMemoria.values()].filter(
+        (a) =>
+          (!buscado || soloDigitos(a.phone) === buscado) && (!opts.kind || a.kind === opts.kind),
+      );
     }
     const limit = Math.min(opts.limit ?? 50, 500);
     const where: string[] = [];

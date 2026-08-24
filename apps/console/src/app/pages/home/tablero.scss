@@ -17,7 +17,9 @@
   --d-mal: #f87171;
   --d-alerta: #ffb020;
 
-  background: var(--d-bg);
+  /* Transparente a propósito: deja ver el degradado del shell, el mismo
+     fondo del resto de la app, en vez de pintar un plano aparte. */
+  background: transparent;
   color: var(--d-ink);
   min-height: 100%;
   /* Más aire a la izquierda: ahí está el rail y el borde redondeado del
@@ -129,6 +131,33 @@
 
   b { color: var(--d-muted); font-weight: 600; }
   i { font-style: normal; color: var(--d-muted); }
+
+  /* Etiqueta inerte (no invita a pulsar). */
+  &--label { background: transparent; border-color: transparent; padding-left: 0; }
+
+  &--btn {
+    font: inherit;
+    font-size: 0.72rem;
+    cursor: pointer;
+    transition: border-color 0.12s, background 0.12s;
+
+    &:hover { border-color: var(--d-muted); }
+  }
+
+  /* Filtro aplicado: se ve activo y el punto conserva el color del canal. */
+  &--on {
+    background: var(--d-primario);
+    border-color: var(--d-primario);
+    color: #fff;
+    font-weight: 700;
+  }
+}
+
+.chip__punto {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  flex-shrink: 0;
 }
 
 .dash__filters-right {
@@ -149,6 +178,16 @@
   padding: 0.3rem 0.65rem;
 
   i { font-style: normal; color: var(--d-muted); }
+
+  &--activo {
+    font: inherit;
+    font-size: 0.72rem;
+    font-weight: 600;
+    cursor: pointer;
+    margin-left: auto;
+    border-color: rgba(243, 71, 0, 0.5);
+    color: var(--d-ink);
+  }
 }
 
 .dash__estado {
@@ -218,7 +257,7 @@
 }
 
 .flow {
-  background: var(--d-panel);
+  background: rgba(13, 21, 38, 0.72);
   border: 1px solid var(--d-borde);
   border-radius: 16px;
   padding: 0.8rem 0.9rem;
@@ -232,22 +271,9 @@
   margin-bottom: 0.5rem;
 }
 
-.flow__zoom {
-  display: inline-flex;
-  gap: 4px;
-
-  i {
-    font-style: normal;
-    width: 24px;
-    height: 24px;
-    display: grid;
-    place-items: center;
-    font-size: 0.8rem;
-    color: var(--d-muted);
-    background: var(--d-panel2);
-    border: 1px solid var(--d-borde);
-    border-radius: 8px;
-  }
+.flow__leyenda {
+  font-size: 0.7rem;
+  color: var(--d-muted);
 }
 
 .flow__svg {
@@ -321,6 +347,9 @@
   &--alerta { border-color: rgba(248, 113, 113, 0.5); }
 }
 
+a.net__head,
+a.baja__head,
+a.sec__head,
 .net__head,
 .baja__head,
 .sec__head {
@@ -330,8 +359,18 @@
   font-size: 0.7rem;
   font-weight: 700;
   color: var(--d-ink);
+  text-decoration: none;
 
   i { font-style: normal; color: var(--d-muted); font-size: 0.75rem; }
+}
+
+/* La flecha ↗ ahora lleva a algún lado: se nota al pasar por encima. */
+a.net__head:hover,
+a.baja__head:hover,
+a.sec__head:hover {
+  color: var(--d-primario);
+
+  i { color: var(--d-primario); }
 }
 
 .net__fila {

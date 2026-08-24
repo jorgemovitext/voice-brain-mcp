@@ -49,11 +49,13 @@ export const routes: Routes = [
     title: 'Obreros · Brain',
   },
   {
-    path: 'integrations',
+    path: 'actividad',
     canActivate: [authGuard],
     loadComponent: () => import('./pages/integrations/integrations').then((m) => m.IntegrationsPage),
-    title: 'Integraciones · Brain',
+    title: 'Actividad · Brain',
   },
+  /* La ruta vieja sigue viva: hay enlaces guardados y la usaban otras vistas. */
+  { path: 'integrations', pathMatch: 'full', redirectTo: 'actividad' },
   {
     path: 'perfil',
     canActivate: [authGuard],

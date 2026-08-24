@@ -206,24 +206,30 @@
           }
         </div>
 
-        <!-- Caso actual -->
+        <!-- Caso del CRM: etapa viva. Antes decía "Seguimiento general /
+             Abierto" fijo, que no cambiaba nunca porque no consultaba nada. -->
         <div class="panel">
           <div class="panel__head">
-            <span class="panel__title">Caso actual</span>
-            <span class="panel__aside">{{ caseNumber() }}</span>
+            <span class="panel__title">Caso en el CRM</span>
+            @if (caso()?.hay) { <span class="panel__aside">#{{ caso()!.id }}</span> }
           </div>
-          @if (activePromise(); as p) {
-            <div class="case">
-              <span class="case__name">Promesa de pago</span>
-              <span class="pill pill--primary">Activa</span>
-            </div>
-            <div class="case__detail">{{ p.amount }} @if (p.dueDate) { · vence {{ p.dueDate }} }</div>
+          @if (caso(); as c) {
+            @if (c.hay) {
+              <div class="case">
+                <span class="case__name">{{ c.asunto || 'Reporte ciudadano' }}</span>
+                <span class="pill" [class.pill--positive]="c.cerrado" [class.pill--primary]="!c.cerrado">
+                  {{ c.etapa }}
+                </span>
+              </div>
+              <div class="case__detail">
+                Abierto {{ fechaCorta(c.creado) }}
+                @if (c.actualizado) { · movido {{ fechaCorta(c.actualizado) }} }
+              </div>
+            } @else {
+              <div class="panel__empty">{{ c.motivo }}</div>
+            }
           } @else {
-            <div class="case">
-              <span class="case__name">Seguimiento general</span>
-              <span class="pill pill--neutral">Abierto</span>
-            </div>
-            <div class="case__detail">Sin promesa activa registrada</div>
+            <div class="panel__empty">Consultando el CRM…</div>
           }
         </div>
 
@@ -257,42 +263,31 @@
           }
         </div>
 
-        <!-- Resumen de IA -->
-        @if (aiSummary(); as summary) {
-          <div class="panel panel--ai">
-            <div class="panel__head">
-              <span class="panel__title panel__title--ai"><ui-icon name="sparkle" /> Resumen de IA</span>
-            </div>
-            <p class="ai__text">{{ summary }}</p>
-          </div>
-        }
-
-        <!-- Momentos clave -->
-        @if (keyMoments().length) {
-          <div class="panel">
-            <div class="panel__head"><span class="panel__title">Momentos clave</span></div>
-            <ol class="moments">
-              @for (m of keyMoments(); track $index) {
-                <li class="moment" [class.moment--first]="$index === 0">
-                  <span class="moment__when"><ui-icon name="clock" /> {{ m.when }}</span>
-                  <span class="moment__title">{{ m.title }}</span>
-                  @if (m.detail) { <span class="moment__detail">{{ m.detail }}</span> }
-                </li>
+        <!-- Resumen del agente: el que redacta la propia Pearl al cerrar, o
+             uno compuesto con lo que el flujo recopiló. -->
+        @if (resumenAgente(); as r) {
+          @if (r.texto || r.capturado.length) {
+            <div class="panel panel--ai">
+              <div class="panel__head">
+                <span class="panel__title panel__title--ai">
+                  <ui-icon name="sparkle" /> Resumen del agente
+                </span>
+                @if (r.fuente === 'datos') {
+                  <span class="panel__aside" title="Compuesto con los datos del flujo">datos</span>
+                }
+              </div>
+              @if (r.texto) { <p class="ai__text">{{ r.texto }}</p> }
+              @if (r.capturado.length) {
+                <dl class="ficha">
+                  @for (d of r.capturado; track d.campo) {
+                    <div><dt>{{ d.campo }}</dt><dd>{{ d.valor }}</dd></div>
+                  }
+                </dl>
               }
-            </ol>
-          </div>
+            </div>
+          }
         }
 
-        <!-- Acciones sugeridas -->
-        <div class="actions">
-          <span class="actions__title">Acciones sugeridas</span>
-          <button class="action action--primary" (click)="startCall()" [disabled]="callState() === 'calling'">
-            Lanzar llamada (mock) <ui-icon name="chevron" />
-          </button>
-          <button class="action" (click)="sendFollowup()" [disabled]="sending()">
-            Enviar seguimiento por WhatsApp <ui-icon name="chevron" />
-          </button>
-        </div>
       </div>
     </aside>
   </div>

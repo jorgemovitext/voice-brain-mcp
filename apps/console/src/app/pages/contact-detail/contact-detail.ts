@@ -20,6 +20,7 @@ import { VoiceNebula } from '../../nebula';
 import { crearSondeo } from '../../sondeo';
 import {
   AvanceFlujo,
+  Expediente,
   ContactListItem,
   Interaction,
   Sentiment,
@@ -34,14 +35,6 @@ interface ChatItem {
   side: 'in' | 'out';
   dayLabel: string | null; // separador de día (solo en el primer msg del día)
   time: string;
-}
-
-/** Momento clave para el panel de contexto. */
-interface KeyMoment {
-  when: string;
-  title: string;
-  detail: string;
-  channel: Interaction['channel'];
 }
 
 type CallState = 'idle' | 'calling' | 'ended';
@@ -117,6 +110,13 @@ export class ContactDetailPage implements OnDestroy {
   });
 
   readonly avances = computed(() => this.progreso.value() ?? []);
+
+  /**
+   * Resumen del hilo y su caso en el CRM. Cambia mucho menos que el contexto
+   * —consulta HubSpot— así que el sondeo lo recarga cada varias vueltas, no
+   * en cada una.
+   */
+  readonly expediente = httpResource<Expediente>(() => `/api/contacts/${this.id()}/expediente`);
 
   /**
    * ¿El contacto realmente no existe (404), o fue un fallo del servidor?
@@ -226,6 +226,12 @@ export class ContactDetailPage implements OnDestroy {
     }));
   }
 
+  /** "24 ago" — para fechas de apertura/movimiento del caso. */
+  fechaCorta(iso?: string): string {
+    if (!iso) return '—';
+    return new Date(iso).toLocaleDateString('es-NI', { day: 'numeric', month: 'short' });
+  }
+
   horaCorta(iso?: string): string {
     if (!iso) return '';
     return new Date(iso).toLocaleTimeString('es-NI', { hour: '2-digit', minute: '2-digit' });
@@ -254,26 +260,16 @@ export class ContactDetailPage implements OnDestroy {
     return map[last.sentiment];
   });
 
-  /** Resumen "de IA": el resumen de la última llamada de voz (o del hilo). */
-  readonly aiSummary = computed<string | null>(() => {
-    const interactions = this.context.value()?.recentInteractions ?? [];
-    return interactions.find((i) => i.channel === 'voice')?.summary ?? interactions[0]?.summary ?? null;
-  });
+  /**
+   * Resumen del agente. Antes era "el último mensaje", que no resume nada:
+   * ahora sale del expediente — el resumen que redacta el propio agente
+   * (`post_call_summary`) o, si no hay, uno compuesto con lo que el flujo
+   * recopiló. La ficha de datos capturados acompaña al texto.
+   */
+  readonly resumenAgente = computed(() => this.expediente.value()?.resumen ?? null);
 
-  /** Momentos clave: últimas interacciones condensadas. */
-  readonly keyMoments = computed<KeyMoment[]>(() =>
-    (this.context.value()?.recentInteractions ?? []).slice(0, 3).map((i) => ({
-      when: `${this.dayLabel(new Date(i.occurredAt))} ${new Date(i.occurredAt).toLocaleTimeString('es-NI', { hour: '2-digit', minute: '2-digit' })}`,
-      title:
-        i.channel === 'voice'
-          ? `Llamada de voz ${i.direction === 'inbound' ? 'entrante' : 'saliente'}`
-          : i.direction === 'inbound'
-            ? `Mensaje del cliente (${channelLabel(i.channel)})`
-            : `Seguimiento por ${channelLabel(i.channel)}`,
-      detail: this.truncate(i.summary ?? '', 64),
-      channel: i.channel,
-    })),
-  );
+  /** Caso real del CRM: etapa viva, no un rótulo fijo. */
+  readonly caso = computed(() => this.expediente.value()?.caso ?? null);
 
   /**
    * Refresco periódico: los mensajes entrantes llegan por webhook, así que sin
@@ -310,6 +306,8 @@ export class ContactDetailPage implements OnDestroy {
         this.progreso.reload();
         // La lista de hilos cambia menos: se refresca cada 3 vueltas.
         if (++vuelta % 3 === 0 && this.withThreads()) this.conversations.reload();
+        // El expediente consulta el CRM: se refresca aún más espaciado.
+        if (vuelta % 6 === 0) this.expediente.reload();
         if (vuelta % 10 === 0) void this.api.syncNlpearl().catch(() => undefined);
       },
     });
