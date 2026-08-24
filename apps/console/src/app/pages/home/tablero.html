@@ -51,28 +51,22 @@
             @if (sankey(); as sk) {
               <svg class="flow__svg" viewBox="0 0 720 306" preserveAspectRatio="xMidYMid meet" role="img"
                    aria-label="Flujo de conversaciones: canal, tipo de problema y resultado">
-                <!-- Cintas debajo de los nodos. Las que NO cruzan van planas;
-                     las que pasan por ENCIMA de otra reciben el tratamiento de
-                     vidrio: halo ancho difuminado, cuerpo en `screen`, un
-                     brillo interno y un filo especular. -->
+                <!-- Dos pasadas. Primero las cintas que NO cruzan: planas y
+                     sólidas, sin brillo. Después las que pasan por ENCIMA, que
+                     son las únicas con vidrio: dejan traslucir la de abajo y
+                     sangran un difuminado sobre ella en el solape. -->
                 @for (c of sk.cintas; track c.d) {
-                  @if (c.encima) {
-                    <path class="flow__halo flow__halo--vidrio" [attr.d]="c.d" [attr.stroke]="c.color"
-                          [attr.stroke-width]="c.grosor + 22" />
-                  } @else {
-                    <path class="flow__halo" [attr.d]="c.d" [attr.stroke]="c.color"
-                          [attr.stroke-width]="c.grosor + 8" />
+                  @if (!c.encima) {
+                    <path class="flow__cinta" [attr.d]="c.d" [attr.stroke]="c.color"
+                          [attr.stroke-width]="c.grosor" />
                   }
                 }
                 @for (c of sk.cintas; track c.d) {
-                  <path class="flow__cinta" [class.flow__cinta--vidrio]="c.encima" [attr.d]="c.d"
-                        [attr.stroke]="c.color" [attr.stroke-width]="c.grosor" />
                   @if (c.encima) {
-                    <!-- Luz atravesando el vidrio: veta clara por el centro -->
-                    <path class="flow__brillo" [attr.d]="c.d" [attr.stroke-width]="c.grosor * 0.42" />
-                    <!-- Filo especular: el canto iluminado del cristal -->
-                    <path class="flow__filo" [attr.d]="c.d" [attr.stroke-width]="c.grosor"
-                          [attr.stroke]="c.color" />
+                    <path class="flow__escarcha" [attr.d]="c.d" [attr.stroke]="c.color"
+                          [attr.stroke-width]="c.grosor + 12" />
+                    <path class="flow__cinta flow__cinta--vidrio" [attr.d]="c.d"
+                          [attr.stroke]="c.color" [attr.stroke-width]="c.grosor" />
                   }
                 }
                 @for (n of sk.nodos; track n.col + ':' + n.id) {

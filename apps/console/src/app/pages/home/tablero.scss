@@ -259,60 +259,32 @@
   max-height: clamp(300px, 42vh, 460px);
 }
 
-/* Vidriomorfismo. Distingue dos casos a propósito:
-   · cinta plana (no cruza a nadie): halo tenue, cuerpo sobrio.
-   · cinta ENCIMA de un cruce: halo ancho que sangra sobre la de abajo, cuerpo
-     más opaco en `screen`, una veta de luz por el centro y un filo especular.
-     Esa suma —difuminado + luz interna + canto brillante— es lo que lee como
-     cristal en la referencia. */
-.flow__halo {
-  fill: none;
-  opacity: 0.12;
-  filter: blur(4px);
-  stroke-linecap: round;
-
-  &--vidrio {
-    opacity: 0.4;
-    filter: blur(11px);
-  }
-}
-
+/* Vidriomorfismo, tal como en la referencia: las cintas son PLANAS y
+   sólidas —sin glow, sin mezcla aditiva, nada de neón— y el efecto de
+   cristal aparece SOLO donde una pasa por encima de otra.
+   Dos ingredientes bastan:
+   · la de arriba es levemente traslúcida, así la de abajo se adivina teñida;
+   · una capa difuminada de su mismo color sangra unos píxeles sobre la de
+     abajo, que es lo que da el borde esmerilado del solape. */
 .flow__cinta {
   fill: none;
-  opacity: 0.42;
-  mix-blend-mode: screen;
+  opacity: 0.95;
   stroke-linecap: butt;
 
-  &--vidrio { opacity: 0.82; }
+  &--vidrio { opacity: 0.72; }
 }
 
-/* Veta de luz atravesando el cristal: blanca, angosta y difusa. */
-.flow__brillo {
+.flow__escarcha {
   fill: none;
-  stroke: #ffffff;
-  opacity: 0.34;
-  filter: blur(3px);
-  mix-blend-mode: screen;
-  stroke-linecap: butt;
+  opacity: 0.3;
+  filter: blur(7px);
+  stroke-linecap: round;
 }
 
-/* Filo especular: el canto del vidrio. Se dibuja con el trazo punteado a lo
-   largo del borde para que brille el contorno y no el relleno. */
-.flow__filo {
-  fill: none;
-  opacity: 0.9;
-  mix-blend-mode: screen;
-  stroke-linecap: butt;
-  filter: drop-shadow(0 0 3px currentColor);
-  stroke-dasharray: 0 0;
-  clip-path: inset(0);
-  stroke-width: 1.4 !important;
-}
-
-/* Nodo levemente translúcido: las cintas que pasan por detrás se adivinan,
-   como en la referencia, sin comprometer la lectura del texto. */
+/* Nodo sólido, como las tarjetas de la referencia: las cintas mueren contra
+   él, no se transparentan a través. */
 .flow__nodo {
-  fill: rgba(17, 29, 54, 0.86);
+  fill: var(--d-panel2);
   stroke: var(--d-borde);
   stroke-width: 1;
 }
