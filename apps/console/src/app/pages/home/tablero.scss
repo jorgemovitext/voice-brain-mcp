@@ -23,9 +23,11 @@
   padding: clamp(14px, 1.8vw, 24px) clamp(14px, 2vw, 28px) clamp(22px, 2.6vw, 40px);
 }
 
+/* Sin `max-width`: en resoluciones altas el tablero usa TODO el ancho del
+   escenario, como la referencia. Lo que crece es el centro; el riel derecho
+   se mantiene en un ancho legible. */
 .dash {
-  max-width: 1360px;
-  margin: 0 auto;
+  width: 100%;
 }
 
 /* ===== Cabecera ===== */
@@ -157,73 +159,24 @@
   &--error { color: var(--d-mal); }
 }
 
-/* ===== Cuerpo en tres bandas: menú · centro · riel ===== */
+/* ===== Cuerpo en dos bandas: centro · riel =====
+   El menú interno se quitó: repetía la navegación del rail de la app. */
 .dash__body {
   display: grid;
-  grid-template-columns: 180px minmax(0, 1fr) 250px;
+  grid-template-columns: minmax(0, 1fr) clamp(240px, 19vw, 320px);
   gap: clamp(10px, 1.2vw, 16px);
   align-items: start;
 
-  @media (max-width: 1100px) {
+  @media (max-width: 1000px) {
     grid-template-columns: minmax(0, 1fr);
   }
 }
 
-/* ===== Menú interno ===== */
-.menu {
-  background: var(--d-panel);
-  border: 1px solid var(--d-borde);
-  border-radius: 16px;
-  padding: 0.8rem 0.6rem;
-  display: flex;
-  flex-direction: column;
-  gap: 0.9rem;
-
-  @media (max-width: 1100px) { display: none; }
-}
-
-.menu__nav,
-.menu__abajo {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-}
-
-.menu__item {
-  font-size: 0.8rem;
-  color: var(--d-muted);
-  text-decoration: none;
-  padding: 0.42rem 0.6rem;
-  border-radius: 10px;
-  cursor: pointer;
-
-  &:hover { color: var(--d-ink); background: var(--d-panel2); }
-
-  &--on {
-    color: #fff;
-    background: var(--d-primario);
-    font-weight: 700;
-  }
-}
-
-.menu__trouble {
-  border-top: 1px solid var(--d-borde);
-  padding-top: 0.7rem;
-}
-
-.menu__trouble-title {
-  display: block;
-  font-size: 0.72rem;
-  font-weight: 700;
-  color: var(--d-ink);
-  padding: 0 0.6rem 0.5rem;
-}
-
+/* Mini-tarjetas de diagnóstico (viven en el riel derecho). */
 .menu__mini {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 6px;
-  padding: 0 0.3rem;
 }
 
 .mini {
@@ -244,12 +197,6 @@
 .mini--alerta .mini__num { color: var(--d-mal); }
 .mini__txt { font-size: 0.64rem; color: var(--d-muted); }
 
-.menu__abajo {
-  border-top: 1px solid var(--d-borde);
-  padding-top: 0.6rem;
-  margin-top: auto;
-}
-
 /* ===== Centro ===== */
 .centro {
   display: flex;
@@ -260,7 +207,7 @@
 
 .flowzone {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 168px;
+  grid-template-columns: minmax(0, 1fr) clamp(160px, 13vw, 220px);
   gap: clamp(10px, 1.2vw, 16px);
   align-items: stretch;
 
@@ -304,24 +251,59 @@
   width: 100%;
   height: auto;
   display: block;
+  /* En pantallas anchas la tarjeta crece y el sankey con ella, pero sin
+     estirarse tanto que las cintas queden planas. */
+  max-height: clamp(300px, 42vh, 460px);
 }
 
-/* Vidriomorfismo de las cintas: un halo ancho y difuminado por debajo, y el
-   trazo mezclado en `screen` — donde una cinta pasa por ENCIMA de otra, la
-   superposición se ilumina y difumina como vidrio esmerilado en vez de
-   taparla en seco. */
+/* Vidriomorfismo. Distingue dos casos a propósito:
+   · cinta plana (no cruza a nadie): halo tenue, cuerpo sobrio.
+   · cinta ENCIMA de un cruce: halo ancho que sangra sobre la de abajo, cuerpo
+     más opaco en `screen`, una veta de luz por el centro y un filo especular.
+     Esa suma —difuminado + luz interna + canto brillante— es lo que lee como
+     cristal en la referencia. */
 .flow__halo {
   fill: none;
-  opacity: 0.14;
-  filter: blur(5px);
+  opacity: 0.12;
+  filter: blur(4px);
   stroke-linecap: round;
+
+  &--vidrio {
+    opacity: 0.4;
+    filter: blur(11px);
+  }
 }
 
 .flow__cinta {
   fill: none;
-  opacity: 0.5;
+  opacity: 0.42;
   mix-blend-mode: screen;
   stroke-linecap: butt;
+
+  &--vidrio { opacity: 0.82; }
+}
+
+/* Veta de luz atravesando el cristal: blanca, angosta y difusa. */
+.flow__brillo {
+  fill: none;
+  stroke: #ffffff;
+  opacity: 0.34;
+  filter: blur(3px);
+  mix-blend-mode: screen;
+  stroke-linecap: butt;
+}
+
+/* Filo especular: el canto del vidrio. Se dibuja con el trazo punteado a lo
+   largo del borde para que brille el contorno y no el relleno. */
+.flow__filo {
+  fill: none;
+  opacity: 0.9;
+  mix-blend-mode: screen;
+  stroke-linecap: butt;
+  filter: drop-shadow(0 0 3px currentColor);
+  stroke-dasharray: 0 0;
+  clip-path: inset(0);
+  stroke-width: 1.4 !important;
 }
 
 /* Nodo levemente translúcido: las cintas que pasan por detrás se adivinan,

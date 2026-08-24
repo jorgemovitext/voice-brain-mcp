@@ -50,6 +50,13 @@ interface CintaSankey {
   d: string;
   grosor: number;
   color: string;
+  /** Extremos verticales: con ellos se detecta si cruza a otra cinta. */
+  y1: number;
+  y2: number;
+  /** Tramo: 0 = canal→problema, 1 = problema→resultado. Solo cruzan dentro del mismo. */
+  seg: number;
+  /** Pasa por ENCIMA de otra en un cruce: se le aplica el vidrio. */
+  encima: boolean;
 }
 
 @Component({
@@ -145,7 +152,7 @@ export class TableroPage {
     // Cintas con apilado por nodo: cada arista consume su franja del borde.
     const usadoSalida = new Map<string, number>();
     const usadoEntrada = new Map<string, number>();
-    const cinta = (a: NodoSankey, b: NodoSankey, total: number, color: string): CintaSankey => {
+    const cinta = (a: NodoSankey, b: NodoSankey, total: number, color: string, seg: number): CintaSankey => {
       const grosor = Math.max(4, (total / S) * 150);
       const y1 = a.y + (usadoSalida.get(`${a.col}:${a.id}`) ?? 0) + grosor / 2 + 4;
       const y2 = b.y + (usadoEntrada.get(`${b.col}:${b.id}`) ?? 0) + grosor / 2 + 4;
@@ -154,7 +161,15 @@ export class TableroPage {
       const x1 = a.x + a.w;
       const x2 = b.x;
       const mx = (x1 + x2) / 2;
-      return { d: `M ${x1} ${y1} C ${mx} ${y1}, ${mx} ${y2}, ${x2} ${y2}`, grosor, color };
+      return {
+        d: `M ${x1} ${y1} C ${mx} ${y1}, ${mx} ${y2}, ${x2} ${y2}`,
+        grosor,
+        color,
+        y1,
+        y2,
+        seg,
+        encima: false,
+      };
     };
 
     // Agregación por par: una cinta por par de nodos, no por combinación.
@@ -179,8 +194,23 @@ export class TableroPage {
     }
 
     const cintas: CintaSankey[] = [];
-    for (const e of izq.values()) cintas.push(cinta(nodos.get(`0:${e.a}`)!, nodos.get(`1:${e.b}`)!, e.total, e.color));
-    for (const e of der.values()) cintas.push(cinta(nodos.get(`1:${e.a}`)!, nodos.get(`2:${e.b}`)!, e.total, e.color));
+    for (const e of izq.values()) cintas.push(cinta(nodos.get(`0:${e.a}`)!, nodos.get(`1:${e.b}`)!, e.total, e.color, 0));
+    for (const e of der.values()) cintas.push(cinta(nodos.get(`1:${e.a}`)!, nodos.get(`2:${e.b}`)!, e.total, e.color, 1));
+
+    /*
+     * Orden de pintado = orden de apilamiento. Se pintan de la más delgada a
+     * la más gruesa, así el flujo principal queda arriba; y una cinta se marca
+     * `encima` si CRUZA a alguna ya pintada. Cruzar es invertir el orden
+     * vertical entre salida y llegada: (y1a−y1b) y (y2a−y2b) con signo opuesto.
+     * Solo esas reciben el vidrio — las de abajo se quedan planas, como en la
+     * referencia.
+     */
+    cintas.sort((a, b) => a.grosor - b.grosor);
+    for (const [i, c] of cintas.entries()) {
+      c.encima = cintas
+        .slice(0, i)
+        .some((prev) => prev.seg === c.seg && (prev.y1 - c.y1) * (prev.y2 - c.y2) < 0);
+    }
 
     return { nodos: [...nodos.values()], cintas };
   });

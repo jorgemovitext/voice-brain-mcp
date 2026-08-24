@@ -39,39 +39,6 @@
     </div>
   } @else if (a(); as an) {
     <div class="dash__body">
-      <!-- ===== Menú interno izquierdo ===== -->
-      <aside class="menu">
-        <nav class="menu__nav">
-          <a class="menu__item menu__item--on">Panorama</a>
-          <a class="menu__item" routerLink="/conversations">Conversaciones</a>
-          <a class="menu__item" routerLink="/workers">Agentes</a>
-          <a class="menu__item" routerLink="/contacts">Contactos</a>
-          <a class="menu__item" routerLink="/integrations">Integraciones</a>
-          <a class="menu__item">Casos CRM</a>
-          <a class="menu__item">Reportes</a>
-        </nav>
-
-        <div class="menu__trouble">
-          <span class="menu__trouble-title">Diagnóstico ▴</span>
-          <div class="menu__mini">
-            <a class="mini" routerLink="/conversations" [class.mini--alerta]="an.resumen.sinRespuesta > 0">
-              <span class="mini__num">{{ an.resumen.sinRespuesta }}</span>
-              <span class="mini__txt">Sin respuesta</span>
-            </a>
-            <div class="mini">
-              <span class="mini__num">{{ duracion(a()?.esperandoMas?.[0]?.esperaMin ?? null) }}</span>
-              <span class="mini__txt">Espera máx</span>
-            </div>
-          </div>
-        </div>
-
-        <div class="menu__abajo">
-          <a class="menu__item" routerLink="/conversations">Alertar y responder</a>
-          <a class="menu__item" routerLink="/contacts">Explorador</a>
-          <a class="menu__item">Más</a>
-        </div>
-      </aside>
-
       <!-- ===== Centro: mapa de flujo + resultados + fila inferior ===== -->
       <main class="centro">
         <div class="flowzone">
@@ -84,15 +51,29 @@
             @if (sankey(); as sk) {
               <svg class="flow__svg" viewBox="0 0 720 306" preserveAspectRatio="xMidYMid meet" role="img"
                    aria-label="Flujo de conversaciones: canal, tipo de problema y resultado">
-                <!-- Cintas primero: los nodos van encima. Cada cinta lleva un
-                     halo difuminado debajo del trazo: al cruzar por encima de
-                     otra, la mezcla en pantalla + el halo dan el vidrio
-                     esmerilado de la referencia. -->
+                <!-- Cintas debajo de los nodos. Las que NO cruzan van planas;
+                     las que pasan por ENCIMA de otra reciben el tratamiento de
+                     vidrio: halo ancho difuminado, cuerpo en `screen`, un
+                     brillo interno y un filo especular. -->
                 @for (c of sk.cintas; track c.d) {
-                  <path class="flow__halo" [attr.d]="c.d" [attr.stroke]="c.color" [attr.stroke-width]="c.grosor + 10" />
+                  @if (c.encima) {
+                    <path class="flow__halo flow__halo--vidrio" [attr.d]="c.d" [attr.stroke]="c.color"
+                          [attr.stroke-width]="c.grosor + 22" />
+                  } @else {
+                    <path class="flow__halo" [attr.d]="c.d" [attr.stroke]="c.color"
+                          [attr.stroke-width]="c.grosor + 8" />
+                  }
                 }
                 @for (c of sk.cintas; track c.d) {
-                  <path class="flow__cinta" [attr.d]="c.d" [attr.stroke]="c.color" [attr.stroke-width]="c.grosor" />
+                  <path class="flow__cinta" [class.flow__cinta--vidrio]="c.encima" [attr.d]="c.d"
+                        [attr.stroke]="c.color" [attr.stroke-width]="c.grosor" />
+                  @if (c.encima) {
+                    <!-- Luz atravesando el vidrio: veta clara por el centro -->
+                    <path class="flow__brillo" [attr.d]="c.d" [attr.stroke-width]="c.grosor * 0.42" />
+                    <!-- Filo especular: el canto iluminado del cristal -->
+                    <path class="flow__filo" [attr.d]="c.d" [attr.stroke-width]="c.grosor"
+                          [attr.stroke]="c.color" />
+                  }
                 }
                 @for (n of sk.nodos; track n.col + ':' + n.id) {
                   <g>
@@ -214,6 +195,20 @@
 
       <!-- ===== Riel derecho ===== -->
       <aside class="rail">
+        <section class="sec">
+          <span class="sec__head">Diagnóstico <i>↗</i></span>
+          <div class="menu__mini">
+            <a class="mini" routerLink="/conversations" [class.mini--alerta]="an.resumen.sinRespuesta > 0">
+              <span class="mini__num">{{ an.resumen.sinRespuesta }}</span>
+              <span class="mini__txt">Sin respuesta</span>
+            </a>
+            <div class="mini">
+              <span class="mini__num">{{ duracion(a()?.esperandoMas?.[0]?.esperaMin ?? null) }}</span>
+              <span class="mini__txt">Espera máx</span>
+            </div>
+          </div>
+        </section>
+
         <section class="sec">
           <span class="sec__head">Eventos <i>↗</i></span>
           <ul class="lead">
