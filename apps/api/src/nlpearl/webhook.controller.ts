@@ -84,71 +84,39 @@ export class NlpearlWebhookController {
   }
 
   /**
-   * POST /webhooks/nlpearl/turno — la conversación completa, al cerrarse.
+   * Todo lo que el flujo de la Pearl nos empuja, por cualquiera de sus dos
+   * rutas históricas.
    *
-   * Lo llama la acción post-conversación del flujo, con `post_call_transcript`
-   * y compañía. Es la ÚNICA vía para traer un chat de texto: la API no permite
-   * leerlos y el Call Webhook no dispara para pearls de texto.
+   * Se decide por el CONTENIDO, no por la URL: si el cuerpo trae transcript es
+   * la conversación completa (acción post-conversación), y si no, es un avance
+   * del flujo (nodo API in-call, que solo puede mandar variables recopiladas —
+   * NL Pearl no expone el texto de los turnos en vivo).
    *
-   * La ruta se llama `/turno` por historia: se creó pensando en recibir un
-   * mensaje por vez, hasta confirmar que NL Pearl no expone el texto de los
-   * turnos en vivo. Se conserva el nombre porque es la URL ya configurada en
-   * el flujo y renombrarla solo rompería la única ingesta que funciona.
+   * Las dos rutas apuntan acá porque quien configura el flujo ya cambió la URL
+   * de un nodo por la del otro una vez, y romper la ingesta por un campo mal
+   * puesto en un editor externo no vale la pena. El shape del cuerpo distingue
+   * los dos casos sin ambigüedad.
    */
-  @Post('nlpearl/turno')
+  @Post(['nlpearl/turno', 'nlpearl/avance'])
   @UseGuards(TurnCredentialGuard)
-  async onConversacionCerrada(@Body() body: unknown) {
+  async onFlujo(@Body() body: unknown) {
     const p = (body ?? {}) as Record<string, unknown>;
 
     const conversationId = this.primerTexto(p, ['conversationId', 'callId', 'chatId', 'id']);
     const phone = this.primerTexto(p, ['phone', 'phoneNumber', 'from', 'to']);
     const pearlId = this.primerTexto(p, ['pearlId', 'projectId']);
-
-    this.webhookLog.push('nlpearl', `Conversación cerrada${conversationId ? ` (${conversationId})` : ''}`, true, p);
-
-    const faltan = [
-      ['conversationId', conversationId],
-      ['phone', phone],
-    ]
-      .filter(([, v]) => !v)
-      .map(([k]) => k);
-    if (faltan.length) {
-      throw new BadRequestException(`Faltan campos: ${faltan.join(', ')}`);
-    }
-
-    const transcript = normalizarTranscript(p['transcript'] ?? p['post_call_transcript']);
-    if (!transcript?.length) {
-      throw new BadRequestException('Falta la transcripción de la conversación');
-    }
-
-    const nuevas = await this.ingerirConversacion(conversationId!, pearlId, phone!, transcript, p);
-    return { received: true, nuevas };
-  }
-
-  /**
-   * POST /webhooks/nlpearl/avance — el flujo avanzó un paso.
-   *
-   * Los nodos API in-call de NL Pearl NO pueden mandar el texto de los
-   * mensajes: solo las variables que el flujo recopila. Así que esto no es
-   * una conversación, es el ESTADO de una: "ya recopiló la ubicación", "ya
-   * tiene el tipo de problema". Se guarda aparte de las interacciones a
-   * propósito — meterlo en el hilo sería inventar mensajes que nadie escribió.
-   *
-   * Los nombres de los campos los define quien arma el nodo, así que todo lo
-   * que no sea de control se guarda como dato capturado, sin exigir un shape.
-   */
-  @Post('nlpearl/avance')
-  @UseGuards(TurnCredentialGuard)
-  async onAvance(@Body() body: unknown) {
-    const p = (body ?? {}) as Record<string, unknown>;
-
-    const conversationId = this.primerTexto(p, ['conversationId', 'callId', 'chatId', 'id']);
-    const phone = this.primerTexto(p, ['phone', 'phoneNumber', 'from']);
-    const pearlId = this.primerTexto(p, ['pearlId', 'projectId']);
     const paso = this.primerTexto(p, ['paso', 'step', 'node', 'nodeId']) ?? 'avance';
 
     if (!conversationId || !phone) {
-      throw new BadRequestException('Faltan campos en el avance: conversationId y phone');
+      throw new BadRequestException('Faltan campos: conversationId y phone');
+    }
+
+    // ¿Conversación completa? Entonces son mensajes de verdad.
+    const transcript = normalizarTranscript(p['transcript'] ?? p['post_call_transcript']);
+    if (transcript?.length) {
+      this.webhookLog.push('nlpearl', `Conversación cerrada (${conversationId})`, true, p);
+      const nuevas = await this.ingerirConversacion(conversationId, pearlId, phone, transcript, p);
+      return { received: true, conversacionCompleta: true, nuevas };
     }
 
     const CONTROL = new Set(['conversationId', 'callId', 'chatId', 'id', 'phone', 'phoneNumber', 'from', 'pearlId', 'projectId', 'paso', 'step', 'node', 'nodeId']);
