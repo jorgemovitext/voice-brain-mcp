@@ -20,9 +20,11 @@
 
   background: var(--tb-bg);
   color: var(--tb-ink);
-  border-radius: 28px 28px 0 0;
-  margin-top: clamp(18px, 2.4vw, 34px);
-  padding: 0 clamp(16px, 2.2vw, 30px) clamp(24px, 3vw, 44px);
+  /* Sin el redondeo/margen superior de cuando vivía debajo de la colmena
+     clara: ahora es el primer contenido de la página, el `.stage` que lo
+     envuelve ya trae su propio redondeo. */
+  min-height: 100%;
+  padding: clamp(16px, 2.2vw, 30px) clamp(16px, 2.2vw, 30px) clamp(24px, 3vw, 44px);
 }
 
 .tab {
@@ -35,7 +37,9 @@
   align-items: flex-end;
   justify-content: space-between;
   gap: 1rem;
-  padding: clamp(20px, 2.6vw, 34px) 0 clamp(12px, 1.6vw, 18px);
+  /* El aire superior ya lo da el padding del :host (ahora tope de página);
+     acá solo el respiro contra las tarjetas de abajo. */
+  padding: 0 0 clamp(12px, 1.6vw, 18px);
 
   h2 {
     margin: 0;

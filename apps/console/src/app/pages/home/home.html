@@ -1,3 +1,8 @@
+<!-- La colmena clara queda oculta a pedido: el tablero oscuro es ahora toda
+     la vista de inicio. Se conserva en el template (no se borra) porque el
+     hive vivo -obreros, cola en vivo, sincronizar- puede volver a mostrarse
+     más adelante; @if (false) no renderiza nada, costo cero en runtime. -->
+@if (false) {
 <div class="fit">
   <div class="fit__grid">
       <!-- ============ Columna izquierda ============ -->
@@ -164,6 +169,8 @@
       </section>
     </div>
   </div>
+}
 
-<!-- Al bajar: el análisis. Arriba se opera, acá se entiende. -->
+<!-- El tablero oscuro es toda la vista de inicio mientras la colmena clara
+     esté oculta arriba. -->
 <app-tablero />

@@ -3,9 +3,11 @@
 
 :host {
   display: block;
-  /* La primera pantalla sigue ocupando el alto exacto del escenario; el
-     tablero analítico vive debajo y aparece al bajar. Por eso el scroll vive
-     acá y no en `.fit`, que conserva su `height: 100%`. */
+  /* La colmena clara está oculta (@if false en el template): el tablero
+     oscuro es ahora todo el contenido, así que el fondo del host es el
+     mismo oscuro del tablero — si no, un contenido más corto que el
+     viewport dejaría ver un hueco claro por debajo. */
+  background: #0b0d10;
   height: 100%;
   overflow-y: auto;
   overflow-x: hidden;
