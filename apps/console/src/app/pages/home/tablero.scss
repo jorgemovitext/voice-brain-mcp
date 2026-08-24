@@ -325,18 +325,11 @@
   pointer-events: none;
 }
 
-/* Filo especular. Es un <rect> recortado por una máscara en anillo, no un
-   trazo: un trazo del ancho de la cinta la rellena de blanco, que es
-   exactamente lo que la hacía parecer un neón. */
+/* El borde de `.tip`: 1px de rgba(255,255,255,0.2). Es un <rect> recortado por
+   una máscara en anillo, no un trazo: un trazo del ancho de la cinta la
+   rellena de blanco, que es lo que la hacía parecer un neón. */
 .flow__filo {
-  fill: rgba(255, 255, 255, 0.32);
-  pointer-events: none;
-}
-
-/* Grano del esmerilado. Bajo a propósito: el ruido sube el brillo medio, y
-   pasarse devolvería el velo claro que costó quitar. */
-.flow__grano {
-  opacity: 0.28;
+  fill: rgba(255, 255, 255, 0.2);
   pointer-events: none;
 }
 
@@ -492,20 +485,25 @@ a.sec__head:hover {
   vector-effect: non-scaling-stroke;
 }
 
+/* Trazo de longitud cero con remate redondo: la SVG pinta un punto del
+   diámetro del grosor. Con `non-scaling-stroke` ese grosor va en píxeles de
+   pantalla, así que sale CÍRCULO. Con <circle> no: estos gráficos usan
+   `preserveAspectRatio="none"` para estirarse al ancho de la tarjeta, y eso
+   escalaba el radio distinto en X que en Y — de ahí los óvalos. */
 .baja__dot {
-  fill: var(--d-primario);
+  fill: none;
+  stroke: var(--d-primario);
+  stroke-width: 7;
+  stroke-linecap: round;
+  vector-effect: non-scaling-stroke;
   filter: drop-shadow(0 0 3px rgba(243, 71, 0, 0.6));
 
   &--cian {
-    fill: #00bafe;
+    stroke: #00bafe;
     filter: drop-shadow(0 0 3px rgba(0, 186, 254, 0.55));
   }
 
-  &--fin {
-    stroke: var(--d-panel);
-    stroke-width: 2;
-    vector-effect: non-scaling-stroke;
-  }
+  &--fin { stroke-width: 10; }
 }
 
 .baja__eje {
