@@ -64,9 +64,14 @@
             @for (g of [4, 14.3, 24.6, 34.9]; track g) {
               <line class="linea__grid" x1="0" [attr.y1]="g" x2="100" [attr.y2]="g" />
             }
-            <polygon class="linea__area" [attr.points]="c.area" />
-            <polyline class="linea__trazo" [attr.points]="c.linea" />
-            <circle class="linea__ultimo" [attr.cx]="c.ultimo.x" [attr.cy]="c.ultimo.y" r="1.6" />
+            <!-- Lollipop: tallo punteado + punto, como la referencia -->
+            @for (pt of c.puntos; track pt.dia) {
+              <line class="linea__tallo" [attr.x1]="pt.x" [attr.y1]="pt.y" [attr.x2]="pt.x" y2="40" />
+              <circle class="linea__punto" [attr.cx]="pt.x" [attr.cy]="pt.y" r="1.15">
+                <title>{{ pt.dia }} — {{ pt.valor }}</title>
+              </circle>
+            }
+            <circle class="linea__ultimo" [attr.cx]="c.ultimo.x" [attr.cy]="c.ultimo.y" r="1.7" />
           </svg>
           <div class="linea__eje">
             @for (e of ejeDias(); track e.etiqueta) {
@@ -90,8 +95,10 @@
                   <i class="barra__punto" [style.background]="colorCanal(c.channel)"></i>
                   {{ channelLabel(c.channel) }}
                 </span>
-                <span class="barra__riel">
-                  <i [style.width.%]="c.pct" [style.background]="colorCanal(c.channel)"></i>
+                <span class="seg" [style.--c]="colorCanal(c.channel)">
+                  @for (on of segmentos(c.pct); track $index) {
+                    <i [class.seg--on]="on"></i>
+                  }
                 </span>
                 <span class="barra__valor">{{ c.total }}</span>
                 <span class="barra__detalle">{{ c.inbound }} entran · {{ c.outbound }} salen</span>
@@ -127,7 +134,11 @@
             @for (ag of agentes(); track ag.nombre) {
               <li class="barra">
                 <span class="barra__nombre">{{ ag.nombre }}</span>
-                <span class="barra__riel"><i [style.width.%]="ag.pct"></i></span>
+                <span class="seg">
+                  @for (on of segmentos(ag.pct); track $index) {
+                    <i [class.seg--on]="on"></i>
+                  }
+                </span>
                 <span class="barra__valor">{{ ag.mensajes }}</span>
                 <span class="barra__detalle">{{ ag.conversaciones }} conversación(es)</span>
               </li>
@@ -146,7 +157,11 @@
             @for (p of problemas(); track p.etiqueta) {
               <li class="barra">
                 <span class="barra__nombre">{{ p.etiqueta }}</span>
-                <span class="barra__riel"><i [style.width.%]="p.pct"></i></span>
+                <span class="seg">
+                  @for (on of segmentos(p.pct); track $index) {
+                    <i [class.seg--on]="on"></i>
+                  }
+                </span>
                 <span class="barra__valor">{{ p.total }}</span>
               </li>
             }
@@ -227,8 +242,10 @@
                   {{ e.etapa }}
                   @if (e.cierraElCaso) { <em class="barra__cierra">cierra</em> }
                 </span>
-                <span class="barra__riel">
-                  <i [style.width.%]="e.pct" [style.background]="e.cierraElCaso ? '#2E7D32' : '#F34700'"></i>
+                <span class="seg" [style.--c]="e.cierraElCaso ? '#34D399' : '#2196CC'">
+                  @for (on of segmentos(e.pct); track $index) {
+                    <i [class.seg--on]="on"></i>
+                  }
                 </span>
                 <span class="barra__valor">{{ e.total }}</span>
               </li>

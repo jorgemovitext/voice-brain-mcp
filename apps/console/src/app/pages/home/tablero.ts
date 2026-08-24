@@ -8,22 +8,25 @@ import { channelLabel } from '../../ui';
  * Tablero analítico: lo que se atiende, cómo y con qué resultado.
  *
  * Va debajo de la primera pantalla de La colmena — esa se mantiene sin scroll
- * y sirve para OPERAR; esto es para ENTENDER, y aparece al bajar.
+ * y sirve para OPERAR; esto es para ENTENDER, y aparece al bajar. El estilo es
+ * la banda oscura tipo "observabilidad": tarjetas negras, barras segmentadas
+ * tipo píldora y acento lima neón.
  *
- * Sobre los colores: son los de la marca pero verificados, no elegidos a ojo.
- * El cian #00BAFE no llega a 3:1 sobre fondo claro, así que en gráficos se usa
- * el paso #0090C4, que sí pasa contraste manteniendo el tono. Los tres colores
- * de canal pasan además separación para daltonismo (ΔE 11.2 en el peor par).
- * Cada barra lleva su valor escrito: el color nunca es el único portador.
+ * Sobre los colores: verificados sobre la superficie OSCURA, no elegidos a
+ * ojo. El lima neón puro (#C6F24E) queda para acentos y para series ÚNICAS,
+ * donde el color no distingue nada; cuando conviven varias series (canales),
+ * se usan los pasos #729B26/#2196CC/#D9532C, que pasan banda de luminosidad,
+ * separación para daltonismo (ΔE 22.2 en el peor par) y contraste. Cada barra
+ * lleva su valor escrito: el color nunca es el único portador.
  */
 
-/** Paleta categórica verificada. El canal fija el color, nunca su posición. */
+/** Paleta categórica verificada (modo oscuro). El canal fija el color. */
 const COLOR_CANAL: Record<string, string> = {
-  whatsapp: '#F34700',
-  voice: '#0090C4',
-  sms: '#7C5CFF',
-  email: '#8A6D3B',
-  note: '#92939b',
+  whatsapp: '#729B26',
+  voice: '#2196CC',
+  sms: '#D9532C',
+  email: '#B08968',
+  note: '#8A8F98',
 };
 
 @Component({
@@ -49,6 +52,16 @@ export class TableroPage {
     this.dias.set(dias);
   }
 
+  /**
+   * Barra segmentada tipo píldora: 12 casillas, llenas en proporción.
+   * Cualquier valor > 0 enciende al menos una — un dato existente no puede
+   * quedar invisible por redondeo.
+   */
+  segmentos(pct: number): boolean[] {
+    const llenos = pct > 0 ? Math.max(1, Math.round((pct / 100) * 12)) : 0;
+    return Array.from({ length: 12 }, (_, i) => i < llenos);
+  }
+
   // ===== Serie por día =====
 
   /** Puntos de la curva en coordenadas del viewBox (0..100 x, 0..40 y). */
@@ -57,9 +70,11 @@ export class TableroPage {
     if (dias.length < 2) return null;
     const max = Math.max(1, ...dias.map((d) => d.conversaciones));
     const paso = 100 / (dias.length - 1);
+    // y=40 ES la línea base: un día sin conversaciones apoya su punto sobre
+    // ella, no flotando cerca — un cero que flota parece un valor pequeño.
     const puntos = dias.map((d, i) => ({
       x: +(i * paso).toFixed(2),
-      y: +(38 - (d.conversaciones / max) * 34).toFixed(2),
+      y: +(40 - (d.conversaciones / max) * 36).toFixed(2),
       dia: d.dia,
       valor: d.conversaciones,
     }));
@@ -134,9 +149,9 @@ export class TableroPage {
     return {
       con,
       partes: [
-        { clave: 'Negativo', valor: s.negative, color: '#C62828', pct: (s.negative / con) * 100 },
+        { clave: 'Negativo', valor: s.negative, color: '#F87171', pct: (s.negative / con) * 100 },
         { clave: 'Neutral', valor: s.neutral, color: '#8A8F98', pct: (s.neutral / con) * 100 },
-        { clave: 'Positivo', valor: s.positive, color: '#2E7D32', pct: (s.positive / con) * 100 },
+        { clave: 'Positivo', valor: s.positive, color: '#34D399', pct: (s.positive / con) * 100 },
       ].filter((p) => p.valor > 0),
       sinDato: s.sinDato,
     };
