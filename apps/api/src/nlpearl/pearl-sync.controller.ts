@@ -63,7 +63,10 @@ export class PearlSyncController {
    * de los turnos en vivo — sino el estado de la conversación.
    */
   @Get('progress')
-  async progress(@Query('phone') phone: string, @Query('limit') limit?: string) {
+  async progress(@Query('phone') phone?: string, @Query('limit') limit?: string) {
+    // Sin teléfono devuelve los últimos de cualquier conversación: es la forma
+    // de responder "¿llegó ALGÚN avance?" sin depender de acertar el formato
+    // del número.
     const eventos = await this.store.listActivity({
       phone,
       kind: 'progress',

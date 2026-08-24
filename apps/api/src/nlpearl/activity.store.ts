@@ -165,7 +165,9 @@ export class NlpearlActivityStore {
     const db = await this.db();
     if (!db) {
       if (opts.kind !== 'progress') return [];
-      return [...this.avancesEnMemoria.values()].filter((a) => !opts.phone || a.phone === opts.phone);
+      const soloDigitos = (t?: string) => (t ?? '').replace(/\D/g, '');
+      const buscado = soloDigitos(opts.phone);
+      return [...this.avancesEnMemoria.values()].filter((a) => !buscado || soloDigitos(a.phone) === buscado);
     }
     const limit = Math.min(opts.limit ?? 50, 500);
     const where: string[] = [];
@@ -175,8 +177,12 @@ export class NlpearlActivityStore {
       where.push(`pearl_id = $${params.length}`);
     }
     if (opts.phone) {
-      params.push(opts.phone);
-      where.push(`phone = $${params.length}`);
+      // Por dígitos, no por el string tal cual: el mismo número aparece como
+      // "+50497616546" o "50497616546" según quién lo escribió (el nodo del
+      // flujo, el webhook o la carga a mano), y comparar literal hacía que un
+      // avance guardado no se encontrara al consultarlo.
+      params.push(opts.phone.replace(/\D/g, ''));
+      where.push(`regexp_replace(phone, '[^0-9]', '', 'g') = $${params.length}`);
     }
     if (opts.kind) {
       params.push(opts.kind);
