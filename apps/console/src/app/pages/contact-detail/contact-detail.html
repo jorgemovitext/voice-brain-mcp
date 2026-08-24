@@ -250,8 +250,10 @@
                 <li class="avance__paso">
                   <div class="avance__cuerpo">
                     <span class="avance__hito">{{ etiquetaPaso(a.paso) }}</span>
-                    @for (d of datosDe(a); track d.clave) {
-                      <span class="avance__dato">{{ d.valor }}</span>
+                    <!-- Solo lo que ese paso aporta: el flujo manda el
+                         acumulado completo en cada avance. -->
+                    @for (d of a.nuevos; track d.clave) {
+                      <span class="avance__dato" [title]="d.valor">{{ recorte(d.valor) }}</span>
                     }
                   </div>
                   <span class="avance__hora">{{ horaCorta(a.occurredAt) }}</span>

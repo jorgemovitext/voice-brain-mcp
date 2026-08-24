@@ -109,7 +109,31 @@ export class ContactDetailPage implements OnDestroy {
     return tel ? `/api/nlpearl/progress?phone=${encodeURIComponent(tel)}` : undefined;
   });
 
-  readonly avances = computed(() => this.progreso.value() ?? []);
+  /**
+   * La línea de tiempo, con SOLO lo que aporta cada paso.
+   *
+   * El flujo empuja en cada avance el acumulado completo de variables, así
+   * que pintarlo tal cual hacía que el último paso repitiera todo lo anterior
+   * y la tarjeta se volviera ilegible. Acá se descarta lo ya visto: cada hito
+   * muestra únicamente el dato nuevo o el que cambió.
+   */
+  readonly avances = computed(() => {
+    const crudos = [...(this.progreso.value() ?? [])].sort((a, b) =>
+      (a.occurredAt ?? '').localeCompare(b.occurredAt ?? ''),
+    );
+
+    const visto = new Map<string, string>();
+    return crudos.map((a) => {
+      const nuevos: Array<{ clave: string; valor: string }> = [];
+      for (const [clave, valor] of Object.entries(a.datos ?? {})) {
+        const texto = (typeof valor === 'string' ? valor : JSON.stringify(valor) ?? '').trim();
+        if (!texto || visto.get(clave) === texto) continue;
+        visto.set(clave, texto);
+        nuevos.push({ clave, valor: texto });
+      }
+      return { ...a, nuevos };
+    });
+  });
 
   /**
    * Resumen del hilo y su caso en el CRM. Cambia mucho menos que el contexto
@@ -204,6 +228,9 @@ export class ContactDetailPage implements OnDestroy {
 
   /** Nombres técnicos de los nodos → algo legible en la línea de tiempo. */
   private static readonly PASOS: Record<string, string> = {
+    opening: 'Abrió la conversación',
+    closing: 'Cerró la conversación',
+    emergency: 'Detectó una emergencia',
     identifyNeed: 'Identificó la necesidad',
     collectProblem: 'Recopiló el tipo de problema',
     collectLocation: 'Recopiló la ubicación',
@@ -218,12 +245,17 @@ export class ContactDetailPage implements OnDestroy {
     return ContactDetailPage.PASOS[paso] ?? paso;
   }
 
-  /** Los datos capturados en ese paso, listos para pintar. */
-  datosDe(avance: AvanceFlujo): Array<{ clave: string; valor: string }> {
-    return Object.entries(avance.datos ?? {}).map(([clave, valor]) => ({
-      clave,
-      valor: typeof valor === 'string' ? valor : JSON.stringify(valor),
-    }));
+  /**
+   * Un vistazo, no el texto completo. La descripción del ciudadano puede
+   * ocupar un párrafo entero; en la línea de tiempo se corta y el resto queda
+   * en el `title`. El texto íntegro vive en la conversación y en la ficha.
+   */
+  recorte(valor: string, tope = 80): string {
+    const limpio = valor.replace(/\s+/g, ' ').trim();
+    if (limpio.length <= tope) return limpio;
+    // Se corta en el último espacio para no partir una palabra por la mitad.
+    const corte = limpio.slice(0, tope);
+    return `${corte.slice(0, corte.lastIndexOf(' ') || tope)}…`;
   }
 
   /** "24 ago" — para fechas de apertura/movimiento del caso. */
