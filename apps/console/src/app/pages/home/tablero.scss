@@ -20,7 +20,10 @@
   background: var(--d-bg);
   color: var(--d-ink);
   min-height: 100%;
-  padding: clamp(14px, 1.8vw, 24px) clamp(14px, 2vw, 28px) clamp(22px, 2.6vw, 40px);
+  /* Más aire a la izquierda: ahí está el rail y el borde redondeado del
+     escenario; sin esto las tarjetas se montan sobre la curva. */
+  padding: clamp(14px, 1.8vw, 24px) clamp(14px, 2vw, 28px) clamp(22px, 2.6vw, 40px)
+    clamp(20px, 2.4vw, 36px);
 }
 
 /* Sin `max-width`: en resoluciones altas el tablero usa TODO el ancho del

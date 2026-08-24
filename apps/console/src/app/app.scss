@@ -10,9 +10,12 @@
   overflow: hidden;
 }
 
-/* --- Rail de iconos: plano, sin card --- */
+/* --- Rail de iconos: plano, sin card ---
+   Ancho generoso a propósito: el escenario lo solapa 14px, así que con el
+   ancho justo del icono el contenido quedaba pegado al menú. El sobrante es
+   el aire que separa los dos. */
 .rail {
-  width: 74px;
+  width: 92px;
   flex-shrink: 0;
   display: flex;
   flex-direction: column;
