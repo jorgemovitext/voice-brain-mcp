@@ -84,7 +84,13 @@
             @if (sankey(); as sk) {
               <svg class="flow__svg" viewBox="0 0 720 306" preserveAspectRatio="xMidYMid meet" role="img"
                    aria-label="Flujo de conversaciones: canal, tipo de problema y resultado">
-                <!-- Cintas primero: los nodos van encima -->
+                <!-- Cintas primero: los nodos van encima. Cada cinta lleva un
+                     halo difuminado debajo del trazo: al cruzar por encima de
+                     otra, la mezcla en pantalla + el halo dan el vidrio
+                     esmerilado de la referencia. -->
+                @for (c of sk.cintas; track c.d) {
+                  <path class="flow__halo" [attr.d]="c.d" [attr.stroke]="c.color" [attr.stroke-width]="c.grosor + 10" />
+                }
                 @for (c of sk.cintas; track c.d) {
                   <path class="flow__cinta" [attr.d]="c.d" [attr.stroke]="c.color" [attr.stroke-width]="c.grosor" />
                 }

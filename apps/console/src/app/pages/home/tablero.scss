@@ -306,14 +306,28 @@
   display: block;
 }
 
+/* Vidriomorfismo de las cintas: un halo ancho y difuminado por debajo, y el
+   trazo mezclado en `screen` — donde una cinta pasa por ENCIMA de otra, la
+   superposición se ilumina y difumina como vidrio esmerilado en vez de
+   taparla en seco. */
+.flow__halo {
+  fill: none;
+  opacity: 0.14;
+  filter: blur(5px);
+  stroke-linecap: round;
+}
+
 .flow__cinta {
   fill: none;
-  opacity: 0.42;
+  opacity: 0.5;
+  mix-blend-mode: screen;
   stroke-linecap: butt;
 }
 
+/* Nodo levemente translúcido: las cintas que pasan por detrás se adivinan,
+   como en la referencia, sin comprometer la lectura del texto. */
 .flow__nodo {
-  fill: var(--d-panel2);
+  fill: rgba(17, 29, 54, 0.86);
   stroke: var(--d-borde);
   stroke-width: 1;
 }
