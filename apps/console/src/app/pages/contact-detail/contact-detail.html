@@ -122,29 +122,6 @@
           </div>
         }
 
-        <!-- Estado del flujo, NO mensajes: NL Pearl no expone el texto de los
-             turnos en vivo, solo lo que el agente va recopilando. Se muestra
-             como línea de tiempo para no confundirlo con lo que se escribió. -->
-        @if (avances().length) {
-          <div class="avance">
-            <div class="avance__titulo">
-              <span class="avance__pulso"></span>
-              El agente va avanzando
-            </div>
-            @for (a of avances(); track a.paso + a.occurredAt) {
-              <div class="avance__paso">
-                <span class="avance__hora">{{ horaCorta(a.occurredAt) }}</span>
-                <div class="avance__cuerpo">
-                  <strong>{{ etiquetaPaso(a.paso) }}</strong>
-                  @for (d of datosDe(a); track d.clave) {
-                    <span class="avance__dato">{{ d.clave }}: {{ d.valor }}</span>
-                  }
-                </div>
-              </div>
-            }
-          </div>
-        }
-
         @if (callState() === 'calling') {
           <div class="chat__day"><span>📞 Llamada de voz en curso ({{ timerLabel() }})</span></div>
         }
@@ -247,6 +224,36 @@
               <span class="pill pill--neutral">Abierto</span>
             </div>
             <div class="case__detail">Sin promesa activa registrada</div>
+          }
+        </div>
+
+        <!-- Estado del flujo, NO mensajes: NL Pearl no expone el texto de los
+             turnos en vivo, solo lo que el agente va recopilando. Vive en el
+             panel de contexto y no en el hilo, para no confundir un dato
+             estructurado con algo que alguien escribió. -->
+        <div class="panel">
+          <div class="panel__head">
+            <span class="panel__title">Avance del caso</span>
+            @if (avances().length) {
+              <span class="panel__aside"><span class="avance__pulso"></span> en curso</span>
+            }
+          </div>
+          @if (avances().length) {
+            <ol class="avance">
+              @for (a of avances(); track a.paso + a.occurredAt) {
+                <li class="avance__paso">
+                  <div class="avance__cuerpo">
+                    <span class="avance__hito">{{ etiquetaPaso(a.paso) }}</span>
+                    @for (d of datosDe(a); track d.clave) {
+                      <span class="avance__dato">{{ d.valor }}</span>
+                    }
+                  </div>
+                  <span class="avance__hora">{{ horaCorta(a.occurredAt) }}</span>
+                </li>
+              }
+            </ol>
+          } @else {
+            <div class="panel__empty">El agente todavía no reporta avances</div>
           }
         </div>
 

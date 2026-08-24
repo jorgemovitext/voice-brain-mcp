@@ -840,76 +840,87 @@ $overlap: 44px;
   &:hover:not(:disabled) { filter: brightness(1.08); border-color: var(--call); }
 }
 
-/* --- Línea de tiempo del flujo ---
-   Estado de la conversación, NO mensajes: NL Pearl no expone el texto de los
-   turnos en vivo. Va deliberadamente sin forma de burbuja para que no se
-   confunda con lo que alguien escribió. */
+/* --- Avance del caso (panel de contexto) ---
+   Hitos que el agente va reportando durante la conversación. NO son mensajes:
+   NL Pearl no expone el texto de los turnos en vivo. Se pintan como línea de
+   tiempo vertical, con el riel a la izquierda uniendo los puntos. */
 .avance {
-  align-self: stretch;
-  margin: 0.4rem 0.2rem 0.2rem;
-  padding: 0.7rem 0.85rem;
-  border-radius: 14px;
-  border: 1px dashed var(--chat-border);
-  background: rgba(255, 255, 255, 0.55);
-}
-
-.avance__titulo {
+  list-style: none;
+  margin: 0;
+  padding: 0 0 0 0.9rem;
   display: flex;
-  align-items: center;
-  gap: 0.45rem;
-  font-size: 0.76rem;
-  font-weight: 700;
-  color: var(--chat-ink-soft);
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-  margin-bottom: 0.5rem;
+  flex-direction: column;
+  gap: 0.7rem;
+  /* El riel: un borde continuo del que cuelgan los puntos. */
+  border-left: 1px solid var(--border);
 }
 
-/* Punto latiendo: el hilo está vivo aunque no haya mensajes nuevos. */
+.avance__paso {
+  position: relative;
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.5rem;
+
+  /* Punto sobre el riel. */
+  &::before {
+    content: '';
+    position: absolute;
+    left: calc(-0.9rem - 4px);
+    top: 0.35rem;
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: var(--border);
+    box-shadow: 0 0 0 3px var(--panel-2);
+  }
+
+  /* El último hito es el estado actual: se resalta. */
+  &:last-child::before {
+    background: var(--primary);
+    box-shadow: 0 0 0 3px var(--panel-2), 0 0 8px rgba(243, 71, 0, 0.7);
+  }
+}
+
+.avance__cuerpo {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+  min-width: 0;
+}
+
+.avance__hito {
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--ink);
+  line-height: 1.25;
+}
+
+.avance__dato {
+  font-size: 0.76rem;
+  color: var(--ink-soft);
+  overflow-wrap: anywhere;
+}
+
+.avance__hora {
+  flex-shrink: 0;
+  font-size: 0.68rem;
+  color: var(--ink-soft);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Punto latiendo junto al título: el caso está avanzando ahora. */
 .avance__pulso {
-  width: 7px;
-  height: 7px;
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  margin-right: 0.3rem;
   border-radius: 50%;
   background: var(--primary);
   animation: avance-late 1.8s ease-in-out infinite;
 }
 
 @keyframes avance-late {
-  0%, 100% { opacity: 1; transform: scale(1); }
-  50% { opacity: 0.35; transform: scale(0.75); }
-}
-
-.avance__paso {
-  display: flex;
-  gap: 0.6rem;
-  padding: 0.3rem 0;
-  border-left: 2px solid var(--chat-border);
-  margin-left: 3px;
-  padding-left: 0.7rem;
-}
-
-.avance__hora {
-  flex-shrink: 0;
-  font-size: 0.7rem;
-  color: var(--chat-ink-soft);
-  font-variant-numeric: tabular-nums;
-  padding-top: 0.1rem;
-}
-
-.avance__cuerpo {
-  display: flex;
-  flex-direction: column;
-  gap: 0.15rem;
-  min-width: 0;
-
-  strong {
-    font-size: 0.82rem;
-    color: var(--chat-ink);
-  }
-}
-
-.avance__dato {
-  font-size: 0.76rem;
-  color: var(--chat-ink-soft);
-  overflow-wrap: anywhere;
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.3; }
 }
