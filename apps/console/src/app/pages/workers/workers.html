@@ -49,16 +49,11 @@
           </radialGradient>
         </defs>
 
-        <!-- El fondo del mosaico: celdas vacías que completan el patrón. -->
-        @for (d of deco(); track d.x + ':' + d.y) {
-          <polygon class="hex__vacia" [attr.points]="puntos(d)" [style.--luz]="d.luz" />
-        }
-
         <!-- Primero el halo de las activas, para que se funda por debajo. -->
         @for (c of panal(); track c.w.id) {
           @if (c.activo) {
-            <polygon class="hex__halo" [class.hex__halo--mia]="isAssigned(c.w)"
-                     [attr.points]="puntos(c)" filter="url(#panalBrillo)" />
+            <path class="hex__halo" [class.hex__halo--mia]="isAssigned(c.w)"
+                  [attr.d]="c.d" filter="url(#panalBrillo)" />
           }
         }
 
@@ -70,11 +65,11 @@
              tabindex="0" role="button" [attr.aria-label]="'Perfil de ' + c.w.name">
             <title>{{ c.w.name }} · {{ channelName(c.w) }} · {{ statusLabel(c.w) }}</title>
 
-            <polygon class="hex__fondo" [attr.points]="puntos(c)" />
+            <path class="hex__fondo" [attr.d]="c.d" />
             @if (c.activo) {
-              <polygon class="hex__nucleo" [attr.points]="puntos(c)" fill="url(#panalNucleo)" />
+              <path class="hex__nucleo" [attr.d]="c.d" fill="url(#panalNucleo)" />
             }
-            <polygon class="hex__borde" [attr.points]="puntos(c)" />
+            <path class="hex__borde" [attr.d]="c.d" />
 
             @if (c.activo) {
               @for (linea of c.lineas; track $index) {

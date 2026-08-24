@@ -88,15 +88,6 @@
   margin: 0.5rem 0 0;
 }
 
-/* Celda vacía: el fondo del mosaico. Sin eventos y apenas dibujada — su
-   trabajo es que el conjunto se lea como una pared de panal continua. */
-.hex__vacia {
-  fill: var(--panel);
-  stroke: color-mix(in srgb, var(--primary) calc(var(--luz, 0.05) * 100%), var(--border));
-  stroke-width: 1.2;
-  pointer-events: none;
-}
-
 /* ===== Celdas ===== */
 .hex {
   cursor: pointer;

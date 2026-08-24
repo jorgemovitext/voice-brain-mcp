@@ -18,21 +18,21 @@ interface Celda {
   iniciales: string;
   /** Nombre partido en 1–2 líneas que caben dentro del hexágono. */
   lineas: string[];
+  /** Contorno ya resuelto: hexágono de esquinas redondeadas. */
+  d: string;
 }
 
-/** Celda vacía del mosaico: pura decoración, completa el patrón del panal. */
-interface CeldaVacia {
-  x: number;
-  y: number;
+/** Coordenada axial de una celda del panal. */
+interface Axial {
+  q: number;
   r: number;
-  luz: number;
 }
 
 /**
  * Espiral de coordenadas axiales de un panal: (0,0), luego el anillo 1, el 2…
  * Es el orden en que se van ocupando las celdas desde el centro hacia afuera.
  */
-function espiral(anillos: number): Array<{ q: number; r: number }> {
+function espiral(anillos: number): Axial[] {
   const out = [{ q: 0, r: 0 }];
   // Direcciones axiales de un hexágono, en orden para recorrer cada anillo.
   const DIR = [
@@ -55,6 +55,49 @@ function espiral(anillos: number): Array<{ q: number; r: number }> {
 /** Axial → píxel para hexágonos de lado plano arriba (vértices a izq/der). */
 function aPixel(q: number, r: number, size: number): { x: number; y: number } {
   return { x: size * 1.5 * q, y: size * Math.sqrt(3) * (r + q / 2) };
+}
+
+/** Distancia en celdas entre dos coordenadas axiales. */
+function distancia(a: Axial, b: Axial): number {
+  const dq = a.q - b.q;
+  const dr = a.r - b.r;
+  return (Math.abs(dq) + Math.abs(dq + dr) + Math.abs(dr)) / 2;
+}
+
+/** Las seis vecinas de una celda. */
+const VECINAS: Axial[] = [
+  { q: 1, r: 0 }, { q: 1, r: -1 }, { q: 0, r: -1 },
+  { q: -1, r: 0 }, { q: -1, r: 1 }, { q: 0, r: 1 },
+];
+
+/**
+ * Hexágono de esquinas redondeadas, que es la forma que usamos en toda la app
+ * (el avatar del rail, la celda del panal). Cada vértice se recorta a `k` de
+ * distancia sobre las dos aristas y se une con una curva cuyo control es el
+ * vértice original: así la esquina queda mullida y no en pico.
+ */
+function hexRedondo(cx: number, cy: number, r: number, suavidad = 0.3): string {
+  const v = Array.from({ length: 6 }, (_, i) => {
+    const a = (Math.PI / 180) * (60 * i);
+    return { x: cx + r * Math.cos(a), y: cy + r * Math.sin(a) };
+  });
+  // El lado de un hexágono mide lo mismo que su circunradio.
+  const k = r * suavidad;
+  const hacia = (p: { x: number; y: number }, q: { x: number; y: number }) => {
+    const dx = q.x - p.x;
+    const dy = q.y - p.y;
+    const L = Math.hypot(dx, dy) || 1;
+    return { x: p.x + (dx / L) * k, y: p.y + (dy / L) * k };
+  };
+  const n = (i: number) => v[(i + 6) % 6];
+  let d = '';
+  for (let i = 0; i < 6; i++) {
+    const a = hacia(n(i), n(i - 1));
+    const b = hacia(n(i), n(i + 1));
+    d += `${i === 0 ? `M ${a.x.toFixed(1)} ${a.y.toFixed(1)}` : `L ${a.x.toFixed(1)} ${a.y.toFixed(1)}`}`;
+    d += ` Q ${n(i).x.toFixed(1)} ${n(i).y.toFixed(1)} ${b.x.toFixed(1)} ${b.y.toFixed(1)} `;
+  }
+  return `${d}Z`;
 }
 
 /** Dos letras para el hexágono chico, donde no cabe el nombre. */
@@ -122,70 +165,91 @@ export class WorkersPage {
    * solaparse. Los chicos empiezan donde termina el racimo central, así que el
    * mosaico se lee como un solo panal aunque por dentro sean dos.
    */
-  private readonly mosaico = computed<{ celdas: Celda[]; deco: CeldaVacia[] }>(() => {
+  readonly panal = computed<Celda[]>(() => {
     const activos = this.vivos();
     const resto = this.dormidos();
-    if (!activos.length && !resto.length) return { celdas: [], deco: [] };
-
-    const R_GRANDE = 96;
-    const R_CHICO = 40;
-    const celdas: Celda[] = [];
-
-    const posiciones = espiral(3);
-    for (const [i, w] of activos.entries()) {
-      const { q, r } = posiciones[i] ?? { q: 0, r: 0 };
-      const { x, y } = aPixel(q, r, R_GRANDE);
-      celdas.push({
-        w, x, y, r: R_GRANDE, activo: true, luz: 1,
-        iniciales: iniciales(w.name), lineas: lineasDe(w.name),
-      });
-    }
-
-    // Dónde termina el racimo central: los chicos no pueden invadirlo.
-    const radioNucleo = celdas.reduce((max, c) => Math.max(max, Math.hypot(c.x, c.y)), 0) + R_GRANDE;
-
-    const libres = espiral(12)
-      .map(({ q, r }) => aPixel(q, r, R_CHICO))
-      .filter((p) => Math.hypot(p.x, p.y) > radioNucleo + R_CHICO * 0.9)
-      .sort((a, b) => Math.hypot(a.x, a.y) - Math.hypot(b.x, b.y));
-
-    const ultimo = libres[Math.min(resto.length, libres.length) - 1];
-    const alcance = Math.max(ultimo ? Math.hypot(ultimo.x, ultimo.y) : 0, radioNucleo + R_CHICO * 3);
-
-    for (const [i, w] of resto.entries()) {
-      const p = libres[i];
-      if (!p) break;
-      // Como en la referencia: la luz nace en el centro y se apaga hacia afuera.
-      const d = Math.hypot(p.x, p.y);
-      celdas.push({
-        w, x: p.x, y: p.y, r: R_CHICO, activo: false,
-        luz: Math.max(0.12, 1 - d / (alcance * 1.15)),
-        iniciales: iniciales(w.name), lineas: [],
-      });
-    }
+    if (!activos.length && !resto.length) return [];
 
     /*
-     * Celdas vacías: rellenan el hueco entre el racimo central y los
-     * dormidos, y un anillo más allá del último, para que el conjunto se lea
-     * como una pared de panal (la referencia) y no como piezas flotando.
+     * Una sola retícula para todos: el paso es el hexágono CHICO, y los
+     * grandes ocupan una celda más su anillo de vecinas. Así los chicos
+     * encajan pegados a los grandes en vez de quedar en un anillo aparte,
+     * que es lo que dejaba el hueco vacío de la versión anterior.
      */
-    const deco: CeldaVacia[] = libres
-      .slice(resto.length)
-      .filter((p) => Math.hypot(p.x, p.y) <= alcance + R_CHICO * 2.2)
-      .map((p) => {
-        const d = Math.hypot(p.x, p.y);
-        return { ...p, r: R_CHICO, luz: Math.max(0.05, (1 - d / (alcance * 1.3)) * 0.45) };
+    /*
+     * Los radios NO son a ojo. Reservando solo el anillo de vecinas, la celda
+     * chica libre más próxima queda a 3·S, y dos hexágonos alineados se tocan
+     * a (R₁+R₂)·√3/2 — de ahí sale un techo de 2.46·S para el grande. Pasarse
+     * hacía que el grande se comiera las seis celdas diagonales.
+     */
+    const S = 46;
+    const R_ACTIVO = S * 2.15;
+    // El que atiende su canal manda: se lleva el hexágono más grande.
+    const R_EN_USO = S * 2.45;
+
+    const posiciones = espiral(16);
+    const usadas = new Set<string>();
+    const centrosGrandes: Axial[] = [];
+    const clave = (a: Axial) => `${a.q},${a.r}`;
+
+    // Los grandes primero y desde el centro; los que están en uso, antes.
+    const grandes = [...activos].sort(
+      (a, b) => Number(this.isAssigned(b)) - Number(this.isAssigned(a)),
+    );
+
+    const celdas: Celda[] = [];
+    for (const w of grandes) {
+      /*
+       * Dos grandes a dos celdas de distancia se solaparían (sus radios suman
+       * más que la separación), así que se exige distancia 3. Y se reserva el
+       * anillo de vecinas, que es el suelo que pisa el hexágono grande.
+       */
+      const pos = posiciones.find(
+        (p) =>
+          !usadas.has(clave(p)) &&
+          centrosGrandes.every((g) => distancia(g, p) >= 3) &&
+          VECINAS.every((v) => !usadas.has(clave({ q: p.q + v.q, r: p.r + v.r }))),
+      );
+      if (!pos) break;
+
+      centrosGrandes.push(pos);
+      usadas.add(clave(pos));
+      for (const v of VECINAS) usadas.add(clave({ q: pos.q + v.q, r: pos.r + v.r }));
+
+      const { x, y } = aPixel(pos.q, pos.r, S);
+      const r = this.isAssigned(w) ? R_EN_USO : R_ACTIVO;
+      celdas.push({
+        w, x, y, r, activo: true, luz: 1,
+        iniciales: iniciales(w.name), lineas: lineasDe(w.name),
+        d: hexRedondo(x, y, r),
       });
+    }
 
-    return { celdas, deco };
+    // Los dormidos rellenan lo que quede, del centro hacia afuera.
+    const libres = posiciones.filter((p) => !usadas.has(clave(p)));
+    const ultima = libres[Math.min(resto.length, libres.length) - 1];
+    const borde = ultima ? aPixel(ultima.q, ultima.r, S) : null;
+    const alcance = borde ? Math.hypot(borde.x, borde.y) || 1 : 1;
+
+    for (const [i, w] of resto.entries()) {
+      const pos = libres[i];
+      if (!pos) break;
+      const { x, y } = aPixel(pos.q, pos.r, S);
+      // Como en la referencia: la luz nace en el centro y se apaga hacia afuera.
+      const dist = Math.hypot(x, y);
+      celdas.push({
+        w, x, y, r: S, activo: false,
+        luz: Math.max(0.1, 1 - dist / (alcance * 1.2)),
+        iniciales: iniciales(w.name), lineas: [],
+        d: hexRedondo(x, y, S),
+      });
+    }
+    return celdas;
   });
-
-  readonly panal = computed(() => this.mosaico().celdas);
-  readonly deco = computed(() => this.mosaico().deco);
 
   /** viewBox que encuadra el panal completo, con aire para el resplandor. */
   readonly vista = computed(() => {
-    const todas = [...this.panal(), ...this.deco()];
+    const todas = this.panal();
     if (!todas.length) return { box: '0 0 100 100' };
     const m = todas.reduce(
       (a, x) => ({
@@ -201,14 +265,6 @@ export class WorkersPage {
       box: `${m.x0 - aire} ${m.y0 - aire} ${m.x1 - m.x0 + aire * 2} ${m.y1 - m.y0 + aire * 2}`,
     };
   });
-
-  /** Los seis vértices de un hexágono de lado plano, centrado en (x,y). */
-  puntos(c: { x: number; y: number; r: number }): string {
-    return Array.from({ length: 6 }, (_, i) => {
-      const a = (Math.PI / 180) * (60 * i);
-      return `${(c.x + c.r * Math.cos(a)).toFixed(1)},${(c.y + c.r * Math.sin(a)).toFixed(1)}`;
-    }).join(' ');
-  }
 
   readonly selectedId = signal<string | null>(null);
   readonly flow = httpResource<WorkerFlow>(() =>
