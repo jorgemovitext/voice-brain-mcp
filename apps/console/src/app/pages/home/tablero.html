@@ -59,7 +59,7 @@
                      son las únicas con vidrio: dejan traslucir la de abajo y
                      sangran un difuminado sobre ella en el solape. -->
                 @for (c of sk.cintas; track c.d) {
-                  @if (!c.encima) {
+                  @if (!c.encima && !c.cristal) {
                     <path class="flow__cinta" [attr.d]="c.d" [attr.stroke]="c.color"
                           [attr.stroke-width]="c.grosor"
                           (mouseenter)="verTip($event, c.tip, c.color)"
@@ -67,12 +67,26 @@
                   }
                 }
                 @for (c of sk.cintas; track c.d) {
-                  @if (c.encima) {
+                  @if (c.encima && !c.cristal) {
                     <path class="flow__escarcha" [attr.d]="c.d" [attr.stroke]="c.color"
                           [attr.stroke-width]="c.grosor + 12" />
                     <path class="flow__cinta flow__cinta--vidrio" [attr.d]="c.d"
                           [attr.stroke]="c.color" [attr.stroke-width]="c.grosor"
                           (mouseenter)="verTip($event, c.tip, c.color)"
+                          (mousemove)="moverTip($event)" (mouseleave)="sinTip()" />
+                  }
+                }
+                <!-- Las que salen de "Sin clasificar" van al final, sobre todo
+                     lo demás: son las únicas de vidrio esmerilado y solo se
+                     lee como vidrio si deja traslucir algo debajo. Tres capas,
+                     la misma receta del tooltip: halo difuminado, filo de 1px
+                     y relleno blanco translúcido. -->
+                @for (c of sk.cintas; track c.d) {
+                  @if (c.cristal) {
+                    <path class="flow__vaho" [attr.d]="c.d" [attr.stroke-width]="c.grosor + 10" />
+                    <path class="flow__filo" [attr.d]="c.d" [attr.stroke-width]="c.grosor + 2" />
+                    <path class="flow__cristal" [attr.d]="c.d" [attr.stroke-width]="c.grosor"
+                          (mouseenter)="verTip($event, c.tip, VIDRIO)"
                           (mousemove)="moverTip($event)" (mouseleave)="sinTip()" />
                   }
                 }

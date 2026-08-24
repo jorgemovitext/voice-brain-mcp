@@ -309,6 +309,35 @@
   pointer-events: none;
 }
 
+/* ===== Cintas de "Sin clasificar": vidrio, no color =====
+   Misma receta que `.tip` — blanco translúcido, filo de 1px y halo difuminado.
+   No se usa `backdrop-filter` porque en un <path> de SVG no crea raíz de
+   fondo: no hay nada que desenfocar. El efecto se arma con capas, y por eso
+   estas cintas se pintan al final, encima de todo: el vidrio solo se lee como
+   vidrio si deja ver algo debajo. */
+.flow__cristal {
+  fill: none;
+  stroke: rgba(255, 255, 255, 0.12);
+  stroke-linecap: butt;
+}
+
+/* El borde del tooltip: asoma ~1px a cada lado de la cinta. */
+.flow__filo {
+  fill: none;
+  stroke: rgba(255, 255, 255, 0.22);
+  stroke-linecap: butt;
+  pointer-events: none;
+}
+
+/* El resplandor del tooltip, sangrando sobre lo que la cinta cruza. */
+.flow__vaho {
+  fill: none;
+  stroke: rgba(255, 255, 255, 0.16);
+  filter: blur(6px);
+  stroke-linecap: round;
+  pointer-events: none;
+}
+
 /* Nodo sólido, como las tarjetas de la referencia: las cintas mueren contra
    él, no se transparentan a través. */
 .flow__nodo {

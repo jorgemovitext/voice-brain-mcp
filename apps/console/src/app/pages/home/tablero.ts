@@ -32,6 +32,12 @@ const MAL = '#F87171';
 const ALERTA = '#FFB020';
 const NEUTRO = 'rgba(255,255,255,0.10)';
 
+/**
+ * El nodo que el backend usa cuando una conversación no dejó ningún avance.
+ * Sus cintas salen de vidrio, no de color: ver `CintaSankey.cristal`.
+ */
+const SIN_CLASIFICAR = 'Sin clasificar';
+
 interface NodoSankey {
   id: string;
   col: number;
@@ -59,6 +65,13 @@ interface CintaSankey {
   seg: number;
   /** Pasa por ENCIMA de otra en un cruce: se le aplica el vidrio. */
   encima: boolean;
+  /**
+   * Sale de "Sin clasificar": se pinta como vidrio esmerilado en vez de con
+   * el color del resultado. Ese nodo no es una categoría, es la ausencia de
+   * una; darle el verde de "atendida" o el rojo de "en espera" afirmaría algo
+   * que no sabemos.
+   */
+  cristal: boolean;
   /** Texto del tooltip: la cinta sola no dice de dónde viene ni cuánto pesa. */
   tip: string;
 }
@@ -96,6 +109,8 @@ export class TableroPage {
   readonly channelLabel = channelLabel;
   readonly OK = OK;
   readonly MAL = MAL;
+  /** Punto del tooltip de las cintas de vidrio: no tienen color propio. */
+  readonly VIDRIO = 'rgba(255,255,255,0.55)';
   /** Los mismos acentos que pintan cada gráfico, para el punto del tooltip. */
   readonly NARANJA = '#F34700';
   readonly CIAN = '#00BAFE';
@@ -247,6 +262,7 @@ export class TableroPage {
         y2,
         seg,
         encima: false,
+        cristal: a.id === SIN_CLASIFICAR,
         tip: `${a.etiqueta} → ${b.etiqueta}: ${TableroPage.parte(total, S)}`,
       };
     };
