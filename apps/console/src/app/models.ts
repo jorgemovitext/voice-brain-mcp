@@ -194,3 +194,47 @@ export interface AvanceFlujo {
   datos: Record<string, unknown>;
   occurredAt?: string;
 }
+
+/** Un conteo con etiqueta, para rankings del tablero. */
+export interface Conteo {
+  etiqueta: string;
+  total: number;
+}
+
+/** Lo que alimenta el tablero analítico bajo La colmena. */
+export interface Analytics {
+  rango: { desde: string; hasta: string; dias: number };
+  resumen: {
+    conversaciones: number;
+    mensajes: number;
+    contactos: number;
+    sinRespuesta: number;
+    atendidos: number;
+    primeraRespuestaMin: number | null;
+    duracionMin: number | null;
+  };
+  porDia: Array<{ dia: string; conversaciones: number; mensajes: number }>;
+  porHora: number[];
+  porCanal: Array<{ channel: Channel; total: number; inbound: number; outbound: number }>;
+  agentes: Array<{ nombre: string; conversaciones: number; mensajes: number; ultima?: string }>;
+  problemas: Conteo[];
+  ubicaciones: Conteo[];
+  sentimiento: { positive: number; neutral: number; negative: number; sinDato: number };
+  casos: {
+    configurado: boolean;
+    motivo?: string;
+    total?: number;
+    cerrados?: number;
+    enCurso?: number;
+    porEtapa?: Array<{ etapa: string; total: number; cierraElCaso: boolean }>;
+    resolucionHoras?: number | null;
+    diferenciaConConversaciones?: number;
+  };
+  esperandoMas: Array<{
+    contactId: string;
+    displayName?: string;
+    channel: Channel;
+    esperaMin: number;
+    resumen?: string;
+  }>;
+}

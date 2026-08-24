@@ -3,7 +3,12 @@
 
 :host {
   display: block;
+  /* La primera pantalla sigue ocupando el alto exacto del escenario; el
+     tablero analítico vive debajo y aparece al bajar. Por eso el scroll vive
+     acá y no en `.fit`, que conserva su `height: 100%`. */
   height: 100%;
+  overflow-y: auto;
+  overflow-x: hidden;
 }
 
 .fit {

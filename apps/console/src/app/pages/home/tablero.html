@@ -1,0 +1,279 @@
+<section class="tab">
+  <header class="tab__head">
+    <div>
+      <h2>Qué se está atendiendo</h2>
+      <p class="tab__sub">Últimos {{ dias() }} días · se actualiza al entrar</p>
+    </div>
+    <div class="rango" role="group" aria-label="Rango de análisis">
+      @for (r of [7, 14, 30]; track r) {
+        <button class="rango__btn" [class.rango__btn--on]="dias() === r" (click)="cambiarRango(r)">
+          {{ r }} d
+        </button>
+      }
+    </div>
+  </header>
+
+  @if (datos.isLoading() && !a()) {
+    <div class="tab__estado"><div class="spinner"></div> Calculando…</div>
+  } @else if (datos.error() && !a()) {
+    <div class="tab__estado tab__estado--error">
+      No se pudo calcular el tablero.
+      <button class="rango__btn" (click)="datos.reload()">Reintentar</button>
+    </div>
+  } @else if (a(); as an) {
+    <!-- ===== Cifras de cabecera ===== -->
+    <div class="kpis">
+      <div class="kpi">
+        <span class="kpi__label">Conversaciones</span>
+        <strong class="kpi__valor">{{ an.resumen.conversaciones }}</strong>
+        <span class="kpi__pie">{{ an.resumen.mensajes }} mensajes</span>
+      </div>
+      <div class="kpi">
+        <span class="kpi__label">Atendidas</span>
+        <strong class="kpi__valor">{{ an.resumen.atendidos }}</strong>
+        <span class="kpi__pie">el enjambre respondió último</span>
+      </div>
+      <div class="kpi" [class.kpi--alerta]="an.resumen.sinRespuesta > 0">
+        <span class="kpi__label">Sin respuesta</span>
+        <strong class="kpi__valor">{{ an.resumen.sinRespuesta }}</strong>
+        <span class="kpi__pie">esperan desde el ciudadano</span>
+      </div>
+      <div class="kpi">
+        <span class="kpi__label">1ª respuesta</span>
+        <strong class="kpi__valor">{{ duracion(an.resumen.primeraRespuestaMin) }}</strong>
+        <span class="kpi__pie">mediana</span>
+      </div>
+      <div class="kpi">
+        <span class="kpi__label">Duración del hilo</span>
+        <strong class="kpi__valor">{{ duracion(an.resumen.duracionMin) }}</strong>
+        <span class="kpi__pie">mediana</span>
+      </div>
+    </div>
+
+    <div class="grid">
+      <!-- ===== Conversaciones por día ===== -->
+      <article class="card card--ancha">
+        <div class="card__head">
+          <h3>Conversaciones por día</h3>
+          @if (curva(); as c) { <span class="card__aside">pico {{ c.max }}</span> }
+        </div>
+        @if (curva(); as c) {
+          <svg class="linea" viewBox="0 0 100 46" preserveAspectRatio="none" role="img"
+               aria-label="Conversaciones por día en el rango elegido">
+            <!-- Rejilla recesiva: orienta sin competir con el dato -->
+            @for (g of [4, 14.3, 24.6, 34.9]; track g) {
+              <line class="linea__grid" x1="0" [attr.y1]="g" x2="100" [attr.y2]="g" />
+            }
+            <polygon class="linea__area" [attr.points]="c.area" />
+            <polyline class="linea__trazo" [attr.points]="c.linea" />
+            <circle class="linea__ultimo" [attr.cx]="c.ultimo.x" [attr.cy]="c.ultimo.y" r="1.6" />
+          </svg>
+          <div class="linea__eje">
+            @for (e of ejeDias(); track e.etiqueta) {
+              <span [style.left.%]="e.pct">{{ e.etiqueta }}</span>
+            }
+          </div>
+          <p class="card__nota">Hoy: <strong>{{ c.ultimo.valor }}</strong> conversación(es)</p>
+        } @else {
+          <p class="card__vacio">Sin actividad en el rango.</p>
+        }
+      </article>
+
+      <!-- ===== Por canal ===== -->
+      <article class="card">
+        <div class="card__head"><h3>Por canal</h3></div>
+        @if (canales().length) {
+          <ul class="barras">
+            @for (c of canales(); track c.channel) {
+              <li class="barra">
+                <span class="barra__nombre">
+                  <i class="barra__punto" [style.background]="colorCanal(c.channel)"></i>
+                  {{ channelLabel(c.channel) }}
+                </span>
+                <span class="barra__riel">
+                  <i [style.width.%]="c.pct" [style.background]="colorCanal(c.channel)"></i>
+                </span>
+                <span class="barra__valor">{{ c.total }}</span>
+                <span class="barra__detalle">{{ c.inbound }} entran · {{ c.outbound }} salen</span>
+              </li>
+            }
+          </ul>
+        } @else {
+          <p class="card__vacio">Sin tráfico en el rango.</p>
+        }
+      </article>
+
+      <!-- ===== Horario ===== -->
+      <article class="card">
+        <div class="card__head">
+          <h3>A qué hora escriben</h3>
+          @if (horaPico(); as p) { <span class="card__aside">pico {{ p.hora }}:00</span> }
+        </div>
+        <div class="horas">
+          @for (h of horas(); track h.hora) {
+            <span class="horas__col" [title]="h.hora + ':00 — ' + h.total + ' mensaje(s)'">
+              <i [style.height.%]="h.pct || 2"></i>
+            </span>
+          }
+        </div>
+        <div class="horas__eje"><span>00</span><span>06</span><span>12</span><span>18</span><span>23</span></div>
+      </article>
+
+      <!-- ===== Agentes ===== -->
+      <article class="card">
+        <div class="card__head"><h3>Agentes que más atienden</h3></div>
+        @if (agentes().length) {
+          <ul class="barras">
+            @for (ag of agentes(); track ag.nombre) {
+              <li class="barra">
+                <span class="barra__nombre">{{ ag.nombre }}</span>
+                <span class="barra__riel"><i [style.width.%]="ag.pct"></i></span>
+                <span class="barra__valor">{{ ag.mensajes }}</span>
+                <span class="barra__detalle">{{ ag.conversaciones }} conversación(es)</span>
+              </li>
+            }
+          </ul>
+        } @else {
+          <p class="card__vacio">Todavía no hay mensajes atribuidos a un agente.</p>
+        }
+      </article>
+
+      <!-- ===== Qué reportan ===== -->
+      <article class="card">
+        <div class="card__head"><h3>Qué reportan</h3></div>
+        @if (problemas().length) {
+          <ul class="barras">
+            @for (p of problemas(); track p.etiqueta) {
+              <li class="barra">
+                <span class="barra__nombre">{{ p.etiqueta }}</span>
+                <span class="barra__riel"><i [style.width.%]="p.pct"></i></span>
+                <span class="barra__valor">{{ p.total }}</span>
+              </li>
+            }
+          </ul>
+        } @else {
+          <p class="card__vacio">
+            Sale de los avances que reporta el flujo. Todavía no llegó ninguno.
+          </p>
+        }
+      </article>
+
+      <!-- ===== Dónde ===== -->
+      <article class="card">
+        <div class="card__head"><h3>Dónde ocurre</h3></div>
+        @if (a()?.ubicaciones?.length) {
+          <ol class="lista">
+            @for (u of a()!.ubicaciones; track u.etiqueta) {
+              <li><span class="lista__txt">{{ u.etiqueta }}</span><b>{{ u.total }}</b></li>
+            }
+          </ol>
+        } @else {
+          <p class="card__vacio">Sin ubicaciones recopiladas todavía.</p>
+        }
+      </article>
+
+      <!-- ===== Sentimiento ===== -->
+      <article class="card">
+        <div class="card__head"><h3>Cómo se van sintiendo</h3></div>
+        @if (sentimiento(); as s) {
+          <div class="diverge">
+            @for (p of s.partes; track p.clave) {
+              <span class="diverge__parte" [style.width.%]="p.pct" [style.background]="p.color"
+                    [title]="p.clave + ': ' + p.valor"></span>
+            }
+          </div>
+          <ul class="leyenda">
+            @for (p of s.partes; track p.clave) {
+              <li><i [style.background]="p.color"></i>{{ p.clave }} <b>{{ p.valor }}</b></li>
+            }
+          </ul>
+          @if (s.sinDato) {
+            <p class="card__nota">{{ s.sinDato }} mensaje(s) sin lectura de sentimiento.</p>
+          }
+        } @else {
+          <p class="card__vacio">Sin lecturas de sentimiento en el rango.</p>
+        }
+      </article>
+
+      <!-- ===== Casos en el CRM ===== -->
+      <article class="card card--ancha">
+        <div class="card__head">
+          <h3>Casos en HubSpot</h3>
+          @if (a()?.casos?.configurado) {
+            <span class="card__aside">{{ a()!.casos.total }} tickets</span>
+          }
+        </div>
+        @if (a()?.casos?.configurado) {
+          <div class="kpis kpis--internas">
+            <div class="kpi">
+              <span class="kpi__label">Resueltos</span>
+              <strong class="kpi__valor">{{ a()!.casos.cerrados }}</strong>
+            </div>
+            <div class="kpi">
+              <span class="kpi__label">En curso</span>
+              <strong class="kpi__valor">{{ a()!.casos.enCurso }}</strong>
+            </div>
+            <div class="kpi">
+              <span class="kpi__label">Tiempo de resolución</span>
+              <strong class="kpi__valor">{{ horas1(a()!.casos.resolucionHoras) }}</strong>
+              <span class="kpi__pie">mediana</span>
+            </div>
+          </div>
+
+          <ul class="barras barras--etapas">
+            @for (e of etapas(); track e.etapa) {
+              <li class="barra">
+                <span class="barra__nombre">
+                  {{ e.etapa }}
+                  @if (e.cierraElCaso) { <em class="barra__cierra">cierra</em> }
+                </span>
+                <span class="barra__riel">
+                  <i [style.width.%]="e.pct" [style.background]="e.cierraElCaso ? '#2E7D32' : '#F34700'"></i>
+                </span>
+                <span class="barra__valor">{{ e.total }}</span>
+              </li>
+            }
+          </ul>
+
+          <!-- El contraste que importa: si no cuadran, el panel miente -->
+          @if (a()!.casos.diferenciaConConversaciones !== undefined) {
+            <p class="card__nota"
+               [class.card__nota--alerta]="(a()!.casos.diferenciaConConversaciones ?? 0) > 1">
+              {{ an.resumen.conversaciones }} conversaciones nuestras ·
+              {{ a()!.casos.total }} tickets en el CRM
+              @if ((a()!.casos.diferenciaConConversaciones ?? 0) > 1) {
+                — faltan {{ a()!.casos.diferenciaConConversaciones }} por crear
+              } @else {
+                — cuadran
+              }
+            </p>
+          }
+        } @else {
+          <p class="card__vacio">
+            No se pudo leer el CRM: {{ a()?.casos?.motivo }}
+          </p>
+        }
+      </article>
+
+      <!-- ===== Cola ===== -->
+      <article class="card card--ancha">
+        <div class="card__head"><h3>Los que llevan más esperando</h3></div>
+        @if (a()?.esperandoMas?.length) {
+          <ol class="cola">
+            @for (e of a()!.esperandoMas; track e.contactId) {
+              <li>
+                <a [routerLink]="['/conversations', e.contactId]" class="cola__link">
+                  <span class="cola__quien">{{ e.displayName || 'Sin nombre' }}</span>
+                  <span class="cola__que">{{ e.resumen }}</span>
+                </a>
+                <span class="cola__tiempo">{{ duracion(e.esperaMin) }}</span>
+              </li>
+            }
+          </ol>
+        } @else {
+          <p class="card__vacio">Nadie esperando. El enjambre está al día.</p>
+        }
+      </article>
+    </div>
+  }
+</section>

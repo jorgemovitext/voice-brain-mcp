@@ -6,6 +6,7 @@ import { BrainApiService } from '../../brain-api.service';
 import { Icon } from '../../icon';
 import { HiveStatus } from '../../models';
 import { VoiceNebula } from '../../nebula';
+import { TableroPage } from './tablero';
 import { crearSondeo } from '../../sondeo';
 import { channelIconName, channelLabel } from '../../ui';
 
@@ -28,7 +29,7 @@ interface FeedBubble {
  */
 @Component({
   selector: 'app-home',
-  imports: [RouterLink, Icon, VoiceNebula],
+  imports: [RouterLink, Icon, VoiceNebula, TableroPage],
   templateUrl: './home.html',
   styleUrl: './home.scss',
 })
