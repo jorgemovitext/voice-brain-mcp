@@ -309,33 +309,36 @@
   pointer-events: none;
 }
 
-/* ===== Cintas de "Sin clasificar": vidrio, no color =====
-   Misma receta que `.tip` — blanco translúcido, filo de 1px y halo difuminado.
-   No se usa `backdrop-filter` porque en un <path> de SVG no crea raíz de
-   fondo: no hay nada que desenfocar. El efecto se arma con capas, y por eso
-   estas cintas se pintan al final, encima de todo: el vidrio solo se lee como
-   vidrio si deja ver algo debajo. */
-.flow__cristal {
-  fill: none;
-  stroke: rgba(255, 255, 255, 0.12);
-  stroke-linecap: butt;
+/* ===== Cintas de "Sin clasificar": vidrio de verdad =====
+   `backdrop-filter` no sirve acá: en un <path> de SVG no crea raíz de fondo,
+   así que no hay fondo que desenfocar. El primer intento fue un tinte blanco
+   sobre la cinta, y sobre fondo oscuro eso es aditivo — se leía como neón,
+   no como vidrio.
+
+   Lo que sí es vidrio: dentro de una máscara con la forma de la cinta se
+   repinta el diagrama entero desenfocado y desaturado (filtro
+   `#flowEsmerilado`), y encima va un tinte muy tenue. Eso reproduce lo que
+   hace `backdrop-filter` de verdad: difuminar lo de atrás, no iluminarlo. */
+.flow__vidrio {
+  /* El hover lo atiende `.flow__zona`: el hit-testing sobre un grupo
+     enmascarado no es consistente entre navegadores. */
+  pointer-events: none;
 }
 
-/* El borde del tooltip: asoma ~1px a cada lado de la cinta. */
+/* Filo especular. Es un <rect> recortado por una máscara en anillo, no un
+   trazo: un trazo del ancho de la cinta la rellena de blanco, que es
+   exactamente lo que la hacía parecer un neón. */
 .flow__filo {
-  fill: none;
-  stroke: rgba(255, 255, 255, 0.22);
-  stroke-linecap: butt;
+  fill: rgba(255, 255, 255, 0.32);
   pointer-events: none;
 }
 
-/* El resplandor del tooltip, sangrando sobre lo que la cinta cruza. */
-.flow__vaho {
+/* Blanco de cursor invisible, con la forma exacta de la cinta. */
+.flow__zona {
   fill: none;
-  stroke: rgba(255, 255, 255, 0.16);
-  filter: blur(6px);
-  stroke-linecap: round;
-  pointer-events: none;
+  stroke: transparent;
+  stroke-linecap: butt;
+  pointer-events: stroke;
 }
 
 /* Nodo sólido, como las tarjetas de la referencia: las cintas mueren contra

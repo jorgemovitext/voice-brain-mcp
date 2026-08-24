@@ -54,38 +54,91 @@
             @if (sankey(); as sk) {
               <svg class="flow__svg" viewBox="0 0 720 306" preserveAspectRatio="xMidYMid meet" role="img"
                    aria-label="Flujo de conversaciones: canal, tipo de problema y resultado">
-                <!-- Dos pasadas. Primero las cintas que NO cruzan: planas y
-                     sólidas, sin brillo. Después las que pasan por ENCIMA, que
-                     son las únicas con vidrio: dejan traslucir la de abajo y
-                     sangran un difuminado sobre ella en el solape. -->
-                @for (c of sk.cintas; track c.d) {
-                  @if (!c.encima && !c.cristal) {
-                    <path class="flow__cinta" [attr.d]="c.d" [attr.stroke]="c.color"
-                          [attr.stroke-width]="c.grosor"
-                          (mouseenter)="verTip($event, c.tip, c.color)"
-                          (mousemove)="moverTip($event)" (mouseleave)="sinTip()" />
+                <defs>
+                  <!-- Desenfoque + desaturado: es lo que convierte el fondo en
+                       vidrio esmerilado. Sin esto solo queda un tinte blanco
+                       aditivo, que sobre fondo oscuro se lee como neón. -->
+                  <!-- `color-interpolation-filters="sRGB"` no es opcional: por
+                       defecto los filtros SVG operan en linearRGB, y al volver
+                       a sRGB los tonos medios salen mucho más claros. Ese
+                       lavado era lo que hacía ver la cinta como un neón pálido
+                       en vez de como vidrio. -->
+                  <filter id="flowEsmerilado" x="-20%" y="-20%" width="140%" height="140%"
+                          color-interpolation-filters="sRGB">
+                    <feGaussianBlur stdDeviation="3" />
+                    <!-- Poca desaturación: el color de la cinta de abajo tiene
+                         que seguir viéndose a través del vidrio. Con 0.5 el
+                         cruce salía gris neutro y perdía la referencia. -->
+                    <feColorMatrix type="saturate" values="0.85" />
+                  </filter>
+                  <!-- Una máscara por cinta de cristal: recorta la copia
+                       desenfocada del diagrama a la forma de esa cinta. -->
+                  @for (c of sk.cintas; track c.d; let i = $index) {
+                    @if (c.cristal) {
+                      <mask [attr.id]="'flowMask' + i" maskUnits="userSpaceOnUse"
+                            x="0" y="0" width="720" height="306">
+                        <path [attr.d]="c.d" [attr.stroke-width]="c.grosor" stroke="#fff" fill="none" />
+                      </mask>
+                      <!-- Anillo: el canto en blanco menos el interior en
+                           negro. Sin este recorte el "filo" era un trazo del
+                           ancho completo y, con el vidrio casi transparente
+                           encima, rellenaba la cinta entera de blanco. -->
+                      <mask [attr.id]="'flowRing' + i" maskUnits="userSpaceOnUse"
+                            x="0" y="0" width="720" height="306">
+                        <path [attr.d]="c.d" [attr.stroke-width]="c.grosor + 2" stroke="#fff" fill="none" />
+                        <path [attr.d]="c.d" [attr.stroke-width]="c.grosor" stroke="#000" fill="none" />
+                      </mask>
+                    }
                   }
-                }
-                @for (c of sk.cintas; track c.d) {
-                  @if (c.encima && !c.cristal) {
-                    <path class="flow__escarcha" [attr.d]="c.d" [attr.stroke]="c.color"
-                          [attr.stroke-width]="c.grosor + 12" />
-                    <path class="flow__cinta flow__cinta--vidrio" [attr.d]="c.d"
-                          [attr.stroke]="c.color" [attr.stroke-width]="c.grosor"
-                          (mouseenter)="verTip($event, c.tip, c.color)"
-                          (mousemove)="moverTip($event)" (mouseleave)="sinTip()" />
+                </defs>
+
+                <!-- Todo lo que puede quedar DETRÁS del vidrio va en este grupo,
+                     porque más abajo se reutiliza con <use> para desenfocarlo. -->
+                <g id="flowFondo">
+                  <!-- Primero las cintas que NO cruzan: planas y sólidas, sin
+                       brillo. Después las que pasan por ENCIMA, que dejan
+                       traslucir la de abajo y sangran un difuminado en el solape. -->
+                  @for (c of sk.cintas; track c.d) {
+                    @if (!c.encima && !c.cristal) {
+                      <path class="flow__cinta" [attr.d]="c.d" [attr.stroke]="c.color"
+                            [attr.stroke-width]="c.grosor"
+                            (mouseenter)="verTip($event, c.tip, c.color)"
+                            (mousemove)="moverTip($event)" (mouseleave)="sinTip()" />
+                    }
                   }
-                }
-                <!-- Las que salen de "Sin clasificar" van al final, sobre todo
-                     lo demás: son las únicas de vidrio esmerilado y solo se
-                     lee como vidrio si deja traslucir algo debajo. Tres capas,
-                     la misma receta del tooltip: halo difuminado, filo de 1px
-                     y relleno blanco translúcido. -->
-                @for (c of sk.cintas; track c.d) {
+                  @for (c of sk.cintas; track c.d) {
+                    @if (c.encima && !c.cristal) {
+                      <path class="flow__escarcha" [attr.d]="c.d" [attr.stroke]="c.color"
+                            [attr.stroke-width]="c.grosor + 12" />
+                      <path class="flow__cinta flow__cinta--vidrio" [attr.d]="c.d"
+                            [attr.stroke]="c.color" [attr.stroke-width]="c.grosor"
+                            (mouseenter)="verTip($event, c.tip, c.color)"
+                            (mousemove)="moverTip($event)" (mouseleave)="sinTip()" />
+                    }
+                  }
+                </g>
+
+                <!-- Las que salen de "Sin clasificar": vidrio de verdad. Dentro
+                     de la máscara se pinta una copia DESENFOCADA del diagrama
+                     más un tinte tenue; encima, el filo. Van al final porque el
+                     vidrio solo se lee como vidrio si deja ver algo debajo. -->
+                @for (c of sk.cintas; track c.d; let i = $index) {
                   @if (c.cristal) {
-                    <path class="flow__vaho" [attr.d]="c.d" [attr.stroke-width]="c.grosor + 10" />
-                    <path class="flow__filo" [attr.d]="c.d" [attr.stroke-width]="c.grosor + 2" />
-                    <path class="flow__cristal" [attr.d]="c.d" [attr.stroke-width]="c.grosor"
+                    <g [attr.mask]="'url(#flowMask' + i + ')'" class="flow__vidrio">
+                      <use href="#flowFondo" filter="url(#flowEsmerilado)" />
+                      <!-- Tinte mínimo: sobre fondo oscuro el blanco es
+                           aditivo, y de ahí venía el aspecto de neón. Donde no
+                           hay nada detrás, la cinta casi desaparece — que es
+                           justo lo que hace un vidrio de verdad. -->
+                      <rect x="0" y="0" width="720" height="306" fill="rgba(255,255,255,0.05)" />
+                    </g>
+                    <!-- El canto, encima: con el tinte tan bajo es lo que
+                         dibuja la cinta donde no hay nada detrás. -->
+                    <rect class="flow__filo" [attr.mask]="'url(#flowRing' + i + ')'"
+                          x="0" y="0" width="720" height="306" />
+                    <!-- Blanco de cursor: el grupo enmascarado no recibe eventos
+                         de forma consistente entre navegadores. -->
+                    <path class="flow__zona" [attr.d]="c.d" [attr.stroke-width]="c.grosor"
                           (mouseenter)="verTip($event, c.tip, VIDRIO)"
                           (mousemove)="moverTip($event)" (mouseleave)="sinTip()" />
                   }
