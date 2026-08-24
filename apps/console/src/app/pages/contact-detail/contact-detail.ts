@@ -95,13 +95,24 @@ export class ContactDetailPage implements OnDestroy {
   );
 
   /**
+   * Teléfono del contacto, aislado en su propio `computed`.
+   *
+   * Parece un rodeo pero no lo es: `context.value()` devuelve un objeto nuevo
+   * en cada refresco, y leerlo directo desde el httpResource de abajo lo hacía
+   * re-pedir en cada vuelta del sondeo — se midieron 189 peticiones en 5
+   * minutos. Con el teléfono suelto, la identidad es un string y solo cambia
+   * cuando cambia de verdad.
+   */
+  private readonly telefono = computed(() => this.context.value()?.contact.phones?.[0]);
+
+  /**
    * Avances que el flujo de la Pearl empuja DURANTE la conversación. No son
    * mensajes: NL Pearl no expone el texto de los turnos en vivo, solo las
    * variables que va recopilando. Se piden por teléfono porque así los
    * identifica el nodo del flujo.
    */
   readonly progreso = httpResource<AvanceFlujo[]>(() => {
-    const tel = this.context.value()?.contact.phones?.[0];
+    const tel = this.telefono();
     return tel ? `/api/nlpearl/progress?phone=${encodeURIComponent(tel)}` : undefined;
   });
 
@@ -273,12 +284,19 @@ export class ContactDetailPage implements OnDestroy {
       activo: () => !this.sending(),
       // Cantidad de mensajes + el más reciente: si eso no cambió, el hilo
       // está igual y no hace falta seguir preguntando al mismo ritmo.
+      // Cambia si llega un mensaje NUEVO o un avance del flujo: cualquiera de
+      // los dos significa que el hilo está vivo y vuelve al ritmo rápido.
       firma: () => {
         const inter = this.context.value()?.recentInteractions;
-        return inter ? `${inter.length}:${inter[0]?.occurredAt ?? ''}` : undefined;
+        if (!inter) return undefined;
+        const av = this.progreso.value() ?? [];
+        return `${inter.length}:${inter[0]?.occurredAt ?? ''}:${av.length}:${av[av.length - 1]?.occurredAt ?? ''}`;
       },
       alSondear: () => {
         this.context.reload();
+        // La línea de tiempo va al mismo ritmo que el hilo: su URL ya no
+        // cambia sola, así que sin esto se quedaría congelada.
+        this.progreso.reload();
         // La lista de hilos cambia menos: se refresca cada 3 vueltas.
         if (++vuelta % 3 === 0 && this.withThreads()) this.conversations.reload();
         if (vuelta % 10 === 0) void this.api.syncNlpearl().catch(() => undefined);
