@@ -65,11 +65,24 @@
                        en vez de como vidrio. -->
                   <filter id="flowEsmerilado" x="-20%" y="-20%" width="140%" height="140%"
                           color-interpolation-filters="sRGB">
-                    <feGaussianBlur stdDeviation="3" />
+                    <feGaussianBlur stdDeviation="5.5" />
                     <!-- Poca desaturación: el color de la cinta de abajo tiene
                          que seguir viéndose a través del vidrio. Con 0.5 el
                          cruce salía gris neutro y perdía la referencia. -->
                     <feColorMatrix type="saturate" values="0.85" />
+                  </filter>
+
+                  <!-- Grano del vidrio esmerilado. La turbulencia da ruido en
+                       color; la matriz lo vuelve blanco y le saca el alfa del
+                       canal rojo, así queda moteado y no un velo plano. -->
+                  <filter id="flowGrano" x="0" y="0" width="100%" height="100%"
+                          color-interpolation-filters="sRGB">
+                    <feTurbulence type="fractalNoise" baseFrequency="0.85" numOctaves="3" stitchTiles="stitch" />
+                    <feColorMatrix type="matrix"
+                                   values="0 0 0 0 1
+                                           0 0 0 0 1
+                                           0 0 0 0 1
+                                           0.55 0 0 0 -0.16" />
                   </filter>
                   <!-- Una máscara por cinta de cristal: recorta la copia
                        desenfocada del diagrama a la forma de esa cinta. -->
@@ -131,6 +144,10 @@
                            hay nada detrás, la cinta casi desaparece — que es
                            justo lo que hace un vidrio de verdad. -->
                       <rect x="0" y="0" width="720" height="306" fill="rgba(255,255,255,0.05)" />
+                      <!-- El grano va dentro de la máscara: es textura del
+                           vidrio, no del diagrama. -->
+                      <rect class="flow__grano" x="0" y="0" width="720" height="306"
+                            filter="url(#flowGrano)" />
                     </g>
                     <!-- El canto, encima: con el tinte tan bajo es lo que
                          dibuja la cinta donde no hay nada detrás. -->

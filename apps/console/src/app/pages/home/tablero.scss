@@ -333,6 +333,13 @@
   pointer-events: none;
 }
 
+/* Grano del esmerilado. Bajo a propósito: el ruido sube el brillo medio, y
+   pasarse devolvería el velo claro que costó quitar. */
+.flow__grano {
+  opacity: 0.28;
+  pointer-events: none;
+}
+
 /* Blanco de cursor invisible, con la forma exacta de la cinta. */
 .flow__zona {
   fill: none;
