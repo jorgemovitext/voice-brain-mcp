@@ -263,16 +263,19 @@
           }
         </div>
 
-        <!-- Resumen del agente: el que redacta la propia Pearl al cerrar, o
-             uno compuesto con lo que el flujo recopiló. -->
+        <!-- Resumen de la conversación: el corto que redactamos nosotros
+             desde la transcripción; si no, el crudo de la Pearl o uno
+             compuesto con lo que el flujo recopiló. -->
         @if (resumenAgente(); as r) {
           @if (r.texto || r.capturado.length) {
             <div class="panel panel--ai">
               <div class="panel__head">
                 <span class="panel__title panel__title--ai">
-                  <ui-icon name="sparkle" /> Resumen del agente
+                  <ui-icon name="sparkle" /> Resumen de la conversación
                 </span>
-                @if (r.fuente === 'datos') {
+                @if (r.fuente === 'agente') {
+                  <span class="panel__aside" title="Texto tal cual lo dejó NL Pearl, sin resumir">sin resumir</span>
+                } @else if (r.fuente === 'datos') {
                   <span class="panel__aside" title="Compuesto con los datos del flujo">datos</span>
                 }
               </div>

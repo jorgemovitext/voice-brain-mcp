@@ -1,163 +1,155 @@
-<div class="page">
-  <header class="head">
-    <div>
+<section class="dash">
+  <!-- ===== Cabecera, igual que el tablero ===== -->
+  <header class="dash__top">
+    <div class="dash__title">
+      <span class="dash__back" title="Actividad">◎</span>
       <h1>Actividad</h1>
-      <p class="muted">
-        Lo que está pasando ahora mismo entre los canales, los agentes y el Brain.
-      </p>
     </div>
-    <button class="btn btn--ghost" (click)="refrescar()">↻ Actualizar</button>
+    <div class="dash__controls">
+      <span class="chip chip--label"><b>{{ eventos().length }} eventos</b></span>
+      <button class="ctrl ctrl--btn" (click)="refrescar()">↻ Actualizar</button>
+    </div>
   </header>
 
-  <!-- Cifras del día: el pulso en cuatro números. -->
-  <section class="kpis">
-    <article class="card kpi">
-      <span class="kpi__label">Conversaciones hoy</span>
-      <strong class="kpi__valor">{{ m()?.conversacionesHoy ?? 0 }}</strong>
-      <span class="kpi__pie">{{ m()?.contactos ?? 0 }} contactos en el Brain</span>
-    </article>
-    <article class="card kpi" [class.kpi--alerta]="(m()?.esperandoRespuesta ?? 0) > 0">
-      <span class="kpi__label">Esperando respuesta</span>
-      <strong class="kpi__valor">{{ m()?.esperandoRespuesta ?? 0 }}</strong>
-      <span class="kpi__pie">
-        @if (m()?.maxEsperaMin) { la más larga, {{ espera(m()!.maxEsperaMin) }} } @else { nadie en cola }
-      </span>
-    </article>
-    <article class="card kpi">
-      <span class="kpi__label">Hilos al día</span>
-      <strong class="kpi__valor">{{ m()?.hilosAlDia ?? 0 }}</strong>
-      <span class="kpi__pie">último mensaje puesto por el enjambre</span>
-    </article>
-    <article class="card kpi">
-      <span class="kpi__label">Agentes activos</span>
-      <strong class="kpi__valor">{{ hive.value()?.obreros?.activos ?? 0 }}</strong>
-      <span class="kpi__pie">de {{ hive.value()?.obreros?.total ?? 0 }} en la cuenta</span>
-    </article>
-  </section>
-
-  <!-- Reparto por canal y ritmo por hora. -->
-  <section class="doble">
-    <article class="card">
-      <h2>Por dónde entra</h2>
-      <p class="muted">Tráfico total por canal, y cuánto de eso lo inició el ciudadano.</p>
-      @if (!canales().length) {
-        <div class="state">Sin tráfico registrado todavía.</div>
-      } @else {
-        <ul class="canales">
-          @for (c of canales(); track c.channel) {
-            <li class="canal">
-              <span class="canal__icono"><ui-icon [name]="channelIconName(c.channel)" /></span>
-              <span class="canal__nombre">{{ channelLabel(c.channel) }}</span>
-              <span class="canal__barra">
-                <span class="canal__relleno" [style.width.%]="c.pct"></span>
-              </span>
-              <span class="canal__total">{{ c.total }}</span>
-              <span class="canal__in">{{ c.inbound }} entrantes</span>
-            </li>
-          }
-        </ul>
-      }
-    </article>
-
-    <article class="card">
-      <h2>Ritmo de hoy</h2>
-      <p class="muted">Interacciones por hora, de medianoche a medianoche.</p>
-      @if (!picoHora()) {
-        <div class="state">Todavía no hay movimiento hoy.</div>
-      } @else {
-        <div class="horas">
-          @for (h of horas(); track h.hora) {
-            <span class="hora" [class.hora--pico]="h.pico" [title]="h.hora + ':00 — ' + h.total">
-              <span class="hora__barra" [style.height.%]="h.pct"></span>
-            </span>
-          }
-        </div>
-        <div class="horas__eje"><span>00</span><span>06</span><span>12</span><span>18</span><span>23</span></div>
-      }
-    </article>
-  </section>
-
-  <!-- Quién espera y qué acaba de pasar: lo accionable. -->
-  <section class="doble">
-    <article class="card">
-      <div class="card__head">
-        <h2>Esperando respuesta</h2>
-        <a routerLink="/conversations" class="mas">Ver todo ↗</a>
-      </div>
-      @if (!(hive.value()?.esperando ?? []).length) {
-        <div class="state">Nadie en cola. La colmena está al día.</div>
-      } @else {
-        <ul class="lista">
-          @for (t of hive.value()!.esperando.slice(0, 6); track t.contactId) {
-            <li>
-              <a class="fila fila--espera" [routerLink]="['/conversations', t.contactId]">
-                <span class="fila__icono"><ui-icon [name]="channelIconName(t.channel)" /></span>
-                <span class="fila__cuerpo">
-                  <span class="fila__titulo">{{ t.displayName || t.phone || 'Sin nombre' }}</span>
-                  <span class="fila__texto">{{ t.summary || 'Sin resumen' }}</span>
-                </span>
-                <span class="fila__espera">{{ espera(t.waitingMin) }}</span>
-              </a>
-            </li>
-          }
-        </ul>
-      }
-    </article>
-
-    <article class="card">
-      <div class="card__head">
-        <h2>Último movimiento</h2>
-        <a routerLink="/conversations" class="mas">Ver todo ↗</a>
-      </div>
-      @if (!(hive.value()?.actividad ?? []).length) {
-        <div class="state">Sin movimiento reciente.</div>
-      } @else {
-        <ul class="lista">
-          @for (a of hive.value()!.actividad.slice(0, 6); track a.contactId + a.occurredAt) {
-            <li>
-              <a class="fila" [routerLink]="['/conversations', a.contactId]">
-                <span class="fila__icono" [class.fila__icono--out]="a.direction === 'outbound'">
-                  <ui-icon [name]="channelIconName(a.channel)" />
-                </span>
-                <span class="fila__cuerpo">
-                  <span class="fila__titulo">
-                    {{ a.displayName || 'Sin nombre' }}
-                    <span class="fila__dir">{{ a.direction === 'outbound' ? 'respondió el agente' : 'escribió' }}</span>
-                  </span>
-                  <span class="fila__texto">{{ a.summary || 'Sin resumen' }}</span>
-                </span>
-                <span class="fila__hora">{{ time(a.occurredAt) }}</span>
-              </a>
-            </li>
-          }
-        </ul>
-      }
-    </article>
-  </section>
-
-  <!-- Actividad técnica: ¿nos están pegando los proveedores? -->
-  <section class="card activity">
-    <div class="card__head">
-      <h2>Eventos de los canales</h2>
-      <a routerLink="/workers" class="mas">Agentes ↗</a>
-    </div>
-    <p class="muted">
-      Lo que entra por los webhooks (NL Pearl, PreCallAPI, Gupshup) y las pruebas salientes.
-      Si acá no aparece nada tras una llamada o un WhatsApp, el proveedor no está llegando.
-    </p>
-    @if (!(activity.value() ?? []).length) {
-      <div class="state">Sin actividad registrada todavía.</div>
-    } @else {
-      <ul class="events">
-        @for (e of activity.value() ?? []; track e.at + e.summary) {
-          <li class="event" [class.event--fail]="!e.ok">
-            <span class="event__dot"></span>
-            <span class="event__time">{{ time(e.at) }}</span>
-            <span class="event__source">{{ e.source }}</span>
-            <span class="event__summary">{{ e.summary }}</span>
-          </li>
-        }
-      </ul>
+  <!-- ===== Filtros del registro: filtran de verdad la lista ===== -->
+  <div class="dash__filters">
+    <span class="chip chip--label"><b>Origen</b></span>
+    <button class="chip chip--btn" [class.chip--on]="!fuente()" (click)="fuente.set(null)">Todos</button>
+    @for (f of fuentes(); track f) {
+      <button class="chip chip--btn" [class.chip--on]="fuente() === f" (click)="alternarFuente(f)">
+        <i class="chip__punto" [style.background]="colorFuente(f)"></i>{{ f }}
+      </button>
     }
-  </section>
-</div>
+    <button class="chip chip--btn chip--mal" [class.chip--on]="soloFallos()" (click)="soloFallos.set(!soloFallos())">
+      Solo fallos
+    </button>
+    @if (fuente() || soloFallos()) {
+      <button class="tag tag--activo" (click)="limpiarFiltros()">Quitar filtros <i>×</i></button>
+    }
+  </div>
+
+  <div class="dash__body">
+    <!-- ===== Centro: el registro manda ===== -->
+    <main class="centro">
+      <article class="card card--log">
+        <div class="card__head">
+          <span class="card__titulo">Registro de eventos</span>
+          <span class="card__pie">
+            Lo que entra por los webhooks y las pruebas salientes. Si acá no aparece nada
+            tras una llamada o un WhatsApp, el proveedor no está llegando.
+          </span>
+        </div>
+
+        @if (activity.isLoading() && !activity.value()) {
+          <div class="estado">Leyendo el registro…</div>
+        } @else if (!eventos().length) {
+          <div class="estado">
+            @if (fuente() || soloFallos()) {
+              Ningún evento con esos filtros.
+              <button class="ctrl ctrl--btn" (click)="limpiarFiltros()">Quitar filtros</button>
+            } @else {
+              Sin actividad registrada todavía.
+            }
+          </div>
+        } @else {
+          <ul class="log">
+            @for (e of eventos(); track e.at + e.summary) {
+              <li class="log__fila" [class.log__fila--mal]="!e.ok">
+                <span class="log__dot" [style.background]="e.ok ? colorFuente(e.source) : MAL"></span>
+                <span class="log__hora">{{ time(e.at) }}</span>
+                <span class="log__fuente" [style.color]="e.ok ? colorFuente(e.source) : MAL">{{ e.source }}</span>
+                <span class="log__txt">{{ e.summary }}</span>
+                @if (!e.ok) { <span class="log__tag">falló</span> }
+              </li>
+            }
+          </ul>
+        }
+      </article>
+    </main>
+
+    <!-- ===== Riel derecho: contexto compacto, sin gráficos de más ===== -->
+    <aside class="rail">
+      <section class="sec">
+        <span class="sec__head">Ahora mismo</span>
+        <div class="menu__mini">
+          <a class="mini" routerLink="/conversations">
+            <span class="mini__num">{{ m()?.conversacionesHoy ?? 0 }}</span>
+            <span class="mini__txt">Conversaciones hoy</span>
+          </a>
+          <a class="mini" routerLink="/conversations" [class.mini--alerta]="(m()?.esperandoRespuesta ?? 0) > 0">
+            <span class="mini__num">{{ m()?.esperandoRespuesta ?? 0 }}</span>
+            <span class="mini__txt">Esperando</span>
+          </a>
+          <div class="mini">
+            <span class="mini__num">{{ m()?.hilosAlDia ?? 0 }}</span>
+            <span class="mini__txt">Hilos al día</span>
+          </div>
+          <a class="mini" routerLink="/workers">
+            <span class="mini__num">{{ hive.value()?.obreros?.activos ?? 0 }}</span>
+            <span class="mini__txt">Agentes activos</span>
+          </a>
+        </div>
+      </section>
+
+      <section class="sec">
+        <span class="sec__head">Por dónde entra</span>
+        @if (!canales().length) {
+          <span class="sec__pie">Sin tráfico registrado.</span>
+        } @else {
+          <ul class="score">
+            @for (c of canales(); track c.channel) {
+              <li>
+                <span class="score__txt">{{ channelLabel(c.channel) }}</span>
+                <span class="pills pills--mini">
+                  @for (on of c.pills; track $index) {
+                    <i [style.background]="on ? colorCanal(c.channel) : NEUTRO"></i>
+                  }
+                </span>
+                <b>{{ c.total }}</b>
+              </li>
+            }
+          </ul>
+          <span class="sec__pie">{{ entrantes() }} de {{ totalCanal() }} los inició el ciudadano</span>
+        }
+      </section>
+
+      <section class="sec">
+        <a class="sec__head" routerLink="/conversations">Esperando respuesta <i>↗</i></a>
+        @if (!(hive.value()?.esperando ?? []).length) {
+          <span class="sec__pie">Nadie en cola. Al día.</span>
+        } @else {
+          <ul class="lead">
+            @for (t of hive.value()!.esperando.slice(0, 4); track t.contactId) {
+              <li>
+                <i class="lead__dot" [style.background]="MAL"></i>
+                <a class="lead__txt lead__txt--link" [routerLink]="['/conversations', t.contactId]">
+                  {{ t.displayName || t.phone || 'Sin nombre' }}
+                </a>
+                <b [style.color]="MAL">{{ espera(t.waitingMin) }}</b>
+              </li>
+            }
+          </ul>
+        }
+      </section>
+
+      <section class="sec">
+        <a class="sec__head" routerLink="/conversations">Último movimiento <i>↗</i></a>
+        @if (!(hive.value()?.actividad ?? []).length) {
+          <span class="sec__pie">Sin movimiento reciente.</span>
+        } @else {
+          <ul class="lead">
+            @for (a of hive.value()!.actividad.slice(0, 5); track a.contactId + a.occurredAt) {
+              <li>
+                <i class="lead__dot" [style.background]="a.direction === 'outbound' ? OK : colorCanal(a.channel)"></i>
+                <a class="lead__txt lead__txt--link" [routerLink]="['/conversations', a.contactId]">
+                  {{ a.displayName || a.summary || 'Sin nombre' }}
+                </a>
+                <b>{{ time(a.occurredAt) }}</b>
+              </li>
+            }
+          </ul>
+        }
+      </section>
+    </aside>
+  </div>
+</section>

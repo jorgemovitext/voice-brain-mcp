@@ -11,6 +11,7 @@ import { HubspotModule } from '../hubspot/hubspot.module';
 import { AnalyticsController } from './analytics.controller';
 import { ExpedienteController } from './expediente.controller';
 import { ExpedienteService } from './expediente.service';
+import { ResumenService } from './resumen.service';
 import { AnalyticsService } from './analytics.service';
 import { HiveService } from './hive.service';
 import { NlpearlDiagnosticsController } from './nlpearl-diagnostics.controller';
@@ -53,6 +54,7 @@ import { WorkersController } from './workers.controller';
     HiveService,
     AnalyticsService,
     ExpedienteService,
+    ResumenService,
     NlpearlMockEngine,
     NlpearlVoiceEngine,
     WebhookSignatureGuard,

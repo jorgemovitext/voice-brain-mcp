@@ -1,22 +1,46 @@
-import { Component, DestroyRef, computed, inject } from '@angular/core';
+import { ChangeDetectionStrategy, Component, DestroyRef, computed, inject, signal } from '@angular/core';
 import { httpResource } from '@angular/common/http';
 import { RouterLink } from '@angular/router';
-import { Icon } from '../../icon';
-import { HiveStatus, WebhookEvent } from '../../models';
+import { Channel, HiveStatus, WebhookEvent } from '../../models';
 import { crearSondeo } from '../../sondeo';
-import { channelIconName, channelLabel } from '../../ui';
+import { channelLabel } from '../../ui';
 
 /**
- * Actividad: qué está pasando ahora mismo en los canales. Cifras del día,
- * reparto por canal, ritmo por hora, la cola de espera, el último movimiento
- * y los eventos crudos de los webhooks.
+ * Actividad: qué está pasando ahora mismo en los canales.
  *
- * La configuración de proveedores (URLs, credenciales, prueba de conexión)
- * salió de acá: es configuración, no actividad.
+ * Mismo lenguaje visual que el tablero de inicio (tokens `--d-*`, chips,
+ * riel derecho), pero con MENOS gráfico: acá el protagonista es el registro
+ * de eventos, que ocupa la banda central y se filtra de verdad. El contexto
+ * cuantitativo se comprime en el riel.
+ *
+ * La configuración de proveedores (URLs de webhook, API keys, prueba de
+ * conexión) salió de esta vista: es configuración, no actividad.
  */
+
+/** Un color por origen, para leer el registro sin leer la etiqueta. */
+const COLOR_FUENTE: Record<string, string> = {
+  nlpearl: '#2196CC',
+  gupshup: '#729B26',
+  'whatsapp-cloud': '#729B26',
+  precall: '#B08968',
+  saliente: '#D9532C',
+};
+
+const COLOR_CANAL: Record<string, string> = {
+  whatsapp: '#729B26',
+  voice: '#2196CC',
+  sms: '#D9532C',
+  note: '#8A8F98',
+};
+
+const OK = '#34D399';
+const MAL = '#F87171';
+const NEUTRO = 'rgba(255,255,255,0.10)';
+
 @Component({
   selector: 'app-integrations',
-  imports: [RouterLink, Icon],
+  changeDetection: ChangeDetectionStrategy.OnPush,
+  imports: [RouterLink],
   templateUrl: './integrations.html',
   styleUrl: './integrations.scss',
 })
@@ -26,32 +50,43 @@ export class IntegrationsPage {
   readonly hive = httpResource<HiveStatus>(() => '/api/hive');
   readonly activity = httpResource<WebhookEvent[]>(() => '/api/integrations/activity');
 
-  readonly channelIconName = channelIconName;
+  /** null = todos los orígenes. */
+  readonly fuente = signal<string | null>(null);
+  readonly soloFallos = signal(false);
+
   readonly channelLabel = channelLabel;
+  readonly OK = OK;
+  readonly MAL = MAL;
+  readonly NEUTRO = NEUTRO;
 
   readonly m = computed(() => this.hive.value()?.metricas);
 
-  /** Canales con tráfico, ordenados, con el ancho de barra ya resuelto. */
+  /** Orígenes presentes: solo se ofrecen filtros que devuelven algo. */
+  readonly fuentes = computed(() => [...new Set((this.activity.value() ?? []).map((e) => e.source))]);
+
+  readonly eventos = computed(() =>
+    (this.activity.value() ?? [])
+      .filter((e) => !this.fuente() || e.source === this.fuente())
+      .filter((e) => !this.soloFallos() || !e.ok),
+  );
+
+  /**
+   * Canales con tráfico. Las mini-píldoras del riel son 6 casillas: cuántas
+   * se encienden es la proporción de ese canal contra el más cargado.
+   */
   readonly canales = computed(() => {
     const porCanal = (this.hive.value()?.porCanal ?? []).filter((c) => c.total > 0);
     const tope = Math.max(1, ...porCanal.map((c) => c.total));
     return porCanal
       .sort((a, b) => b.total - a.total)
-      .map((c) => ({ ...c, pct: Math.round((c.total / tope) * 100) }));
+      .map((c) => {
+        const encendidas = Math.max(1, Math.round((c.total / tope) * 6));
+        return { ...c, pills: Array.from({ length: 6 }, (_, i) => i < encendidas) };
+      });
   });
 
-  readonly picoHora = computed(() => Math.max(0, ...(this.m()?.porHora ?? [])));
-
-  readonly horas = computed(() => {
-    const serie = this.m()?.porHora ?? [];
-    const tope = Math.max(1, ...serie);
-    return serie.map((total, hora) => ({
-      hora,
-      total,
-      pct: Math.round((total / tope) * 100),
-      pico: total > 0 && total === tope,
-    }));
-  });
+  readonly totalCanal = computed(() => this.canales().reduce((acc, c) => acc + c.total, 0));
+  readonly entrantes = computed(() => this.canales().reduce((acc, c) => acc + c.inbound, 0));
 
   constructor() {
     // Es una pantalla de "ahora mismo": se refresca sola y se calla si no pasa nada.
@@ -63,8 +98,8 @@ export class IntegrationsPage {
         this.activity.reload();
       },
       firma: () => {
-        const h = this.hive.value();
-        return `${h?.actividad?.[0]?.occurredAt ?? ''}|${h?.metricas?.esperandoRespuesta ?? ''}`;
+        const e = this.activity.value()?.[0];
+        return `${e?.at ?? ''}|${this.m()?.esperandoRespuesta ?? ''}`;
       },
     });
     this.destroyRef.onDestroy(parar);
@@ -73,6 +108,23 @@ export class IntegrationsPage {
   refrescar(): void {
     this.hive.reload();
     this.activity.reload();
+  }
+
+  alternarFuente(f: string): void {
+    this.fuente.update((actual) => (actual === f ? null : f));
+  }
+
+  limpiarFiltros(): void {
+    this.fuente.set(null);
+    this.soloFallos.set(false);
+  }
+
+  colorFuente(f: string): string {
+    return COLOR_FUENTE[f] ?? '#8A8F98';
+  }
+
+  colorCanal(c: Channel): string {
+    return COLOR_CANAL[c] ?? '#8A8F98';
   }
 
   /** Espera en lenguaje humano: los minutos crudos no dicen nada de un vistazo. */

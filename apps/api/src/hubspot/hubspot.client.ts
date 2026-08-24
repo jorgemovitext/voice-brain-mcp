@@ -19,7 +19,11 @@ export interface HubspotTicket {
   createdAt?: string;
   closedAt?: string;
   updatedAt?: string;
-  /** Teléfono asociado, cuando el flujo lo guardó en el ticket. */
+  /**
+   * OJO: el objeto ticket de HubSpot NO trae teléfono de fábrica. Esto solo
+   * tiene valor si el portal definió una propiedad `phone` a medida. El
+   * teléfono de verdad vive en el contacto asociado — ver `ticketsPorTelefono`.
+   */
   phone?: string;
 }
 
@@ -64,10 +68,12 @@ export class HubspotClient {
     }
   }
 
-  private async pedir<T>(path: string): Promise<T> {
+  private async pedir<T>(path: string, cuerpo?: unknown): Promise<T> {
     this.assertConfigured();
     const res = await fetch(this.base + path, {
+      method: cuerpo === undefined ? 'GET' : 'POST',
       headers: { Authorization: `Bearer ${this.token}`, 'Content-Type': 'application/json' },
+      body: cuerpo === undefined ? undefined : JSON.stringify(cuerpo),
     });
     if (!res.ok) {
       const detalle = (await res.text()).slice(0, 300);
@@ -75,6 +81,85 @@ export class HubspotClient {
       throw new ServiceUnavailableException(`HubSpot respondió ${res.status}: ${detalle}`);
     }
     return (await res.json()) as T;
+  }
+
+  /**
+   * Tickets de la persona dueña de ese teléfono.
+   *
+   * Se hace en tres saltos —contacto por teléfono, asociación contacto→ticket,
+   * lectura de esos tickets— porque el objeto ticket de HubSpot NO tiene
+   * propiedad de teléfono: el número vive en el CONTACTO asociado. Buscarlo
+   * en el ticket (lo que hacíamos antes) no encontraba nada nunca.
+   */
+  async ticketsPorTelefono(telefono: string): Promise<HubspotTicket[]> {
+    const contactos = await this.contactosPorTelefono(telefono);
+    if (!contactos.length) return [];
+
+    const ids = new Set<string>();
+    for (const contactId of contactos) {
+      const res = await this.pedir<{ results?: Array<{ toObjectId?: string | number }> }>(
+        `/crm/v4/objects/contacts/${contactId}/associations/tickets?limit=100`,
+      );
+      // El campo es `toObjectId` y llega como número o texto según la versión.
+      for (const r of res.results ?? []) if (r.toObjectId != null) ids.add(String(r.toObjectId));
+    }
+    if (!ids.size) return [];
+
+    const lote = await this.pedir<{
+      results?: Array<{ id: string; properties: Record<string, string | null> }>;
+    }>('/crm/v3/objects/tickets/batch/read', {
+      inputs: [...ids].slice(0, 100).map((id) => ({ id })),
+      properties: PROPIEDADES,
+    });
+
+    return (lote.results ?? []).map((t) => HubspotClient.aTicket(t.id, t.properties ?? {}));
+  }
+
+  /**
+   * Ids de contacto con ese teléfono. HubSpot indexa los números en
+   * propiedades calculadas `hs_searchable_calculated_*`: las que no dicen
+   * "international" guardan el número SIN código de país, así que se consulta
+   * con las dos formas. Los grupos de filtro se combinan con OR.
+   */
+  private async contactosPorTelefono(telefono: string): Promise<string[]> {
+    const digitos = telefono.replace(/\D/g, '');
+    if (digitos.length < 7) return [];
+    // Sin código de país: para Honduras (+504) el número nacional son 8 cifras.
+    const nacional = digitos.slice(-8);
+    const e164 = telefono.startsWith('+') ? telefono : `+${digitos}`;
+
+    const grupo = (propertyName: string, value: string, operator = 'EQ') => ({
+      filters: [{ propertyName, operator, value }],
+    });
+
+    const res = await this.pedir<{ results?: Array<{ id: string }> }>(
+      '/crm/v3/objects/contacts/search',
+      {
+        filterGroups: [
+          grupo('hs_searchable_calculated_phone_number', nacional),
+          grupo('hs_searchable_calculated_mobile_number', nacional),
+          grupo('hs_searchable_calculated_international_phone_number', e164),
+          grupo('hs_searchable_calculated_international_mobile_number', e164),
+          grupo('phone', `*${nacional}*`, 'CONTAINS_TOKEN'),
+        ],
+        properties: ['phone', 'mobilephone'],
+        limit: 20,
+      },
+    );
+    return (res.results ?? []).map((c) => c.id);
+  }
+
+  private static aTicket(id: string, p: Record<string, string | null>): HubspotTicket {
+    return {
+      id,
+      subject: p['subject'] ?? undefined,
+      pipeline: p['hs_pipeline'] ?? undefined,
+      stage: p['hs_pipeline_stage'] ?? undefined,
+      createdAt: p['createdate'] ?? undefined,
+      closedAt: p['closed_date'] ?? undefined,
+      updatedAt: p['hs_lastmodifieddate'] ?? undefined,
+      phone: p['phone'] ?? undefined,
+    };
   }
 
   /**
@@ -95,17 +180,7 @@ export class HubspotClient {
       }>(`/crm/v3/objects/tickets?${qs}`);
 
       for (const t of pagina.results ?? []) {
-        const p = t.properties ?? {};
-        tickets.push({
-          id: t.id,
-          subject: p['subject'] ?? undefined,
-          pipeline: p['hs_pipeline'] ?? undefined,
-          stage: p['hs_pipeline_stage'] ?? undefined,
-          createdAt: p['createdate'] ?? undefined,
-          closedAt: p['closed_date'] ?? undefined,
-          updatedAt: p['hs_lastmodifieddate'] ?? undefined,
-          phone: p['phone'] ?? undefined,
-        });
+        tickets.push(HubspotClient.aTicket(t.id, t.properties ?? {}));
       }
       after = pagina.paging?.next?.after;
     } while (after && tickets.length < maximo);

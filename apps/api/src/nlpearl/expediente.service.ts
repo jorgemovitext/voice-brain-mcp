@@ -2,6 +2,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import { BrainService } from '../brain/brain.service';
 import { HubspotClient } from '../hubspot/hubspot.client';
 import { NlpearlActivityStore } from './activity.store';
+import { ResumenService } from './resumen.service';
 
 /** Etiquetas legibles de los pasos del flujo, para redactar el resumen. */
 const CAMPO: Record<string, string> = {
@@ -21,7 +22,12 @@ export interface Expediente {
    */
   resumen: {
     texto: string | null;
-    fuente: 'agente' | 'datos' | null;
+    /**
+     * `propio` = lo redactamos nosotros desde la transcripción (lo preferido).
+     * `agente` = el post_call_summary crudo de NL Pearl, respaldo cuando no
+     * hay modelo configurado. `datos` = compuesto con lo que el flujo capturó.
+     */
+    fuente: 'propio' | 'agente' | 'datos' | null;
     /** Datos capturados, para mostrarlos como ficha bajo el resumen. */
     capturado: Array<{ campo: string; valor: string }>;
   };
@@ -50,6 +56,7 @@ export class ExpedienteService {
     private readonly brain: BrainService,
     private readonly store: NlpearlActivityStore,
     private readonly hubspot: HubspotClient,
+    private readonly ia: ResumenService,
   ) {}
 
   private static digitos(t?: string): string {
@@ -59,11 +66,21 @@ export class ExpedienteService {
   async de(contactId: string): Promise<Expediente> {
     const ctx = await this.brain.getContext({ contactId });
     const tel = ctx.contact.phones?.[0];
-    const [resumen, caso] = await Promise.all([this.resumen(tel), this.caso(tel)]);
+
+    /*
+     * La transcripción se toma de las interacciones del Brain, no del raw de
+     * NL Pearl: ahí ya está aplanada a "Agente: …\nCliente: …" por el mapper,
+     * que es el único que sabe interpretar el enum numérico de `role`.
+     */
+    const transcripcion = ctx.recentInteractions
+      .filter((i) => i.transcript?.trim())
+      .sort((a, b) => (b.occurredAt ?? '').localeCompare(a.occurredAt ?? ''))[0]?.transcript;
+
+    const [resumen, caso] = await Promise.all([this.resumen(tel, transcripcion), this.caso(tel)]);
     return { resumen, caso };
   }
 
-  private async resumen(tel?: string): Promise<Expediente['resumen']> {
+  private async resumen(tel?: string, transcripcion?: string): Promise<Expediente['resumen']> {
     if (!tel) return { texto: null, fuente: null, capturado: [] };
 
     const actividad = await this.store.listActivity({ phone: tel, limit: 20 });
@@ -78,17 +95,30 @@ export class ExpedienteService {
       }
     }
 
-    // El resumen del agente vive en el raw de la conversación.
-    const conResumen = actividad
-      .filter((a) => a.kind !== 'progress')
-      .map((a) => (a.raw ?? {}) as Record<string, unknown>)
-      .map((raw) => raw['summary'] ?? raw['post_call_summary'])
-      .find((s): s is string => typeof s === 'string' && s.trim().length > 10);
+    const conversaciones = actividad
+      .filter((a) => a.kind === 'call' || a.kind === 'chat')
+      .map((a) => (a.raw ?? {}) as Record<string, unknown>);
 
     const ficha = [...capturado.entries()].map(([campo, valor]) => ({
       campo: CAMPO[campo] ?? campo,
       valor,
     }));
+
+    /*
+     * Primero, el resumen propio: el `post_call_summary` de NL Pearl viene
+     * largo, en inglés y narrado por el bot ("I collected his details…"), que
+     * es justo lo que el operador NO necesita leer. Si hay transcripción, la
+     * resumimos nosotros en dos oraciones.
+     */
+    if (transcripcion) {
+      const propio = await this.ia.corto(transcripcion, tel);
+      if (propio) return { texto: propio, fuente: 'propio', capturado: ficha };
+    }
+
+    // Respaldo: el resumen crudo del agente, cuando no hay modelo configurado.
+    const conResumen = conversaciones
+      .map((raw) => raw['summary'] ?? raw['post_call_summary'])
+      .find((s): s is string => typeof s === 'string' && s.trim().length > 10);
 
     if (conResumen) return { texto: conResumen.trim(), fuente: 'agente', capturado: ficha };
 
@@ -116,17 +146,32 @@ export class ExpedienteService {
     if (!tel) return { hay: false, motivo: 'El contacto no tiene teléfono' };
 
     try {
-      const [{ tickets }, etapas] = await Promise.all([
-        this.hubspot.listarTickets(),
+      /*
+       * Por asociación, no por una propiedad del ticket: el objeto ticket de
+       * HubSpot no guarda teléfono. Se busca el contacto por su número y se
+       * siguen sus tickets. El barrido por `phone` queda de respaldo, por si
+       * el portal definió esa propiedad a medida.
+       */
+      const [asociados, etapas] = await Promise.all([
+        this.hubspot.ticketsPorTelefono(tel),
         this.hubspot.etapas(),
       ]);
-      const buscado = ExpedienteService.digitos(tel);
-      // El más reciente de ese teléfono: es el caso "actual".
-      const ticket = tickets
-        .filter((t) => ExpedienteService.digitos(t.phone) === buscado)
-        .sort((a, b) => (b.createdAt ?? '').localeCompare(a.createdAt ?? ''))[0];
 
-      if (!ticket) return { hay: false, motivo: 'Sin ticket en el CRM para este número' };
+      let candidatos = asociados;
+      if (!candidatos.length) {
+        const buscado = ExpedienteService.digitos(tel);
+        const { tickets } = await this.hubspot.listarTickets();
+        candidatos = tickets.filter((t) => t.phone && ExpedienteService.digitos(t.phone) === buscado);
+      }
+
+      // El más reciente de ese teléfono: es el caso "actual".
+      const ticket = [...candidatos].sort((a, b) =>
+        (b.createdAt ?? '').localeCompare(a.createdAt ?? ''),
+      )[0];
+
+      if (!ticket) {
+        return { hay: false, motivo: 'Sin ticket en el CRM para este número' };
+      }
 
       const etapa = ticket.stage ? etapas.get(ticket.stage) : undefined;
       return {

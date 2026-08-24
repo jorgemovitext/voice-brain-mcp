@@ -25,8 +25,11 @@ export interface StoredActivity {
    * `progress` son los avances estructurados que empuja el flujo durante la
    * conversación (ubicación recopilada, tipo de problema…). No son mensajes:
    * NL Pearl no expone el texto de cada turno en vivo.
+   *
+   * `resumen` no viene de NL Pearl: es el resumen corto que redactamos
+   * nosotros, cacheado por la huella de la transcripción.
    */
-  kind: 'call' | 'chat' | 'progress';
+  kind: 'call' | 'chat' | 'progress' | 'resumen';
   occurredAt?: string;
   raw: unknown;
   ingestedAt?: string;
@@ -157,6 +160,24 @@ export class NlpearlActivityStore {
       });
     }
     return out;
+  }
+
+  /** Una actividad por id. Lo usa la caché del resumen, que consulta por huella. */
+  async findActivity(id: string): Promise<StoredActivity | undefined> {
+    const db = await this.db();
+    if (!db) return this.enMemoria.get(id);
+    const res = await db.query('SELECT * FROM nlpearl_activity WHERE id = $1', [id]);
+    const r = res.rows[0];
+    if (!r) return undefined;
+    return {
+      id: r.id,
+      pearlId: r.pearl_id ?? undefined,
+      phone: r.phone ?? undefined,
+      kind: r.kind,
+      occurredAt: r.occurred_at ? new Date(r.occurred_at).toISOString() : undefined,
+      raw: r.raw,
+      ingestedAt: r.ingested_at ? new Date(r.ingested_at).toISOString() : undefined,
+    };
   }
 
   async listActivity(

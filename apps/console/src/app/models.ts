@@ -250,7 +250,8 @@ export interface Analytics {
 export interface Expediente {
   resumen: {
     texto: string | null;
-    fuente: 'agente' | 'datos' | null;
+    /** `propio` = redactado por nosotros desde la transcripción. */
+    fuente: 'propio' | 'agente' | 'datos' | null;
     capturado: Array<{ campo: string; valor: string }>;
   };
   caso: {
