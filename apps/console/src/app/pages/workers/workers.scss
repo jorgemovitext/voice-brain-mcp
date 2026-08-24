@@ -19,16 +19,20 @@
   font-size: 0.85rem;
 }
 
-/* ===== El enjambre: perfiles de agente vivo ===== */
-.squad {
-  margin-bottom: 1.6rem;
+/* ===== El panal =====
+   Un solo SVG con todo el mosaico: los activos en grande al centro, los
+   dormidos chicos alrededor, con la luz apagándose hacia afuera como en la
+   referencia. La geometría (espiral axial, dos retículas) vive en el TS;
+   acá solo se pinta. */
+.panal {
+  margin-bottom: 1.4rem;
 }
 
-.squad__title {
+.panal__title {
   display: flex;
   align-items: center;
   gap: 0.55rem;
-  margin: 0 0 0.9rem;
+  margin: 0 0 0.4rem;
   font-size: 0.95rem;
   font-weight: 700;
   letter-spacing: -0.01em;
@@ -40,246 +44,164 @@
   }
 }
 
-.squad__title--muted { color: var(--ink-soft); font-weight: 600; }
+.panal__resto {
+  color: var(--ink-soft);
+  font-weight: 500;
+  font-size: 0.82rem;
+}
 
 /* Latido del encabezado: el panal está despierto. */
-.squad__pulse {
+.panal__pulse {
   width: 9px;
   height: 9px;
   border-radius: 50%;
   background: var(--positive);
   box-shadow: 0 0 0 0 color-mix(in srgb, var(--positive) 70%, transparent);
-  animation: squad-beat 2.2s ease-out infinite;
+  animation: panal-beat 2.2s ease-out infinite;
 }
 
-@keyframes squad-beat {
+@keyframes panal-beat {
   0% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--positive) 65%, transparent); }
   70% { box-shadow: 0 0 0 9px transparent; }
   100% { box-shadow: 0 0 0 0 transparent; }
 }
 
-.agents {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
-  gap: 0.9rem;
+.panal__aviso {
+  color: var(--ink-soft);
+  font-size: 0.85rem;
+  margin: 0 0 0.5rem;
 }
 
-/* --- Tarjeta de agente: se siente viva y se puede "entrar" --- */
-.agent {
-  position: relative;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 0.5rem;
-  padding: 1.4rem 1.1rem 1.1rem;
-  border-radius: 24px;
-  border: 1.5px solid var(--border);
-  background:
-    radial-gradient(120% 70% at 50% -10%, rgba(0, 186, 254, 0.10), transparent 62%),
-    var(--panel);
-  cursor: pointer;
+.panal__svg {
+  display: block;
+  width: 100%;
+  /* El viewBox manda la proporción; el tope evita que con pocos agentes un
+     hexágono gigante se coma la pantalla. */
+  max-height: 62vh;
+  margin-inline: auto;
+}
+
+.panal__pie {
   text-align: center;
-  overflow: hidden;
-  transition: transform 0.16s ease, border-color 0.16s ease, box-shadow 0.16s ease;
-
-  &:hover,
-  &:focus-visible {
-    transform: translateY(-4px);
-    border-color: color-mix(in srgb, var(--secondary) 55%, var(--border));
-    box-shadow: 0 18px 34px rgba(4, 12, 28, 0.45);
-    outline: none;
-  }
+  color: var(--ink-soft);
+  font-size: 0.75rem;
+  margin: 0.5rem 0 0;
 }
 
-.agent--open {
-  border-color: var(--secondary);
-  box-shadow: 0 0 0 1px var(--secondary), 0 18px 34px rgba(4, 12, 28, 0.5);
-}
-
-.agent--mine {
-  background:
-    radial-gradient(120% 70% at 50% -10%, rgba(243, 71, 0, 0.14), transparent 62%),
-    var(--panel);
-}
-
-/* Avatar con aura: la nebulosa respira dentro de un halo que late. */
-.agent__avatar {
-  position: relative;
-  display: grid;
-  place-items: center;
-  width: 76px;
-  height: 76px;
-  animation: agent-breathe 4s ease-in-out infinite;
-}
-
-.agent:nth-child(2n) .agent__avatar { animation-delay: 0.7s; }
-.agent:nth-child(3n) .agent__avatar { animation-delay: 1.4s; }
-
-@keyframes agent-breathe {
-  0%, 100% { transform: scale(1); }
-  50% { transform: scale(1.06); }
-}
-
-.agent__aura {
-  position: absolute;
-  inset: -12px;
-  border-radius: 50%;
-  background: radial-gradient(closest-side, rgba(0, 186, 254, 0.28), transparent 72%);
-  animation: agent-aura 3.2s ease-in-out infinite;
+/* Celda vacía: el fondo del mosaico. Sin eventos y apenas dibujada — su
+   trabajo es que el conjunto se lea como una pared de panal continua. */
+.hex__vacia {
+  fill: var(--panel);
+  stroke: color-mix(in srgb, var(--primary) calc(var(--luz, 0.05) * 100%), var(--border));
+  stroke-width: 1.2;
   pointer-events: none;
 }
 
-.agent--mine .agent__aura {
-  background: radial-gradient(closest-side, rgba(243, 71, 0, 0.32), transparent 72%);
-}
+/* ===== Celdas ===== */
+.hex {
+  cursor: pointer;
+  outline: none;
 
-@keyframes agent-aura {
-  0%, 100% { opacity: 0.5; transform: scale(0.94); }
-  50% { opacity: 1; transform: scale(1.08); }
-}
+  /* El borde recoge --luz (0..1) que el TS calcula por distancia al centro:
+     las celdas lejanas se apagan, como en la referencia. */
+  .hex__borde {
+    fill: none;
+    stroke: color-mix(in srgb, var(--primary) calc(var(--luz, 0.2) * 100%), var(--border));
+    stroke-width: 1.6;
+    transition: stroke 0.15s, stroke-width 0.15s;
+  }
 
-/* Punto "despierto" con onda expansiva. */
-.agent__online {
-  position: absolute;
-  right: 4px;
-  bottom: 4px;
-  width: 11px;
-  height: 11px;
-  border-radius: 50%;
-  background: var(--positive);
-  border: 2.5px solid var(--panel);
-  box-sizing: content-box;
+  .hex__fondo {
+    fill: var(--panel);
+    transition: fill 0.15s;
+  }
 
-  &::after {
-    content: '';
-    position: absolute;
-    inset: -3px;
-    border-radius: 50%;
-    border: 1.5px solid var(--positive);
-    animation: agent-ping 2.4s ease-out infinite;
+  &:hover .hex__fondo,
+  &:focus-visible .hex__fondo {
+    fill: var(--panel-2);
+  }
+
+  &:hover .hex__borde,
+  &:focus-visible .hex__borde {
+    stroke: var(--primary);
   }
 }
 
-@keyframes agent-ping {
-  0% { transform: scale(0.7); opacity: 0.9; }
-  80%, 100% { transform: scale(1.9); opacity: 0; }
+/* Activos: encendidos de verdad. */
+.hex--activo {
+  .hex__fondo { fill: var(--panel-2); }
+
+  .hex__borde {
+    stroke: var(--primary);
+    stroke-width: 2.4;
+  }
 }
 
-.agent__name {
-  margin: 0.2rem 0 0;
-  font-size: 0.95rem;
-  font-weight: 700;
+/* La asignada a su canal lleva el acento cian de la marca, no otro naranja:
+   "encendida" y "en uso" son cosas distintas. */
+.hex--mia .hex__borde {
+  stroke: var(--secondary);
+}
+
+.hex--abierta .hex__borde {
+  stroke-width: 3;
+}
+
+/* Halo difuminado bajo las celdas activas (filtro #panalBrillo). */
+.hex__halo {
+  fill: none;
+  stroke: var(--primary);
+  stroke-width: 5;
+  opacity: 0.55;
+  pointer-events: none;
+}
+
+.hex__halo--mia {
+  stroke: var(--secondary);
+}
+
+/* ===== Texto dentro de las celdas ===== */
+.hex__nombre {
+  fill: var(--ink);
+  font-size: 15px;
+  font-weight: 800;
   letter-spacing: -0.01em;
-  line-height: 1.25;
+  pointer-events: none;
 }
 
-.agent__chips {
-  display: flex;
-  gap: 0.35rem;
-  flex-wrap: wrap;
-  justify-content: center;
-}
-
-.chip {
-  font-size: 0.68rem;
+.hex__canal {
+  fill: var(--secondary);
+  font-size: 11px;
   font-weight: 700;
-  padding: 0.22rem 0.6rem;
-  border-radius: 999px;
-  border: 1px solid var(--border);
-  color: var(--ink-soft);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  pointer-events: none;
 }
 
-.chip--live {
-  color: var(--secondary);
-  border-color: color-mix(in srgb, var(--secondary) 45%, transparent);
+.hex__dato {
+  fill: var(--ink-soft);
+  font-size: 10px;
+  pointer-events: none;
 }
 
-.chip--mine {
-  color: var(--primary);
-  border-color: color-mix(in srgb, var(--primary) 50%, transparent);
-  background: color-mix(in srgb, var(--primary) 12%, transparent);
+.hex__uso {
+  fill: var(--secondary);
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  pointer-events: none;
 }
 
-.agent__where {
-  margin: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 0.3rem;
-  font-size: 0.74rem;
-  color: var(--positive);
-  font-weight: 600;
-  line-height: 1.35;
-}
-
-.agent__warn { color: var(--ink-soft); font-weight: 500; }
-
-.agent__stat {
-  font-size: 0.7rem;
-  color: var(--ink-soft);
-  line-height: 1.4;
-
-  strong { color: var(--secondary); font-weight: 800; }
-}
-
-.agent__cta {
-  margin-top: 0.45rem;
-  width: 100%;
-  border: 1.5px solid var(--border);
-  background: transparent;
-  color: var(--ink-soft);
-  font: inherit;
-  font-size: 0.72rem;
+/* Iniciales de los dormidos: se apagan con la misma luz que su borde. */
+.hex__iniciales {
+  fill: color-mix(in srgb, var(--ink) calc(30% + var(--luz, 0.2) * 55%), transparent);
+  font-size: 13px;
   font-weight: 700;
-  padding: 0.5rem 0.7rem;
-  border-radius: 999px;
-  cursor: pointer;
-  transition: border-color 0.15s, color 0.15s, background 0.15s;
-
-  &:hover:not(:disabled) { border-color: var(--secondary); color: var(--secondary); }
-  &:disabled { opacity: 0.6; cursor: wait; }
+  letter-spacing: 0.04em;
+  pointer-events: none;
 }
 
-.agent__cta--on {
-  border-color: transparent;
-  background: color-mix(in srgb, var(--primary) 18%, transparent);
-  color: var(--primary);
-}
-
-/* --- Agentes dormidos: fila compacta --- */
-.squad--asleep { margin-top: 1.6rem; }
-
-.sleepers {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.5rem;
-}
-
-.sleeper {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.5rem;
-  padding: 0.45rem 0.85rem 0.45rem 0.45rem;
-  border-radius: 999px;
-  border: 1px solid var(--border);
-  background: var(--panel);
-  color: var(--ink-soft);
-  font: inherit;
-  font-size: 0.76rem;
-  cursor: pointer;
-  opacity: 0.72;
-  transition: opacity 0.15s, border-color 0.15s;
-
-  voice-nebula { filter: saturate(0.35); }
-
-  &:hover { opacity: 1; border-color: var(--secondary); }
-}
-
-.sleeper--open { opacity: 1; border-color: var(--secondary); }
-
-.sleeper__name { font-weight: 600; color: var(--ink); }
-.sleeper__ch { font-size: 0.68rem; }
-
+/* ===== Detalle del perfil abierto ===== */
 .detail {
   margin-bottom: 1.4rem;
 }
@@ -287,8 +209,9 @@
 .detail__head {
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
   gap: 0.7rem;
-  margin-bottom: 0.7rem;
+  margin-bottom: 0.5rem;
 
   h2 { margin: 0; font-size: 1.1rem; }
 }
@@ -303,6 +226,39 @@
   border-radius: 8px;
   padding: 0.15rem 0.5rem;
 }
+
+/* Asignar canal: vive en el detalle ahora que las celdas son hexágonos
+   (dentro de un polígono SVG no cabe un botón decente). */
+.detail__cta {
+  font: inherit;
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: var(--ink);
+  background: var(--panel-2);
+  border: 1.5px solid var(--border);
+  border-radius: 999px;
+  padding: 0.35rem 0.9rem;
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s;
+
+  &:hover:not(:disabled) { border-color: var(--secondary); }
+  &:disabled { opacity: 0.5; cursor: default; }
+
+  &--on {
+    border-color: var(--secondary);
+    color: var(--secondary);
+  }
+}
+
+.detail__estado {
+  color: var(--ink-soft);
+  font-size: 0.82rem;
+  margin: 0 0 0.9rem;
+
+  strong { color: var(--ink); }
+}
+
+.detail__warn { color: var(--ink-soft); }
 
 /* Chips clave:valor — en pantallas anchas las filas con guías punteadas
    quedaban estiradas y desalineadas. */
@@ -386,67 +342,3 @@
   border-radius: 12px;
   padding: 0.7rem 0.9rem;
 }
-
-/* --- Workflows del gateway --- */
-.workflows h2 {
-  font-size: 1.1rem;
-  margin-bottom: 0.2rem;
-}
-
-.wf-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
-  gap: 0.9rem;
-  margin-top: 0.8rem;
-}
-
-.wf {
-  display: flex;
-  flex-direction: column;
-  gap: 0.7rem;
-}
-
-.wf__head {
-  display: flex;
-  align-items: center;
-  gap: 0.7rem;
-}
-
-.wf__icon {
-  width: 38px;
-  height: 38px;
-  display: grid;
-  place-items: center;
-  border-radius: 12px;
-  background: var(--panel-2);
-  border: 1px solid var(--border);
-  color: var(--primary);
-  font-size: 1.05rem;
-  flex-shrink: 0;
-}
-
-.wf__titles {
-  display: flex;
-  flex-direction: column;
-  min-width: 0;
-}
-
-.wf__name { font-weight: 800; font-size: 0.92rem; }
-
-.wf__trigger {
-  color: var(--ink-soft);
-  font-size: 0.75rem;
-}
-
-.wf__steps {
-  margin: 0;
-  padding-left: 1.2rem;
-  font-size: 0.82rem;
-  display: flex;
-  flex-direction: column;
-  gap: 0.25rem;
-  color: var(--ink);
-  flex: 1;
-}
-
-.wf .btn { align-self: flex-start; }
