@@ -3,6 +3,7 @@ import { ConfigModule } from '@nestjs/config';
 import { validateConfig } from './config/configuration';
 import { AuthModule } from './auth/auth.module';
 import { BrainModule } from './brain/brain.module';
+import { HubspotModule } from './hubspot/hubspot.module';
 import { ChannelsModule } from './channels/channels.module';
 import { DemoModule } from './demo/demo.module';
 import { IntegrationsModule } from './integrations/integrations.module';
@@ -27,6 +28,7 @@ import { SharedModule } from './shared/flow-log.service';
     AuthModule,
     BrainModule,
     IntegrationsModule,
+    HubspotModule,
     ChannelsModule,
     NlpearlModule,
     DemoModule,
