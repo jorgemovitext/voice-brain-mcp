@@ -22,7 +22,8 @@ export interface BrainRepository {
    */
   replaceInteraction(interaction: Interaction): Promise<Interaction>;
 
-  listSignals(contactId: string): Promise<Signal[]>;
+  /** Sin contactId devuelve TODAS: evita el N+1 al armar el listado. */
+  listSignals(contactId?: string): Promise<Signal[]>;
   saveSignal(signal: Signal): Promise<Signal>;
 
   /** Borra todo — útil para re-correr la demo desde cero. */

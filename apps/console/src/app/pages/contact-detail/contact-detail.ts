@@ -11,7 +11,7 @@ import {
   viewChild,
 } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
-import { httpResource } from '@angular/common/http';
+import { HttpErrorResponse, httpResource } from '@angular/common/http';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { map } from 'rxjs';
 import { BrainApiService } from '../../brain-api.service';
@@ -117,6 +117,17 @@ export class ContactDetailPage implements OnDestroy {
   });
 
   readonly avances = computed(() => this.progreso.value() ?? []);
+
+  /**
+   * ¿El contacto realmente no existe (404), o fue un fallo del servidor?
+   * Distinguirlo importa: decir "no se encontró" ante un 500 pasajero manda
+   * al operador a buscar un problema que no existe.
+   */
+  readonly conversacionInexistente = computed(() => {
+    const err = this.context.error();
+    const causa = (err as { cause?: unknown })?.cause ?? err;
+    return causa instanceof HttpErrorResponse && causa.status === 404;
+  });
 
   /** Base de las rutas del sidebar, para no salirse del módulo. */
   readonly threadBase = computed(() => (this.withThreads() ? '/conversations' : '/contacts'));

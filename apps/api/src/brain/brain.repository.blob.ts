@@ -153,8 +153,9 @@ export class BlobBrainRepository implements BrainRepository {
     return interaction;
   }
 
-  async listSignals(contactId: string): Promise<Signal[]> {
-    return (await this.fresh()).signals.filter((s) => s.contactId === contactId);
+  async listSignals(contactId?: string): Promise<Signal[]> {
+    const todas = (await this.fresh()).signals;
+    return contactId ? todas.filter((s) => s.contactId === contactId) : [...todas];
   }
 
   async saveSignal(signal: Signal): Promise<Signal> {

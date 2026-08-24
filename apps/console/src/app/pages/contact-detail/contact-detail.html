@@ -1,10 +1,15 @@
-@if (context.error()) {
+<!-- El error solo tapa la vista si NO hay nada que mostrar. Con el hilo ya
+     cargado, un fallo pasajero del servidor no debe borrarlo de la pantalla:
+     el sondeo reintenta solo y el operador ni se entera. -->
+@if (context.error() && !context.value()) {
   <div class="state state--error">
-    No se encontró esta conversación.
-    <p class="state__hint">
-      Puede que el contacto se haya creado en otra instancia del servidor.
-      Volvé al listado y abrila desde ahí.
-    </p>
+    @if (conversacionInexistente()) {
+      No se encontró esta conversación.
+      <p class="state__hint">Puede que se haya borrado. Volvé al listado y abrí otra.</p>
+    } @else {
+      No se pudo cargar la conversación.
+      <p class="state__hint">Puede ser un fallo momentáneo del servidor. Se reintenta solo.</p>
+    }
     <div class="state__actions">
       <button class="btn btn--primary" (click)="context.reload()">Reintentar</button>
       <a class="btn btn--ghost" routerLink="/conversations">Ver conversaciones</a>

@@ -42,22 +42,42 @@ export class BrainService {
   }
 
   /** Listado enriquecido para la consola: última interacción + promesa activa. */
+  /**
+   * Listado con la última interacción y la promesa activa de cada contacto.
+   *
+   * Tres consultas fijas, no 1+2N: antes pedía interacciones y señales POR
+   * contacto, y como la consola sondea este endpoint seguido, con nueve
+   * contactos eran ~19 consultas por llamada varias veces por segundo. Contra
+   * el pool de 3 conexiones de Neon eso saturaba y la vista de conversación
+   * empezaba a fallar con "no se encontró".
+   */
   async listContacts(): Promise<ContactListItem[]> {
-    const contacts = await this.repo.listContacts();
-    const items: ContactListItem[] = [];
-    for (const contact of contacts) {
-      const interactions = await this.sortedInteractions(contact.id);
-      const signals = await this.repo.listSignals(contact.id);
-      const last = interactions[0];
-      items.push({
+    const [contacts, interacciones, señales] = await Promise.all([
+      this.repo.listContacts(),
+      this.repo.listInteractions(),
+      this.repo.listSignals(),
+    ]);
+
+    const ultima = new Map<string, Interaction>();
+    for (const i of interacciones) {
+      const previa = ultima.get(i.contactId);
+      if (!previa || i.occurredAt > previa.occurredAt) ultima.set(i.contactId, i);
+    }
+    const promesa = new Map<string, Signal>();
+    for (const s of señales) {
+      if (s.type === 'promise' && s.status === 'active') promesa.set(s.contactId, s);
+    }
+
+    return contacts.map((contact) => {
+      const last = ultima.get(contact.id);
+      return {
         ...contact,
         lastInteraction: last
           ? { channel: last.channel, occurredAt: last.occurredAt, summary: last.summary, sentiment: last.sentiment }
           : undefined,
-        activePromise: signals.find((s) => s.type === 'promise' && s.status === 'active'),
-      });
-    }
-    return items;
+        activePromise: promesa.get(contact.id),
+      };
+    });
   }
 
   /** Contexto unificado: contacto + timeline cross-channel + señales. */

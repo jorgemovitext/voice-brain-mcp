@@ -120,9 +120,9 @@ export class JsonBrainRepository implements BrainRepository {
     return interaction;
   }
 
-  async listSignals(contactId: string): Promise<Signal[]> {
+  async listSignals(contactId?: string): Promise<Signal[]> {
     await this.ensureLoaded();
-    return this.signals.filter((s) => s.contactId === contactId);
+    return contactId ? this.signals.filter((s) => s.contactId === contactId) : [...this.signals];
   }
 
   async saveSignal(signal: Signal): Promise<Signal> {

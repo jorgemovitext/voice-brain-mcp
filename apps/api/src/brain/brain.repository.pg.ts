@@ -174,9 +174,11 @@ export class PgBrainRepository implements BrainRepository {
     };
   }
 
-  async listSignals(contactId: string): Promise<Signal[]> {
+  async listSignals(contactId?: string): Promise<Signal[]> {
     const db = await this.db();
-    const res = await db.query('SELECT * FROM signals WHERE contact_id = $1', [contactId]);
+    const res = contactId
+      ? await db.query('SELECT * FROM signals WHERE contact_id = $1', [contactId])
+      : await db.query('SELECT * FROM signals');
     return res.rows.map((r) => this.rowToSignal(r));
   }
 
