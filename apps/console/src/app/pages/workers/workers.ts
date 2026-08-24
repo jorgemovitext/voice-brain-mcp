@@ -57,18 +57,28 @@ function aPixel(q: number, r: number, size: number): { x: number; y: number } {
   return { x: size * 1.5 * q, y: size * Math.sqrt(3) * (r + q / 2) };
 }
 
-/** Distancia en celdas entre dos coordenadas axiales. */
-function distancia(a: Axial, b: Axial): number {
-  const dq = a.q - b.q;
-  const dr = a.r - b.r;
-  return (Math.abs(dq) + Math.abs(dq + dr) + Math.abs(dr)) / 2;
-}
+/**
+ * ¿Se pisan dos hexágonos de esta orientación?
+ *
+ * Con la misma orientación, el test de ejes separadores es EXACTO usando solo
+ * las tres normales de arista (30°, 90°, 150°), y sobre esas normales la
+ * proyección de un hexágono mide justo su apotema (r·√3/2). Dos celdas se
+ * solapan si y solo si se pisan en los tres ejes; `margen` exige además ese
+ * aire entre bordes.
+ */
+const EJES = [30, 90, 150].map((g) => ({
+  x: Math.cos((Math.PI / 180) * g),
+  y: Math.sin((Math.PI / 180) * g),
+}));
 
-/** Las seis vecinas de una celda. */
-const VECINAS: Axial[] = [
-  { q: 1, r: 0 }, { q: 1, r: -1 }, { q: 0, r: -1 },
-  { q: -1, r: 0 }, { q: -1, r: 1 }, { q: 0, r: 1 },
-];
+function sePisan(
+  a: { x: number; y: number; r: number },
+  b: { x: number; y: number; r: number },
+  margen = 0,
+): boolean {
+  const tope = ((a.r + b.r) * Math.sqrt(3)) / 2 + margen;
+  return EJES.every((u) => Math.abs((a.x - b.x) * u.x + (a.y - b.y) * u.y) < tope);
+}
 
 /**
  * Hexágono de esquinas redondeadas, que es la forma que usamos en toda la app
@@ -170,53 +180,32 @@ export class WorkersPage {
     const resto = this.dormidos();
     if (!activos.length && !resto.length) return [];
 
-    /*
-     * Una sola retícula para todos: el paso es el hexágono CHICO, y los
-     * grandes ocupan una celda más su anillo de vecinas. Así los chicos
-     * encajan pegados a los grandes en vez de quedar en un anillo aparte,
-     * que es lo que dejaba el hueco vacío de la versión anterior.
-     */
-    /*
-     * Los radios NO son a ojo. Reservando solo el anillo de vecinas, la celda
-     * chica libre más próxima queda a 3·S, y dos hexágonos alineados se tocan
-     * a (R₁+R₂)·√3/2 — de ahí sale un techo de 2.46·S para el grande. Pasarse
-     * hacía que el grande se comiera las seis celdas diagonales.
-     */
     const S = 46;
     const R_ACTIVO = S * 2.15;
     // El que atiende su canal manda: se lleva el hexágono más grande.
     const R_EN_USO = S * 2.45;
+    /** Junta mínima entre bordes, para que el trazo no se monte. */
+    const MORTERO = 6;
 
-    const posiciones = espiral(16);
-    const usadas = new Set<string>();
-    const centrosGrandes: Axial[] = [];
-    const clave = (a: Axial) => `${a.q},${a.r}`;
-
-    // Los grandes primero y desde el centro; los que están en uso, antes.
+    // Los que están en uso primero: ocupan el mero centro del racimo.
     const grandes = [...activos].sort(
       (a, b) => Number(this.isAssigned(b)) - Number(this.isAssigned(a)),
     );
 
+    /*
+     * Los grandes van PEGADOS entre sí, en su propio racimo espiral: paso de
+     * retícula = el que deja a dos celdas del radio mayor casi tocándose.
+     * (Separar los grandes y meter chicos entre medio era justo lo que no
+     * quería el usuario: el centro debe ser un bloque.)
+     */
+    const mayor = grandes.some((w) => this.isAssigned(w)) ? R_EN_USO : R_ACTIVO;
+    const pasoGrande = (mayor * Math.sqrt(3) + MORTERO) / Math.sqrt(3);
+
     const celdas: Celda[] = [];
-    for (const w of grandes) {
-      /*
-       * Dos grandes a dos celdas de distancia se solaparían (sus radios suman
-       * más que la separación), así que se exige distancia 3. Y se reserva el
-       * anillo de vecinas, que es el suelo que pisa el hexágono grande.
-       */
-      const pos = posiciones.find(
-        (p) =>
-          !usadas.has(clave(p)) &&
-          centrosGrandes.every((g) => distancia(g, p) >= 3) &&
-          VECINAS.every((v) => !usadas.has(clave({ q: p.q + v.q, r: p.r + v.r }))),
-      );
+    for (const [i, w] of grandes.entries()) {
+      const pos = espiral(3)[i];
       if (!pos) break;
-
-      centrosGrandes.push(pos);
-      usadas.add(clave(pos));
-      for (const v of VECINAS) usadas.add(clave({ q: pos.q + v.q, r: pos.r + v.r }));
-
-      const { x, y } = aPixel(pos.q, pos.r, S);
+      const { x, y } = aPixel(pos.q, pos.r, pasoGrande);
       const r = this.isAssigned(w) ? R_EN_USO : R_ACTIVO;
       celdas.push({
         w, x, y, r, activo: true, luz: 1,
@@ -224,24 +213,32 @@ export class WorkersPage {
         d: hexRedondo(x, y, r),
       });
     }
+    const nucleo = celdas.map((c) => ({ x: c.x, y: c.y, r: c.r }));
 
-    // Los dormidos rellenan lo que quede, del centro hacia afuera.
-    const libres = posiciones.filter((p) => !usadas.has(clave(p)));
+    /*
+     * Los dormidos abrazan el racimo por FUERA: candidatos en espiral sobre
+     * la retícula chica, descartando por test de ejes separadores todo el que
+     * pise un grande. Como entre dos grandes solo queda el mortero, ahí no
+     * cabe ninguno — no hay chicos incrustados en el centro.
+     */
+    const libres = espiral(18)
+      .map(({ q, r }) => aPixel(q, r, S))
+      .filter((p) => nucleo.every((g) => !sePisan({ ...p, r: S }, g, 3)))
+      .sort((a, b) => Math.hypot(a.x, a.y) - Math.hypot(b.x, b.y));
+
     const ultima = libres[Math.min(resto.length, libres.length) - 1];
-    const borde = ultima ? aPixel(ultima.q, ultima.r, S) : null;
-    const alcance = borde ? Math.hypot(borde.x, borde.y) || 1 : 1;
+    const alcance = ultima ? Math.hypot(ultima.x, ultima.y) || 1 : 1;
 
     for (const [i, w] of resto.entries()) {
-      const pos = libres[i];
-      if (!pos) break;
-      const { x, y } = aPixel(pos.q, pos.r, S);
+      const p = libres[i];
+      if (!p) break;
       // Como en la referencia: la luz nace en el centro y se apaga hacia afuera.
-      const dist = Math.hypot(x, y);
+      const dist = Math.hypot(p.x, p.y);
       celdas.push({
-        w, x, y, r: S, activo: false,
+        w, x: p.x, y: p.y, r: S, activo: false,
         luz: Math.max(0.1, 1 - dist / (alcance * 1.2)),
         iniciales: iniciales(w.name), lineas: [],
-        d: hexRedondo(x, y, S),
+        d: hexRedondo(p.x, p.y, S),
       });
     }
     return celdas;
