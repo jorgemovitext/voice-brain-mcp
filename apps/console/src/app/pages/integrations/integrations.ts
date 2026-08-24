@@ -1,97 +1,90 @@
-import { Component, inject, signal } from '@angular/core';
-import { KeyValuePipe } from '@angular/common';
+import { Component, DestroyRef, computed, inject } from '@angular/core';
 import { httpResource } from '@angular/common/http';
-import { Router, RouterLink } from '@angular/router';
-import { BrainApiService } from '../../brain-api.service';
-import { Icon, IconName } from '../../icon';
-import { IntegrationStatus, NlpearlTestResult, WebhookEvent } from '../../models';
+import { RouterLink } from '@angular/router';
+import { Icon } from '../../icon';
+import { HiveStatus, WebhookEvent } from '../../models';
+import { crearSondeo } from '../../sondeo';
+import { channelIconName, channelLabel } from '../../ui';
 
 /**
- * Integraciones: estado de cada proveedor y los datos para configurarlo.
- * Nunca muestra secretos — el backend solo informa si están presentes.
- * Incluye el alta de un número para empezar a chatear por WhatsApp.
+ * Actividad: qué está pasando ahora mismo en los canales. Cifras del día,
+ * reparto por canal, ritmo por hora, la cola de espera, el último movimiento
+ * y los eventos crudos de los webhooks.
+ *
+ * La configuración de proveedores (URLs, credenciales, prueba de conexión)
+ * salió de acá: es configuración, no actividad.
  */
 @Component({
   selector: 'app-integrations',
-  imports: [RouterLink, Icon, KeyValuePipe],
+  imports: [RouterLink, Icon],
   templateUrl: './integrations.html',
   styleUrl: './integrations.scss',
 })
 export class IntegrationsPage {
-  private readonly api = inject(BrainApiService);
-  private readonly router = inject(Router);
+  private readonly destroyRef = inject(DestroyRef);
 
-  readonly integrations = httpResource<IntegrationStatus[]>(() => '/api/integrations');
+  readonly hive = httpResource<HiveStatus>(() => '/api/hive');
   readonly activity = httpResource<WebhookEvent[]>(() => '/api/integrations/activity');
 
-  /** Resultado de la prueba de conexión con NL Pearl. */
-  readonly testing = signal(false);
-  readonly testResult = signal<NlpearlTestResult | null>(null);
+  readonly channelIconName = channelIconName;
+  readonly channelLabel = channelLabel;
 
-  readonly phone = signal('');
-  readonly name = signal('');
-  readonly creating = signal(false);
-  readonly error = signal<string | null>(null);
-  readonly copied = signal<string | null>(null);
+  readonly m = computed(() => this.hive.value()?.metricas);
 
-  icon(id: IntegrationStatus['id']): IconName {
-    return id === 'nlpearl' ? 'phone' : id === 'whatsapp' ? 'chat' : 'mail';
+  /** Canales con tráfico, ordenados, con el ancho de barra ya resuelto. */
+  readonly canales = computed(() => {
+    const porCanal = (this.hive.value()?.porCanal ?? []).filter((c) => c.total > 0);
+    const tope = Math.max(1, ...porCanal.map((c) => c.total));
+    return porCanal
+      .sort((a, b) => b.total - a.total)
+      .map((c) => ({ ...c, pct: Math.round((c.total / tope) * 100) }));
+  });
+
+  readonly picoHora = computed(() => Math.max(0, ...(this.m()?.porHora ?? [])));
+
+  readonly horas = computed(() => {
+    const serie = this.m()?.porHora ?? [];
+    const tope = Math.max(1, ...serie);
+    return serie.map((total, hora) => ({
+      hora,
+      total,
+      pct: Math.round((total / tope) * 100),
+      pico: total > 0 && total === tope,
+    }));
+  });
+
+  constructor() {
+    // Es una pantalla de "ahora mismo": se refresca sola y se calla si no pasa nada.
+    const parar = crearSondeo({
+      base: 8000,
+      max: 60000,
+      alSondear: () => {
+        this.hive.reload();
+        this.activity.reload();
+      },
+      firma: () => {
+        const h = this.hive.value();
+        return `${h?.actividad?.[0]?.occurredAt ?? ''}|${h?.metricas?.esperandoRespuesta ?? ''}`;
+      },
+    });
+    this.destroyRef.onDestroy(parar);
   }
 
-  /** Pide el listado de Pearls: verifica credenciales sin gastar llamadas. */
-  async testNlpearl(): Promise<void> {
-    this.testing.set(true);
-    this.testResult.set(null);
-    try {
-      this.testResult.set(await this.api.testNlpearl());
-    } catch {
-      this.testResult.set({ ok: false, ms: 0, error: 'No se pudo contactar a la API del gateway' });
-    } finally {
-      this.testing.set(false);
-      this.activity.reload();
-    }
+  refrescar(): void {
+    this.hive.reload();
+    this.activity.reload();
+  }
+
+  /** Espera en lenguaje humano: los minutos crudos no dicen nada de un vistazo. */
+  espera(min: number): string {
+    if (min < 1) return 'recién';
+    if (min < 60) return `${Math.round(min)} min`;
+    const h = Math.floor(min / 60);
+    if (h < 24) return `${h} h`;
+    return `${Math.floor(h / 24)} d`;
   }
 
   time(iso: string): string {
-    return new Date(iso).toLocaleTimeString('es-NI', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
-  }
-
-  onPhone(event: Event): void {
-    this.phone.set((event.target as HTMLInputElement).value);
-  }
-
-  onName(event: Event): void {
-    this.name.set((event.target as HTMLInputElement).value);
-  }
-
-  async copy(value: string): Promise<void> {
-    try {
-      await navigator.clipboard.writeText(value);
-      this.copied.set(value);
-      setTimeout(() => this.copied.set(null), 1500);
-    } catch {
-      // Si el navegador bloquea el portapapeles, el valor igual está visible.
-    }
-  }
-
-  /** Da de alta el número y abre su conversación. */
-  async startChat(): Promise<void> {
-    const phone = this.phone().trim();
-    if (!phone || this.creating()) return;
-    this.creating.set(true);
-    this.error.set(null);
-    try {
-      const { contact } = await this.api.createContact(phone, this.name().trim() || undefined);
-      this.router.navigate(['/conversations', contact.id]);
-    } catch (err: unknown) {
-      const message = (err as { error?: { message?: unknown } })?.error?.message;
-      this.error.set(
-        Array.isArray(message)
-          ? 'El teléfono debe ir en formato E.164, por ejemplo +50588887777'
-          : 'No se pudo crear la conversación. Revisá el número e intentá de nuevo.',
-      );
-    } finally {
-      this.creating.set(false);
-    }
+    return new Date(iso).toLocaleTimeString('es-NI', { hour: '2-digit', minute: '2-digit' });
   }
 }

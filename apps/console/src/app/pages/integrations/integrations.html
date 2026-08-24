@@ -6,106 +6,158 @@
         Lo que está pasando ahora mismo entre los canales, los agentes y el Brain.
       </p>
     </div>
-    <button class="btn btn--ghost" (click)="integrations.reload()">↻ Actualizar</button>
+    <button class="btn btn--ghost" (click)="refrescar()">↻ Actualizar</button>
   </header>
 
-  <!-- Estado de los canales por los que entra y sale la actividad. -->
-  <section class="canales">
-    <div class="grid">
-      @for (i of integrations.value() ?? []; track i.id) {
-        <article class="card integration">
-          <div class="integration__head">
-            <span class="integration__icon" [class.on]="i.connected"><ui-icon [name]="icon(i.id)" /></span>
-            <div class="integration__title">
-              <span class="integration__name">{{ i.name }}</span>
-              <span class="integration__mode">modo: {{ i.mode }}</span>
-            </div>
-            <span class="pill" [class.pill--positive]="i.connected" [class.pill--neutral]="!i.connected">
-              {{ i.connected ? 'Conectada' : 'Sin conectar' }}
-            </span>
-          </div>
+  <!-- Cifras del día: el pulso en cuatro números. -->
+  <section class="kpis">
+    <article class="card kpi">
+      <span class="kpi__label">Conversaciones hoy</span>
+      <strong class="kpi__valor">{{ m()?.conversacionesHoy ?? 0 }}</strong>
+      <span class="kpi__pie">{{ m()?.contactos ?? 0 }} contactos en el Brain</span>
+    </article>
+    <article class="card kpi" [class.kpi--alerta]="(m()?.esperandoRespuesta ?? 0) > 0">
+      <span class="kpi__label">Esperando respuesta</span>
+      <strong class="kpi__valor">{{ m()?.esperandoRespuesta ?? 0 }}</strong>
+      <span class="kpi__pie">
+        @if (m()?.maxEsperaMin) { la más larga, {{ espera(m()!.maxEsperaMin) }} } @else { nadie en cola }
+      </span>
+    </article>
+    <article class="card kpi">
+      <span class="kpi__label">Hilos al día</span>
+      <strong class="kpi__valor">{{ m()?.hilosAlDia ?? 0 }}</strong>
+      <span class="kpi__pie">último mensaje puesto por el enjambre</span>
+    </article>
+    <article class="card kpi">
+      <span class="kpi__label">Agentes activos</span>
+      <strong class="kpi__valor">{{ hive.value()?.obreros?.activos ?? 0 }}</strong>
+      <span class="kpi__pie">de {{ hive.value()?.obreros?.total ?? 0 }} en la cuenta</span>
+    </article>
+  </section>
 
-          @if (i.missing.length) {
-            <div class="missing">
-              <span class="missing__title">Faltan variables de entorno:</span>
-              <ul>
-                @for (m of i.missing; track m) { <li><code>{{ m }}</code></li> }
-              </ul>
-            </div>
-          }
-
-          <dl class="details">
-            @for (entry of i.details | keyvalue; track entry.key) {
-              <div class="details__row">
-                <dt>{{ entry.key }}</dt>
-                <dd>
-                  <span class="details__value">{{ entry.value }}</span>
-                  @if (entry.value.startsWith('http')) {
-                    <button class="copy" (click)="copy(entry.value)" title="Copiar">
-                      {{ copied() === entry.value ? '✓' : '⧉' }}
-                    </button>
-                  }
-                </dd>
-              </div>
-            }
-          </dl>
-
-          @if (i.id === 'nlpearl') {
-            <div class="test">
-              <button class="btn btn--ghost" (click)="testNlpearl()" [disabled]="testing()">
-                @if (testing()) { Probando… } @else { Probar conexión }
-              </button>
-              <span class="muted">Lee tus Pearls; no gasta llamadas ni créditos.</span>
-            </div>
-            @if (testResult(); as r) {
-              <div class="test__result" [class.ok]="r.ok" [class.fail]="!r.ok">
-                @if (r.ok) {
-                  ✓ NL Pearl respondió en {{ r.ms }} ms — {{ r.total }} Pearls en la cuenta
-                  @if (r.pearlEnUso; as p) {
-                    <div class="test__inuse" [class.bad]="!p.valido">
-                      {{ p.valido ? '✓ Pearl en uso: ' + p.name : '✗ El NLPEARL_PEARL_ID configurado no existe en la cuenta' }}
-                      <code>{{ p.id }}</code>
-                    </div>
-                  }
-                  @if (r.pearls?.length) {
-                    <ul class="test__pearls">
-                      @for (p of r.pearls; track p.id) { <li>{{ p.name }} <code>{{ p.id }}</code></li> }
-                    </ul>
-                  }
-                } @else {
-                  ✗ {{ r.error }}
-                }
-              </div>
-            }
-          }
-        </article>
-      }
-    </div>
-
-    <!-- Actividad de webhooks: ¿nos están pegando los proveedores? -->
-    <section class="card activity">
-      <div class="activity__head">
-        <h2>Últimos eventos</h2>
-        <button class="btn btn--ghost" (click)="activity.reload()">↻</button>
-      </div>
-      <p class="muted">
-        Lo que entra por los webhooks (NL Pearl, PreCallAPI, Gupshup) y las pruebas salientes.
-        Si acá no aparece nada tras una llamada o un WhatsApp, el proveedor no está llegando.
-      </p>
-      @if (!(activity.value() ?? []).length) {
-        <div class="state">Sin actividad registrada todavía.</div>
+  <!-- Reparto por canal y ritmo por hora. -->
+  <section class="doble">
+    <article class="card">
+      <h2>Por dónde entra</h2>
+      <p class="muted">Tráfico total por canal, y cuánto de eso lo inició el ciudadano.</p>
+      @if (!canales().length) {
+        <div class="state">Sin tráfico registrado todavía.</div>
       } @else {
-        <ul class="events">
-          @for (e of activity.value() ?? []; track e.at + e.summary) {
-            <li class="event" [class.event--fail]="!e.ok">
-              <span class="event__dot"></span>
-              <span class="event__time">{{ time(e.at) }}</span>
-              <span class="event__source">{{ e.source }}</span>
-              <span class="event__summary">{{ e.summary }}</span>
+        <ul class="canales">
+          @for (c of canales(); track c.channel) {
+            <li class="canal">
+              <span class="canal__icono"><ui-icon [name]="channelIconName(c.channel)" /></span>
+              <span class="canal__nombre">{{ channelLabel(c.channel) }}</span>
+              <span class="canal__barra">
+                <span class="canal__relleno" [style.width.%]="c.pct"></span>
+              </span>
+              <span class="canal__total">{{ c.total }}</span>
+              <span class="canal__in">{{ c.inbound }} entrantes</span>
             </li>
           }
         </ul>
       }
-    </section>
+    </article>
+
+    <article class="card">
+      <h2>Ritmo de hoy</h2>
+      <p class="muted">Interacciones por hora, de medianoche a medianoche.</p>
+      @if (!picoHora()) {
+        <div class="state">Todavía no hay movimiento hoy.</div>
+      } @else {
+        <div class="horas">
+          @for (h of horas(); track h.hora) {
+            <span class="hora" [class.hora--pico]="h.pico" [title]="h.hora + ':00 — ' + h.total">
+              <span class="hora__barra" [style.height.%]="h.pct"></span>
+            </span>
+          }
+        </div>
+        <div class="horas__eje"><span>00</span><span>06</span><span>12</span><span>18</span><span>23</span></div>
+      }
+    </article>
+  </section>
+
+  <!-- Quién espera y qué acaba de pasar: lo accionable. -->
+  <section class="doble">
+    <article class="card">
+      <div class="card__head">
+        <h2>Esperando respuesta</h2>
+        <a routerLink="/conversations" class="mas">Ver todo ↗</a>
+      </div>
+      @if (!(hive.value()?.esperando ?? []).length) {
+        <div class="state">Nadie en cola. La colmena está al día.</div>
+      } @else {
+        <ul class="lista">
+          @for (t of hive.value()!.esperando.slice(0, 6); track t.contactId) {
+            <li>
+              <a class="fila fila--espera" [routerLink]="['/conversations', t.contactId]">
+                <span class="fila__icono"><ui-icon [name]="channelIconName(t.channel)" /></span>
+                <span class="fila__cuerpo">
+                  <span class="fila__titulo">{{ t.displayName || t.phone || 'Sin nombre' }}</span>
+                  <span class="fila__texto">{{ t.summary || 'Sin resumen' }}</span>
+                </span>
+                <span class="fila__espera">{{ espera(t.waitingMin) }}</span>
+              </a>
+            </li>
+          }
+        </ul>
+      }
+    </article>
+
+    <article class="card">
+      <div class="card__head">
+        <h2>Último movimiento</h2>
+        <a routerLink="/conversations" class="mas">Ver todo ↗</a>
+      </div>
+      @if (!(hive.value()?.actividad ?? []).length) {
+        <div class="state">Sin movimiento reciente.</div>
+      } @else {
+        <ul class="lista">
+          @for (a of hive.value()!.actividad.slice(0, 6); track a.contactId + a.occurredAt) {
+            <li>
+              <a class="fila" [routerLink]="['/conversations', a.contactId]">
+                <span class="fila__icono" [class.fila__icono--out]="a.direction === 'outbound'">
+                  <ui-icon [name]="channelIconName(a.channel)" />
+                </span>
+                <span class="fila__cuerpo">
+                  <span class="fila__titulo">
+                    {{ a.displayName || 'Sin nombre' }}
+                    <span class="fila__dir">{{ a.direction === 'outbound' ? 'respondió el agente' : 'escribió' }}</span>
+                  </span>
+                  <span class="fila__texto">{{ a.summary || 'Sin resumen' }}</span>
+                </span>
+                <span class="fila__hora">{{ time(a.occurredAt) }}</span>
+              </a>
+            </li>
+          }
+        </ul>
+      }
+    </article>
+  </section>
+
+  <!-- Actividad técnica: ¿nos están pegando los proveedores? -->
+  <section class="card activity">
+    <div class="card__head">
+      <h2>Eventos de los canales</h2>
+      <a routerLink="/workers" class="mas">Agentes ↗</a>
+    </div>
+    <p class="muted">
+      Lo que entra por los webhooks (NL Pearl, PreCallAPI, Gupshup) y las pruebas salientes.
+      Si acá no aparece nada tras una llamada o un WhatsApp, el proveedor no está llegando.
+    </p>
+    @if (!(activity.value() ?? []).length) {
+      <div class="state">Sin actividad registrada todavía.</div>
+    } @else {
+      <ul class="events">
+        @for (e of activity.value() ?? []; track e.at + e.summary) {
+          <li class="event" [class.event--fail]="!e.ok">
+            <span class="event__dot"></span>
+            <span class="event__time">{{ time(e.at) }}</span>
+            <span class="event__source">{{ e.source }}</span>
+            <span class="event__summary">{{ e.summary }}</span>
+          </li>
+        }
+      </ul>
+    }
   </section>
 </div>

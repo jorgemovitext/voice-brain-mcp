@@ -61,7 +61,9 @@
                 @for (c of sk.cintas; track c.d) {
                   @if (!c.encima) {
                     <path class="flow__cinta" [attr.d]="c.d" [attr.stroke]="c.color"
-                          [attr.stroke-width]="c.grosor" />
+                          [attr.stroke-width]="c.grosor"
+                          (mouseenter)="verTip($event, c.tip, c.color)"
+                          (mousemove)="moverTip($event)" (mouseleave)="sinTip()" />
                   }
                 }
                 @for (c of sk.cintas; track c.d) {
@@ -69,11 +71,14 @@
                     <path class="flow__escarcha" [attr.d]="c.d" [attr.stroke]="c.color"
                           [attr.stroke-width]="c.grosor + 12" />
                     <path class="flow__cinta flow__cinta--vidrio" [attr.d]="c.d"
-                          [attr.stroke]="c.color" [attr.stroke-width]="c.grosor" />
+                          [attr.stroke]="c.color" [attr.stroke-width]="c.grosor"
+                          (mouseenter)="verTip($event, c.tip, c.color)"
+                          (mousemove)="moverTip($event)" (mouseleave)="sinTip()" />
                   }
                 }
                 @for (n of sk.nodos; track n.col + ':' + n.id) {
-                  <g>
+                  <g (mouseenter)="verTip($event, n.tip, n.color)"
+                     (mousemove)="moverTip($event)" (mouseleave)="sinTip()">
                     <rect class="flow__nodo" [attr.x]="n.x" [attr.y]="n.y" [attr.width]="n.w" [attr.height]="n.h" rx="9" />
                     @if (n.color) {
                       <rect [attr.x]="n.x" [attr.y]="n.y" width="4" [attr.height]="n.h" rx="2" [attr.fill]="n.color" />
@@ -137,11 +142,15 @@
                 }
                 @for (pt of c.puntos; track pt.dia) {
                   <line class="baja__tallo" [attr.x1]="pt.x" [attr.y1]="pt.y" [attr.x2]="pt.x" y2="40" />
-                  <circle class="baja__dot" [attr.cx]="pt.x" [attr.cy]="pt.y" r="1.2">
-                    <title>{{ pt.dia }} — {{ pt.valor }}</title>
-                  </circle>
+                  <circle class="baja__dot" [attr.cx]="pt.x" [attr.cy]="pt.y" r="1.2" />
                 }
                 <circle class="baja__dot baja__dot--fin" [attr.cx]="c.ultimo.x" [attr.cy]="c.ultimo.y" r="1.8" />
+                <!-- Bandas invisibles: dan al cursor un blanco de verdad. -->
+                @for (pt of c.puntos; track pt.dia) {
+                  <rect class="baja__zona" [attr.x]="pt.x - c.paso / 2" y="0" [attr.width]="c.paso" height="46"
+                        (mouseenter)="verTip($event, pt.tip, NARANJA)"
+                        (mousemove)="moverTip($event)" (mouseleave)="sinTip()" />
+                }
               </svg>
             } @else {
               <p class="vacio">Sin actividad.</p>
@@ -160,9 +169,12 @@
                   <line class="baja__grid baja__grid--punteada" x1="0" [attr.y1]="g" x2="100" [attr.y2]="g" />
                 }
                 @for (p of horasDots(); track p.hora) {
-                  <circle class="baja__dot baja__dot--cian" [attr.cx]="p.x" [attr.cy]="p.y" r="1.2">
-                    <title>{{ p.hora }}:00 — {{ p.total }} mensaje(s)</title>
-                  </circle>
+                  <circle class="baja__dot baja__dot--cian" [attr.cx]="p.x" [attr.cy]="p.y" r="1.2" />
+                }
+                @for (p of horasDots(); track p.hora) {
+                  <rect class="baja__zona" [attr.x]="p.x - 2.5" y="0" width="5" height="46"
+                        (mouseenter)="verTip($event, p.tip, CIAN)"
+                        (mousemove)="moverTip($event)" (mouseleave)="sinTip()" />
                 }
               </svg>
               <div class="baja__eje"><span>00</span><span>06</span><span>12</span><span>18</span><span>23</span></div>
@@ -178,7 +190,9 @@
               <span><b [style.color]="an.resumen.sinRespuesta ? MAL : OK">{{ an.resumen.sinRespuesta }}</b><em>hilos</em></span>
             </div>
             <svg class="baja__svg baja__svg--gauge" viewBox="0 0 100 56" role="img"
-                 aria-label="Proporción de conversaciones sin respuesta">
+                 aria-label="Proporción de conversaciones sin respuesta"
+                 (mouseenter)="verTip($event, tipGauge(), an.resumen.sinRespuesta ? MAL : OK)"
+                 (mousemove)="moverTip($event)" (mouseleave)="sinTip()">
               @for (m of gauge().marcas; track m.x1) {
                 <line [attr.x1]="m.x1" [attr.y1]="m.y1" [attr.x2]="m.x2" [attr.y2]="m.y2"
                       [attr.stroke]="m.color" stroke-width="2.6" stroke-linecap="round" opacity="0.9" />
@@ -225,7 +239,8 @@
         <section class="sec">
           <a class="sec__head" routerLink="/conversations">Salud de conversaciones <i>↗</i></a>
           @if (saludConversaciones(); as s) {
-            <div class="pills">
+            <div class="pills" (mouseenter)="verTip($event, tipSalud(), MAL)"
+                 (mousemove)="moverTip($event)" (mouseleave)="sinTip()">
               @for (color of s.pills; track $index) { <i [style.background]="color"></i> }
             </div>
             <span class="sec__pie">{{ s.texto }}</span>
@@ -235,7 +250,8 @@
         <section class="sec">
           <a class="sec__head" routerLink="/actividad">Salud de casos (CRM) <i>↗</i></a>
           @if (saludCasos(); as s) {
-            <div class="pills">
+            <div class="pills" (mouseenter)="verTip($event, tipCasos(), OK)"
+                 (mousemove)="moverTip($event)" (mouseleave)="sinTip()">
               @for (color of s.pills; track $index) { <i [style.background]="color"></i> }
             </div>
             <span class="sec__pie">{{ s.texto }}</span>
@@ -249,7 +265,8 @@
           @if (marcador().length) {
             <ul class="score">
               @for (m of marcador(); track m.etiqueta) {
-                <li>
+                <li (mouseenter)="verTip($event, m.tip, '#729B26')"
+                    (mousemove)="moverTip($event)" (mouseleave)="sinTip()">
                   <span class="score__txt">{{ m.etiqueta }}</span>
                   <span class="pills pills--mini">
                     @for (color of m.pills; track $index) { <i [style.background]="color"></i> }
@@ -282,6 +299,14 @@
           }
         </section>
       </aside>
+    </div>
+  }
+
+  <!-- Píldora de contexto: una sola para todo el tablero, sigue al cursor. -->
+  @if (tip(); as t) {
+    <div class="tip" [style.left.px]="t.x" [style.top.px]="t.y" role="status">
+      @if (t.color) { <i class="tip__punto" [style.background]="t.color"></i> }
+      {{ t.texto }}
     </div>
   }
 </section>

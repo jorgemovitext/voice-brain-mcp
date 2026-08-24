@@ -36,6 +36,8 @@ interface NodoSankey {
   id: string;
   col: number;
   etiqueta: string;
+  /** Texto del tooltip: el nodo solo muestra su cifra, no su peso relativo. */
+  tip: string;
   total: number;
   x: number;
   y: number;
@@ -57,6 +59,16 @@ interface CintaSankey {
   seg: number;
   /** Pasa por ENCIMA de otra en un cruce: se le aplica el vidrio. */
   encima: boolean;
+  /** Texto del tooltip: la cinta sola no dice de dónde viene ni cuánto pesa. */
+  tip: string;
+}
+
+/** Píldora flotante de contexto, anclada al cursor. */
+interface Tip {
+  x: number;
+  y: number;
+  texto: string;
+  color?: string;
 }
 
 @Component({
@@ -84,6 +96,9 @@ export class TableroPage {
   readonly channelLabel = channelLabel;
   readonly OK = OK;
   readonly MAL = MAL;
+  /** Los mismos acentos que pintan cada gráfico, para el punto del tooltip. */
+  readonly NARANJA = '#F34700';
+  readonly CIAN = '#00BAFE';
 
   colorCanal(channel: string): string {
     return COLOR_CANAL[channel] ?? '#8A8F98';
@@ -96,6 +111,52 @@ export class TableroPage {
   /** Alterna el filtro: volver a pulsar el canal activo lo quita. */
   alternarCanal(canal: Channel): void {
     this.canal.update((actual) => (actual === canal ? null : canal));
+  }
+
+  // ===== Tooltip =====
+
+  /**
+   * Una sola píldora para todo el tablero, anclada al cursor con
+   * `position: fixed`. Se sigue con `mousemove` porque en SVG los puntos son
+   * diminutos y un tooltip quieto queda lejos del dato que explica.
+   */
+  readonly tip = signal<Tip | null>(null);
+
+  verTip(ev: MouseEvent, texto: string, color?: string): void {
+    this.tip.set({ x: ev.clientX, y: ev.clientY, texto, color });
+  }
+
+  moverTip(ev: MouseEvent): void {
+    this.tip.update((t) => (t ? { ...t, x: ev.clientX, y: ev.clientY } : t));
+  }
+
+  sinTip(): void {
+    this.tip.set(null);
+  }
+
+  /** "3 de 11 (27%)" — el crudo sin la proporción no dice si es mucho. */
+  private static parte(n: number, total: number): string {
+    if (!total) return `${n}`;
+    return `${n} de ${total} (${Math.round((n / total) * 100)}%)`;
+  }
+
+  tipSalud(): string {
+    const r = this.a()?.resumen;
+    if (!r) return '';
+    return `Sin respuesta ${TableroPage.parte(r.sinRespuesta, r.conversaciones)} · atendidas ${r.atendidos}`;
+  }
+
+  tipCasos(): string {
+    const c = this.a()?.casos;
+    if (!c?.configurado) return '';
+    const total = (c.enCurso ?? 0) + (c.cerrados ?? 0);
+    return `Resueltos ${TableroPage.parte(c.cerrados ?? 0, total)} · ${c.enCurso ?? 0} en curso`;
+  }
+
+  tipGauge(): string {
+    const r = this.a()?.resumen;
+    if (!r) return '';
+    return `${this.gauge().pct}% sin respuesta — ${TableroPage.parte(r.sinRespuesta, r.conversaciones)} conversaciones`;
   }
 
   // ===== Mapa de flujo (sankey de 3 columnas) =====
@@ -145,13 +206,15 @@ export class TableroPage {
       for (const id of c.ids) {
         const total = c.tot.get(id) ?? 0;
         const h = Math.max(34, (total / S) * usable);
+        const etiqueta =
+          col === 0 ? channelLabel(id as never)
+          : col === 2 ? (id === 'atendida' ? 'Atendida' : 'En espera')
+          : id;
         nodos.set(`${col}:${id}`, {
           id,
           col,
-          etiqueta:
-            col === 0 ? channelLabel(id as never)
-            : col === 2 ? (id === 'atendida' ? 'Atendida' : 'En espera')
-            : id,
+          etiqueta,
+          tip: `${etiqueta}: ${TableroPage.parte(total, S)} conversaciones`,
           total,
           x: c.x,
           y,
@@ -184,6 +247,7 @@ export class TableroPage {
         y2,
         seg,
         encima: false,
+        tip: `${a.etiqueta} → ${b.etiqueta}: ${TableroPage.parte(total, S)}`,
       };
     };
 
@@ -243,8 +307,11 @@ export class TableroPage {
       y: +(40 - (d.conversaciones / max) * 36).toFixed(2),
       dia: d.dia,
       valor: d.conversaciones,
+      tip: `${this.diaCorto(d.dia)}: ${d.conversaciones} conversación(es) · ${d.mensajes} mensajes`,
     }));
-    return { max, puntos, ultimo: puntos[puntos.length - 1] };
+    // Los puntos miden 1,2 de radio: sin una banda invisible alrededor no hay
+    // forma humana de acertarles con el cursor.
+    return { max, paso, puntos, ultimo: puntos[puntos.length - 1] };
   });
 
   /** Mensajes por día promedio, el "calls/min" de la referencia. */
@@ -264,6 +331,7 @@ export class TableroPage {
         total,
         x: +(2 + (hora / 23) * 96).toFixed(2),
         y: +(40 - (total / max) * 32).toFixed(2),
+        tip: `${String(hora).padStart(2, '0')}:00 — ${total} mensaje(s)${total === max ? ' · hora pico' : ''}`,
       }))
       .filter((p) => p.total > 0);
   });
@@ -345,8 +413,10 @@ export class TableroPage {
   readonly marcador = computed(() => {
     const lista = this.a()?.problemas ?? [];
     const max = Math.max(1, ...lista.map((x) => x.total));
+    const suma = lista.reduce((acc, x) => acc + x.total, 0);
     return lista.slice(0, 5).map((x) => ({
       ...x,
+      tip: `${x.etiqueta}: ${TableroPage.parte(x.total, suma)} de los reportes`,
       pills: this.pildoras([
         { n: x.total, color: '#729B26' },
         { n: Math.max(0, max - x.total), color: NEUTRO },
