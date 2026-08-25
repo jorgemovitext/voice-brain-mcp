@@ -177,6 +177,32 @@ export class ContactDetailPage implements OnDestroy {
   readonly channelIconName = channelIconName;
   readonly channelColor = channelColor;
 
+  /** Quién atiende el hilo; null en `operador` = lo atiende el agente. */
+  readonly atencion = computed(() => this.expediente.value()?.atencion ?? null);
+  readonly tomada = computed(() => !!this.atencion()?.operador);
+  readonly cambiandoAtencion = signal(false);
+
+  /**
+   * Las acciones solo se muestran con el hilo TOMADO: mientras lo atiende el
+   * agente, esas mismas cosas las hace su flujo y mostrarlas invitaría al
+   * operador a duplicar el trabajo.
+   */
+  readonly acciones = computed(() =>
+    this.tomada() ? (this.expediente.value()?.acciones ?? []) : [],
+  );
+
+  /** Tomar el hilo o devolvérselo al agente. */
+  async alternarAtencion(): Promise<void> {
+    if (this.cambiandoAtencion()) return;
+    this.cambiandoAtencion.set(true);
+    try {
+      await this.api.atenderConversacion(this.id(), !this.tomada());
+      this.expediente.reload();
+    } finally {
+      this.cambiandoAtencion.set(false);
+    }
+  }
+
   /**
    * El sidebar en el orden en que un operador espera verlo: el hilo con
    * movimiento más reciente arriba, sea porque llegó un mensaje nuevo o

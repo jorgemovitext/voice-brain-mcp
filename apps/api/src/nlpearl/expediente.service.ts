@@ -3,6 +3,8 @@ import { BrainService } from '../brain/brain.service';
 import { UnifiedContext } from '../brain/types';
 import { HubspotClient } from '../hubspot/hubspot.client';
 import { NlpearlActivityStore, StoredActivity } from './activity.store';
+import { AccionesService, AccionSugerida } from './acciones.service';
+import { Atencion, AtencionService } from './atencion.service';
 import { ResumenService } from './resumen.service';
 
 /**
@@ -61,6 +63,13 @@ export interface Expediente {
     creado?: string;
     actualizado?: string;
   };
+  /** Quién atiende: el agente o una persona que tomó el hilo. */
+  atencion: Atencion;
+  /**
+   * Lo que le toca hacer al humano ahora. Solo tienen sentido con el hilo
+   * tomado: mientras lo atiende el agente, esas acciones las hace su flujo.
+   */
+  acciones: AccionSugerida[];
 }
 
 @Injectable()
@@ -72,6 +81,8 @@ export class ExpedienteService {
     private readonly store: NlpearlActivityStore,
     private readonly hubspot: HubspotClient,
     private readonly ia: ResumenService,
+    private readonly atencion: AtencionService,
+    private readonly acciones: AccionesService,
   ) {}
 
   private static digitos(t?: string): string {
@@ -95,8 +106,14 @@ export class ExpedienteService {
   async de(contactId: string): Promise<Expediente> {
     const ctx = await this.brain.getContext({ contactId });
     const tel = ctx.contact.phones?.[0];
-    const [resumen, caso] = await Promise.all([this.resumen(ctx, tel), this.caso(tel)]);
-    return { resumen, caso };
+    const [resumen, caso, atencion] = await Promise.all([
+      this.resumen(ctx, tel),
+      this.caso(tel),
+      this.atencion.de(contactId),
+    ]);
+    // Depende del caso (¿ya hay ticket?), así que va después.
+    const acciones = await this.acciones.de(tel, caso);
+    return { resumen, caso, atencion, acciones };
   }
 
   /**

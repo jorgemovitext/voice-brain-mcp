@@ -1,7 +1,7 @@
 import { HttpClient } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
 import { firstValueFrom } from 'rxjs';
-import { Contact, DemoStatus, FlowStep, NlpearlTestResult } from './models';
+import { Atencion, Contact, DemoStatus, FlowStep, NlpearlTestResult } from './models';
 
 /**
  * Acciones (POST) contra el backend. Las lecturas de las vistas usan
@@ -85,5 +85,15 @@ export class BrainApiService {
    */
   setPearlRouting(channel: 'voice' | 'whatsapp' | 'sms', pearlId: string | null): Promise<unknown> {
     return firstValueFrom(this.http.put('/api/workers/routing', { channel, pearlId }));
+  }
+
+  /**
+   * Tomar la conversación (o devolvérsela al agente). Quién la toma lo
+   * resuelve el backend desde la sesión, no se manda desde acá.
+   */
+  atenderConversacion(contactId: string, tomar: boolean): Promise<Atencion> {
+    return firstValueFrom(
+      this.http.post<Atencion>(`/api/contacts/${contactId}/atencion`, { tomar }),
+    );
   }
 }

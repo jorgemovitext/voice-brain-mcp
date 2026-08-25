@@ -75,8 +75,26 @@
             </span>
           </span>
         }
+        <!-- Tomar el hilo es un compromiso: a partir de acá el agente ya no
+             lo cierra y las acciones del flujo quedan en manos del operador. -->
+        <button class="chat__tomar" [class.chat__tomar--on]="tomada()"
+                (click)="alternarAtencion()" [disabled]="cambiandoAtencion()"
+                [title]="tomada() ? 'Devolverle la conversación al agente' : 'Atender vos esta conversación'">
+          @if (cambiandoAtencion()) { … }
+          @else if (tomada()) { Soltar }
+          @else { Tomar }
+        </button>
         <span class="chat__dots">⋯</span>
       </header>
+
+      @if (atencion(); as at) {
+        @if (at.operador) {
+          <div class="tomada">
+            <i class="tomada__punto"></i>
+            La estás atendiendo vos ({{ at.operador }}). El agente ya no responde en este hilo.
+          </div>
+        }
+      }
 
       <div class="chat__scroll" #scrollEl>
         @if (!chat().length) {
@@ -145,6 +163,21 @@
         <div class="chat__error">
           <span>⚠ {{ e }}</span>
           <button class="chat__error-close" (click)="sendError.set(null)" title="Cerrar">×</button>
+        </div>
+      }
+
+      <!-- Lo que el flujo del agente habría hecho solo y ahora le toca a la
+           persona. Solo aparece con el hilo tomado. -->
+      @if (acciones().length) {
+        <div class="acts">
+          <span class="acts__cabeza">Te toca a vos</span>
+          @for (a of acciones(); track a.id) {
+            <span class="act" [class]="'act act--' + a.tipo"
+                  [class.act--urgente]="a.urgente" [title]="a.motivo">
+              @if (a.urgente) { <i class="act__pulso"></i> }
+              {{ a.etiqueta }}
+            </span>
+          }
         </div>
       }
 

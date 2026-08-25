@@ -252,6 +252,22 @@ export interface Analytics {
   }>;
 }
 
+/** Quién atiende el hilo: el agente (operador null) o una persona. */
+export interface Atencion {
+  operador: string | null;
+  desde?: string;
+}
+
+/** Lo que le toca hacer al operador humano en este punto de la conversación. */
+export interface AccionSugerida {
+  id: string;
+  etiqueta: string;
+  motivo: string;
+  tipo: 'hubspot' | 'aviso' | 'dato';
+  /** Marca el momento en que el flujo del agente habría escalado solo. */
+  urgente: boolean;
+}
+
 /** Resumen del hilo y su caso en el CRM. */
 export interface Expediente {
   resumen: {
@@ -274,4 +290,6 @@ export interface Expediente {
     creado?: string;
     actualizado?: string;
   };
+  atencion: Atencion;
+  acciones: AccionSugerida[];
 }

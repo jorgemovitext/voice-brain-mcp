@@ -295,6 +295,130 @@ $overlap: 44px;
 
 .chat__dots { color: var(--chat-ink-soft); font-weight: 800; }
 
+/* Tomar / soltar la conversación */
+.chat__tomar {
+  flex-shrink: 0;
+  font: inherit;
+  font-size: 0.72rem;
+  font-weight: 800;
+  color: var(--chat-ink);
+  background: #fff;
+  border: 1.5px solid var(--chat-border);
+  border-radius: 999px;
+  padding: 0.3rem 0.8rem;
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s, color 0.15s;
+
+  &:hover:not(:disabled) { border-color: var(--secondary); }
+  &:disabled { opacity: 0.5; cursor: default; }
+
+  /* Tomada: el botón pasa a ser "soltar", en el acento de marca. */
+  &--on {
+    background: var(--secondary);
+    border-color: var(--secondary);
+    color: #04283a;
+  }
+}
+
+/* Banda de estado: mientras el hilo esté tomado, que no haya duda de quién
+   responde — el agente ya no lo hace. */
+.tomada {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.4rem 1.1rem;
+  font-size: 0.74rem;
+  font-weight: 600;
+  color: #04283a;
+  background: color-mix(in srgb, var(--secondary) 22%, #fff);
+  border-bottom: 1px solid var(--chat-border);
+}
+
+.tomada__punto {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--secondary);
+  flex-shrink: 0;
+}
+
+/* ===== Acciones sugeridas al operador ===== */
+.acts {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  padding: 0.55rem 1.1rem;
+  border-top: 1px solid var(--chat-border);
+  background: #fff;
+}
+
+.acts__cabeza {
+  font-size: 0.64rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--chat-ink-soft);
+  margin-right: 0.15rem;
+}
+
+.act {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.75rem;
+  font-weight: 700;
+  border-radius: 999px;
+  padding: 0.3rem 0.75rem;
+  background: var(--chat-bg);
+  border: 1.5px solid var(--chat-border);
+  color: var(--chat-ink);
+  cursor: default;
+}
+
+/* El tipo tiñe el borde: registrar en el CRM no es lo mismo que avisar a una
+   cuadrilla ni que pedir un dato que falta. */
+.act--hubspot { border-color: #f5a623; }
+.act--aviso { border-color: #e11d48; }
+.act--dato { border-color: var(--chat-border); color: var(--chat-ink-soft); }
+
+/* Urgente = el flujo del agente habría escalado acá. Late para que se note
+   que es AHORA, no cuando el operador se acuerde. */
+.act--urgente {
+  animation: act-latido 1.9s ease-in-out infinite;
+}
+
+.act__pulso {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  background: currentColor;
+  animation: act-punto 1.9s ease-in-out infinite;
+}
+
+.act--aviso .act__pulso { background: #e11d48; }
+.act--hubspot .act__pulso { background: #f5a623; }
+
+@keyframes act-latido {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(225, 29, 72, 0.35); }
+  50% { box-shadow: 0 0 0 6px rgba(225, 29, 72, 0); }
+}
+
+@keyframes act-punto {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.35; }
+}
+
+/* Respeta a quien pidió menos movimiento: el color y el punto siguen
+   distinguiendo la acción urgente, solo se detiene la animación. */
+@media (prefers-reduced-motion: reduce) {
+  .act--urgente,
+  .act__pulso {
+    animation: none;
+  }
+}
+
 .chat__scroll {
   flex: 1;
   overflow-y: auto;
