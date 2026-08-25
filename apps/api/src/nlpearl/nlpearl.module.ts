@@ -7,11 +7,14 @@ import { VOICE_ENGINE_PORT } from '../ports/voice-engine.port';
 import { NlpearlActivityStore } from './activity.store';
 import { CallIngestService } from './call-ingest.service';
 import { HiveController } from './hive.controller';
+import { IntegrationsModule } from '../integrations/integrations.module';
 import { HubspotModule } from '../hubspot/hubspot.module';
 import { AnalyticsController } from './analytics.controller';
 import { ExpedienteController } from './expediente.controller';
 import { ExpedienteService } from './expediente.service';
 import { ResumenService } from './resumen.service';
+import { GenericChannelController } from './generic-channel.controller';
+import { GenericChannelGuard } from './generic-channel.guard';
 import { AnalyticsService } from './analytics.service';
 import { HiveService } from './hive.service';
 import { NlpearlDiagnosticsController } from './nlpearl-diagnostics.controller';
@@ -33,7 +36,7 @@ import { WorkersController } from './workers.controller';
  * según MOCK — BrainModule y DemoModule nunca ven el cliente concreto.
  */
 @Module({
-  imports: [HttpModule, BrainModule, ChannelsModule, HubspotModule],
+  imports: [HttpModule, BrainModule, ChannelsModule, HubspotModule, IntegrationsModule],
   controllers: [
     PrecallController,
     NlpearlWebhookController,
@@ -43,6 +46,7 @@ import { WorkersController } from './workers.controller';
     HiveController,
     AnalyticsController,
     ExpedienteController,
+    GenericChannelController,
   ],
   providers: [
     NlpearlClient,
@@ -55,6 +59,7 @@ import { WorkersController } from './workers.controller';
     AnalyticsService,
     ExpedienteService,
     ResumenService,
+    GenericChannelGuard,
     NlpearlMockEngine,
     NlpearlVoiceEngine,
     WebhookSignatureGuard,
