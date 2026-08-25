@@ -101,6 +101,15 @@ export class IntegrationsService {
                 'App de Gupshup': this.config.get<string>('GUPSHUP_APP_NAME') || '—',
                 'Número emisor': this.config.get<string>('GUPSHUP_SOURCE_NUMBER') || '—',
                 'API key': this.config.get<string>('GUPSHUP_API_KEY') ? 'configurada' : 'falta GUPSHUP_API_KEY',
+                /*
+                 * Sin plantilla no se puede iniciar una conversación: el
+                 * ciudadano le escribe al número de NL Pearl, así que la
+                 * ventana de 24 h nunca se abre con el nuestro. Se dice si
+                 * está o no, nunca el id.
+                 */
+                'Plantilla de saludo': this.config.get<string>('GUPSHUP_TEMPLATE_SALUDO')
+                  ? 'configurada (hive_saludo)'
+                  : 'falta GUPSHUP_TEMPLATE_SALUDO — no se puede iniciar conversación',
                 'Alternativa (Meta directo)': `${base}/webhooks/whatsapp`,
               },
       },
