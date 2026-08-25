@@ -228,6 +228,36 @@
                  real de la Pearl; acá se ilumina el camino que el agente
                  tomó y queda fantasma el que descartó. -->
             <svg class="arb" [attr.viewBox]="'0 0 380 ' + arbol().alto" preserveAspectRatio="xMidYMin meet">
+              <defs>
+                <!-- Papel técnico de puntos, el mismo recurso del panal. -->
+                <pattern id="arbPuntos" width="24" height="24" patternUnits="userSpaceOnUse">
+                  <circle cx="2" cy="2" r="1.1" fill="rgba(255,255,255,0.05)" />
+                </pattern>
+                <linearGradient id="arbHecho" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0" stop-color="rgba(0,186,254,0.30)" />
+                  <stop offset="1" stop-color="rgba(0,119,179,0.12)" />
+                </linearGradient>
+                <linearGradient id="arbActual" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0" stop-color="#00bafe" />
+                  <stop offset="1" stop-color="#0077b3" />
+                </linearGradient>
+                <!-- La rama de emergencia arde en naranja cuando se toma. -->
+                <linearGradient id="arbAlerta" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0" stop-color="rgba(243,71,0,0.85)" />
+                  <stop offset="1" stop-color="rgba(163,48,0,0.65)" />
+                </linearGradient>
+                <marker id="arbFlecha" viewBox="0 0 8 8" refX="5.5" refY="4"
+                        markerWidth="6.5" markerHeight="6.5" orient="auto">
+                  <path d="M0,0.6 L7,4 L0,7.4 z" fill="#00bafe" />
+                </marker>
+                <marker id="arbFlechaTenue" viewBox="0 0 8 8" refX="5.5" refY="4"
+                        markerWidth="6.5" markerHeight="6.5" orient="auto">
+                  <path d="M0,0.6 L7,4 L0,7.4 z" fill="rgba(255,255,255,0.22)" />
+                </marker>
+              </defs>
+
+              <rect class="arb__papel" x="4" y="0" width="372" [attr.height]="arbol().alto" rx="18" />
+
               @for (e of arbol().aristas; track e.de + e.a) {
                 <path class="arb__via" [class.arb__via--viva]="e.viva"
                       [class.arb__via--muerta]="e.muerta" [attr.d]="e.d" />
@@ -239,16 +269,18 @@
               }
 
               @for (n of arbol().nodos; track n.id; let i = $index) {
-                <g [class]="'arb__n arb__n--' + n.estado" [style.animation-delay.ms]="i * 45">
+                <g [class]="'arb__n arb__n--' + n.estado" [attr.data-id]="n.id"
+                   [style.animation-delay.ms]="i * 45">
+                  @if (n.estado === 'actual') {
+                    <circle class="arb__onda" [attr.cx]="n.x" [attr.cy]="n.y" r="10" />
+                    <circle class="arb__onda arb__onda--2" [attr.cx]="n.x" [attr.cy]="n.y" r="10" />
+                  }
                   @if (n.decision) {
                     <polygon class="arb__forma" [attr.points]="puntosRombo(n)" />
                   } @else {
                     <polygon class="arb__forma" [attr.points]="puntosHex(n)" />
                   }
                   <text class="arb__txt" [attr.x]="n.x" [attr.y]="n.y + 4">{{ n.etiqueta }}</text>
-                  @if (n.estado === 'actual') {
-                    <circle class="arb__pulso" [attr.cx]="n.x" [attr.cy]="n.y" r="4" />
-                  }
                 </g>
               }
             </svg>

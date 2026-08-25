@@ -1599,46 +1599,62 @@ $overlap: 44px;
 
 /* ===== Vista Flujo: el árbol de decisiones =====
    No es un adorno: cada nodo y cada bifurcación existen en el flujo real de
-   la Pearl. `safetyCheck` abre de verdad en tres ramas y `confirmInfo` en
-   dos. Se dibuja la columna vertebral con sus cuatro decisiones: el árbol
-   completo son 58 nodos y sería ilegible.
+   la Pearl. Se dibuja la columna vertebral con sus cuatro decisiones: el
+   árbol completo son 58 nodos y sería ilegible.
 
    El camino tomado se ilumina y el descartado queda fantasma — ver la rama
    que NO se siguió es lo que convierte una lista de pasos en una decisión. */
 .arb {
   display: block;
   width: 100%;
-  max-width: 460px;
+  max-width: 500px;
   height: auto;
+  /* Centrado en el panel: el diagrama es la pieza, no una lista alineada. */
+  margin: 0 auto;
   overflow: visible;
+}
+
+/* El .wf hereda un padding asimétrico ($overlap a la derecha, para el panel
+   que se monta encima). Con una lista no se nota; con un diagrama centrado
+   sí: quedaba corrido ~30px a la izquierda. Cuando lo que vive adentro es el
+   árbol, el padding se vuelve simétrico. */
+.wf:has(.arb) { padding-inline: 1.2rem; }
+
+/* Papel técnico de puntos bajo el diagrama, como el panal del tablero. */
+.arb__papel {
+  fill: url(#arbPuntos);
 }
 
 /* --- Las vías --- */
 .arb__via {
   fill: none;
-  stroke: rgba(255, 255, 255, 0.13);
-  stroke-width: 1.5;
+  stroke: rgba(255, 255, 255, 0.14);
+  stroke-width: 1.6;
   stroke-linecap: round;
+  marker-end: url(#arbFlechaTenue);
+  transition: stroke 0.3s;
 }
 
 /* La corriente recorre el camino real hacia el nodo nuevo: es lo que hace
    sentir que el caso AVANZA y no que está dibujado. */
 .arb__via--viva {
   stroke: var(--secondary);
-  stroke-width: 2;
-  stroke-dasharray: 5 7;
-  animation: arb-corriente 0.85s linear infinite;
-  filter: drop-shadow(0 0 3px rgba(0, 186, 254, 0.45));
+  stroke-width: 2.2;
+  stroke-dasharray: 6 7;
+  marker-end: url(#arbFlecha);
+  animation: arb-corriente 0.8s linear infinite;
+  filter: drop-shadow(0 0 4px rgba(0, 186, 254, 0.55));
 }
 
 @keyframes arb-corriente {
-  to { stroke-dashoffset: -12; }
+  to { stroke-dashoffset: -13; }
 }
 
 /* La rama que el flujo descartó: sigue ahí, apagada. */
 .arb__via--muerta {
-  stroke: rgba(255, 255, 255, 0.07);
-  stroke-dasharray: 3 5;
+  stroke: rgba(255, 255, 255, 0.06);
+  stroke-dasharray: 2 6;
+  marker-end: none;
 }
 
 /* --- Las etiquetas de rama (sí / no) --- */
@@ -1646,71 +1662,97 @@ $overlap: 44px;
   fill: var(--ink-soft);
   font-size: 9px;
   font-weight: 800;
-  letter-spacing: 0.06em;
+  letter-spacing: 0.08em;
   text-transform: uppercase;
   text-anchor: middle;
   opacity: 0.5;
 }
 
-.arb__ramo--viva { fill: var(--secondary); opacity: 1; }
-.arb__ramo--muerta { opacity: 0.22; }
+.arb__ramo--viva {
+  fill: var(--secondary);
+  opacity: 1;
+  filter: drop-shadow(0 0 5px rgba(0, 186, 254, 0.6));
+}
+.arb__ramo--muerta { opacity: 0.2; }
 
 /* --- Los nodos --- */
 .arb__n {
-  animation: arb-entra 0.4s cubic-bezier(0.2, 0.8, 0.3, 1) both;
+  animation: arb-entra 0.5s cubic-bezier(0.2, 0.8, 0.3, 1) both;
+  transform-box: fill-box;
+  transform-origin: center;
 }
 
 @keyframes arb-entra {
-  from { opacity: 0; transform: translateY(-6px); }
+  from { opacity: 0; transform: translateY(-10px) scale(0.9); }
   to { opacity: 1; transform: none; }
 }
 
 .arb__forma {
-  fill: #131c30;
-  stroke: rgba(255, 255, 255, 0.12);
-  stroke-width: 1.2;
-  transition: fill 0.3s, stroke 0.3s;
+  fill: #111a2e;
+  stroke: rgba(255, 255, 255, 0.13);
+  stroke-width: 1.4;
+  /* Redondea las puntas de hexágonos y rombos sin más geometría. */
+  stroke-linejoin: round;
+  transition: fill 0.35s, stroke 0.35s, filter 0.35s;
 }
 
 .arb__txt {
-  fill: var(--ink-soft);
+  fill: rgba(200, 212, 232, 0.55);
   font-size: 11px;
   font-weight: 700;
   text-anchor: middle;
   transition: fill 0.3s;
+  pointer-events: none;
 }
 
-/* Recorrido: cian relleno, el camino que el caso siguió. */
+/* Recorrido: vidrio cian, el camino que el caso siguió. */
 .arb__n--hecho .arb__forma {
-  fill: rgba(0, 186, 254, 0.14);
-  stroke: color-mix(in srgb, var(--secondary) 55%, transparent);
+  fill: url(#arbHecho);
+  stroke: color-mix(in srgb, var(--secondary) 60%, transparent);
+  filter: drop-shadow(0 0 7px rgba(0, 186, 254, 0.2));
 }
 .arb__n--hecho .arb__txt { fill: #fff; }
 
-/* Donde el agente está parado AHORA. */
+/* Donde el agente está parado AHORA: encendido y latiendo. */
 .arb__n--actual .arb__forma {
-  fill: rgba(0, 186, 254, 0.24);
-  stroke: var(--secondary);
-  stroke-width: 2;
+  fill: url(#arbActual);
+  stroke: rgba(255, 255, 255, 0.75);
+  stroke-width: 1.8;
   animation: arb-late 2.2s ease-in-out infinite;
 }
-.arb__n--actual .arb__txt { fill: #fff; }
+.arb__n--actual .arb__txt { fill: #04283a; font-weight: 800; }
 
 @keyframes arb-late {
-  0%, 100% { filter: drop-shadow(0 0 0 rgba(0, 186, 254, 0)); }
-  50% { filter: drop-shadow(0 0 9px rgba(0, 186, 254, 0.6)); }
+  0%, 100% { filter: drop-shadow(0 0 4px rgba(0, 186, 254, 0.35)); }
+  50% { filter: drop-shadow(0 0 16px rgba(0, 186, 254, 0.8)); }
 }
 
-.arb__pulso {
-  fill: var(--secondary);
-  animation: arb-pulso 2.2s ease-out infinite;
+/* Ondas que emanan del nodo vivo, en pares desfasados. */
+.arb__onda {
+  fill: none;
+  stroke: var(--secondary);
+  stroke-width: 1.6;
+  animation: arb-onda 2.4s ease-out infinite;
+}
+.arb__onda--2 { animation-delay: 1.2s; }
+
+@keyframes arb-onda {
+  0% { r: 12; opacity: 0.7; }
+  100% { r: 42; opacity: 0; }
 }
 
-@keyframes arb-pulso {
-  0% { r: 4; opacity: 0.9; }
-  70% { r: 26; opacity: 0; }
-  100% { r: 26; opacity: 0; }
+/* Las ramas de peligro arden en el naranja de la marca cuando se toman. */
+[data-id='emergencia'].arb__n--hecho .arb__forma,
+[data-id='emergencia'].arb__n--actual .arb__forma,
+[data-id='despacho'].arb__n--hecho .arb__forma,
+[data-id='despacho'].arb__n--actual .arb__forma {
+  fill: url(#arbAlerta);
+  stroke: color-mix(in srgb, var(--primary) 70%, transparent);
 }
+[data-id='emergencia'].arb__n--hecho .arb__txt,
+[data-id='emergencia'].arb__n--actual .arb__txt,
+[data-id='despacho'].arb__n--hecho .arb__txt,
+[data-id='despacho'].arb__n--actual .arb__txt { fill: #fff; }
 
 /* La rama descartada: se ve, y se ve que no se tomó. */
 .arb__n--descartado .arb__forma {
@@ -1718,17 +1760,17 @@ $overlap: 44px;
   stroke: rgba(255, 255, 255, 0.08);
   stroke-dasharray: 3 4;
 }
-.arb__n--descartado .arb__txt { fill: var(--ink-soft); opacity: 0.35; }
+.arb__n--descartado .arb__txt { fill: var(--ink-soft); opacity: 0.32; }
 
 /* Todavía no llegó ahí. */
-.arb__n--pendiente .arb__forma { fill: #101828; }
-.arb__n--pendiente .arb__txt { opacity: 0.6; }
+.arb__n--pendiente .arb__forma { fill: #0e1626; }
+.arb__n--pendiente .arb__txt { opacity: 0.5; }
 
 @media (prefers-reduced-motion: reduce) {
   .arb__n,
   .arb__via--viva,
   .arb__n--actual .arb__forma,
-  .arb__pulso {
+  .arb__onda {
     animation: none;
   }
 }
