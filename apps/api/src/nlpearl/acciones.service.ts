@@ -12,7 +12,7 @@ export interface AccionSugerida {
   etiqueta: string;
   /** Por qué se sugiere: el operador tiene que poder discrepar con criterio. */
   motivo: string;
-  tipo: 'hubspot' | 'aviso' | 'dato';
+  tipo: 'ejecutable' | 'aviso' | 'dato';
   urgente: boolean;
 }
 
@@ -59,8 +59,8 @@ export class AccionesService {
       acciones.push({
         id: 'emergencia',
         etiqueta: 'Avisar a la cuadrilla de emergencia',
-        motivo: 'El agente clasificó el caso como emergencia y transfirió a un operador.',
-        tipo: 'aviso',
+        motivo: 'El agente clasificó el caso como emergencia. Manda el aviso con los datos del caso.',
+        tipo: 'ejecutable',
         urgente: true,
       });
     }
@@ -81,7 +81,7 @@ export class AccionesService {
         id: 'crear-ticket',
         etiqueta: 'Registrar el reporte en HubSpot',
         motivo: 'Ya están el problema, la ubicación y el detalle, pero no hay ticket en el CRM.',
-        tipo: 'hubspot',
+        tipo: 'ejecutable',
         urgente: true,
       });
     }

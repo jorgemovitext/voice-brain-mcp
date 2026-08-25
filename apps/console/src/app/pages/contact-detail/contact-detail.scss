@@ -808,7 +808,7 @@ $overlap: 44px;
 /* El tipo tiñe el borde: registrar en el CRM no es lo mismo que avisar a una
    cuadrilla ni que pedir un dato que falta. */
 /* Esta SÍ se ejecuta, así que se comporta como botón. */
-.act--hubspot {
+.act--ejecutable {
   border-color: #f5a623;
   font: inherit;
   font-size: 0.75rem;
@@ -835,7 +835,7 @@ $overlap: 44px;
 }
 
 .act--aviso .act__pulso { background: #e11d48; }
-.act--hubspot .act__pulso { background: #f5a623; }
+.act--ejecutable .act__pulso { background: #f5a623; }
 
 @keyframes act-latido {
   0%, 100% { box-shadow: 0 0 0 0 rgba(225, 29, 72, 0.35); }

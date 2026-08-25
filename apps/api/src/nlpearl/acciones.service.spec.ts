@@ -39,7 +39,7 @@ describe('AccionesService', () => {
     const crear = acciones.find((a) => a.id === 'crear-ticket');
     expect(crear).toBeDefined();
     expect(crear!.urgente).toBe(true);
-    expect(crear!.tipo).toBe('hubspot');
+    expect(crear!.tipo).toBe('ejecutable');
   });
 
   it('NO pide registrar si el ticket ya existe', async () => {
@@ -62,7 +62,9 @@ describe('AccionesService', () => {
     expect(falta!.etiqueta).toContain('ubicación');
   });
 
-  it('marca la emergencia como urgente en cuanto el flujo pasó por ese nodo', async () => {
+  // La emergencia dejó de ser una etiqueta: la app manda el aviso a la
+  // cuadrilla, así que el operador no tiene que ir a buscar el número.
+  it('la emergencia es urgente y se puede ejecutar desde la consola', async () => {
     const acciones = await servicio([avance('emergency', COMPLETO)]).de('+50497616546', {
       hay: true,
     });
@@ -70,7 +72,7 @@ describe('AccionesService', () => {
     const emergencia = acciones.find((a) => a.id === 'emergencia');
     expect(emergencia).toBeDefined();
     expect(emergencia!.urgente).toBe(true);
-    expect(emergencia!.tipo).toBe('aviso');
+    expect(emergencia!.tipo).toBe('ejecutable');
   });
 
   it('sin teléfono no consulta nada', async () => {

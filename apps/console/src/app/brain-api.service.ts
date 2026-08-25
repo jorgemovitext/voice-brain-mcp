@@ -69,11 +69,6 @@ export class BrainApiService {
   }
 
   /**
-   * Vuelve a proyectar los chats guardados. Es idempotente y corrige hilos
-   * ingeridos con un mapeo viejo (p. ej. respuestas del agente atribuidas al
-   * cliente); la API de NL Pearl no permite releerlos, así que esta es la vía.
-   */
-  /**
    * Manda la plantilla de saludo aprobada a un número. OJO: es un WhatsApp
    * real y consume saldo del proveedor.
    */
@@ -87,6 +82,11 @@ export class BrainApiService {
     );
   }
 
+  /**
+   * Vuelve a proyectar los chats guardados. Es idempotente y corrige hilos
+   * ingeridos con un mapeo viejo (p. ej. respuestas del agente atribuidas al
+   * cliente); la API de NL Pearl no permite releerlos, así que esta es la vía.
+   */
   reprocessChats(): Promise<{ conversaciones: number; mensajes: number }> {
     return firstValueFrom(
       this.http.post<{ conversaciones: number; mensajes: number }>('/api/nlpearl/reprocess', {}),
@@ -103,11 +103,12 @@ export class BrainApiService {
 
   /**
    * Tomar la conversación (o devolvérsela al agente). Quién la toma lo
-   * resuelve el backend desde la sesión, no se manda desde acá.
+   * resuelve el backend desde la sesión, no se manda desde acá. Al tomarla se
+   * le manda el saludo al ciudadano: `aviso` dice si eso no salió.
    */
-  atenderConversacion(contactId: string, tomar: boolean): Promise<Atencion> {
+  atenderConversacion(contactId: string, tomar: boolean): Promise<Atencion & { aviso?: string }> {
     return firstValueFrom(
-      this.http.post<Atencion>(`/api/contacts/${contactId}/atencion`, { tomar }),
+      this.http.post<Atencion & { aviso?: string }>(`/api/contacts/${contactId}/atencion`, { tomar }),
     );
   }
 
@@ -121,10 +122,10 @@ export class BrainApiService {
     );
   }
 
-  /** Ejecuta una acción sugerida (hoy: crear el ticket en HubSpot). */
-  ejecutarAccion(contactId: string, accion: string): Promise<{ id: string; aviso?: string }> {
+  /** Ejecuta una acción sugerida: crear el ticket, avisar a la cuadrilla. */
+  ejecutarAccion(contactId: string, accion: string): Promise<{ id?: string; aviso?: string }> {
     return firstValueFrom(
-      this.http.post<{ id: string; aviso?: string }>(
+      this.http.post<{ id?: string; aviso?: string }>(
         `/api/contacts/${contactId}/acciones/${accion}`,
         {},
       ),

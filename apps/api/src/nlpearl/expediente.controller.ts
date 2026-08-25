@@ -44,7 +44,17 @@ export class ExpedienteController {
     }
     if (!tomar) return this.atencion.liberar(id);
 
-    return this.atencion.tomar(id, await this.operador(req));
+    const quien = await this.operador(req);
+    const estado = await this.atencion.tomar(id, quien);
+
+    /*
+     * Tomar el hilo ES presentarse: si el operador tiene que acordarse de
+     * saludar aparte, el ciudadano se queda esperando a alguien que ya lo
+     * está leyendo. El saludo no puede tumbar la toma, así que su motivo
+     * vuelve como aviso en vez de como error.
+     */
+    const { aviso } = await this.ejecutor.saludar(id, quien);
+    return { ...estado, aviso };
   }
 
   /**
@@ -86,6 +96,7 @@ export class ExpedienteController {
     }
 
     if (accion === 'crear-ticket') return this.ejecutor.crearTicket(id, quien);
+    if (accion === 'emergencia') return this.ejecutor.avisarCuadrilla(id, quien);
     throw new BadRequestException(`Acción desconocida: ${accion}`);
   }
 }

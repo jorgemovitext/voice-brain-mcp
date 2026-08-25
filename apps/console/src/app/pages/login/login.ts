@@ -7,8 +7,9 @@ type Modo = 'login' | 'register';
 type Paso = 'credenciales' | 'otp';
 
 /**
- * Acceso a la consola: usuario + contraseña (o alta de cuenta), con el código
- * OTP por WhatsApp como segundo factor. Sin sesión, toda ruta cae acá.
+ * Acceso a la consola: usuario y contraseña, tanto para entrar como para dar
+ * de alta la cuenta. El código por WhatsApp dejó de ser un paso obligatorio y
+ * quedó como la vía para recuperar el acceso. Sin sesión, toda ruta cae acá.
  */
 @Component({
   selector: 'app-login',
@@ -40,15 +41,15 @@ type Paso = 'credenciales' | 'otp';
                 <input type="text" autocomplete="name" [value]="name()" (input)="name.set(asValue($event))" placeholder="Tu nombre" />
               </label>
             }
+            <!-- El teléfono sigue sirviendo como identificador para las
+                 cuentas viejas, pero no se anuncia: pedir "usuario o
+                 teléfono" hacía dudar de cuál poner en el caso normal. -->
             <label class="auth__field">
-              <span>{{ modo() === 'login' ? 'Usuario o teléfono' : 'Usuario' }}</span>
+              <span>Usuario</span>
               <input type="text" autocomplete="username" spellcheck="false"
                      [value]="username()" (input)="username.set(asValue($event))"
-                     [placeholder]="modo() === 'login' ? 'tu.usuario o +50499998888' : 'tu.usuario'" required />
+                     placeholder="tu.usuario" required />
             </label>
-            @if (modo() === 'login') {
-              <p class="auth__hint">¿Cuenta creada antes? Entrá con tu teléfono.</p>
-            }
             @if (modo() === 'login') {
               <!-- El código dejó de ser obligatorio, pero sigue siendo la
                    salida cuando la contraseña no aparece. -->

@@ -333,7 +333,7 @@ export class ContactDetailPage implements OnDestroy {
    * hacer por él.
    */
   async ejecutarAccion(accion: AccionSugerida): Promise<void> {
-    if (accion.tipo !== 'hubspot' || this.ejecutando()) return;
+    if (accion.tipo !== 'ejecutable' || this.ejecutando()) return;
     this.ejecutando.set(accion.id);
     this.sendError.set(null);
     try {
@@ -354,7 +354,9 @@ export class ContactDetailPage implements OnDestroy {
     this.cambiandoAtencion.set(true);
     try {
       const tomando = !this.tomada();
-      await this.api.atenderConversacion(this.id(), tomando);
+      const r = await this.api.atenderConversacion(this.id(), tomando);
+      // Al tomarla se le manda el saludo al ciudadano; si no salió, se dice.
+      this.sendError.set(r.aviso ?? null);
       // Al soltar, el compositor vuelve a nota: el agente retoma el hilo.
       this.modo.set(tomando ? 'responder' : 'nota');
       this.expediente.reload();

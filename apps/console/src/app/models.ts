@@ -268,7 +268,7 @@ export interface AccionSugerida {
   id: string;
   etiqueta: string;
   motivo: string;
-  tipo: 'hubspot' | 'aviso' | 'dato';
+  tipo: 'ejecutable' | 'aviso' | 'dato';
   /** Marca el momento en que el flujo del agente habría escalado solo. */
   urgente: boolean;
 }

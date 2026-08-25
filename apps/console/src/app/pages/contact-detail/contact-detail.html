@@ -286,10 +286,11 @@
         <div class="acts">
           <span class="acts__cabeza">Te toca a vos</span>
           @for (a of acciones(); track a.id) {
-            <!-- Las de tipo `hubspot` se ejecutan; las demás son avisos para
-                 que el operador pregunte o llame — botón sería mentira. -->
-            @if (a.tipo === 'hubspot') {
-              <button class="act act--hubspot" [class.act--urgente]="a.urgente"
+            <!-- Las `ejecutable` las hace la app (crear el ticket, avisar a
+                 la cuadrilla); las demás son cosas que el operador tiene que
+                 preguntar o llamar, y ahí un botón sería mentira. -->
+            @if (a.tipo === 'ejecutable') {
+              <button class="act act--ejecutable" [class.act--urgente]="a.urgente"
                       [title]="a.motivo" (click)="ejecutarAccion(a)"
                       [disabled]="ejecutando() === a.id">
                 @if (ejecutando() === a.id) { Registrando… }
