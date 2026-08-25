@@ -5,6 +5,7 @@ import { WebhookLogService } from '../shared/webhook-log.service';
 import { NlpearlActivityStore } from './activity.store';
 import { NlpearlCallApiView } from './nlpearl.client';
 import { normalizarTranscript } from './nlpearl.mapper';
+import { EscalamientoService } from './escalamiento.service';
 import { PearlSyncService } from './pearl-sync.service';
 import { TurnCredentialGuard } from './turn-credential.guard';
 import { WebhookSignatureGuard } from './webhook-signature.guard';
@@ -21,6 +22,21 @@ import { WebhookSignatureGuard } from './webhook-signature.guard';
  * formas y se registra el cuerpo crudo en la bitácora para poder inspeccionar
  * el shape real de cada tipo de evento.
  */
+/**
+ * A quién avisa el flujo cuando un caso escala. Van acá y no escritos a mano
+ * en cada nodo de NL Pearl: cambiar un número en el editor obliga a tocar
+ * varios nodos y olvidarse de uno pasa desapercibido hasta la emergencia.
+ *
+ * Las cuatro compañías (CODEM, Infraestructura, Movilidad y Orden Público)
+ * comparten número por ahora; cuando cada una tenga el suyo, esto se abre a
+ * un mapa por compañía sin tocar el flujo.
+ */
+const DESTINOS = {
+  alcaldeSms: '+50497616546',
+  alcaldeCorreo: 'jorge.murcia@movitext.com',
+  companias: '+50498288272',
+};
+
 @Public()
 @Controller('webhooks')
 export class NlpearlWebhookController {
@@ -31,6 +47,7 @@ export class NlpearlWebhookController {
     private readonly store: NlpearlActivityStore,
     private readonly flowLog: FlowLogService,
     private readonly webhookLog: WebhookLogService,
+    private readonly escalamiento: EscalamientoService,
   ) {}
 
   @Post('nlpearl')
@@ -177,6 +194,45 @@ export class NlpearlWebhookController {
     });
     this.flowLog.push('webhook', `Conversación completa · ${this.referencia(p, phone)}`);
     return nuevas;
+  }
+
+  /**
+   * ¿Este incidente ya es crítico? Lo llama el nodo API del flujo justo
+   * después de recopilar la ubicación.
+   *
+   * Devuelve todo PLANO y con el texto ya armado: los nodos de NL Pearl
+   * mapean campos de la respuesta a variables, no saben concatenar. Así el
+   * flujo solo ramifica por `escalar` y le pasa `mensaje` al nodo SMS.
+   */
+  @Post('nlpearl/escalamiento')
+  @UseGuards(TurnCredentialGuard)
+  async onEscalamiento(@Body() body: unknown) {
+    const p = (body ?? {}) as Record<string, unknown>;
+    const ubicacion = this.primerTexto(p, ['ubicacion', 'location', 'direccion']);
+    if (!ubicacion) throw new BadRequestException('Falta `ubicacion`');
+
+    const r = await this.escalamiento.evaluar({
+      ubicacion,
+      telefono: this.primerTexto(p, ['phone', 'phoneNumber', 'from', 'telefono']),
+      obstruyePaso: this.primerTexto(p, ['obstruye_paso', 'obstruyePaso']),
+      folio: this.primerTexto(p, ['folio', 'hs_ticket_id', 'ticketId']),
+    });
+
+    this.webhookLog.push(
+      'nlpearl',
+      r.escalar ? `ESCALA a despacho · ${r.motivo}` : `Sin escalar · ${r.motivo}`,
+      true,
+      { ubicacion, ...r },
+    );
+
+    return {
+      ...r,
+      // Destinatarios fijos, para que el flujo no los lleve escritos a mano
+      // en cada nodo: cambiarlos acá los cambia en todo el flujo.
+      telefonoAlcalde: DESTINOS.alcaldeSms,
+      correoAlcalde: DESTINOS.alcaldeCorreo,
+      telefonoCompanias: DESTINOS.companias,
+    };
   }
 
   /**
