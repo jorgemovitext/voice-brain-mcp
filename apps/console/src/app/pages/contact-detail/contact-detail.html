@@ -87,13 +87,15 @@
         <span class="chat__dots">⋯</span>
       </header>
 
-      @if (atencion(); as at) {
-        @if (at.operador) {
-          <div class="tomada">
-            <i class="tomada__punto"></i>
-            La estás atendiendo vos ({{ at.operador }}). El agente ya no responde en este hilo.
-          </div>
-        }
+      @if (tomada()) {
+        <div class="tomada">
+          <i class="tomada__punto"></i>
+          @if (quienAtiende(); as quien) {
+            La está atendiendo {{ quien }}. El agente ya no responde en este hilo.
+          } @else {
+            La estás atendiendo vos. El agente ya no responde en este hilo.
+          }
+        </div>
       }
 
       <div class="chat__scroll" #scrollEl>
@@ -156,6 +158,24 @@
 
         @if (callState() === 'calling') {
           <div class="chat__day"><span>📞 Llamada de voz en curso ({{ timerLabel() }})</span></div>
+        }
+
+        <!-- El ciudadano mandó una foto. La imagen NO llega: el transcript de
+             NL Pearl no incluye archivos, así que se deja constancia del
+             hecho en vez de fingir un adjunto que no tenemos. -->
+        @if (fotoRecibida()) {
+          <div class="msg msg--in">
+            <span class="msg__avatar">{{ initials() }}</span>
+            <div class="msg__stack">
+              <div class="bubble bubble--foto">
+                <span class="foto__icono">🖼</span>
+                <span>
+                  <b>Foto recibida</b>
+                  <em>La imagen queda en WhatsApp; NL Pearl no la comparte por API.</em>
+                </span>
+              </div>
+            </div>
+          </div>
         }
       </div>
 

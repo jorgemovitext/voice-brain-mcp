@@ -181,6 +181,21 @@ export class ContactDetailPage implements OnDestroy {
   /** Quién atiende el hilo; null en `operador` = lo atiende el agente. */
   readonly atencion = computed(() => this.expediente.value()?.atencion ?? null);
   readonly tomada = computed(() => !!this.atencion()?.operador);
+
+  /** El ciudadano mandó evidencia fotográfica (la imagen no llega a la app). */
+  readonly fotoRecibida = computed(() => !!this.expediente.value()?.fotoRecibida);
+
+  /**
+   * Nombre del operador, nunca un identificador. El backend ya resuelve el
+   * nombre real, pero si un hilo quedó tomado con un id viejo guardado, acá
+   * se cae a "vos" en vez de escupir un UUID.
+   */
+  readonly quienAtiende = computed(() => {
+    const op = this.atencion()?.operador?.trim();
+    if (!op) return null;
+    const esId = /^[0-9a-f]{8}-[0-9a-f-]{20,}$/i.test(op) || /^[0-9a-f]{16,}$/i.test(op);
+    return esId ? null : op;
+  });
   readonly cambiandoAtencion = signal(false);
 
   /**

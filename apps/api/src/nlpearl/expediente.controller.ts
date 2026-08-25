@@ -1,5 +1,6 @@
 import { BadRequestException, Body, Controller, Get, Param, Post, Req } from '@nestjs/common';
 import { FastifyRequest } from 'fastify';
+import { AuthService } from '../auth/auth.service';
 import { AtencionService } from './atencion.service';
 import { EjecutarService } from './ejecutar.service';
 import { ExpedienteService } from './expediente.service';
@@ -17,6 +18,7 @@ export class ExpedienteController {
     private readonly expediente: ExpedienteService,
     private readonly atencion: AtencionService,
     private readonly ejecutor: EjecutarService,
+    private readonly auth: AuthService,
   ) {}
 
   @Get(':id/expediente')
@@ -31,7 +33,7 @@ export class ExpedienteController {
    * hilo no es algo que el cliente pueda declarar por su cuenta.
    */
   @Post(':id/atencion')
-  atender(
+  async atender(
     @Param('id') id: string,
     @Body() body: unknown,
     @Req() req: FastifyRequest & { user?: { username?: string; sub?: string } },
@@ -42,9 +44,28 @@ export class ExpedienteController {
     }
     if (!tomar) return this.atencion.liberar(id);
 
-    const quien = req.user?.username ?? req.user?.sub;
-    if (!quien) throw new BadRequestException('No se pudo identificar al operador');
-    return this.atencion.tomar(id, quien);
+    return this.atencion.tomar(id, await this.operador(req));
+  }
+
+  /**
+   * Nombre legible del operador. El `sub` del token es un UUID interno y en
+   * la consola no se muestran identificadores, así que se resuelve contra la
+   * cuenta: nombre, usuario o teléfono — lo primero que sirva para que otro
+   * operador sepa quién tiene el hilo.
+   */
+  private async operador(
+    req: FastifyRequest & { user?: { username?: string; sub?: string } },
+  ): Promise<string> {
+    const sub = req.user?.sub;
+    if (!sub) throw new BadRequestException('No se pudo identificar al operador');
+    try {
+      const yo = await this.auth.me(sub);
+      const nombre = yo.name?.trim() || yo.username?.trim() || yo.phone?.trim();
+      if (nombre) return nombre;
+    } catch {
+      // Cuenta borrada o token viejo: mejor un genérico que un UUID.
+    }
+    return req.user?.username?.trim() || 'un operador';
   }
 
   /**
@@ -58,9 +79,7 @@ export class ExpedienteController {
     @Param('accion') accion: string,
     @Req() req: FastifyRequest & { user?: { username?: string; sub?: string } },
   ) {
-    const quien = req.user?.username ?? req.user?.sub;
-    if (!quien) throw new BadRequestException('No se pudo identificar al operador');
-
+    const quien = await this.operador(req);
     const { operador } = await this.atencion.de(id);
     if (!operador) {
       throw new BadRequestException('Tomá la conversación antes de ejecutar acciones');

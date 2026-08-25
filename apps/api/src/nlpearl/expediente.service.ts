@@ -26,6 +26,7 @@ const CAMPO: Record<string, string> = {
   descripcion: 'Detalle',
   nombreCiudadano: 'Nombre',
   contactoCiudadano: 'Contacto',
+  fotoRecibida: 'Foto',
 };
 
 export interface Expediente {
@@ -63,6 +64,16 @@ export interface Expediente {
     creado?: string;
     actualizado?: string;
   };
+  /**
+   * El ciudadano mandó una foto.
+   *
+   * Solo el hecho, no la imagen: el transcript de NL Pearl es
+   * `{role, content, startTime, endTime}` con `additionalProperties: false`,
+   * así que la API nunca nos entrega el archivo. Lo que sí llega es la
+   * variable `fotoRecibida` que captura el flujo, y con eso al menos el
+   * operador sabe que existe evidencia y puede ir a buscarla.
+   */
+  fotoRecibida: boolean;
   /** Quién atiende: el agente o una persona que tomó el hilo. */
   atencion: Atencion;
   /**
@@ -113,7 +124,11 @@ export class ExpedienteService {
     ]);
     // Depende del caso (¿ya hay ticket?), así que va después.
     const acciones = await this.acciones.de(tel, caso);
-    return { resumen, caso, atencion, acciones };
+    // El flujo la guarda como texto ("true"/"sí"), no como booleano.
+    const fotoRecibida = resumen.capturado.some(
+      (d) => d.campo === CAMPO['fotoRecibida'] && /^(true|s[ií]|1)$/i.test(d.valor),
+    );
+    return { resumen, caso, fotoRecibida, atencion, acciones };
   }
 
   /**

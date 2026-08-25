@@ -290,6 +290,11 @@ export interface Expediente {
     creado?: string;
     actualizado?: string;
   };
+  /**
+   * El ciudadano mandó una foto. Solo el hecho: el transcript de NL Pearl no
+   * incluye archivos, así que la imagen nunca llega a la app.
+   */
+  fotoRecibida: boolean;
   atencion: Atencion;
   acciones: AccionSugerida[];
 }

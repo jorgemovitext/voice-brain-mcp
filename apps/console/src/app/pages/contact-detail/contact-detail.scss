@@ -584,6 +584,26 @@ $overlap: 44px;
   color: #5c4d13;
 }
 
+/* Constancia de una foto que NO tenemos: se ve como adjunto pero sin fingir
+   una miniatura, y dice dónde está la imagen de verdad. */
+.bubble--foto {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+
+  em {
+    display: block;
+    font-style: normal;
+    font-size: 0.72rem;
+    color: var(--chat-ink-soft);
+  }
+}
+
+.foto__icono {
+  font-size: 1.2rem;
+  flex-shrink: 0;
+}
+
 .bubble__note-tag {
   display: block;
   font-size: 0.68rem;
