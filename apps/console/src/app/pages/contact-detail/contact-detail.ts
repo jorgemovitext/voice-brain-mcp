@@ -43,6 +43,10 @@ interface ChatItem {
   side: 'in' | 'out';
   dayLabel: string | null; // separador de día (solo en el primer msg del día)
   time: string;
+  /** Primero de una tanda del mismo lado: lleva la esquina marcada. */
+  abreGrupo: boolean;
+  /** Último de la tanda: lleva el avatar y la hora. */
+  cierraGrupo: boolean;
 }
 
 type CallState = 'idle' | 'calling' | 'ended';
@@ -419,7 +423,7 @@ export class ContactDetailPage implements OnDestroy {
       a.occurredAt.localeCompare(b.occurredAt),
     );
     let lastDay = '';
-    return interactions.map((interaction) => {
+    const items = interactions.map((interaction) => {
       const date = new Date(interaction.occurredAt);
       const day = date.toDateString();
       const item: ChatItem = {
@@ -427,10 +431,35 @@ export class ContactDetailPage implements OnDestroy {
         side: interaction.direction === 'inbound' ? 'in' : 'out',
         dayLabel: day !== lastDay ? this.dayLabel(date) : null,
         time: date.toLocaleTimeString('es-NI', { hour: '2-digit', minute: '2-digit' }),
+        abreGrupo: true,
+        cierraGrupo: true,
       };
       lastDay = day;
       return item;
     });
+
+    /*
+     * Agrupa los mensajes seguidos del mismo lado, como cualquier chat: el
+     * avatar y la hora salen una vez por tanda, no en cada burbuja. Antes una
+     * ráfaga de cuatro mensajes del ciudadano repetía cuatro veces su inicial
+     * y cuatro veces la misma hora, y el hilo se leía como un formulario.
+     *
+     * Corta la tanda el cambio de lado, el cambio de día y un hueco de más de
+     * cinco minutos: pasado ese rato, ya no es la misma intervención.
+     */
+    const MISMA_TANDA_MS = 5 * 60_000;
+    for (let i = 0; i < items.length; i++) {
+      const previo = items[i - 1];
+      if (!previo) continue;
+      const salto = new Date(items[i].interaction.occurredAt).getTime() -
+        new Date(previo.interaction.occurredAt).getTime();
+      const sigue =
+        previo.side === items[i].side && !items[i].dayLabel && salto <= MISMA_TANDA_MS;
+      if (!sigue) continue;
+      items[i].abreGrupo = false;
+      previo.cierraGrupo = false;
+    }
+    return items;
   });
 
   /** Nombres técnicos de los nodos → algo legible en la línea de tiempo. */

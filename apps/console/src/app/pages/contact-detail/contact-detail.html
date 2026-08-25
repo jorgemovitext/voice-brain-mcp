@@ -201,9 +201,17 @@
             <div class="chat__day"><span>{{ m.dayLabel }}</span></div>
           }
 
-          <div class="msg" [class.msg--in]="m.side === 'in'" [class.msg--out]="m.side === 'out'">
+          <div class="msg" [class.msg--in]="m.side === 'in'" [class.msg--out]="m.side === 'out'"
+               [class.msg--abre]="m.abreGrupo" [class.msg--cierra]="m.cierraGrupo">
+            <!-- El avatar sale una vez por tanda, al cierre: en una ráfaga de
+                 cuatro mensajes, repetirlo cuatro veces es ruido. El hueco se
+                 reserva igual para que las burbujas no bailen. -->
             @if (m.side === 'in') {
-              <span class="msg__avatar">{{ initials() }}</span>
+              @if (m.cierraGrupo) {
+                <span class="msg__avatar">{{ initials() }}</span>
+              } @else {
+                <span class="msg__avatar msg__avatar--hueco"></span>
+              }
             }
             <div class="msg__stack">
               @if (m.interaction.channel === 'voice') {
@@ -253,6 +261,7 @@
               } @else {
                 <div class="bubble">{{ m.interaction.summary }}</div>
               }
+              @if (m.cierraGrupo) {
               <span class="msg__time">
                 @if (m.interaction.channel !== 'note') {
                   <ui-icon class="msg__canal" [name]="channelIconName(m.interaction.channel)"
@@ -263,6 +272,7 @@
                   <ui-icon class="msg__check" name="checks" title="Entregado" />
                 }
               </span>
+              }
             </div>
           </div>
         }

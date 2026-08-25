@@ -923,8 +923,11 @@ $overlap: 44px;
   animation: msg-entra 0.16s ease-out;
 }
 
+/* Entra desde su propio lado: el mensaje del ciudadano empuja desde la
+   izquierda y el nuestro desde la derecha. Es un gesto de 3px, pero da la
+   sensación de que el mensaje LLEGA en vez de aparecer. */
 @keyframes msg-entra {
-  from { opacity: 0; transform: translateY(4px); }
+  from { opacity: 0; transform: translate(var(--msg-desde, 0), 5px) scale(0.985); }
   to { opacity: 1; transform: none; }
 }
 
@@ -932,16 +935,29 @@ $overlap: 44px;
   .msg { animation: none; }
 }
 
-.msg--in { align-self: flex-start; }
+.msg--in {
+  align-self: flex-start;
+  --msg-desde: -6px;
+}
+
+/* Dentro de una tanda las burbujas se juntan y comparten el bloque. */
+.msg + .msg:not(.msg--abre) { margin-top: -0.34rem; }
 
 .msg--out {
   align-self: flex-end;
   flex-direction: row-reverse;
+  --msg-desde: 6px;
 }
 
 /* Hexágono, no círculo: es la forma con la que representamos a la gente y a
    los agentes en toda la app (rail, login, panal de Agentes). Reusa el
    clipPath global `#hexCell` de app.html. */
+/* Mantiene la sangría de la tanda sin repetir la inicial. */
+.msg__avatar--hueco {
+  background: none;
+  box-shadow: none;
+}
+
 .msg__avatar {
   width: 30px;
   height: 30px;
@@ -991,7 +1007,10 @@ $overlap: 44px;
 
 .bubble {
   background: var(--bubble-in);
-  border-radius: 16px 16px 16px 4px;
+  /* La esquina marcada solo la lleva el ÚLTIMO de la tanda: es la que apunta
+     al avatar. Las del medio van redondas por los cuatro lados. */
+  border-radius: 16px;
+  transition: box-shadow 0.18s ease, transform 0.18s ease;
   padding: 0.55rem 0.85rem;
   font-size: 0.88rem;
   width: fit-content;
@@ -1000,9 +1019,16 @@ $overlap: 44px;
   box-shadow: 0 1px 2px rgba(15, 23, 42, 0.06);
 }
 
-.msg--out .bubble {
-  background: var(--bubble-out);
-  border-radius: 16px 16px 4px 16px;
+.msg--in.msg--cierra .bubble { border-bottom-left-radius: 5px; }
+
+.msg--out .bubble { background: var(--bubble-out); }
+.msg--out.msg--cierra .bubble { border-bottom-right-radius: 5px; }
+
+/* Se levanta apenas al pasar por encima: confirma que la burbuja es una
+   pieza y no un párrafo suelto, sin llegar a parecer un botón. */
+.bubble:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(15, 23, 42, 0.1);
 }
 
 /* Nota interna: post-it del equipo — se distingue a propósito del hilo real. */
