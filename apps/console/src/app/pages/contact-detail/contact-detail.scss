@@ -382,51 +382,45 @@ $overlap: 44px;
 .chat__dots { color: var(--chat-ink-soft); font-weight: 800; }
 
 /* ===== Tab Chat / Caso =====
-   Flota sobre el cuerpo, montado al borde inferior de la cabecera. Va suelto
-   y no dentro del header porque ahí competía por el ancho con el nombre, el
-   agente y el botón de tomar. Vidrio, para que se lea igual sobre el chat
-   claro y sobre el navy del diagrama. */
+   Flota DENTRO del cuerpo del chat, despegada de la cabecera. Cruzando el
+   borde se sentía invasiva —partía el header en dos y quedaba mitad sobre
+   blanco, mitad sobre el navy del diagrama, obligando a un fondo opaco. Ya
+   apoyada sobre un solo fondo, el vidrio puede ser vidrio de verdad. */
 .vistatab {
   position: absolute;
-  /* A caballo del borde de la cabecera: mitad sobre el blanco, mitad sobre el
-     cuerpo. Es lo que la hace leer como pieza flotante y no como parte de
-     ninguno de los dos. */
-  top: 52px;
+  top: calc(52px + 0.7rem);
   left: 1.1rem;
   z-index: 3;
   display: inline-flex;
   gap: 2px;
   padding: 3px;
-  background: rgba(255, 255, 255, 0.82);
-  border: 1px solid rgba(255, 255, 255, 0.5);
+  background: rgba(255, 255, 255, 0.55);
+  border: 1px solid rgba(255, 255, 255, 0.6);
   border-radius: 999px;
   backdrop-filter: blur(16px) saturate(180%);
   -webkit-backdrop-filter: blur(16px) saturate(180%);
   box-shadow:
-    0 6px 20px rgba(4, 9, 20, 0.28),
-    inset 0 1px 0 rgba(255, 255, 255, 0.5);
+    0 6px 20px rgba(4, 9, 20, 0.16),
+    inset 0 1px 0 rgba(255, 255, 255, 0.6);
 }
 
-/*
- * Sobre el diagrama el vidrio se invierte a oscuro. Y va OPACO a propósito:
- * la píldora cruza el borde de la cabecera, así que mitad queda sobre blanco
- * y mitad sobre el navy; con un tinte translúcido, el texto claro se volvía
- * ilegible justo en la mitad de arriba.
- */
+/* Sobre el diagrama el vidrio se invierte a oscuro. */
 .chat--flujo .vistatab {
-  background: rgba(13, 21, 38, 0.92);
-  border-color: rgba(255, 255, 255, 0.18);
+  background: rgba(13, 21, 38, 0.5);
+  border-color: rgba(255, 255, 255, 0.16);
+  box-shadow:
+    0 6px 20px rgba(4, 9, 20, 0.4),
+    inset 0 1px 0 rgba(255, 255, 255, 0.12);
 }
 
-.chat--flujo .vistatab__op { color: var(--ink-soft); }
+/* `:not(--on)`: sin eso este selector le ganaba en especificidad al activo y
+   le dejaba el texto gris sobre el cian, ilegible. */
+.chat--flujo .vistatab__op:not(.vistatab__op--on) { color: var(--ink-soft); }
 .chat--flujo .vistatab__op:hover:not(.vistatab__op--on) { color: #fff; }
 
-/* Misma razón del lado claro: opaca, para no mezclarse con dos fondos. */
-.vistatab { background: #fff; }
-
 /* El contenido arranca por debajo del tab flotante para que no lo tape. */
-.chat--flujo .wf { padding-top: 3.1rem; }
-.chat__scroll { padding-top: 3.1rem; }
+.chat--flujo .wf { padding-top: 3.4rem; }
+.chat__scroll { padding-top: 3.4rem; }
 
 .vistatab__op {
   display: inline-flex;
@@ -527,26 +521,26 @@ $overlap: 44px;
 
 .wf__meta { font-size: 0.68rem; color: var(--ink-soft); font-variant-numeric: tabular-nums; }
 
-/* ===== El diagrama =====
-   Nodos centrados unidos por conectores verticales con punta de flecha. Los
-   terminales (inicio y cierre) van redondeados y los pasos en caja, que es
-   la convención de un diagrama de flujo. */
-.wf__diagrama {
-  list-style: none;
-  margin: 0 auto;
-  padding: 0;
+/* ===== La traza del caso =====
+   Tarjetas, no cadena de nodos: cada paso del agente se lee como una entrada
+   con cabecera, lo que dejó y chips al pie. Aguanta un caso largo mucho mejor
+   que una cadena vertical, y es el patrón de las trazas de agente. */
+.wf__traza {
   display: flex;
   flex-direction: column;
-  align-items: center;
-  max-width: 420px;
+  gap: 0.7rem;
+  max-width: 520px;
 }
 
-.wf__nodo {
-  width: 100%;
-  display: flex;
-  justify-content: center;
-  /* Entra desenfocado y sube: hace sentir que el caso se FORMA en vez de
-     aparecer de golpe. El delay escalonado viene del template. */
+.tr {
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 16px;
+  overflow: hidden;
+  backdrop-filter: blur(16px) saturate(170%);
+  -webkit-backdrop-filter: blur(16px) saturate(170%);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.09);
+  /* Entra desenfocada y sube: el caso se FORMA, no aparece de golpe. */
   animation: wf-entra 0.4s cubic-bezier(0.2, 0.8, 0.3, 1) both;
 }
 
@@ -555,157 +549,165 @@ $overlap: 44px;
   to { opacity: 1; transform: none; filter: blur(0); }
 }
 
-/* Terminal de arranque: píldora, como en cualquier diagrama. */
-.wf__pill {
-  display: inline-block;
-  font-size: 0.72rem;
-  font-weight: 800;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-  color: var(--ink-soft);
-  background: rgba(255, 255, 255, 0.06);
-  border: 1px solid rgba(255, 255, 255, 0.14);
-  border-radius: 999px;
-  padding: 0.3rem 1rem;
+.tr__head {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  padding: 0.6rem 0.8rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
 }
 
-/* El conector con su flecha: es lo que convierte la lista en diagrama. */
-.wf__conector {
-  width: 2px;
-  height: 26px;
-  position: relative;
-  background: linear-gradient(color-mix(in srgb, var(--secondary) 60%, transparent), color-mix(in srgb, var(--secondary) 30%, transparent));
-  animation: wf-crece 0.3s ease-out both;
-  transform-origin: top;
-
-  &::after {
-    content: '';
-    position: absolute;
-    left: 50%;
-    bottom: -1px;
-    translate: -50% 0;
-    border-left: 4px solid transparent;
-    border-right: 4px solid transparent;
-    border-top: 6px solid color-mix(in srgb, var(--secondary) 55%, transparent);
-  }
-
-  &--fantasma {
-    background: rgba(255, 255, 255, 0.1);
-    animation: none;
-
-    &::after { border-top-color: rgba(255, 255, 255, 0.14); }
-  }
-}
-
-@keyframes wf-crece {
-  from { transform: scaleY(0); opacity: 0; }
-  to { transform: scaleY(1); opacity: 1; }
-}
-
-/* La caja del paso: hexágono a la izquierda, contenido a la derecha. */
-.wf__caja {
-  width: 100%;
-  display: grid;
-  grid-template-columns: 30px minmax(0, 1fr);
-  align-items: start;
-  gap: 0.65rem;
-  background: rgba(255, 255, 255, 0.06);
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  border-radius: 14px;
-  padding: 0.55rem 0.75rem;
-  backdrop-filter: blur(14px) saturate(160%);
-  -webkit-backdrop-filter: blur(14px) saturate(160%);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08);
-}
-
-.wf__cuerpo { min-width: 0; }
-
-/* El nodo vivo late; el halo va en el nodo porque el clip-path del hexágono
-   recortaría cualquier sombra puesta en él mismo. */
-.wf__nodo--vivo { animation: wf-entra 0.4s cubic-bezier(0.2, 0.8, 0.3, 1) both, wf-late 2s ease-in-out 0.6s infinite; }
-
-@keyframes wf-late {
-  0%, 100% { filter: drop-shadow(0 0 0 rgba(0, 186, 254, 0)); }
-  50% { filter: drop-shadow(0 0 10px rgba(0, 186, 254, 0.55)); }
-}
-
-.wf__nodo--escala .wf__caja { border-color: rgba(243, 71, 0, 0.55); }
-.wf__nodo--escala .wf__titulo { color: #ff9d73; }
-
-.wf__hex {
-  width: 30px;
-  height: 33px;
+.tr__hex {
+  width: 26px;
+  height: 29px;
   flex-shrink: 0;
   clip-path: url(#hexCell);
   display: grid;
   place-items: center;
   background: linear-gradient(135deg, var(--secondary), #0077b3);
   color: #04283a;
-  font-size: 0.7rem;
+  font-size: 0.68rem;
   font-weight: 800;
-  animation: wf-pop 0.5s cubic-bezier(0.3, 1.5, 0.4, 1) both;
 }
 
-.wf__hex--escala { background: linear-gradient(135deg, var(--primary), #a33000); color: #fff; }
-.wf__hex--fin { background: linear-gradient(135deg, var(--positive), #0d8a53); color: #04240f; font-size: 0.82rem; }
-/* Apagado, como los agentes en reposo del panal. */
-.wf__hex--fantasma { background: #1a1f2b; animation: none; }
+.tr__hex--escala { background: linear-gradient(135deg, var(--primary), #a33000); color: #fff; }
+.tr__hex--fin { background: linear-gradient(135deg, var(--positive), #0d8a53); color: #04240f; font-size: 0.78rem; }
+.tr__hex--pend { background: #1a1f2b; }
 
-@keyframes wf-pop {
-  from { transform: scale(0.3); }
-  70% { transform: scale(1.14); }
-  to { transform: scale(1); }
+.tr__quien { font-size: 0.82rem; font-weight: 800; color: #fff; }
+.tr__hora {
+  margin-left: auto;
+  font-size: 0.66rem;
+  color: var(--ink-soft);
+  font-variant-numeric: tabular-nums;
 }
 
-.wf__cab {
+.tr__cuerpo { padding: 0.7rem 0.8rem; }
+
+/* La ficha del dato: es el protagonista del paso, como la tarjeta de
+   producto del ejemplo. */
+.tr__ficha {
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.tr__fila {
+  display: grid;
+  grid-template-columns: 34% minmax(0, 1fr);
+  gap: 0.6rem;
+  padding: 0.42rem 0.7rem;
+
+  & + & { border-top: 1px solid rgba(255, 255, 255, 0.07); }
+}
+
+.tr__campo {
+  font-size: 0.66rem;
+  font-weight: 800;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--ink-soft);
+  align-self: center;
+}
+
+.tr__valor { font-size: 0.78rem; color: #fff; overflow-wrap: anywhere; }
+
+.tr__nota { margin: 0; font-size: 0.76rem; color: var(--ink-soft); }
+
+.tr__pie {
   display: flex;
-  justify-content: space-between;
-  align-items: baseline;
-  gap: 0.5rem;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.5rem 0.8rem 0.65rem;
 }
 
-.wf__titulo { font-size: 0.8rem; font-weight: 800; color: #fff; }
-.wf__hora { font-size: 0.66rem; color: var(--ink-soft); font-variant-numeric: tabular-nums; flex-shrink: 0; }
-
-.wf__datos {
-  display: flex;
-  flex-wrap: wrap;
+/* Chips del pie, el recurso del ejemplo: el conteo primero, la etiqueta en
+   versalita. */
+.tr__chip {
+  display: inline-flex;
+  align-items: center;
   gap: 0.3rem;
-  margin-top: 0.4rem;
-}
-
-.wf__dato {
-  font-size: 0.7rem;
-  color: var(--ink);
-  background: rgba(255, 255, 255, 0.07);
+  font-size: 0.6rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  color: var(--ink-soft);
+  background: rgba(255, 255, 255, 0.06);
   border: 1px solid rgba(255, 255, 255, 0.1);
   border-radius: 999px;
-  padding: 0.14rem 0.55rem;
-  max-width: 100%;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  padding: 0.16rem 0.55rem;
+
+  b {
+    color: #fff;
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 5px;
+    padding: 0 0.25rem;
+  }
+
+  &--vivo {
+    color: var(--secondary);
+    border-color: color-mix(in srgb, var(--secondary) 45%, transparent);
+
+    i {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: var(--secondary);
+      animation: wf-beat 1.8s ease-out infinite;
+    }
+  }
 }
 
-/* Pendiente: el caso "sabe" a dónde va, en tenue y punteado. */
-.wf__nodo--fantasma { opacity: 0.55; animation: none; }
+.tr--escala { border-color: rgba(243, 71, 0, 0.5); }
+.tr--escala .tr__quien { color: #ff9d73; }
 
-.wf__caja--fantasma {
+/* La tarjeta viva respira: el halo va acá porque el clip-path del hexágono
+   recortaría cualquier sombra puesta en él mismo. */
+.tr--vivo {
+  border-color: color-mix(in srgb, var(--secondary) 40%, transparent);
+  animation: wf-entra 0.4s cubic-bezier(0.2, 0.8, 0.3, 1) both,
+             tr-late 2.6s ease-in-out 0.6s infinite;
+}
+
+@keyframes tr-late {
+  0%, 100% { box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.09), 0 0 0 0 rgba(0, 186, 254, 0); }
+  50% { box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.09), 0 0 18px 0 rgba(0, 186, 254, 0.22); }
+}
+
+/* Lo que falta, en una sola tarjeta punteada: el caso muestra a dónde va sin
+   inflar la traza con una tarjeta vacía por paso. */
+.tr--pend {
   background: transparent;
-  border: 1px dashed rgba(255, 255, 255, 0.16);
+  border-style: dashed;
+  border-color: rgba(255, 255, 255, 0.14);
   backdrop-filter: none;
   -webkit-backdrop-filter: none;
   box-shadow: none;
-  align-items: center;
+  animation: none;
 
-  .wf__titulo { color: var(--ink-soft); font-weight: 600; font-size: 0.76rem; }
+  .tr__head { border-bottom: 0; padding-bottom: 0.2rem; }
+  .tr__quien { color: var(--ink-soft); font-weight: 700; }
 }
 
-/* Cierre: la conversación llegó. */
-.wf__caja--fin { border-color: color-mix(in srgb, var(--positive) 45%, transparent); }
-.wf__fin-txt { margin: 0.25rem 0 0.55rem; font-size: 0.74rem; color: var(--ink-soft); }
+.tr__pasos {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  padding: 0.5rem 0.8rem 0.75rem;
+}
+
+.tr__paso {
+  font-size: 0.72rem;
+  color: var(--ink-soft);
+  border: 1px dashed rgba(255, 255, 255, 0.18);
+  border-radius: 999px;
+  padding: 0.2rem 0.65rem;
+}
+
+.tr--fin { border-color: color-mix(in srgb, var(--positive) 45%, transparent); }
 
 .wf__verchat {
+  margin-top: 0.55rem;
   font: inherit;
   font-size: 0.74rem;
   font-weight: 800;
@@ -750,9 +752,9 @@ $overlap: 44px;
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .wf__nodo,
-  .wf__conector,
-  .wf__hex,
+  .tr,
+  .tr--vivo,
+  .tr__chip--vivo i,
   .wf__vacio-hex,
   .wf__estado--vivo .wf__punto,
   .wf__estado--escala .wf__punto {
@@ -1468,104 +1470,6 @@ $overlap: 44px;
   margin: 0;
   font-size: 0.83rem;
   line-height: 1.45;
-}
-
-/* Momentos clave */
-.moments {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 0.65rem;
-}
-
-.moment {
-  position: relative;
-  padding-left: 1rem;
-  display: flex;
-  flex-direction: column;
-  gap: 0.05rem;
-
-  &::before {
-    content: '';
-    position: absolute;
-    left: 0;
-    top: 0.35rem;
-    width: 7px;
-    height: 7px;
-    border-radius: 50%;
-    background: var(--ink-soft);
-  }
-}
-
-.moment--first::before {
-  background: var(--positive);
-  box-shadow: 0 0 6px rgba(52, 211, 153, 0.7);
-}
-
-.moment__when {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.3rem;
-  color: var(--ink-soft);
-  font-size: 0.7rem;
-}
-
-.moment__title {
-  font-weight: 800;
-  font-size: 0.83rem;
-}
-
-.moment__detail {
-  color: var(--ink-soft);
-  font-size: 0.76rem;
-}
-
-/* Acciones sugeridas */
-.actions {
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
-}
-
-.actions__title {
-  font-size: 0.68rem;
-  font-weight: 800;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: var(--ink-soft);
-  margin-bottom: 0.1rem;
-}
-
-.action {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 0.5rem;
-  width: 100%;
-  border: 1px solid var(--border);
-  background: var(--panel-2);
-  color: var(--ink);
-  border-radius: 14px;
-  padding: 0.7rem 0.95rem;
-  font-family: inherit;
-  font-size: 0.85rem;
-  font-weight: 800;
-  cursor: pointer;
-  transition: filter 0.15s, border-color 0.15s;
-
-  &:hover:not(:disabled) { border-color: var(--secondary); }
-  &:disabled { opacity: 0.5; cursor: not-allowed; }
-}
-
-/* La acción sugerida principal es lanzar la llamada: mismo verde que el botón. */
-.action--primary {
-  background: var(--call);
-  border-color: var(--call);
-  color: #04240f;
-
-  &:hover:not(:disabled) { filter: brightness(1.08); border-color: var(--call); }
 }
 
 /* --- Avance del caso (panel de contexto) ---

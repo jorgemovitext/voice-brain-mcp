@@ -5,6 +5,7 @@ import { HubspotClient } from '../hubspot/hubspot.client';
 import { NlpearlActivityStore, StoredActivity } from './activity.store';
 import { AccionesService, AccionSugerida } from './acciones.service';
 import { Atencion, AtencionService } from './atencion.service';
+import { PearlSyncService } from './pearl-sync.service';
 import { ResumenService } from './resumen.service';
 
 /**
@@ -94,6 +95,7 @@ export class ExpedienteService {
     private readonly ia: ResumenService,
     private readonly atencion: AtencionService,
     private readonly acciones: AccionesService,
+    private readonly sync: PearlSyncService,
   ) {}
 
   private static digitos(t?: string): string {
@@ -174,6 +176,21 @@ export class ExpedienteService {
       .sort((a, b) => b.cuando.localeCompare(a.cuando))[0];
 
     const delCaso = reciente?.items ?? [];
+
+    /*
+     * El caso tiene avances pero ningún mensaje: o la conversación sigue
+     * abierta (y todavía no hay hilo que traer), o ya cerró y el aviso
+     * post-conversación de NL Pearl se perdió. En el segundo caso el chat se
+     * quedaría vacío para siempre, así que se pide la conversación por su id.
+     *
+     * Se espera un minuto desde el último avance para no pedirla mientras el
+     * ciudadano todavía está escribiendo. No se bloquea la respuesta con el
+     * resultado: si trae mensajes, el siguiente sondeo de la consola los ve.
+     */
+    if (reciente && !delCaso.some((a) => a.kind === 'call' || a.kind === 'chat')) {
+      const quieto = Date.now() - new Date(reciente.cuando || 0).getTime();
+      if (quieto > 60_000) void this.sync.rescatarCierre(reciente.id, ctx.contact.displayName);
+    }
 
     // Lo que el flujo recopiló EN ESA conversación; gana el valor más nuevo.
     const capturado = new Map<string, string>();

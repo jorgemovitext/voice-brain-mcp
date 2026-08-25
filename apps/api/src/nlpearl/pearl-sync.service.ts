@@ -54,6 +54,9 @@ export class PearlSyncService {
   private static readonly MIN_INTERVAL_MS = 30_000;
   /** Ventana corta: revisa solo las pearls activas, para ver el hilo en vivo. */
   private static readonly LIVE_INTERVAL_MS = 8_000;
+  /** Último intento de rescate por conversación, para no pedir en cada sondeo. */
+  private readonly rescates = new Map<string, number>();
+  private static readonly RESCATE_MS = 45_000;
 
   constructor(
     private readonly client: NlpearlClient,
@@ -101,6 +104,46 @@ export class PearlSyncService {
     if (desde < PearlSyncService.MIN_INTERVAL_MS)
       return this.syncAll({ hours: 2, soloActivas: true });
     return this.syncAll({ hours });
+  }
+
+  /**
+   * Rescate de cierre.
+   *
+   * El flujo nos manda avances en vivo (variables, no texto) y NL Pearl
+   * promete el hilo completo al terminar, por el nodo post-conversación. Ese
+   * aviso llega UNA vez y sin reintentos: si se pierde, el caso se queda con
+   * el workflow lleno y el chat vacío para siempre.
+   *
+   * Acá se cierra ese hueco por el otro lado: el `conversationId` que viene en
+   * cada avance ES el callId de NL Pearl, así que la conversación se puede
+   * pedir por id sin depender del aviso. Los listados (`/Calls`, `/Calls/Bulk`)
+   * responden cero para esta cuenta, pero el detalle por id es otra ruta.
+   *
+   * Si tampoco está, no pasa nada: se reintenta en el siguiente sondeo.
+   */
+  async rescatarCierre(conversationId: string, etiqueta?: string): Promise<number> {
+    // Los ids de NL Pearl son ObjectId de 24 hex; los del simulador no, y
+    // pedirlos devuelve 400.
+    if (!/^[0-9a-f]{24}$/i.test(conversationId)) return 0;
+
+    const ahora = Date.now();
+    if (ahora - (this.rescates.get(conversationId) ?? 0) < PearlSyncService.RESCATE_MS) return 0;
+    this.rescates.set(conversationId, ahora);
+
+    try {
+      const { nuevas } = await this.ingestCall(conversationId);
+      if (nuevas) {
+        this.flowLog.push(
+          'sync',
+          `Conversación de ${etiqueta ?? 'un ciudadano'} recuperada al cierre: ${nuevas} mensaje(s)`,
+        );
+      }
+      return nuevas;
+    } catch (err) {
+      // Lo normal mientras la conversación sigue abierta: no es un error.
+      this.logger.debug(`Sin conversación todavía: ${(err as Error).message}`);
+      return 0;
+    }
   }
 
   /**
