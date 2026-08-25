@@ -187,9 +187,18 @@ export class NlpearlClient {
     return this.request('POST', `/v2/Pearl/${pearlId}/Calls`, range);
   }
 
-  /** // TODO: confirmar con NL Pearl */
-  getOngoingCalls(pearlId: string): Promise<unknown> {
-    return this.request('GET', `/v2/Pearl/${pearlId}/Calls/Ongoing`);
+  /**
+   * Contadores de conversaciones en curso: `{ totalOngoingCalls, totalOnQueue }`.
+   *
+   * El path es `/OngoingCalls`, no `/Calls/Ongoing` — ese devolvía 404. Y NO
+   * lista las conversaciones: solo cuenta. Para saber CUÁLES están abiertas la
+   * doc manda filtrar los endpoints de Calls por `statuses: [35, 40]`, pero en
+   * esta cuenta esos endpoints devuelven `{"count":0}` (comprobado con rango
+   * de dos años sobre las 23 Pearls), así que hoy este contador es lo único
+   * que responde de verdad.
+   */
+  getOngoingCalls(pearlId: string): Promise<{ totalOngoingCalls: number; totalOnQueue: number | null }> {
+    return this.request('GET', `/v2/Pearl/${pearlId}/OngoingCalls`);
   }
 
   /** // TODO: confirmar con NL Pearl (puede devolver URL o binario) */
