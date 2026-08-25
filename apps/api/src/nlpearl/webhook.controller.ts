@@ -1,5 +1,7 @@
 import { Public } from '../auth/public.decorator';
-import { BadRequestException, Body, Controller, Logger, Post, UseGuards } from '@nestjs/common';
+import { BadRequestException, Body, Controller, Inject, Logger, Post, UseGuards } from '@nestjs/common';
+import { BrainService } from '../brain/brain.service';
+import { ChannelPort, WHATSAPP_CHANNEL } from '../ports/channel.port';
 import { FlowLogService } from '../shared/flow-log.service';
 import { WebhookLogService } from '../shared/webhook-log.service';
 import { NlpearlActivityStore } from './activity.store';
@@ -48,6 +50,8 @@ export class NlpearlWebhookController {
     private readonly flowLog: FlowLogService,
     private readonly webhookLog: WebhookLogService,
     private readonly escalamiento: EscalamientoService,
+    private readonly brain: BrainService,
+    @Inject(WHATSAPP_CHANNEL) private readonly whatsapp: ChannelPort,
   ) {}
 
   @Post('nlpearl')
@@ -194,6 +198,56 @@ export class NlpearlWebhookController {
     });
     this.flowLog.push('webhook', `Conversación completa · ${this.referencia(p, phone)}`);
     return nuevas;
+  }
+
+  /**
+   * Confirmación al ciudadano de que su reporte quedó registrado.
+   *
+   * Los nodos `notifyEmail` y `emNotifyEmail` del flujo ya llamaban a esta
+   * ruta desde antes, pero NUNCA existió: devolvía 404 y el flujo seguía de
+   * largo porque sus dos transiciones —éxito y error— van al mismo nodo, así
+   * que el fallo era invisible. Ningún ciudadano recibió su folio.
+   *
+   * Responde 200 siempre: si la entrega falla, el reporte ya quedó
+   * registrado igual y cortar la conversación por eso sería peor. El motivo
+   * queda en el registro de Actividad.
+   */
+  @Post('nlpearl/notificar')
+  @UseGuards(TurnCredentialGuard)
+  async onNotificar(@Body() body: unknown) {
+    const p = (body ?? {}) as Record<string, unknown>;
+    const phone = this.primerTexto(p, ['phone', 'phoneNumber', 'to']);
+    const folio = this.primerTexto(p, ['folio', 'hs_ticket_id']);
+    const quien = this.referencia(p, phone);
+
+    if (!phone) {
+      this.webhookLog.push('nlpearl', 'Confirmación sin teléfono al que avisar', false, p);
+      return { received: true, entregado: false, motivo: 'Falta phone' };
+    }
+
+    const texto =
+      `Tu reporte quedó registrado${folio ? ` con el folio ${folio}` : ''}. ` +
+      `Ya se notificó a los equipos correspondientes. Te avisaremos cada vez que haya novedades.`;
+
+    let entregado = false;
+    let motivo: string | undefined;
+    try {
+      const { contactId } = await this.brain.resolveIdentity({ phone, system: 'sender' });
+      await this.whatsapp.send(contactId, texto);
+      entregado = true;
+    } catch (err) {
+      motivo = (err as Error).message;
+    }
+
+    this.webhookLog.push(
+      'nlpearl',
+      entregado
+        ? `Confirmación enviada a ${quien}${folio ? ` · folio ${folio}` : ''}`
+        : `Confirmación NO entregada a ${quien}: ${motivo}`,
+      entregado,
+      { phone, folio },
+    );
+    return { received: true, entregado, folio, motivo };
   }
 
   /**
