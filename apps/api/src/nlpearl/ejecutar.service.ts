@@ -100,7 +100,9 @@ export class EjecutarService {
     if (!tel) return fallo('el contacto no tiene teléfono.');
 
     try {
-      await gupshup.sendTemplate(tel, gupshup.templateSaludo, [operador]);
+      const envio = (await gupshup.sendTemplate(tel, gupshup.templateSaludo, [operador])) as
+        | { providerId?: string }
+        | undefined;
 
       /*
        * Y queda EN EL HILO. Sin esto el saludo salía de verdad pero el chat
@@ -108,6 +110,10 @@ export class EjecutarService {
        * envío que falló — y el operador no tenía cómo saber qué se mandó en
        * su nombre. El cuerpo exacto lo guarda Meta, así que se registra lo
        * que sí sabemos: que se envió el saludo y de parte de quién.
+       *
+       * "Entregado a Gupshup" y no "recibido": Gupshup acusa `submitted` al
+       * aceptarlo y el veredicto real llega después, por su webhook. El
+       * `providerId` queda guardado para poder cruzarlo con ese acuse.
        */
       await this.brain.appendInteraction({
         contactId,
@@ -116,6 +122,7 @@ export class EjecutarService {
         occurredAt: new Date().toISOString(),
         summary: `Saludo de presentación enviado de parte de ${operador}.`,
         source: 'own',
+        collectedInfo: envio?.providerId ? { providerId: envio.providerId } : undefined,
       });
 
       this.logger.log(`${operador} se presentó con ${contactId} por plantilla`);

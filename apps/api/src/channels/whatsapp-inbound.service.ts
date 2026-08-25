@@ -111,8 +111,22 @@ export class WhatsappInboundService {
     const payload = (body['payload'] as Record<string, unknown>) ?? {};
 
     if (tipo === 'message-event') {
+      /*
+       * Gupshup acusa recibo con `submitted` en el momento del envío aunque
+       * el mensaje después no llegue: el veredicto real viene acá. Sin el
+       * motivo, un "failed" a secas no sirve de nada — es justo el dato que
+       * explica por qué una plantilla aceptada nunca aparece en el teléfono.
+       */
       const estado = String(payload['type'] ?? 'desconocido');
-      this.webhookLog.push(origen as 'gupshup', `Acuse de entrega: ${estado}`, estado !== 'failed');
+      const detalle = (payload['payload'] as Record<string, unknown>) ?? {};
+      const motivo = [detalle['code'], detalle['reason']].filter(Boolean).join(' · ');
+      const destino = payload['destination'] ? ` a ${String(payload['destination'])}` : '';
+      this.webhookLog.push(
+        origen as 'gupshup',
+        `Acuse de entrega${destino}: ${estado}${motivo ? ` — ${motivo}` : ''}`,
+        estado !== 'failed',
+        payload,
+      );
       return [];
     }
     if (tipo !== 'message') return [];
