@@ -155,6 +155,22 @@ export class ContactDetailPage implements OnDestroy {
    * Distinguirlo importa: decir "no se encontró" ante un 500 pasajero manda
    * al operador a buscar un problema que no existe.
    */
+  /**
+   * Fallos seguidos al cargar el hilo. El sondeo ya reintenta cada pocos
+   * segundos, pero la pantalla de error saltaba al PRIMER fallo: un blip del
+   * servidor —o el pool de Postgres ocupado un instante— tapaba una
+   * conversación que un segundo después cargaba bien. La pantalla prometía
+   * "se reintenta solo" y aun así se mostraba, que era lo contradictorio.
+   *
+   * Un 404 no entra acá: ese sí es definitivo y se muestra de una.
+   */
+  private readonly fallosSeguidos = signal(0);
+
+  /** Solo se rinde tras varios intentos fallidos consecutivos. */
+  readonly errorPersistente = computed(
+    () => this.conversacionInexistente() || this.fallosSeguidos() >= 3,
+  );
+
   readonly conversacionInexistente = computed(() => {
     const err = this.context.error();
     const causa = (err as { cause?: unknown })?.cause ?? err;
@@ -287,6 +303,13 @@ export class ContactDetailPage implements OnDestroy {
         this.primerRender = false;
         setTimeout(() => (el.scrollTop = el.scrollHeight), 0);
       }
+    });
+
+    // Lleva la cuenta de fallos seguidos: un error suelto no tapa el hilo,
+    // varios seguidos sí significan que algo está mal de verdad.
+    effect(() => {
+      if (this.context.error()) this.fallosSeguidos.update((n) => n + 1);
+      else if (this.context.value()) this.fallosSeguidos.set(0);
     });
 
     this.iniciarRefrescoAutomatico();

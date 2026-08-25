@@ -164,6 +164,21 @@ export class NlpearlWebhookController {
       raw: { conversationId, paso, datos },
     });
 
+    /*
+     * Escalamiento sin tocar el flujo: el nodo `apiCollectLocation` ya manda
+     * acá la ubicación y el teléfono en cada reporte, así que este es el
+     * punto donde se puede saber si el incidente ya cruzó el umbral. Agregar
+     * un nodo nuevo en el editor habría exigido reescribir los 58 nodos por
+     * PUT y sacrificar un indicator tag; esto consigue lo mismo sin riesgo.
+     */
+    const ubicacion = typeof datos['ubicacion'] === 'string' ? datos['ubicacion'] : undefined;
+    if (ubicacion) {
+      await this.avisarSiEscala(ubicacion, phone, datos).catch((err) => {
+        // Nunca tumbar el avance por un aviso: el reporte ya quedó guardado.
+        this.logger.warn(`No se pudo evaluar escalamiento: ${(err as Error).message}`);
+      });
+    }
+
     const comoSeLlama = this.referencia(p, phone);
     this.webhookLog.push('nlpearl', `Avance «${this.pasoLegible(paso)}» · ${comoSeLlama}`, true, p);
     this.flowLog.push('webhook', `Avance ${this.pasoLegible(paso)} · ${comoSeLlama}`);
@@ -287,6 +302,57 @@ export class NlpearlWebhookController {
       correoAlcalde: DESTINOS.alcaldeCorreo,
       telefonoCompanias: DESTINOS.companias,
     };
+  }
+
+  /**
+   * Avisa por WhatsApp al despacho y a las compañías cuando el incidente
+   * cruza el umbral E3_EXECUTIVE.
+   *
+   * Se manda una sola vez por incidente: sin esa marca, cada avance del
+   * mismo reporte volvería a disparar el aviso y el alcalde recibiría veinte
+   * mensajes del mismo derrumbe — exactamente el ruido que el guion quiere
+   * evitar.
+   */
+  private async avisarSiEscala(
+    ubicacion: string,
+    phone: string,
+    datos: Record<string, unknown>,
+  ): Promise<void> {
+    const r = await this.escalamiento.evaluar({
+      ubicacion,
+      telefono: phone,
+      obstruyePaso: typeof datos['obstruye_paso'] === 'string' ? datos['obstruye_paso'] : undefined,
+      folio: typeof datos['hs_ticket_id'] === 'string' ? datos['hs_ticket_id'] : undefined,
+    });
+    if (!r.escalar) return;
+
+    const marca = `escalado:${ubicacion.toLowerCase().replace(/\s+/g, '-').slice(0, 60)}`;
+    if (await this.store.findActivity(marca)) return;
+    await this.store.recordActivity({
+      id: marca,
+      phone,
+      kind: 'progress',
+      occurredAt: new Date().toISOString(),
+      raw: { paso: 'escalamiento', datos: { ubicacion, motivo: r.motivo } },
+    });
+
+    for (const [quien, numero] of [
+      ['alcalde', DESTINOS.alcaldeSms],
+      ['compañías', DESTINOS.companias],
+    ] as const) {
+      try {
+        const { contactId } = await this.brain.resolveIdentity({ phone: numero, system: 'sender' });
+        await this.whatsapp.send(contactId, r.mensaje);
+        this.webhookLog.push('nlpearl', `Escalamiento avisado a ${quien} (${numero})`, true, r);
+      } catch (err) {
+        this.webhookLog.push(
+          'nlpearl',
+          `NO se pudo avisar a ${quien} (${numero}): ${(err as Error).message}`,
+          false,
+          r,
+        );
+      }
+    }
   }
 
   /**

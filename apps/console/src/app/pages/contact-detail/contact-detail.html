@@ -1,7 +1,7 @@
 <!-- El error solo tapa la vista si NO hay nada que mostrar. Con el hilo ya
      cargado, un fallo pasajero del servidor no debe borrarlo de la pantalla:
      el sondeo reintenta solo y el operador ni se entera. -->
-@if (context.error() && !context.value()) {
+@if (context.error() && !context.value() && errorPersistente()) {
   <div class="state state--error">
     @if (conversacionInexistente()) {
       No se encontró esta conversación.
@@ -15,7 +15,10 @@
       <a class="btn btn--ghost" routerLink="/conversations">Ver conversaciones</a>
     </div>
   </div>
-} @else if (context.isLoading() && !context.value()) {
+} @else if (!context.value()) {
+  <!-- Cubre también el fallo pasajero: mientras el sondeo reintenta se
+       sigue viendo "cargando" en vez de la pantalla de error o, peor, una
+       pantalla en blanco. -->
   <div class="state"><div class="spinner"></div>Cargando conversación…</div>
 } @else if (context.value(); as ctx) {
   <div class="convo" [class.convo--threads]="withThreads()">
