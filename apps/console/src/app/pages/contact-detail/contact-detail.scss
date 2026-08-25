@@ -1598,12 +1598,13 @@ $overlap: 44px;
 }
 
 /* ===== Vista Flujo: el árbol de decisiones =====
-   No es un adorno: cada nodo y cada bifurcación existen en el flujo real de
-   la Pearl. Se dibuja la columna vertebral con sus cuatro decisiones: el
-   árbol completo son 58 nodos y sería ilegible.
+   Cada nodo y cada bifurcación existen en el flujo real de la Pearl. Se
+   dibuja la columna vertebral con sus cuatro decisiones: el árbol completo
+   son 58 nodos y sería ilegible.
 
-   El camino tomado se ilumina y el descartado queda fantasma — ver la rama
-   que NO se siguió es lo que convierte una lista de pasos en una decisión. */
+   Las formas y los colores son los MISMOS del panal de Agentes —fondo
+   #1a1f2b dormido, --panel-2 encendido, borde --border / --secondary /
+   --primary— para que un hexágono signifique lo mismo en toda la app. */
 .arb {
   display: block;
   width: 100%;
@@ -1616,19 +1617,16 @@ $overlap: 44px;
 
 /* El .wf hereda un padding asimétrico ($overlap a la derecha, para el panel
    que se monta encima). Con una lista no se nota; con un diagrama centrado
-   sí: quedaba corrido ~30px a la izquierda. Cuando lo que vive adentro es el
-   árbol, el padding se vuelve simétrico. */
+   sí: quedaba corrido ~30px a la izquierda. */
 .wf:has(.arb) { padding-inline: 1.2rem; }
 
 /* Papel técnico de puntos bajo el diagrama, como el panal del tablero. */
-.arb__papel {
-  fill: url(#arbPuntos);
-}
+.arb__papel { fill: url(#arbPuntos); }
 
 /* --- Las vías --- */
 .arb__via {
   fill: none;
-  stroke: rgba(255, 255, 255, 0.14);
+  stroke: var(--border);
   stroke-width: 1.6;
   stroke-linecap: round;
   marker-end: url(#arbFlechaTenue);
@@ -1643,7 +1641,7 @@ $overlap: 44px;
   stroke-dasharray: 6 7;
   marker-end: url(#arbFlecha);
   animation: arb-corriente 0.8s linear infinite;
-  filter: drop-shadow(0 0 4px rgba(0, 186, 254, 0.55));
+  filter: drop-shadow(0 0 4px rgba(0, 186, 254, 0.5));
 }
 
 @keyframes arb-corriente {
@@ -1671,7 +1669,7 @@ $overlap: 44px;
 .arb__ramo--viva {
   fill: var(--secondary);
   opacity: 1;
-  filter: drop-shadow(0 0 5px rgba(0, 186, 254, 0.6));
+  filter: drop-shadow(0 0 5px rgba(0, 186, 254, 0.55));
 }
 .arb__ramo--muerta { opacity: 0.2; }
 
@@ -1687,17 +1685,20 @@ $overlap: 44px;
   to { opacity: 1; transform: none; }
 }
 
+/*
+ * Dormido: el gris-navy del panal, no el fondo del panel. Es lo que hace que
+ * un nodo se lea "apagado" contra los encendidos, igual que las celdas que
+ * todavía no se usan en Agentes.
+ */
 .arb__forma {
-  fill: #111a2e;
-  stroke: rgba(255, 255, 255, 0.13);
-  stroke-width: 1.4;
-  /* Redondea las puntas de hexágonos y rombos sin más geometría. */
-  stroke-linejoin: round;
-  transition: fill 0.35s, stroke 0.35s, filter 0.35s;
+  fill: #1a1f2b;
+  stroke: var(--border);
+  stroke-width: 1.6;
+  transition: fill 0.35s, stroke 0.35s, stroke-width 0.35s, filter 0.35s;
 }
 
 .arb__txt {
-  fill: rgba(200, 212, 232, 0.55);
+  fill: rgba(200, 212, 232, 0.6);
   font-size: 11px;
   font-weight: 700;
   text-anchor: middle;
@@ -1705,66 +1706,56 @@ $overlap: 44px;
   pointer-events: none;
 }
 
-/* Recorrido: vidrio cian, el camino que el caso siguió. */
+/* Recorrido: encendido con borde cian, como la celda asignada a su canal. */
 .arb__n--hecho .arb__forma {
-  fill: url(#arbHecho);
-  stroke: color-mix(in srgb, var(--secondary) 60%, transparent);
-  filter: drop-shadow(0 0 7px rgba(0, 186, 254, 0.2));
+  fill: var(--panel-2);
+  stroke: var(--secondary);
+  filter: drop-shadow(0 0 6px rgba(0, 186, 254, 0.22));
 }
 .arb__n--hecho .arb__txt { fill: #fff; }
 
-/* Donde el agente está parado AHORA: encendido y latiendo. */
+/*
+ * Donde el agente está parado AHORA: borde naranja y grueso, que en el panal
+ * es exactamente lo que significa "esta celda está encendida". El cian marca
+ * por dónde pasó; el naranja, dónde está.
+ */
 .arb__n--actual .arb__forma {
-  fill: url(#arbActual);
-  stroke: rgba(255, 255, 255, 0.75);
-  stroke-width: 1.8;
+  fill: var(--panel-2);
+  stroke: var(--primary);
+  stroke-width: 2.4;
   animation: arb-late 2.2s ease-in-out infinite;
 }
-.arb__n--actual .arb__txt { fill: #04283a; font-weight: 800; }
+.arb__n--actual .arb__txt { fill: #fff; font-weight: 800; }
 
 @keyframes arb-late {
-  0%, 100% { filter: drop-shadow(0 0 4px rgba(0, 186, 254, 0.35)); }
-  50% { filter: drop-shadow(0 0 16px rgba(0, 186, 254, 0.8)); }
+  0%, 100% { filter: drop-shadow(0 0 4px rgba(243, 71, 0, 0.3)); }
+  50% { filter: drop-shadow(0 0 15px rgba(243, 71, 0, 0.75)); }
 }
 
 /* Ondas que emanan del nodo vivo, en pares desfasados. */
 .arb__onda {
   fill: none;
-  stroke: var(--secondary);
+  stroke: var(--primary);
   stroke-width: 1.6;
   animation: arb-onda 2.4s ease-out infinite;
 }
 .arb__onda--2 { animation-delay: 1.2s; }
 
 @keyframes arb-onda {
-  0% { r: 12; opacity: 0.7; }
-  100% { r: 42; opacity: 0; }
+  0% { r: 12; opacity: 0.6; }
+  100% { r: 44; opacity: 0; }
 }
-
-/* Las ramas de peligro arden en el naranja de la marca cuando se toman. */
-[data-id='emergencia'].arb__n--hecho .arb__forma,
-[data-id='emergencia'].arb__n--actual .arb__forma,
-[data-id='despacho'].arb__n--hecho .arb__forma,
-[data-id='despacho'].arb__n--actual .arb__forma {
-  fill: url(#arbAlerta);
-  stroke: color-mix(in srgb, var(--primary) 70%, transparent);
-}
-[data-id='emergencia'].arb__n--hecho .arb__txt,
-[data-id='emergencia'].arb__n--actual .arb__txt,
-[data-id='despacho'].arb__n--hecho .arb__txt,
-[data-id='despacho'].arb__n--actual .arb__txt { fill: #fff; }
 
 /* La rama descartada: se ve, y se ve que no se tomó. */
 .arb__n--descartado .arb__forma {
   fill: transparent;
-  stroke: rgba(255, 255, 255, 0.08);
+  stroke: rgba(255, 255, 255, 0.09);
   stroke-dasharray: 3 4;
 }
 .arb__n--descartado .arb__txt { fill: var(--ink-soft); opacity: 0.32; }
 
-/* Todavía no llegó ahí. */
-.arb__n--pendiente .arb__forma { fill: #0e1626; }
-.arb__n--pendiente .arb__txt { opacity: 0.5; }
+/* Todavía no llegó ahí: dormido, con la etiqueta a media luz. */
+.arb__n--pendiente .arb__txt { opacity: 0.55; }
 
 @media (prefers-reduced-motion: reduce) {
   .arb__n,

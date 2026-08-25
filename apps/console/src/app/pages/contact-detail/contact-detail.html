@@ -101,13 +101,13 @@
             <i class="vistatab__num">{{ chat().length }}</i>
           }
         </button>
-        <button class="vistatab__op" role="tab" [class.vistatab__op--on]="vistaActiva() === 'flujo'"
-                (click)="vista.set('flujo')" title="Cómo se está desarrollando el caso">
-          <ui-icon name="zap" /> Caso
-        </button>
         <button class="vistatab__op" role="tab" [class.vistatab__op--on]="vistaActiva() === 'ruta'"
                 (click)="vista.set('ruta')" title="Por qué nodos del flujo pasó el agente, en vivo">
           <ui-icon name="chip" /> Flujo
+        </button>
+        <button class="vistatab__op" role="tab" [class.vistatab__op--on]="vistaActiva() === 'flujo'"
+                (click)="vista.set('flujo')" title="Cómo se está desarrollando el caso">
+          <ui-icon name="zap" /> Caso
         </button>
       </div>
 
@@ -233,19 +233,6 @@
                 <pattern id="arbPuntos" width="24" height="24" patternUnits="userSpaceOnUse">
                   <circle cx="2" cy="2" r="1.1" fill="rgba(255,255,255,0.05)" />
                 </pattern>
-                <linearGradient id="arbHecho" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0" stop-color="rgba(0,186,254,0.30)" />
-                  <stop offset="1" stop-color="rgba(0,119,179,0.12)" />
-                </linearGradient>
-                <linearGradient id="arbActual" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0" stop-color="#00bafe" />
-                  <stop offset="1" stop-color="#0077b3" />
-                </linearGradient>
-                <!-- La rama de emergencia arde en naranja cuando se toma. -->
-                <linearGradient id="arbAlerta" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0" stop-color="rgba(243,71,0,0.85)" />
-                  <stop offset="1" stop-color="rgba(163,48,0,0.65)" />
-                </linearGradient>
                 <marker id="arbFlecha" viewBox="0 0 8 8" refX="5.5" refY="4"
                         markerWidth="6.5" markerHeight="6.5" orient="auto">
                   <path d="M0,0.6 L7,4 L0,7.4 z" fill="#00bafe" />
@@ -275,11 +262,7 @@
                     <circle class="arb__onda" [attr.cx]="n.x" [attr.cy]="n.y" r="10" />
                     <circle class="arb__onda arb__onda--2" [attr.cx]="n.x" [attr.cy]="n.y" r="10" />
                   }
-                  @if (n.decision) {
-                    <polygon class="arb__forma" [attr.points]="puntosRombo(n)" />
-                  } @else {
-                    <polygon class="arb__forma" [attr.points]="puntosHex(n)" />
-                  }
+                  <path class="arb__forma" [attr.d]="formaDe(n)" />
                   <text class="arb__txt" [attr.x]="n.x" [attr.y]="n.y + 4">{{ n.etiqueta }}</text>
                 </g>
               }

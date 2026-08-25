@@ -36,6 +36,7 @@ import {
   sentimentClass,
   sentimentLabel,
 } from '../../ui';
+import { hexAlargado, romboRedondo } from '../../hex';
 
 /** Mensaje del hilo, listo para pintar como burbuja. */
 interface ChatItem {
@@ -343,21 +344,15 @@ export class ContactDetailPage implements OnDestroy {
     return { nodos, aristas, alto: 32 + filas * ContactDetailPage.PASO_FILA + 40 };
   });
 
-  /** Puntos del hexágono alargado de un nodo (la forma de la marca). */
-  puntosHex(n: { x: number; y: number }): string {
+  /**
+   * La silueta de un nodo, con la MISMA forma que el panal de Agentes: los
+   * pasos son hexágonos alargados (la etiqueta no cabe en uno regular) y las
+   * decisiones, rombos. Las dos redondeadas con el mismo criterio.
+   */
+  formaDe(n: { x: number; y: number; decision?: boolean }): string {
     const w = ContactDetailPage.ANCHO_NODO;
     const h = ContactDetailPage.ALTO_NODO;
-    const c = 13;
-    const x = n.x - w / 2;
-    const y = n.y - h / 2;
-    return `${x + c},${y} ${x + w - c},${y} ${x + w},${y + h / 2} ${x + w - c},${y + h} ${x + c},${y + h} ${x},${y + h / 2}`;
-  }
-
-  /** Rombo de una decisión. */
-  puntosRombo(n: { x: number; y: number }): string {
-    const w = ContactDetailPage.ANCHO_NODO;
-    const h = ContactDetailPage.ALTO_NODO + 10;
-    return `${n.x},${n.y - h / 2} ${n.x + w / 2},${n.y} ${n.x},${n.y + h / 2} ${n.x - w / 2},${n.y}`;
+    return n.decision ? romboRedondo(n.x, n.y, w, h + 12) : hexAlargado(n.x, n.y, w, h);
   }
 
   readonly pasosPendientes = computed(() => {

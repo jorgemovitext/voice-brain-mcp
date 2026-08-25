@@ -3,6 +3,7 @@ import { httpResource } from '@angular/common/http';
 import { RouterLink } from '@angular/router';
 import { BrainApiService } from '../../brain-api.service';
 import { Worker, WorkerFlow, WorkersResponse } from '../../models';
+import { hexRedondo } from '../../hex';
 
 /** Una celda del panal ya resuelta a coordenadas de pantalla. */
 interface Celda {
@@ -80,35 +81,6 @@ function sePisan(
   return EJES.every((u) => Math.abs((a.x - b.x) * u.x + (a.y - b.y) * u.y) < tope);
 }
 
-/**
- * Hexágono de esquinas redondeadas, que es la forma que usamos en toda la app
- * (el avatar del rail, la celda del panal). Cada vértice se recorta a `k` de
- * distancia sobre las dos aristas y se une con una curva cuyo control es el
- * vértice original: así la esquina queda mullida y no en pico.
- */
-function hexRedondo(cx: number, cy: number, r: number, suavidad = 0.16): string {
-  const v = Array.from({ length: 6 }, (_, i) => {
-    const a = (Math.PI / 180) * (60 * i);
-    return { x: cx + r * Math.cos(a), y: cy + r * Math.sin(a) };
-  });
-  // El lado de un hexágono mide lo mismo que su circunradio.
-  const k = r * suavidad;
-  const hacia = (p: { x: number; y: number }, q: { x: number; y: number }) => {
-    const dx = q.x - p.x;
-    const dy = q.y - p.y;
-    const L = Math.hypot(dx, dy) || 1;
-    return { x: p.x + (dx / L) * k, y: p.y + (dy / L) * k };
-  };
-  const n = (i: number) => v[(i + 6) % 6];
-  let d = '';
-  for (let i = 0; i < 6; i++) {
-    const a = hacia(n(i), n(i - 1));
-    const b = hacia(n(i), n(i + 1));
-    d += `${i === 0 ? `M ${a.x.toFixed(1)} ${a.y.toFixed(1)}` : `L ${a.x.toFixed(1)} ${a.y.toFixed(1)}`}`;
-    d += ` Q ${n(i).x.toFixed(1)} ${n(i).y.toFixed(1)} ${b.x.toFixed(1)} ${b.y.toFixed(1)} `;
-  }
-  return `${d}Z`;
-}
 
 /**
  * ¿Esto es un identificador y no algo legible? Los ids de NL Pearl y HubSpot
