@@ -125,13 +125,20 @@ export class ContactDetailPage implements OnDestroy {
    * y la tarjeta se volviera ilegible. Acá se descarta lo ya visto: cada hito
    * muestra únicamente el dato nuevo o el que cambió.
    */
-  readonly avances = computed(() => {
-    const crudos = [...(this.progreso.value() ?? [])].sort((a, b) =>
-      (a.occurredAt ?? '').localeCompare(b.occurredAt ?? ''),
-    );
+  readonly avances = computed(() =>
+    ContactDetailPage.conDeltas(
+      [...(this.progreso.value() ?? [])].sort((a, b) =>
+        (a.occurredAt ?? '').localeCompare(b.occurredAt ?? ''),
+      ),
+    ),
+  );
 
+  /** El acumulado del flujo → solo lo que aporta cada paso. */
+  private static conDeltas(
+    ordenados: AvanceFlujo[],
+  ): Array<AvanceFlujo & { nuevos: Array<{ clave: string; valor: string }> }> {
     const visto = new Map<string, string>();
-    return crudos.map((a) => {
+    return ordenados.map((a) => {
       const nuevos: Array<{ clave: string; valor: string }> = [];
       for (const [clave, valor] of Object.entries(a.datos ?? {})) {
         const texto = (typeof valor === 'string' ? valor : JSON.stringify(valor) ?? '').trim();
@@ -141,6 +148,66 @@ export class ContactDetailPage implements OnDestroy {
       }
       return { ...a, nuevos };
     });
+  }
+
+  /**
+   * Los hitos del CASO ACTUAL (la conversación más reciente), para el
+   * diagrama de flujo. El endpoint devuelve los avances de todo el teléfono,
+   * y el mismo número reporta varias veces: mezclar casos en el diagrama
+   * pintaría un flujo que nunca existió. La marca de escalamiento no lleva
+   * conversationId y se incluye — pertenece al incidente, no al hilo.
+   */
+  readonly hitos = computed(() => {
+    const orden = [...(this.progreso.value() ?? [])].sort((a, b) =>
+      (a.occurredAt ?? '').localeCompare(b.occurredAt ?? ''),
+    );
+    const ultima = [...orden].reverse().find((a) => a.conversationId)?.conversationId;
+    const delCaso = ultima ? orden.filter((a) => a.conversationId === ultima || !a.conversationId) : orden;
+    return ContactDetailPage.conDeltas(delCaso);
+  });
+
+  /**
+   * Qué mostrar en el cuerpo del panel: el diagrama del caso o el chat.
+   *
+   * `null` = automático: mientras Pearl solo manda avances (la conversación
+   * llega entera al cerrar o escalar), lo único vivo es el CASO y eso es lo
+   * que se muestra; en cuanto hay mensajes, el chat pasa al frente solo. El
+   * tab de la cabecera fija la elección manual, y cambiar de hilo la borra.
+   */
+  readonly vista = signal<'chat' | 'flujo' | null>(null);
+  readonly vistaActiva = computed(() => this.vista() ?? (this.chat().length ? 'chat' : 'flujo'));
+
+  /** Estado del caso para la cabecera del diagrama. */
+  readonly estadoCaso = computed<{ clase: string; texto: string }>(() => {
+    if (this.chat().length) return { clase: 'fin', texto: 'Conversación completa' };
+    if (this.hitos().some((a) => a.paso === 'escalamiento'))
+      return { clase: 'escala', texto: 'Escalado al despacho' };
+    if (this.hitos().length) return { clase: 'vivo', texto: 'Caso formándose en vivo' };
+    return { clase: 'espera', texto: 'Esperando al agente' };
+  });
+
+  /**
+   * La ruta que el flujo del agente recorre para registrar un reporte. Sirve
+   * para dibujar los pasos PENDIENTES en tenue: el diagrama muestra a dónde
+   * va el caso, no solo por dónde pasó. Las `claves` cubren los nombres de
+   * nodo de ambas ramas (normal y de emergencia: collectLocation, emApiLoc…).
+   */
+  private static readonly RUTA: Array<{ paso: string; etiqueta: string; claves: string[] }> = [
+    { paso: 'collectProblem', etiqueta: 'Tipo de problema', claves: ['problem'] },
+    { paso: 'collectLocation', etiqueta: 'Ubicación', claves: ['loc', 'ubic', 'geocode'] },
+    { paso: 'collectDesc', etiqueta: 'Descripción', claves: ['desc'] },
+    { paso: 'collectContact', etiqueta: 'Datos de contacto', claves: ['cont'] },
+    { paso: 'confirmInfo', etiqueta: 'Confirmación', claves: ['confirm'] },
+    { paso: 'registered', etiqueta: 'Reporte registrado', claves: ['regist'] },
+  ];
+
+  readonly pasosPendientes = computed(() => {
+    if (this.chat().length) return [];
+    const hechos = this.hitos().map((a) => a.paso.toLowerCase());
+    if (!hechos.length) return [];
+    const cumplido = (claves: string[]) => hechos.some((h) => claves.some((c) => h.includes(c)));
+    if (cumplido(['regist', 'farewell', 'closing'])) return [];
+    return ContactDetailPage.RUTA.filter((p) => !cumplido(p.claves));
   });
 
   /**
@@ -313,10 +380,12 @@ export class ContactDetailPage implements OnDestroy {
     });
 
     this.iniciarRefrescoAutomatico();
-    // Al alternar de conversación se resetea el estado de llamada/composer.
+    // Al alternar de conversación se resetea el estado de llamada/composer,
+    // y la elección Chat/Caso vuelve al automático del hilo nuevo.
     effect(() => {
       this.id();
       this.resetCallUi();
+      this.vista.set(null);
     });
   }
 
@@ -358,6 +427,11 @@ export class ContactDetailPage implements OnDestroy {
     closing: 'Cerró la conversación',
     emergency: 'Detectó una emergencia',
     identifyNeed: 'Identificó la necesidad',
+    escalamiento: 'Escalado al despacho',
+    geocodeLocation: 'Ubicación verificada',
+    collectDetails: 'Detalles adicionales',
+    offerPhoto: 'Solicitud de evidencia',
+    safetyCheck: 'Verificación de seguridad',
     collectProblem: 'Recopiló el tipo de problema',
     collectLocation: 'Recopiló la ubicación',
     collectDesc: 'Recopiló la descripción',

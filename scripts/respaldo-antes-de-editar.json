@@ -1,0 +1,3265 @@
+{
+  "pearl": {
+    "agentName": "Línea 100",
+    "agentPersonality": "Cercano y resolutivo",
+    "timeZone": "US Eastern Standard Time",
+    "modelType": 11,
+    "companyName": "Alcaldía Municipal del Distrito Central (AMDC)",
+    "companyDescription": "La AMDC es la Alcaldía Municipal del Distrito Central de Honduras, que administra Tegucigalpa y Comayagüela. La Línea 100 es su canal de atención ciudadana 24/7 por WhatsApp para recibir denuncias, reportes de infraestructura, emergencias por riesgos naturales, consultas sobre trámites municipales y orientación sobre servicios públicos. Cubre 10 categorías: Agua, Aseo, Vialidad, Construcción, Ambiental, Riesgos/Emergencia, Orden público, Catastro, Maltrato animal y Atención general.",
+    "generalInstructions": "Eres el asistente de Línea 100 de la AMDC, atendiendo por WhatsApp. Hablas como hondureño cercano y resolutivo, nunca como formulario ni robot. Varía cómo formulas cada pregunta, reacciona a lo que te dijeron antes de preguntar lo siguiente. Una sola pregunta por mensaje. Regla de oro: memoria antes que preguntas. Nunca preguntes algo que ya está en HubSpot o que ya te dijeron en este chat. Si el contacto existe, salúdalo por nombre con calidez variando la fórmula. Si es nuevo, saludo cordial sin nombre. Categorías: Agua, Aseo, Vialidad, Construcción, Ambiental, Riesgos/Emergencia, Orden público, Catastro, Maltrato animal, Atención general. Tipos: reclamo, solicitud_servicio, consulta. Prioridad: alta (riesgo personas, servicio esencial cortado), media, baja. Preflight de seguridad en reportes de riesgo: una pregunta directa sobre peligro inmediato. Si hay riesgo de vida, handoff inmediato. Pide ubicación siempre (es del incidente, no del perfil). Foto opcional, una vez, solo si el caso lo amerita. No pidas cédula ni datos financieros. No prometas tiempos. No inventes que un área ya resolvió algo. Mensajes cortos, español claro, sin tecnicismos.",
+    "knowledgeBase": "CATEGORÍAS DE SERVICIO MUNICIPAL Y GERENCIAS RESPONSABLES:\n\n1. Agua - Unidad de Infraestructura y Obras (Company ID: 57725138817)\n2. Aseo - Unidad de Infraestructura y Obras (Company ID: 57725138817)\n3. Vialidad - Gerencia de Movilidad Urbana (Company ID: 57702044716)\n4. Construcción - Unidad de Infraestructura y Obras (Company ID: 57725138817)\n5. Ambiental - Gerencia de Evaluación de Riesgos (Company ID: 57694565902)\n6. Riesgos/Emergencia - Gerencia de Evaluación de Riesgos (57694565902) + CODEM (57743902905)\n7. Orden público - Gerencia de Orden Público (Company ID: 57706798245)\n8. Catastro - Atención general AMDC\n9. Maltrato animal - Atención general AMDC\n10. Atención general - Atención general AMDC\n\nENTIDADES DE RESPUESTA A EMERGENCIAS:\n- Bomberos: Company ID 57749530768\n- COPECO: Company ID 57748602663\n- Policía Nacional: Company ID 57746898324\n- Sistema 911: Company ID 57750831968\n\nGERENCIAS PARA TICKETS HIJO:\n- Gerencia de Evaluación de Riesgos - AMDC: 57694565902\n- CODEM - Comité de Emergencia Municipal: 57743902905\n- Unidad de Infraestructura y Obras - AMDC: 57725138817\n- Gerencia de Movilidad Urbana - AMDC: 57702044716\n- Gerencia de Orden Público - AMDC: 57706798245\n\nTIPOS DE TICKET:\n- reclamo: queja sobre servicio deficiente o problema existente\n- solicitud_servicio: petición de acción municipal nueva\n- consulta: pregunta sobre trámites o servicios sin reporte\n\nPRIORIDAD:\n- alta: riesgo para personas, servicio esencial cortado, urgencia real\n- media: afectación moderada sin riesgo inmediato\n- baja: molestia menor, consulta informativa\n\nCOBERTURA GEOGRÁFICA: Tegucigalpa y Comayagüela (Distrito Central, Francisco Morazán, Honduras). Solo se atienden reportes dentro de esta jurisdicción.\n\nFOLIOS:\n- Reportes regulares: L100-DEMO-{hs_ticket_id}\n- Emergencias: L100-EME-{hs_ticket_id}\n\nESCALAMIENTO EJECUTIVO (E3):\n- Contacto: +504 9761-6546\n- Email: jorge.murcia@movitext.com\n- Criterios: volumen alto de reportes coincidentes, acceso único bloqueado, SLA crítico vencido\n- Solo se escala una vez por folio\n\nSERVICIOS DIGITALES: Para trámites municipales en línea, orientar al ciudadano a la app AMDC En Tus Manos.\n\nHORARIO: Atención 24/7 por WhatsApp.\n\nDATOS QUE NUNCA SE PIDEN: cédula de identidad, datos financieros, diagnósticos médicos.",
+    "memory": true,
+    "successDescription": "Registrar el reporte con categoría, ubicación y contacto en HubSpot, crear tickets hijo para las gerencias responsables, o escalar a operador humano",
+    "indicatorTags": [
+      {
+        "id": "lbl_r3p1",
+        "name": "Reporte Registrado",
+        "description": "Reporte completo con ticket maestro creado en HubSpot, incluyendo categoría, ubicación y datos de contacto",
+        "color": 4
+      },
+      {
+        "id": "lbl_e7m2",
+        "name": "Emergencia Escalada",
+        "description": "Caso con riesgo de vida inmediato escalado a operador humano mediante handoff",
+        "color": 2
+      },
+      {
+        "id": "lbl_t4h8",
+        "name": "Tickets Hijo Creados",
+        "description": "Se generaron tickets hijo para las gerencias responsables y se les notificó",
+        "color": 5
+      },
+      {
+        "id": "lbl_m9v3",
+        "name": "Evento Masivo",
+        "description": "Múltiples reportes coincidentes vinculados al mismo folio, posible emergencia zonal",
+        "color": 8
+      },
+      {
+        "id": "lbl_x2e5",
+        "name": "Escalamiento Ejecutivo",
+        "description": "Caso que cruzó umbral E3 y se notificó al nivel ejecutivo por volumen o SLA vencido",
+        "color": 1
+      },
+      {
+        "id": "lbl_s6f1",
+        "name": "Seguimiento Solicitado",
+        "description": "Ciudadano preguntó por el estado de un caso existente y se le informó el avance del CRM",
+        "color": 3
+      },
+      {
+        "id": "lbl_p8k4",
+        "name": "Pidió Operador",
+        "description": "Ciudadano solicitó hablar con una persona y se realizó handoff sin emergencia",
+        "color": 6
+      },
+      {
+        "id": "lbl_f1w7",
+        "name": "Foto Recibida",
+        "description": "Ciudadano envió evidencia fotográfica del problema reportado",
+        "color": 7
+      },
+      {
+        "id": "lbl_c3n9",
+        "name": "Consulta General",
+        "description": "Consulta sobre trámites, servicios municipales o AMDC En Tus Manos sin generar reporte",
+        "color": 8
+      },
+      {
+        "id": "lbl_d5z6",
+        "name": "Fuera de Cobertura",
+        "description": "Reporte de ubicación fuera de Tegucigalpa/Comayagüela o tema que no corresponde a la AMDC",
+        "color": 9
+      }
+    ],
+    "nodes": [
+      {
+        "nodeId": "opening",
+        "name": "Saludo inicial",
+        "nodeType": 2,
+        "transitions": [
+          {
+            "name": "Ciudadano responde",
+            "toNodeId": "apiOpening"
+          }
+        ],
+        "script": "Hola, bienvenido a la Línea 100 de la AMDC. Soy {agentName}, estoy acá para ayudarle. Cuénteme, ¿en qué le puedo servir?",
+        "instructions": "Dar la bienvenida al ciudadano de forma cálida y natural. NO preguntar si es emergencia. NO mencionar peligro ni seguridad. Simplemente esperar a que el ciudadano cuente su necesidad."
+      },
+      {
+        "nodeId": "emergency",
+        "name": "Emergencia - Redirigir 911",
+        "nodeType": 10,
+        "transitions": [
+          {
+            "name": "Emergencia que pone en riesgo la vida",
+            "toNodeId": "handoffEmergency"
+          },
+          {
+            "name": "Ciudadano no necesita más ayuda",
+            "toNodeId": "farewell"
+          }
+        ],
+        "script": "Si hay personas en peligro inmediato, llame al 911. Mientras tanto, voy a conectarle con un operador de la AMDC para dar seguimiento a su emergencia.",
+        "instructions": "Redirigir al 911 si hay riesgo de vida por peligro relacionado con el vehículo. Transferir a un operador humano. Si no necesita más, despedirse."
+      },
+      {
+        "nodeId": "collectLocation",
+        "name": "Recopilar ubicación",
+        "nodeType": 10,
+        "transitions": [
+          {
+            "name": "Ubicación proporcionada",
+            "toNodeId": "geocodeLocation"
+          }
+        ],
+        "script": "Para ubicar tu reporte con precisión, tocá el clip 📎 y seleccioná Ubicación para compartirla. Si preferís, también podés escribir la dirección.",
+        "instructions": "Pedir pin de WhatsApp (clip > Ubicación). Si comparte pin, enlace o coordenadas, guardar en {ubicacion}. Texto también válido. Debe estar en Tegucigalpa o Comayagüela."
+      },
+      {
+        "nodeId": "collectDesc",
+        "name": "Recopilar descripción",
+        "nodeType": 10,
+        "transitions": [
+          {
+            "name": "Descripción proporcionada",
+            "toNodeId": "apiCollectDesc"
+          }
+        ],
+        "script": "¿Qué es lo que ve? Descríbame el vehículo o la situación con el mayor detalle posible.",
+        "instructions": "Recopilar descripción del vehículo: tipo, estado, color. Guardar en {descripcion}. Guardar \"Posible vehículo abandonado o chatarra en vía pública\" en {tipoProblema}."
+      },
+      {
+        "nodeId": "confirmInfo",
+        "name": "Confirmar información",
+        "nodeType": 10,
+        "transitions": [
+          {
+            "name": "Ciudadano confirma información correcta",
+            "toNodeId": "apiConfirmInfo"
+          },
+          {
+            "name": "Corregir ubicación",
+            "toNodeId": "collectLocation"
+          },
+          {
+            "name": "Corregir descripción",
+            "toNodeId": "collectDesc"
+          },
+          {
+            "name": "Corregir datos de contacto",
+            "toNodeId": "collectContact"
+          },
+          {
+            "name": "Corregir detalles adicionales",
+            "toNodeId": "collectDetails"
+          }
+        ],
+        "script": "Déjeme confirmar su reporte. Tipo: posible vehículo abandonado o chatarra en vía pública. Ubicación: {ubicacion}. Descripción: {descripcion}. Nombre: {nombreCiudadano}. ¿Es correcta toda la información?",
+        "instructions": "Presentar el resumen del reporte al ciudadano y pedir confirmación. Si el ciudadano confirma, registrar el reporte. Si quiere corregir algo, regresar al paso correspondiente para actualizar la información."
+      },
+      {
+        "nodeId": "registered",
+        "name": "Reporte registrado",
+        "nodeType": 10,
+        "transitions": [
+          {
+            "name": "Ciudadano tiene otra consulta",
+            "toNodeId": "safetyCheck"
+          },
+          {
+            "name": "Ciudadano no necesita más ayuda",
+            "toNodeId": "apiRegistered"
+          }
+        ],
+        "script": "Su reporte ha sido registrado con el folio L100-DEMO-{hs_ticket_id}. Le enviamos una confirmación a su correo. Un operador de la AMDC le dará seguimiento. ¿Hay algo más en lo que le pueda ayudar?",
+        "instructions": "Confirmar que el reporte fue registrado. Entregar folio en bloques de dos dígitos. Mencionar que se envió confirmación por correo. No prometer fechas ni horas. Si el ciudadano pregunta algo más, orientar. Si no necesita más, despedirse."
+      },
+      {
+        "nodeId": "farewell",
+        "name": "Despedida",
+        "nodeType": 10,
+        "transitions": [
+          {
+            "name": "Conversación finalizada",
+            "toNodeId": "apiFarewell"
+          }
+        ],
+        "script": "Gracias por comunicarse con la Línea 100 de la AMDC. Estamos para servirle. ¡Que tenga un buen día!",
+        "instructions": "Despedirse amablemente del ciudadano."
+      },
+      {
+        "nodeId": "endCall",
+        "name": "Fin de conversación",
+        "nodeType": 100,
+        "transitions": [
+          {
+            "name": "Conversación finalizada",
+            "toNodeId": "always_webhook"
+          }
+        ],
+        "script": "",
+        "instructions": ""
+      },
+      {
+        "nodeId": "collectContact",
+        "name": "Recopilar datos de contacto",
+        "nodeType": 10,
+        "transitions": [
+          {
+            "name": "Datos de contacto recopilados o anónimo",
+            "toNodeId": "apiCollectContact"
+          }
+        ],
+        "script": "¿Me puede dar su nombre, un número de contacto y su correo electrónico para darle seguimiento? Si prefiere mantenerlo anónimo, no hay problema.",
+        "instructions": "Guardar nombre en {nombreCiudadano}, contacto en {contactoCiudadano}. Si {emailCiudadano} vacío, pedir correo y guardar. Si ya tiene valor de HubSpot, no pedir correo. Si anónimo, guardar 'Anónimo' en {nombreCiudadano}. Avanzar."
+      },
+      {
+        "nodeId": "createContact",
+        "name": "Crear contacto en HubSpot",
+        "nodeType": 40,
+        "transitions": [
+          {
+            "name": "Contacto creado exitosamente",
+            "toNodeId": "createTicket"
+          },
+          {
+            "name": "Error al crear contacto",
+            "toNodeId": "createTicket"
+          }
+        ],
+        "apiSettings": {
+          "name": "Crear contacto en HubSpot",
+          "method": 2,
+          "endpointUrl": "https://api.hubapi.com/crm/v3/objects/contacts",
+          "body": [
+            {
+              "key": "properties.firstname",
+              "variableId": "nombreCiudadano",
+              "type": 1,
+              "required": false
+            },
+            {
+              "key": "properties.phone",
+              "variableId": "phoneNumber",
+              "type": 1,
+              "required": false
+            }
+          ],
+          "headers": {
+            "Content-Type": "application/json"
+          },
+          "description": "Crea o actualiza un contacto en HubSpot con los datos del ciudadano que reporta. Si el contacto ya existe (conflicto 409), se continua normalmente.",
+          "outputBody": [
+            {
+              "key": "id",
+              "variableId": "hubspotContactId",
+              "type": 1,
+              "required": false
+            }
+          ],
+          "credentialId": "FEOZK8Mm"
+        }
+      },
+      {
+        "nodeId": "createTicket",
+        "name": "Crear ticket en HubSpot",
+        "nodeType": 40,
+        "transitions": [
+          {
+            "name": "Ticket creado exitosamente",
+            "toNodeId": "associateTicket"
+          },
+          {
+            "name": "Error al crear ticket",
+            "toNodeId": "associateTicket"
+          }
+        ],
+        "apiSettings": {
+          "name": "Crear ticket en HubSpot",
+          "method": 2,
+          "endpointUrl": "https://api.hubapi.com/crm/v3/objects/tickets",
+          "body": [
+            {
+              "key": "properties.subject",
+              "type": 1,
+              "value": "Posible vehículo abandonado - {ubicacion}",
+              "required": true
+            },
+            {
+              "key": "properties.content",
+              "type": 1,
+              "value": "{descripcion} (DEMO sintético)",
+              "required": true
+            },
+            {
+              "key": "properties.hs_pipeline",
+              "type": 1,
+              "value": "0",
+              "required": true
+            },
+            {
+              "key": "properties.hs_pipeline_stage",
+              "type": 1,
+              "value": "1",
+              "required": true
+            },
+            {
+              "key": "properties.categoria_de_servicio_municipal",
+              "type": 1,
+              "value": "Vialidad",
+              "required": false
+            },
+            {
+              "key": "properties.categoria_ticket",
+              "type": 1,
+              "value": "reclamo",
+              "required": false
+            },
+            {
+              "key": "properties.prioridad_ticket",
+              "type": 1,
+              "value": "media",
+              "required": false
+            },
+            {
+              "key": "properties.canal_reporte",
+              "type": 1,
+              "value": "Whatsapp",
+              "required": false
+            },
+            {
+              "key": "properties.estado_operacional",
+              "type": 1,
+              "value": "informacion_pendiente",
+              "required": false
+            },
+            {
+              "key": "properties.latitud",
+              "variableId": "latitud",
+              "type": 1,
+              "required": false
+            },
+            {
+              "key": "properties.longitud",
+              "variableId": "longitud",
+              "type": 1,
+              "required": false
+            },
+            {
+              "key": "properties.direccion_formateada",
+              "variableId": "direccionFormateada",
+              "type": 1,
+              "required": false
+            },
+            {
+              "key": "properties.nombre_ciudadano",
+              "variableId": "nombreCiudadano",
+              "type": 1,
+              "required": false
+            },
+            {
+              "key": "properties.contacto_ciudadano",
+              "variableId": "contactoCiudadano",
+              "type": 1,
+              "required": false
+            },
+            {
+              "key": "properties.email_ciudadano",
+              "variableId": "emailCiudadano",
+              "type": 1,
+              "required": false
+            }
+          ],
+          "headers": {
+            "Content-Type": "application/json"
+          },
+          "description": "Crea ticket en HubSpot con datos del reporte incluyendo coordenadas y datos de contacto del ciudadano",
+          "outputBody": [
+            {
+              "key": "id",
+              "variableId": "hs_ticket_id",
+              "type": 1,
+              "required": true
+            }
+          ],
+          "credentialId": "FEOZK8Mm"
+        }
+      },
+      {
+        "nodeId": "handoffEmergency",
+        "name": "Transferir a operador por emergencia",
+        "nodeType": 31,
+        "transitions": [
+          {
+            "name": "Transferencia completada",
+            "toNodeId": "endCall"
+          }
+        ],
+        "script": "Entiendo la urgencia. Voy a conectarte con un operador para atender tu emergencia de inmediato.",
+        "handOffAction": [
+          {
+            "nodeId": "sms_emergencia",
+            "name": "Enviar SMS de Alerta de Emergencia",
+            "nodeType": 50,
+            "transitions": [],
+            "smsSettings": {
+              "body": "Alerta de emergencia Linea 100 AMDC. Ciudadano reporta peligro inmediato. Telefono del ciudadano: {phoneNumber}. Ubicacion: {ubicacion}. Tipo de consulta: {tipoConsulta}."
+            }
+          }
+        ]
+      },
+      {
+        "nodeId": "always_webhook",
+        "name": "Webhook de turno - siempre",
+        "nodeType": 200,
+        "transitions": [],
+        "postCallActions": [
+          {
+            "nodeId": "postWebhook",
+            "name": "Webhook post-conversación",
+            "nodeType": 40,
+            "transitions": [],
+            "apiSettings": {
+              "name": "Webhook post-conversación",
+              "method": 2,
+              "endpointUrl": "https://voice-brain-mcp.vercel.app/webhooks/nlpearl/avance",
+              "body": [
+                {
+                  "key": "conversationId",
+                  "variableId": "callId",
+                  "type": 1,
+                  "value": "",
+                  "required": true
+                },
+                {
+                  "key": "pearlId",
+                  "type": 1,
+                  "value": "6a88a6da0137ea6b03c574c2",
+                  "required": true
+                },
+                {
+                  "key": "phone",
+                  "variableId": "phoneNumber",
+                  "type": 1,
+                  "value": "",
+                  "required": true
+                },
+                {
+                  "key": "transcript",
+                  "variableId": "post_call_transcript",
+                  "type": 1,
+                  "value": "",
+                  "required": true
+                },
+                {
+                  "key": "summary",
+                  "variableId": "post_call_summary",
+                  "type": 1,
+                  "value": "",
+                  "required": true
+                },
+                {
+                  "key": "duration",
+                  "variableId": "post_call_duration",
+                  "type": 1,
+                  "value": "",
+                  "required": true
+                },
+                {
+                  "key": "callTime",
+                  "variableId": "post_call_call_time",
+                  "type": 1,
+                  "value": "",
+                  "required": true
+                },
+                {
+                  "key": "tags",
+                  "variableId": "post_call_indicator_tags",
+                  "type": 1,
+                  "value": "",
+                  "required": false
+                },
+                {
+                  "key": "sentiment",
+                  "variableId": "post_call_sentiment_analysis",
+                  "type": 1,
+                  "value": "",
+                  "required": false
+                }
+              ],
+              "headers": {
+                "Content-Type": "application/json"
+              },
+              "description": "Envía los datos de la conversación finalizada al sistema externo MCP, incluyendo transcripción, resumen, duración, tags y sentimiento.",
+              "credentialId": "ztTnlhZQ"
+            }
+          }
+        ]
+      },
+      {
+        "nodeId": "apiCollectProblem",
+        "name": "API Avance - Tipo de problema",
+        "nodeType": 40,
+        "transitions": [
+          {
+            "name": "Avance enviado exitosamente",
+            "toNodeId": "collectDetails"
+          },
+          {
+            "name": "Error al enviar avance",
+            "toNodeId": "collectDetails"
+          }
+        ],
+        "apiSettings": {
+          "name": "API Avance - Tipo de problema",
+          "method": 2,
+          "endpointUrl": "https://voice-brain-mcp.vercel.app/webhooks/nlpearl/avance",
+          "body": [
+            {
+              "key": "conversationId",
+              "variableId": "callId",
+              "type": 1,
+              "required": true
+            },
+            {
+              "key": "pearlId",
+              "type": 1,
+              "value": "6a88a6da0137ea6b03c574c2",
+              "required": true
+            },
+            {
+              "key": "phone",
+              "variableId": "phoneNumber",
+              "type": 1,
+              "required": true
+            },
+            {
+              "key": "paso",
+              "type": 1,
+              "value": "collectProblem",
+              "required": true
+            },
+            {
+              "key": "tipoConsulta",
+              "variableId": "tipoConsulta",
+              "type": 1,
+              "required": true
+            },
+            {
+              "key": "tipoProblema",
+              "variableId": "tipoProblema",
+              "type": 1,
+              "required": true
+            }
+          ],
+          "headers": {
+            "Content-Type": "application/json"
+          },
+          "description": "Envía avance de tipo de problema al webhook MCP",
+          "credentialId": "ztTnlhZQ"
+        }
+      },
+      {
+        "nodeId": "apiCollectLocation",
+        "name": "API Avance - Ubicación",
+        "nodeType": 40,
+        "transitions": [
+          {
+            "name": "Avance enviado exitosamente",
+            "toNodeId": "collectDesc"
+          },
+          {
+            "name": "Error al enviar avance",
+            "toNodeId": "collectDesc"
+          }
+        ],
+        "apiSettings": {
+          "name": "API Avance - Ubicación",
+          "method": 2,
+          "endpointUrl": "https://voice-brain-mcp.vercel.app/webhooks/nlpearl/avance",
+          "body": [
+            {
+              "key": "conversationId",
+              "variableId": "callId",
+              "type": 1,
+              "required": true
+            },
+            {
+              "key": "pearlId",
+              "type": 1,
+              "value": "6a88a6da0137ea6b03c574c2",
+              "required": true
+            },
+            {
+              "key": "phone",
+              "variableId": "phoneNumber",
+              "type": 1,
+              "required": true
+            },
+            {
+              "key": "paso",
+              "type": 1,
+              "value": "collectLocation",
+              "required": true
+            },
+            {
+              "key": "tipoConsulta",
+              "variableId": "tipoConsulta",
+              "type": 1,
+              "required": true
+            },
+            {
+              "key": "tipoProblema",
+              "variableId": "tipoProblema",
+              "type": 1,
+              "required": true
+            },
+            {
+              "key": "ubicacion",
+              "variableId": "ubicacion",
+              "type": 1,
+              "required": true
+            }
+          ],
+          "headers": {
+            "Content-Type": "application/json"
+          },
+          "description": "Envía avance de la conversación al servidor MCP con la ubicación del problema",
+          "credentialId": "ztTnlhZQ"
+        }
+      },
+      {
+        "nodeId": "apiCollectDesc",
+        "name": "API Avance - Descripción",
+        "nodeType": 40,
+        "transitions": [
+          {
+            "name": "Avance enviado exitosamente",
+            "toNodeId": "apiCollectProblem"
+          },
+          {
+            "name": "Error al enviar avance",
+            "toNodeId": "apiCollectProblem"
+          }
+        ],
+        "apiSettings": {
+          "name": "API Avance - Descripción",
+          "method": 2,
+          "endpointUrl": "https://voice-brain-mcp.vercel.app/webhooks/nlpearl/avance",
+          "body": [
+            {
+              "key": "conversationId",
+              "variableId": "callId",
+              "type": 1,
+              "required": true
+            },
+            {
+              "key": "pearlId",
+              "type": 1,
+              "value": "6a88a6da0137ea6b03c574c2",
+              "required": true
+            },
+            {
+              "key": "phone",
+              "variableId": "phoneNumber",
+              "type": 1,
+              "required": true
+            },
+            {
+              "key": "paso",
+              "type": 1,
+              "value": "collectDesc",
+              "required": true
+            },
+            {
+              "key": "tipoConsulta",
+              "variableId": "tipoConsulta",
+              "type": 1,
+              "required": true
+            },
+            {
+              "key": "tipoProblema",
+              "variableId": "tipoProblema",
+              "type": 1,
+              "required": true
+            },
+            {
+              "key": "ubicacion",
+              "variableId": "ubicacion",
+              "type": 1,
+              "required": true
+            },
+            {
+              "key": "descripcion",
+              "variableId": "descripcion",
+              "type": 1,
+              "required": true
+            }
+          ],
+          "headers": {
+            "Content-Type": "application/json"
+          },
+          "description": "Envía avance de descripción al webhook MCP",
+          "credentialId": "ztTnlhZQ"
+        }
+      },
+      {
+        "nodeId": "apiCollectContact",
+        "name": "API Avance - Datos de contacto",
+        "nodeType": 40,
+        "transitions": [
+          {
+            "name": "Avance enviado exitosamente",
+            "toNodeId": "confirmInfo"
+          },
+          {
+            "name": "Error al enviar avance",
+            "toNodeId": "confirmInfo"
+          }
+        ],
+        "apiSettings": {
+          "name": "API Avance - Datos de contacto",
+          "method": 2,
+          "endpointUrl": "https://voice-brain-mcp.vercel.app/webhooks/nlpearl/avance",
+          "body": [
+            {
+              "key": "conversationId",
+              "variableId": "callId",
+              "type": 1,
+              "required": true
+            },
+            {
+              "key": "pearlId",
+              "type": 1,
+              "value": "6a88a6da0137ea6b03c574c2",
+              "required": true
+            },
+            {
+              "key": "phone",
+              "variableId": "phoneNumber",
+              "type": 1,
+              "required": true
+            },
+            {
+              "key": "paso",
+              "type": 1,
+              "value": "collectContact",
+              "required": true
+            },
+            {
+              "key": "tipoConsulta",
+              "variableId": "tipoConsulta",
+              "type": 1,
+              "required": true
+            },
+            {
+              "key": "tipoProblema",
+              "variableId": "tipoProblema",
+              "type": 1,
+              "required": true
+            },
+            {
+              "key": "ubicacion",
+              "variableId": "ubicacion",
+              "type": 1,
+              "required": true
+            },
+            {
+              "key": "descripcion",
+              "variableId": "descripcion",
+              "type": 1,
+              "required": true
+            },
+            {
+              "key": "nombreCiudadano",
+              "variableId": "nombreCiudadano",
+              "type": 1,
+              "required": true
+            },
+            {
+              "key": "contactoCiudadano",
+              "variableId": "contactoCiudadano",
+              "type": 1,
+              "required": true
+            }
+          ],
+          "headers": {
+            "Content-Type": "application/json"
+          },
+          "description": "Envía avance de la conversación al servidor MCP con los datos de contacto del ciudadano",
+          "credentialId": "ztTnlhZQ"
+        }
+      },
+      {
+        "nodeId": "geocodeLocation",
+        "name": "Geocodificar ubicación",
+        "nodeType": 40,
+        "transitions": [
+          {
+            "name": "Geocodificación exitosa",
+            "toNodeId": "validateCoverage"
+          },
+          {
+            "name": "Error en geocodificación",
+            "toNodeId": "validateCoverage"
+          }
+        ],
+        "apiSettings": {
+          "name": "Geocodificar ubicación",
+          "method": 1,
+          "endpointUrl": "https://maps.googleapis.com/maps/api/geocode/json?address={ubicacion}, Tegucigalpa, Honduras",
+          "body": [],
+          "headers": {
+            "Content-Type": "application/json"
+          },
+          "description": "Geocodifica la dirección proporcionada por el ciudadano usando Google Maps para obtener coordenadas y dirección formateada",
+          "outputBody": [
+            {
+              "key": "results[0].geometry.location.lat",
+              "variableId": "latitud",
+              "type": 1,
+              "required": false
+            },
+            {
+              "key": "results[0].geometry.location.lng",
+              "variableId": "longitud",
+              "type": 1,
+              "required": false
+            },
+            {
+              "key": "results[0].formatted_address",
+              "variableId": "direccionFormateada",
+              "type": 1,
+              "required": false
+            }
+          ],
+          "credentialId": "Di1pTmEp"
+        }
+      },
+      {
+        "nodeId": "validateCoverage",
+        "name": "Validar cobertura",
+        "nodeType": 10,
+        "transitions": [
+          {
+            "name": "Ubicación dentro de cobertura",
+            "toNodeId": "apiCollectLocation"
+          },
+          {
+            "name": "Geocodificación sin resultados",
+            "toNodeId": "apiCollectLocation"
+          },
+          {
+            "name": "Ubicación fuera de cobertura",
+            "toNodeId": "collectLocation"
+          }
+        ],
+        "script": "Verificando la ubicación.",
+        "instructions": "Revisar {direccionFormateada}: si contiene Tegucigalpa, Comayagüela, Francisco Morazán o Distrito Central, avanzar. Si está vacía, avanzar. Si no contiene esos términos, decir que está fuera de cobertura AMDC y pedir otra ubicación."
+      },
+      {
+        "nodeId": "apiOpening",
+        "name": "API Avance - Apertura",
+        "nodeType": 40,
+        "transitions": [
+          {
+            "name": "Avance enviado exitosamente",
+            "toNodeId": "lookupContact"
+          },
+          {
+            "name": "Error al enviar avance",
+            "toNodeId": "lookupContact"
+          }
+        ],
+        "apiSettings": {
+          "name": "API Avance - Apertura",
+          "method": 2,
+          "endpointUrl": "https://voice-brain-mcp.vercel.app/webhooks/nlpearl/avance",
+          "body": [
+            {
+              "key": "conversationId",
+              "variableId": "callId",
+              "type": 1,
+              "required": true
+            },
+            {
+              "key": "pearlId",
+              "type": 1,
+              "value": "6a88a6da0137ea6b03c574c2",
+              "required": true
+            },
+            {
+              "key": "phone",
+              "variableId": "phoneNumber",
+              "type": 1,
+              "required": true
+            },
+            {
+              "key": "paso",
+              "type": 1,
+              "value": "opening",
+              "required": true
+            }
+          ],
+          "headers": {
+            "Content-Type": "application/json"
+          },
+          "description": "Envía avance de apertura al webhook MCP",
+          "credentialId": "ztTnlhZQ"
+        }
+      },
+      {
+        "nodeId": "apiEmergency",
+        "name": "API Avance - Emergencia",
+        "nodeType": 40,
+        "transitions": [
+          {
+            "name": "Avance enviado exitosamente",
+            "toNodeId": "emergency"
+          },
+          {
+            "name": "Error al enviar avance",
+            "toNodeId": "emergency"
+          }
+        ],
+        "apiSettings": {
+          "name": "API Avance - Emergencia",
+          "method": 2,
+          "endpointUrl": "https://voice-brain-mcp.vercel.app/webhooks/nlpearl/avance",
+          "body": [
+            {
+              "key": "conversationId",
+              "variableId": "callId",
+              "type": 1,
+              "required": true
+            },
+            {
+              "key": "pearlId",
+              "type": 1,
+              "value": "6a88a6da0137ea6b03c574c2",
+              "required": true
+            },
+            {
+              "key": "phone",
+              "variableId": "phoneNumber",
+              "type": 1,
+              "required": true
+            },
+            {
+              "key": "paso",
+              "type": 1,
+              "value": "emergency",
+              "required": true
+            },
+            {
+              "key": "tipoConsulta",
+              "variableId": "tipoConsulta",
+              "type": 1,
+              "required": true
+            }
+          ],
+          "headers": {
+            "Content-Type": "application/json"
+          },
+          "description": "Envía avance de la conversación al webhook cuando se identifica una emergencia.",
+          "credentialId": "ztTnlhZQ"
+        }
+      },
+      {
+        "nodeId": "apiConfirmInfo",
+        "name": "API Avance - Confirmación",
+        "nodeType": 40,
+        "transitions": [
+          {
+            "name": "Avance enviado exitosamente",
+            "toNodeId": "createContact"
+          },
+          {
+            "name": "Error al enviar avance",
+            "toNodeId": "createContact"
+          }
+        ],
+        "apiSettings": {
+          "name": "API Avance - Confirmación",
+          "method": 2,
+          "endpointUrl": "https://voice-brain-mcp.vercel.app/webhooks/nlpearl/avance",
+          "body": [
+            {
+              "key": "conversationId",
+              "variableId": "callId",
+              "type": 1,
+              "required": true
+            },
+            {
+              "key": "pearlId",
+              "type": 1,
+              "value": "6a88a6da0137ea6b03c574c2",
+              "required": true
+            },
+            {
+              "key": "phone",
+              "variableId": "phoneNumber",
+              "type": 1,
+              "required": true
+            },
+            {
+              "key": "paso",
+              "type": 1,
+              "value": "confirmInfo",
+              "required": true
+            },
+            {
+              "key": "tipoConsulta",
+              "variableId": "tipoConsulta",
+              "type": 1,
+              "required": true
+            },
+            {
+              "key": "tipoProblema",
+              "variableId": "tipoProblema",
+              "type": 1,
+              "required": true
+            },
+            {
+              "key": "ubicacion",
+              "variableId": "ubicacion",
+              "type": 1,
+              "required": true
+            },
+            {
+              "key": "descripcion",
+              "variableId": "descripcion",
+              "type": 1,
+              "required": true
+            },
+            {
+              "key": "nombreCiudadano",
+              "variableId": "nombreCiudadano",
+              "type": 1,
+              "required": true
+            },
+            {
+              "key": "contactoCiudadano",
+              "variableId": "contactoCiudadano",
+              "type": 1,
+              "required": true
+            }
+          ],
+          "headers": {
+            "Content-Type": "application/json"
+          },
+          "description": "Envía avance de la conversación al webhook cuando el ciudadano confirma la información del reporte.",
+          "credentialId": "ztTnlhZQ"
+        }
+      },
+      {
+        "nodeId": "apiRegistered",
+        "name": "API Avance - Registrado",
+        "nodeType": 40,
+        "transitions": [
+          {
+            "name": "Avance enviado exitosamente",
+            "toNodeId": "farewell"
+          },
+          {
+            "name": "Error al enviar avance",
+            "toNodeId": "farewell"
+          }
+        ],
+        "apiSettings": {
+          "name": "API Avance - Registrado",
+          "method": 2,
+          "endpointUrl": "https://voice-brain-mcp.vercel.app/webhooks/nlpearl/avance",
+          "body": [
+            {
+              "key": "conversationId",
+              "variableId": "callId",
+              "type": 1,
+              "required": true
+            },
+            {
+              "key": "pearlId",
+              "type": 1,
+              "value": "6a88a6da0137ea6b03c574c2",
+              "required": true
+            },
+            {
+              "key": "phone",
+              "variableId": "phoneNumber",
+              "type": 1,
+              "required": true
+            },
+            {
+              "key": "paso",
+              "type": 1,
+              "value": "registered",
+              "required": true
+            },
+            {
+              "key": "tipoConsulta",
+              "variableId": "tipoConsulta",
+              "type": 1,
+              "required": true
+            },
+            {
+              "key": "tipoProblema",
+              "variableId": "tipoProblema",
+              "type": 1,
+              "required": true
+            },
+            {
+              "key": "ubicacion",
+              "variableId": "ubicacion",
+              "type": 1,
+              "required": true
+            },
+            {
+              "key": "descripcion",
+              "variableId": "descripcion",
+              "type": 1,
+              "required": true
+            },
+            {
+              "key": "nombreCiudadano",
+              "variableId": "nombreCiudadano",
+              "type": 1,
+              "required": true
+            },
+            {
+              "key": "contactoCiudadano",
+              "variableId": "contactoCiudadano",
+              "type": 1,
+              "required": true
+            }
+          ],
+          "headers": {
+            "Content-Type": "application/json"
+          },
+          "description": "Envía avance de la conversación al webhook cuando el reporte queda registrado y el ciudadano no necesita más ayuda.",
+          "credentialId": "ztTnlhZQ"
+        }
+      },
+      {
+        "nodeId": "apiFarewell",
+        "name": "API Avance - Despedida",
+        "nodeType": 40,
+        "transitions": [
+          {
+            "name": "Avance enviado exitosamente",
+            "toNodeId": "endCall"
+          },
+          {
+            "name": "Error al enviar avance",
+            "toNodeId": "endCall"
+          }
+        ],
+        "apiSettings": {
+          "name": "API Avance - Despedida",
+          "method": 2,
+          "endpointUrl": "https://voice-brain-mcp.vercel.app/webhooks/nlpearl/avance",
+          "body": [
+            {
+              "key": "conversationId",
+              "variableId": "callId",
+              "type": 1,
+              "required": true
+            },
+            {
+              "key": "pearlId",
+              "type": 1,
+              "value": "6a88a6da0137ea6b03c574c2",
+              "required": true
+            },
+            {
+              "key": "phone",
+              "variableId": "phoneNumber",
+              "type": 1,
+              "required": true
+            },
+            {
+              "key": "paso",
+              "type": 1,
+              "value": "farewell",
+              "required": true
+            },
+            {
+              "key": "tipoConsulta",
+              "variableId": "tipoConsulta",
+              "type": 1,
+              "required": true
+            },
+            {
+              "key": "tipoProblema",
+              "variableId": "tipoProblema",
+              "type": 1,
+              "required": false
+            },
+            {
+              "key": "ubicacion",
+              "variableId": "ubicacion",
+              "type": 1,
+              "required": false
+            },
+            {
+              "key": "descripcion",
+              "variableId": "descripcion",
+              "type": 1,
+              "required": false
+            },
+            {
+              "key": "nombreCiudadano",
+              "variableId": "nombreCiudadano",
+              "type": 1,
+              "required": false
+            },
+            {
+              "key": "contactoCiudadano",
+              "variableId": "contactoCiudadano",
+              "type": 1,
+              "required": false
+            }
+          ],
+          "headers": {
+            "Content-Type": "application/json"
+          },
+          "description": "Envía avance de la conversación al webhook al momento de la despedida.",
+          "credentialId": "ztTnlhZQ"
+        }
+      },
+      {
+        "nodeId": "createTask",
+        "name": "Crear tarea en HubSpot",
+        "nodeType": 40,
+        "transitions": [
+          {
+            "name": "Tarea creada exitosamente",
+            "toNodeId": "updateTicket"
+          },
+          {
+            "name": "Error al crear tarea",
+            "toNodeId": "updateTicket"
+          }
+        ],
+        "apiSettings": {
+          "name": "Crear tarea en HubSpot",
+          "method": 2,
+          "endpointUrl": "https://api.hubapi.com/crm/v3/objects/tasks",
+          "body": [
+            {
+              "key": "properties.hs_task_subject",
+              "type": 1,
+              "value": "Atender Reporte Línea 100: {tipoProblema}",
+              "required": true
+            },
+            {
+              "key": "properties.hs_task_body",
+              "type": 1,
+              "value": "Ticket de Línea 100 pendiente de atención.\n\nTipo de problema: {tipoProblema}\nUbicación: {ubicacion}\nDescripción: {descripcion}\nCiudadano: {nombreCiudadano}\nContacto: {contactoCiudadano}\n\nTienes 2 horas para responder este ticket.",
+              "required": true
+            },
+            {
+              "key": "properties.hs_task_status",
+              "type": 1,
+              "value": "NOT_STARTED",
+              "required": true
+            },
+            {
+              "key": "properties.hs_task_priority",
+              "type": 1,
+              "value": "HIGH",
+              "required": true
+            },
+            {
+              "key": "properties.hubspot_owner_id",
+              "type": 1,
+              "value": "97683662",
+              "required": true
+            },
+            {
+              "key": "properties.hs_task_type",
+              "type": 1,
+              "value": "TODO",
+              "required": true
+            }
+          ],
+          "headers": {
+            "Content-Type": "application/json"
+          },
+          "description": "Crea una tarea en HubSpot asignada al responsable del ticket con los detalles del reporte ciudadano para seguimiento dentro de 2 horas",
+          "outputBody": [
+            {
+              "key": "id",
+              "variableId": "hubspotTaskId",
+              "type": 1,
+              "required": false
+            }
+          ],
+          "credentialId": "FEOZK8Mm"
+        }
+      },
+      {
+        "nodeId": "safetyCheck",
+        "name": "Chequeo de seguridad",
+        "nodeType": 10,
+        "transitions": [
+          {
+            "name": "Hay peligro inmediato",
+            "toNodeId": "apiEmergency"
+          },
+          {
+            "name": "No hay peligro, reporte de vehículo",
+            "toNodeId": "collectLocation"
+          },
+          {
+            "name": "Deslizamiento o inundación sin peligro inmediato",
+            "toNodeId": "emCollectLoc"
+          }
+        ],
+        "script": "Antes de continuar, necesito saber: ¿hay alguien en peligro inmediato? ¿Personas atrapadas, heridas, viviendas a punto de colapsar, o contacto con agua o lodo en movimiento?",
+        "instructions": "Si hay peligro, transferir. Si no hay peligro y reporta vehículo, ir a vehículos. Si reporta deslizamiento/inundación, ir a emergencias. Si tiene ticket abierto ({existingTicketSubject}), preguntar. Guardar en {tipoConsulta}."
+      },
+      {
+        "nodeId": "offerPhoto",
+        "name": "Invitar foto",
+        "nodeType": 10,
+        "transitions": [
+          {
+            "name": "Foto enviada o ciudadano prefiere no enviar",
+            "toNodeId": "collectContact"
+          }
+        ],
+        "script": "Si puede tomar una foto sin acercarse ni exponerse, puede enviarla ahora. Si prefiere no hacerlo, no hay problema, seguimos adelante.",
+        "instructions": "Invitar a enviar foto solo si puede hacerlo sin riesgo. No insistir. Si envía foto, guardar \"Sí\" en {fotoRecibida}. Si dice que no o prefiere no enviar, guardar \"No\" en {fotoRecibida}. Avanzar a recopilar datos de contacto."
+      },
+      {
+        "nodeId": "collectDetails",
+        "name": "Recopilar detalles adicionales",
+        "nodeType": 10,
+        "transitions": [
+          {
+            "name": "Detalles proporcionados",
+            "toNodeId": "offerPhoto"
+          },
+          {
+            "name": "Ciudadano pide hablar con persona",
+            "toNodeId": "handoffNoEmergency"
+          }
+        ],
+        "script": "Unas preguntas más para completar el reporte: ¿el vehículo está sobre la vía o la acera? ¿Obstruye el paso de personas o vehículos? ¿Desde cuándo lo ha visto ahí?",
+        "instructions": "Guardar vía/acera en {tipo_espacio}, obstrucción en {obstruye_paso}, tiempo en {tiempo_observado}. Aceptar \"no sé\". Máx 3 rondas. Si falta info clave, ofrecer pasar con persona."
+      },
+      {
+        "nodeId": "updateTicket",
+        "name": "Completar ticket en HubSpot",
+        "nodeType": 40,
+        "transitions": [
+          {
+            "name": "Ticket actualizado exitosamente",
+            "toNodeId": "notifyEmail"
+          },
+          {
+            "name": "Error al actualizar ticket",
+            "toNodeId": "notifyEmail"
+          }
+        ],
+        "apiSettings": {
+          "name": "Completar ticket en HubSpot",
+          "method": 5,
+          "endpointUrl": "https://api.hubapi.com/crm/v3/objects/tickets/{hs_ticket_id}",
+          "body": [
+            {
+              "key": "properties.tipo_de_espacio",
+              "variableId": "tipo_espacio",
+              "type": 1,
+              "required": true
+            },
+            {
+              "key": "properties.obstruye_paso",
+              "variableId": "obstruye_paso",
+              "type": 1,
+              "required": true
+            },
+            {
+              "key": "properties.tiempo_observado",
+              "variableId": "tiempo_observado",
+              "type": 1,
+              "required": true
+            },
+            {
+              "key": "properties.estado_operacional",
+              "type": 1,
+              "value": "creado",
+              "required": true
+            },
+            {
+              "key": "properties.folio_publico",
+              "type": 1,
+              "value": "L100-DEMO-{hs_ticket_id}",
+              "required": true
+            },
+            {
+              "key": "properties.proxima_accion",
+              "type": 1,
+              "value": "Inspección de campo",
+              "required": true
+            },
+            {
+              "key": "properties.responsable_asignado",
+              "type": 1,
+              "value": "Gerencia de Movilidad Urbana (simulado)",
+              "required": true
+            }
+          ],
+          "headers": {
+            "Content-Type": "application/json"
+          },
+          "description": "Actualiza el ticket de HubSpot con detalles adicionales del reporte: tipo de espacio, obstrucción, tiempo observado, folio público y próxima acción.",
+          "credentialId": "FEOZK8Mm"
+        }
+      },
+      {
+        "nodeId": "associateTicket",
+        "name": "Asociar ticket con empresa",
+        "nodeType": 40,
+        "transitions": [
+          {
+            "name": "Asociación exitosa",
+            "toNodeId": "createTask"
+          },
+          {
+            "name": "Error en asociación",
+            "toNodeId": "createTask"
+          }
+        ],
+        "apiSettings": {
+          "name": "Asociar ticket con empresa",
+          "method": 3,
+          "endpointUrl": "https://api.hubapi.com/crm/v3/objects/tickets/{hs_ticket_id}/associations/companies/57702044716/ticket_to_company",
+          "body": [],
+          "headers": {
+            "Content-Type": "application/json"
+          },
+          "description": "Asocia el ticket de reporte con la empresa Gerencia de Movilidad Urbana en HubSpot",
+          "credentialId": "FEOZK8Mm"
+        }
+      },
+      {
+        "nodeId": "handoffNoEmergency",
+        "name": "Transferir a operador - solicitud ciudadano",
+        "nodeType": 31,
+        "transitions": [
+          {
+            "name": "Transferencia completada",
+            "toNodeId": "endCall"
+          }
+        ],
+        "script": "Voy a conectarte con un operador de la AMDC. Un momento, por favor.",
+        "handOffAction": [
+          {
+            "nodeId": "placeholder_notify",
+            "name": "Notificar solicitud de operador",
+            "nodeType": 51,
+            "transitions": [],
+            "emailSettings": {
+              "to": [
+                "operadores@example.com"
+              ],
+              "subject": "Solicitud de atención - Ciudadano requiere hablar con operador",
+              "body": "Se ha recibido una solicitud de atención de un ciudadano que desea hablar con un operador.\n\nDetalles del contacto:\nTeléfono: {phoneNumber}\n\nContexto de la conversación:\nEl ciudadano ha solicitado asistencia personalizada durante la conversación automatizada. Por favor, dar seguimiento a la brevedad posible.\n\nEste es un mensaje automático del sistema de atención ciudadana."
+            }
+          }
+        ]
+      },
+      {
+        "nodeId": "lookupContact",
+        "name": "Buscar contacto existente",
+        "nodeType": 40,
+        "transitions": [
+          {
+            "name": "Contacto encontrado o no",
+            "toNodeId": "lookupTickets"
+          },
+          {
+            "name": "Error en búsqueda de contacto",
+            "toNodeId": "safetyCheck"
+          }
+        ],
+        "apiSettings": {
+          "name": "Buscar contacto existente",
+          "method": 2,
+          "endpointUrl": "https://api.hubapi.com/crm/v3/objects/contacts/search",
+          "body": [
+            {
+              "key": "filterGroups[0].filters[0].propertyName",
+              "type": 1,
+              "value": "phone",
+              "required": true
+            },
+            {
+              "key": "filterGroups[0].filters[0].operator",
+              "type": 1,
+              "value": "CONTAINS_TOKEN",
+              "required": true
+            },
+            {
+              "key": "filterGroups[0].filters[0].value",
+              "variableId": "phoneNumber",
+              "type": 1,
+              "required": true
+            },
+            {
+              "key": "properties[0]",
+              "type": 1,
+              "value": "email",
+              "required": false
+            },
+            {
+              "key": "properties[1]",
+              "type": 1,
+              "value": "firstname",
+              "required": false
+            }
+          ],
+          "headers": {
+            "Content-Type": "application/json"
+          },
+          "description": "Busca contacto en HubSpot por teléfono y devuelve nombre, email e ID si existe",
+          "outputBody": [
+            {
+              "key": "results[0].id",
+              "variableId": "existingContactId",
+              "type": 1,
+              "required": true
+            },
+            {
+              "key": "total",
+              "variableId": "contactFound",
+              "type": 2,
+              "required": true
+            },
+            {
+              "key": "results[0].properties.email",
+              "variableId": "emailCiudadano",
+              "type": 1,
+              "required": true
+            },
+            {
+              "key": "results[0].properties.firstname",
+              "variableId": "existingName",
+              "type": 1,
+              "required": true
+            }
+          ],
+          "credentialId": "FEOZK8Mm"
+        }
+      },
+      {
+        "nodeId": "lookupTickets",
+        "name": "Buscar tickets abiertos",
+        "nodeType": 40,
+        "transitions": [
+          {
+            "name": "Tickets consultados",
+            "toNodeId": "personalGreet"
+          },
+          {
+            "name": "Error en búsqueda de tickets",
+            "toNodeId": "personalGreet"
+          }
+        ],
+        "apiSettings": {
+          "name": "Buscar tickets abiertos",
+          "method": 2,
+          "endpointUrl": "https://api.hubapi.com/crm/v3/objects/tickets/search",
+          "body": [
+            {
+              "key": "filterGroups[0].filters[0].propertyName",
+              "type": 1,
+              "value": "hs_pipeline_stage",
+              "required": true
+            },
+            {
+              "key": "filterGroups[0].filters[0].operator",
+              "type": 1,
+              "value": "NEQ",
+              "required": true
+            },
+            {
+              "key": "filterGroups[0].filters[0].value",
+              "type": 1,
+              "value": "4",
+              "required": true
+            },
+            {
+              "key": "properties[0]",
+              "type": 1,
+              "value": "subject",
+              "required": false
+            },
+            {
+              "key": "properties[1]",
+              "type": 1,
+              "value": "hs_pipeline_stage",
+              "required": false
+            },
+            {
+              "key": "properties[2]",
+              "type": 1,
+              "value": "createdate",
+              "required": false
+            }
+          ],
+          "headers": {
+            "Content-Type": "application/json"
+          },
+          "description": "Busca tickets abiertos en HubSpot con propiedades de asunto, etapa y fecha de creación",
+          "outputBody": [
+            {
+              "key": "results[0].properties.subject",
+              "variableId": "existingTicketSubject",
+              "type": 1,
+              "required": true
+            },
+            {
+              "key": "results[0].id",
+              "variableId": "existingTicketId",
+              "type": 1,
+              "required": true
+            },
+            {
+              "key": "total",
+              "variableId": "openTicketCount",
+              "type": 2,
+              "required": true
+            }
+          ],
+          "credentialId": "FEOZK8Mm"
+        }
+      },
+      {
+        "nodeId": "emGeocode",
+        "name": "Emergencia - Geocodificar",
+        "nodeType": 40,
+        "transitions": [
+          {
+            "name": "Geocodificación exitosa",
+            "toNodeId": "emApiLoc"
+          },
+          {
+            "name": "Error en geocodificación",
+            "toNodeId": "emApiLoc"
+          }
+        ],
+        "apiSettings": {
+          "name": "Emergencia - Geocodificar",
+          "method": 1,
+          "endpointUrl": "https://maps.googleapis.com/maps/api/geocode/json?address={ubicacion}, Tegucigalpa, Honduras",
+          "body": [],
+          "headers": {
+            "Content-Type": "application/json"
+          },
+          "description": "Geocodifica la ubicación de emergencia para obtener coordenadas y dirección formateada",
+          "outputBody": [
+            {
+              "key": "results[0].geometry.location.lat",
+              "variableId": "latitud",
+              "type": 1,
+              "required": true
+            },
+            {
+              "key": "results[0].geometry.location.lng",
+              "variableId": "longitud",
+              "type": 1,
+              "required": true
+            },
+            {
+              "key": "results[0].formatted_address",
+              "variableId": "direccionFormateada",
+              "type": 1,
+              "required": true
+            }
+          ],
+          "credentialId": "Di1pTmEp"
+        }
+      },
+      {
+        "nodeId": "emApiLoc",
+        "name": "Emergencia - Avance ubicación",
+        "nodeType": 40,
+        "transitions": [
+          {
+            "name": "Avance enviado exitosamente",
+            "toNodeId": "emCollectDesc"
+          },
+          {
+            "name": "Error al enviar avance",
+            "toNodeId": "emCollectDesc"
+          }
+        ],
+        "apiSettings": {
+          "name": "Emergencia - Avance ubicación",
+          "method": 2,
+          "endpointUrl": "https://voice-brain-mcp.vercel.app/webhooks/nlpearl/avance",
+          "body": [
+            {
+              "key": "conversationId",
+              "variableId": "callId",
+              "type": 1,
+              "required": true
+            },
+            {
+              "key": "pearlId",
+              "type": 1,
+              "value": "6a88a6da0137ea6b03c574c2",
+              "required": true
+            },
+            {
+              "key": "phone",
+              "variableId": "phoneNumber",
+              "type": 1,
+              "required": true
+            },
+            {
+              "key": "paso",
+              "type": 1,
+              "value": "emCollectLocation",
+              "required": true
+            },
+            {
+              "key": "tipoConsulta",
+              "variableId": "tipoConsulta",
+              "type": 1,
+              "required": true
+            },
+            {
+              "key": "tipoProblema",
+              "variableId": "tipoProblema",
+              "type": 1,
+              "required": true
+            },
+            {
+              "key": "ubicacion",
+              "variableId": "ubicacion",
+              "type": 1,
+              "required": true
+            }
+          ],
+          "headers": {
+            "Content-Type": "application/json"
+          },
+          "description": "Envía avance de progreso al webhook con la ubicación de la emergencia recopilada",
+          "credentialId": "ztTnlhZQ"
+        }
+      },
+      {
+        "nodeId": "emCollectDesc",
+        "name": "Emergencia - Recopilar descripción",
+        "nodeType": 10,
+        "transitions": [
+          {
+            "name": "Descripción proporcionada",
+            "toNodeId": "emApiDesc"
+          }
+        ],
+        "script": "Descríbame qué está pasando: ¿es un deslizamiento, una inundación, o ambos? ¿Desde cuándo? ¿Qué tan grave le parece?",
+        "instructions": "Recopilar descripción del evento. Guardar en {descripcion}. Clasificar en {tipoProblema}: deslizamiento, inundación, deslizamiento e inundación, u otro. No minimizar ni cuestionar el reporte."
+      },
+      {
+        "nodeId": "emApiDesc",
+        "name": "Emergencia - Avance descripción",
+        "nodeType": 40,
+        "transitions": [
+          {
+            "name": "Avance enviado exitosamente",
+            "toNodeId": "emSearchSimilar"
+          },
+          {
+            "name": "Error al enviar avance",
+            "toNodeId": "emSearchSimilar"
+          }
+        ],
+        "apiSettings": {
+          "name": "Emergencia - Avance descripción",
+          "method": 2,
+          "endpointUrl": "https://voice-brain-mcp.vercel.app/webhooks/nlpearl/avance",
+          "body": [
+            {
+              "key": "conversationId",
+              "variableId": "callId",
+              "type": 1,
+              "required": true
+            },
+            {
+              "key": "pearlId",
+              "type": 1,
+              "value": "6a88a6da0137ea6b03c574c2",
+              "required": true
+            },
+            {
+              "key": "phone",
+              "variableId": "phoneNumber",
+              "type": 1,
+              "required": true
+            },
+            {
+              "key": "paso",
+              "type": 1,
+              "value": "emCollectDesc",
+              "required": true
+            },
+            {
+              "key": "tipoConsulta",
+              "variableId": "tipoConsulta",
+              "type": 1,
+              "required": true
+            },
+            {
+              "key": "tipoProblema",
+              "variableId": "tipoProblema",
+              "type": 1,
+              "required": true
+            },
+            {
+              "key": "ubicacion",
+              "variableId": "ubicacion",
+              "type": 1,
+              "required": true
+            },
+            {
+              "key": "descripcion",
+              "variableId": "descripcion",
+              "type": 1,
+              "required": true
+            }
+          ],
+          "headers": {
+            "Content-Type": "application/json"
+          },
+          "description": "Envía avance de progreso al webhook con la descripción de la emergencia",
+          "credentialId": "ztTnlhZQ"
+        }
+      },
+      {
+        "nodeId": "emSearchSimilar",
+        "name": "Buscar tickets similares",
+        "nodeType": 40,
+        "transitions": [
+          {
+            "name": "Búsqueda completada",
+            "toNodeId": "emCollectCont"
+          },
+          {
+            "name": "Error en búsqueda de similares",
+            "toNodeId": "emCollectCont"
+          }
+        ],
+        "apiSettings": {
+          "name": "Buscar tickets similares",
+          "method": 2,
+          "endpointUrl": "https://api.hubapi.com/crm/v3/objects/tickets/search",
+          "body": [
+            {
+              "key": "filterGroups[0].filters[0].propertyName",
+              "type": 1,
+              "value": "categoria_de_servicio_municipal",
+              "required": true
+            },
+            {
+              "key": "filterGroups[0].filters[0].operator",
+              "type": 1,
+              "value": "EQ",
+              "required": true
+            },
+            {
+              "key": "filterGroups[0].filters[0].value",
+              "type": 1,
+              "value": "Riesgos",
+              "required": true
+            },
+            {
+              "key": "filterGroups[0].filters[1].propertyName",
+              "type": 1,
+              "value": "hs_pipeline_stage",
+              "required": true
+            },
+            {
+              "key": "filterGroups[0].filters[1].operator",
+              "type": 1,
+              "value": "NEQ",
+              "required": true
+            },
+            {
+              "key": "filterGroups[0].filters[1].value",
+              "type": 1,
+              "value": "4",
+              "required": true
+            }
+          ],
+          "headers": {
+            "Content-Type": "application/json"
+          },
+          "description": "Busca tickets de emergencia abiertos con categoría Riesgos para detectar eventos masivos",
+          "outputBody": [
+            {
+              "key": "total",
+              "variableId": "similarTicketCount",
+              "type": 2,
+              "required": true
+            },
+            {
+              "key": "results[0].id",
+              "variableId": "similarTicketId",
+              "type": 1,
+              "required": true
+            }
+          ],
+          "credentialId": "FEOZK8Mm"
+        }
+      },
+      {
+        "nodeId": "emCollectCont",
+        "name": "Emergencia - Datos de contacto",
+        "nodeType": 10,
+        "transitions": [
+          {
+            "name": "Datos recopilados",
+            "toNodeId": "emConfirmInfo"
+          }
+        ],
+        "script": "¿Me da su nombre, un número de contacto y su correo para avisarle cuando tengamos novedades? Si prefiere mantenerlo anónimo, no hay problema.",
+        "instructions": "Guardar nombre en {nombreCiudadano}, contacto en {contactoCiudadano}. Si {emailCiudadano} vacío, pedir correo. Si ya tiene email, no pedirlo. Si anónimo, guardar 'Anónimo'. Si {similarTicketCount} >= 2, mencionar otros reportes en zona."
+      },
+      {
+        "nodeId": "emConfirmInfo",
+        "name": "Emergencia - Confirmar información",
+        "nodeType": 10,
+        "transitions": [
+          {
+            "name": "Ciudadano confirma",
+            "toNodeId": "emApiConfirm"
+          },
+          {
+            "name": "Corregir ubicación",
+            "toNodeId": "emCollectLoc"
+          },
+          {
+            "name": "Corregir descripción",
+            "toNodeId": "emCollectDesc"
+          },
+          {
+            "name": "Corregir contacto",
+            "toNodeId": "emCollectCont"
+          }
+        ],
+        "script": "Déjeme confirmar: {tipoProblema} en {ubicacion}. Descripción: {descripcion}. Nombre: {nombreCiudadano}. ¿Es correcto?",
+        "instructions": "Confirmar datos del reporte de emergencia. Si confirma, avanzar a crear ticket. Si quiere corregir, regresar al paso correspondiente."
+      },
+      {
+        "nodeId": "emApiConfirm",
+        "name": "Emergencia - Avance confirmación",
+        "nodeType": 40,
+        "transitions": [
+          {
+            "name": "Avance enviado exitosamente",
+            "toNodeId": "emCreateContact"
+          },
+          {
+            "name": "Error al enviar avance",
+            "toNodeId": "emCreateContact"
+          }
+        ],
+        "apiSettings": {
+          "name": "Emergencia - Avance confirmación",
+          "method": 2,
+          "endpointUrl": "https://voice-brain-mcp.vercel.app/webhooks/nlpearl/avance",
+          "body": [
+            {
+              "key": "conversationId",
+              "variableId": "callId",
+              "type": 1,
+              "required": true
+            },
+            {
+              "key": "pearlId",
+              "type": 1,
+              "value": "6a88a6da0137ea6b03c574c2",
+              "required": true
+            },
+            {
+              "key": "phone",
+              "variableId": "phoneNumber",
+              "type": 1,
+              "required": true
+            },
+            {
+              "key": "paso",
+              "type": 1,
+              "value": "emConfirmInfo",
+              "required": true
+            },
+            {
+              "key": "tipoConsulta",
+              "variableId": "tipoConsulta",
+              "type": 1,
+              "required": true
+            },
+            {
+              "key": "tipoProblema",
+              "variableId": "tipoProblema",
+              "type": 1,
+              "required": true
+            },
+            {
+              "key": "ubicacion",
+              "variableId": "ubicacion",
+              "type": 1,
+              "required": true
+            },
+            {
+              "key": "descripcion",
+              "variableId": "descripcion",
+              "type": 1,
+              "required": true
+            },
+            {
+              "key": "nombreCiudadano",
+              "variableId": "nombreCiudadano",
+              "type": 1,
+              "required": true
+            },
+            {
+              "key": "contactoCiudadano",
+              "variableId": "contactoCiudadano",
+              "type": 1,
+              "required": true
+            }
+          ],
+          "headers": {
+            "Content-Type": "application/json"
+          },
+          "description": "Envía avance de progreso al webhook cuando el ciudadano confirma la información de emergencia",
+          "credentialId": "ztTnlhZQ"
+        }
+      },
+      {
+        "nodeId": "emCreateContact",
+        "name": "Emergencia - Crear contacto",
+        "nodeType": 40,
+        "transitions": [
+          {
+            "name": "Contacto creado exitosamente",
+            "toNodeId": "emCreateTicket"
+          },
+          {
+            "name": "Error al crear contacto",
+            "toNodeId": "emCreateTicket"
+          }
+        ],
+        "apiSettings": {
+          "name": "Emergencia - Crear contacto",
+          "method": 2,
+          "endpointUrl": "https://api.hubapi.com/crm/v3/objects/contacts",
+          "body": [
+            {
+              "key": "properties.firstname",
+              "variableId": "nombreCiudadano",
+              "type": 1,
+              "required": false
+            },
+            {
+              "key": "properties.phone",
+              "variableId": "phoneNumber",
+              "type": 1,
+              "required": false
+            }
+          ],
+          "headers": {
+            "Content-Type": "application/json"
+          },
+          "description": "Crea o actualiza el contacto del ciudadano en HubSpot para el reporte de emergencia",
+          "outputBody": [
+            {
+              "key": "id",
+              "variableId": "hubspotContactId",
+              "type": 1,
+              "required": true
+            }
+          ],
+          "credentialId": "FEOZK8Mm"
+        }
+      },
+      {
+        "nodeId": "emCreateTicket",
+        "name": "Emergencia - Crear ticket",
+        "nodeType": 40,
+        "transitions": [
+          {
+            "name": "Ticket de emergencia creado",
+            "toNodeId": "emAssocAMDC"
+          },
+          {
+            "name": "Error al crear ticket",
+            "toNodeId": "emAssocAMDC"
+          }
+        ],
+        "apiSettings": {
+          "name": "Emergencia - Crear ticket",
+          "method": 2,
+          "endpointUrl": "https://api.hubapi.com/crm/v3/objects/tickets",
+          "body": [
+            {
+              "key": "properties.subject",
+              "type": 1,
+              "value": "Emergencia - {tipoProblema} - {ubicacion}",
+              "required": true
+            },
+            {
+              "key": "properties.content",
+              "type": 1,
+              "value": "{descripcion}",
+              "required": true
+            },
+            {
+              "key": "properties.hs_pipeline",
+              "type": 1,
+              "value": "0",
+              "required": true
+            },
+            {
+              "key": "properties.hs_pipeline_stage",
+              "type": 1,
+              "value": "1",
+              "required": true
+            },
+            {
+              "key": "properties.categoria_de_servicio_municipal",
+              "type": 1,
+              "value": "Riesgos",
+              "required": false
+            },
+            {
+              "key": "properties.categoria_ticket",
+              "type": 1,
+              "value": "emergencia",
+              "required": false
+            },
+            {
+              "key": "properties.prioridad_ticket",
+              "type": 1,
+              "value": "alta",
+              "required": false
+            },
+            {
+              "key": "properties.canal_reporte",
+              "type": 1,
+              "value": "Whatsapp",
+              "required": false
+            },
+            {
+              "key": "properties.estado_operacional",
+              "type": 1,
+              "value": "informacion_pendiente",
+              "required": false
+            },
+            {
+              "key": "properties.latitud",
+              "variableId": "latitud",
+              "type": 1,
+              "required": false
+            },
+            {
+              "key": "properties.longitud",
+              "variableId": "longitud",
+              "type": 1,
+              "required": false
+            },
+            {
+              "key": "properties.direccion_formateada",
+              "variableId": "direccionFormateada",
+              "type": 1,
+              "required": false
+            },
+            {
+              "key": "properties.nombre_ciudadano",
+              "variableId": "nombreCiudadano",
+              "type": 1,
+              "required": false
+            },
+            {
+              "key": "properties.contacto_ciudadano",
+              "variableId": "contactoCiudadano",
+              "type": 1,
+              "required": false
+            },
+            {
+              "key": "properties.email_ciudadano",
+              "variableId": "emailCiudadano",
+              "type": 1,
+              "required": false
+            }
+          ],
+          "headers": {
+            "Content-Type": "application/json"
+          },
+          "description": "Crea ticket de emergencia en HubSpot con coordenadas y datos de contacto del ciudadano",
+          "outputBody": [
+            {
+              "key": "id",
+              "variableId": "hs_ticket_id",
+              "type": 1,
+              "required": true
+            }
+          ],
+          "credentialId": "FEOZK8Mm"
+        }
+      },
+      {
+        "nodeId": "emAssocAMDC",
+        "name": "Emergencia - Asociar con AMDC",
+        "nodeType": 40,
+        "transitions": [
+          {
+            "name": "Asociación con AMDC exitosa",
+            "toNodeId": "emDetEntity"
+          },
+          {
+            "name": "Error en asociación AMDC",
+            "toNodeId": "emDetEntity"
+          }
+        ],
+        "apiSettings": {
+          "name": "Emergencia - Asociar con AMDC",
+          "method": 3,
+          "endpointUrl": "https://api.hubapi.com/crm/v3/objects/tickets/{hs_ticket_id}/associations/companies/57702044716/ticket_to_company",
+          "body": [],
+          "headers": {
+            "Content-Type": "application/json"
+          },
+          "description": "Asocia el ticket de emergencia con la empresa AMDC en HubSpot",
+          "credentialId": "FEOZK8Mm"
+        }
+      },
+      {
+        "nodeId": "emAssocEnt1",
+        "name": "Emergencia - Asociar entidad principal",
+        "nodeType": 40,
+        "transitions": [
+          {
+            "name": "Entidad principal asociada",
+            "toNodeId": "emAssocEnt2"
+          },
+          {
+            "name": "Error al asociar entidad",
+            "toNodeId": "emAssocEnt2"
+          }
+        ],
+        "apiSettings": {
+          "name": "Emergencia - Asociar entidad principal",
+          "method": 3,
+          "endpointUrl": "https://api.hubapi.com/crm/v3/objects/tickets/{hs_ticket_id}/associations/companies/{entidadId}/ticket_to_company",
+          "body": [],
+          "headers": {
+            "Content-Type": "application/json"
+          },
+          "description": "Asocia el ticket de emergencia con la entidad principal de respuesta (Bomberos, COPECO, Policía o 911)",
+          "credentialId": "FEOZK8Mm"
+        }
+      },
+      {
+        "nodeId": "emAssocEnt2",
+        "name": "Emergencia - Verificar segunda entidad",
+        "nodeType": 10,
+        "transitions": [
+          {
+            "name": "Hay segunda entidad",
+            "toNodeId": "emAssocEnt2Api"
+          },
+          {
+            "name": "No hay segunda entidad",
+            "toNodeId": "emCheckMass"
+          }
+        ],
+        "script": "Verificando si se requiere una segunda entidad de respuesta.",
+        "instructions": "Si {entidadId2} tiene valor, ir a asociar segunda entidad. Si está vacío, avanzar a verificar evento masivo."
+      },
+      {
+        "nodeId": "emAssocEnt2Api",
+        "name": "Emergencia - Asociar segunda entidad",
+        "nodeType": 40,
+        "transitions": [
+          {
+            "name": "Segunda entidad asociada",
+            "toNodeId": "emCheckMass"
+          },
+          {
+            "name": "Error al asociar segunda entidad",
+            "toNodeId": "emCheckMass"
+          }
+        ],
+        "apiSettings": {
+          "name": "Emergencia - Asociar segunda entidad",
+          "method": 3,
+          "endpointUrl": "https://api.hubapi.com/crm/v3/objects/tickets/{hs_ticket_id}/associations/companies/{entidadId2}/ticket_to_company",
+          "body": [],
+          "headers": {
+            "Content-Type": "application/json"
+          },
+          "description": "Asocia el ticket de emergencia con la segunda entidad de respuesta cuando se requieren dos entidades",
+          "credentialId": "FEOZK8Mm"
+        }
+      },
+      {
+        "nodeId": "emCheckMass",
+        "name": "Emergencia - Verificar evento masivo",
+        "nodeType": 10,
+        "transitions": [
+          {
+            "name": "Evento masivo detectado",
+            "toNodeId": "emAssocSimilar"
+          },
+          {
+            "name": "Caso aislado",
+            "toNodeId": "emCreateTask"
+          }
+        ],
+        "script": "Verificando reportes relacionados en la zona.",
+        "instructions": "Si {similarTicketCount} es 2 o más, es posible evento masivo. Asociar tickets. Si es 0 o 1, caso aislado, avanzar a crear tarea."
+      },
+      {
+        "nodeId": "emAssocSimilar",
+        "name": "Emergencia - Asociar ticket similar",
+        "nodeType": 40,
+        "transitions": [
+          {
+            "name": "Tickets asociados",
+            "toNodeId": "emCreateTask"
+          },
+          {
+            "name": "Error al asociar tickets",
+            "toNodeId": "emCreateTask"
+          }
+        ],
+        "apiSettings": {
+          "name": "Emergencia - Asociar ticket similar",
+          "method": 3,
+          "endpointUrl": "https://api.hubapi.com/crm/v3/objects/tickets/{hs_ticket_id}/associations/tickets/{similarTicketId}/ticket_to_ticket",
+          "body": [],
+          "headers": {
+            "Content-Type": "application/json"
+          },
+          "description": "Asocia el ticket de emergencia actual con un ticket similar existente para agrupar evento masivo",
+          "credentialId": "FEOZK8Mm"
+        }
+      },
+      {
+        "nodeId": "emCreateTask",
+        "name": "Emergencia - Crear tarea",
+        "nodeType": 40,
+        "transitions": [
+          {
+            "name": "Tarea de emergencia creada",
+            "toNodeId": "emUpdateTicket"
+          },
+          {
+            "name": "Error al crear tarea",
+            "toNodeId": "emUpdateTicket"
+          }
+        ],
+        "apiSettings": {
+          "name": "Emergencia - Crear tarea",
+          "method": 2,
+          "endpointUrl": "https://api.hubapi.com/crm/v3/objects/tasks",
+          "body": [
+            {
+              "key": "properties.hs_task_subject",
+              "type": 1,
+              "value": "EMERGENCIA - Atender: {tipoProblema} en {ubicacion}",
+              "required": true
+            },
+            {
+              "key": "properties.hs_task_body",
+              "type": 1,
+              "value": "Ticket de emergencia Línea 100.\nTipo: {tipoProblema}\nUbicación: {ubicacion}\nDescripción: {descripcion}\nCiudadano: {nombreCiudadano}\nContacto: {contactoCiudadano}\nPrioridad ALTA - Requiere atención inmediata.",
+              "required": true
+            },
+            {
+              "key": "properties.hs_task_status",
+              "type": 1,
+              "value": "NOT_STARTED",
+              "required": true
+            },
+            {
+              "key": "properties.hs_task_priority",
+              "type": 1,
+              "value": "HIGH",
+              "required": true
+            },
+            {
+              "key": "properties.hubspot_owner_id",
+              "type": 1,
+              "value": "97683662",
+              "required": true
+            },
+            {
+              "key": "properties.hs_task_type",
+              "type": 1,
+              "value": "TODO",
+              "required": true
+            }
+          ],
+          "headers": {
+            "Content-Type": "application/json"
+          },
+          "description": "Crea una tarea de alta prioridad en HubSpot para atender la emergencia reportada",
+          "outputBody": [
+            {
+              "key": "id",
+              "variableId": "hubspotTaskId",
+              "type": 1,
+              "required": true
+            }
+          ],
+          "credentialId": "FEOZK8Mm"
+        }
+      },
+      {
+        "nodeId": "emUpdateTicket",
+        "name": "Emergencia - Completar ticket",
+        "nodeType": 40,
+        "transitions": [
+          {
+            "name": "Ticket actualizado",
+            "toNodeId": "emNotifyEmail"
+          },
+          {
+            "name": "Error al actualizar ticket",
+            "toNodeId": "emNotifyEmail"
+          }
+        ],
+        "apiSettings": {
+          "name": "Emergencia - Completar ticket",
+          "method": 5,
+          "endpointUrl": "https://api.hubapi.com/crm/v3/objects/tickets/{hs_ticket_id}",
+          "body": [
+            {
+              "key": "properties.estado_operacional",
+              "type": 1,
+              "value": "creado",
+              "required": true
+            },
+            {
+              "key": "properties.folio_publico",
+              "type": 1,
+              "value": "L100-EME-{hs_ticket_id}",
+              "required": true
+            },
+            {
+              "key": "properties.proxima_accion",
+              "type": 1,
+              "value": "Movilización de entidad de respuesta",
+              "required": true
+            },
+            {
+              "key": "properties.responsable_asignado",
+              "type": 1,
+              "value": "Entidad de respuesta asignada",
+              "required": true
+            }
+          ],
+          "headers": {
+            "Content-Type": "application/json"
+          },
+          "description": "Actualiza el ticket de emergencia con folio público, estado y entidad de respuesta asignada",
+          "credentialId": "FEOZK8Mm"
+        }
+      },
+      {
+        "nodeId": "emApiReg",
+        "name": "Emergencia - Avance registrado",
+        "nodeType": 40,
+        "transitions": [
+          {
+            "name": "Avance enviado exitosamente",
+            "toNodeId": "farewell"
+          },
+          {
+            "name": "Error al enviar avance",
+            "toNodeId": "farewell"
+          }
+        ],
+        "apiSettings": {
+          "name": "Emergencia - Avance registrado",
+          "method": 2,
+          "endpointUrl": "https://voice-brain-mcp.vercel.app/webhooks/nlpearl/avance",
+          "body": [
+            {
+              "key": "conversationId",
+              "variableId": "callId",
+              "type": 1,
+              "required": true
+            },
+            {
+              "key": "pearlId",
+              "type": 1,
+              "value": "6a88a6da0137ea6b03c574c2",
+              "required": true
+            },
+            {
+              "key": "phone",
+              "variableId": "phoneNumber",
+              "type": 1,
+              "required": true
+            },
+            {
+              "key": "paso",
+              "type": 1,
+              "value": "emRegistered",
+              "required": true
+            },
+            {
+              "key": "tipoConsulta",
+              "variableId": "tipoConsulta",
+              "type": 1,
+              "required": true
+            },
+            {
+              "key": "tipoProblema",
+              "variableId": "tipoProblema",
+              "type": 1,
+              "required": true
+            },
+            {
+              "key": "ubicacion",
+              "variableId": "ubicacion",
+              "type": 1,
+              "required": true
+            },
+            {
+              "key": "descripcion",
+              "variableId": "descripcion",
+              "type": 1,
+              "required": true
+            },
+            {
+              "key": "nombreCiudadano",
+              "variableId": "nombreCiudadano",
+              "type": 1,
+              "required": true
+            },
+            {
+              "key": "contactoCiudadano",
+              "variableId": "contactoCiudadano",
+              "type": 1,
+              "required": false
+            }
+          ],
+          "headers": {
+            "Content-Type": "application/json"
+          },
+          "description": "Envía avance final al webhook indicando que el reporte de emergencia fue registrado",
+          "credentialId": "ztTnlhZQ"
+        }
+      },
+      {
+        "nodeId": "emCollectLoc",
+        "name": "Emergencia - Recopilar ubicación",
+        "nodeType": 10,
+        "transitions": [
+          {
+            "name": "Ubicación proporcionada",
+            "toNodeId": "emGeocode"
+          },
+          {
+            "name": "Ciudadano se niega a dar ubicación",
+            "toNodeId": "handoffNoEmergency"
+          }
+        ],
+        "script": "Para que la cuadrilla llegue exacto, compártame su ubicación con el botón de ubicación de WhatsApp. Si prefiere, puede darme colonia, calle y un punto de referencia cercano.",
+        "instructions": "Pedir ubicación. Aceptar pin WhatsApp, referencia o Plus Code. Guardar en {ubicacion}. Debe ser Tegucigalpa/Comayagüela. Máx 2 intentos; al tercero derivar a handoff. Nunca pedir que verifique situación peligrosa."
+      },
+      {
+        "nodeId": "emDetEntity",
+        "name": "Emergencia - Determinar entidad",
+        "nodeType": 10,
+        "transitions": [
+          {
+            "name": "Una entidad asignada",
+            "toNodeId": "emAssocEnt1"
+          },
+          {
+            "name": "Dos entidades asignadas",
+            "toNodeId": "emAssocEnt1"
+          }
+        ],
+        "script": "Estoy asignando su reporte a la entidad de respuesta correspondiente.",
+        "instructions": "Asignar entidad según {tipoProblema}: Deslizamiento=COPECO(57748602663), Inundación=Bomberos(57749530768), Ambos=las dos, Tráfico=Policía(57746898324). Guardar en {entidadId} y {entidadId2}. No prometer que la cuadrilla viene."
+      },
+      {
+        "nodeId": "emRegistered",
+        "name": "Emergencia - Reporte registrado",
+        "nodeType": 10,
+        "transitions": [
+          {
+            "name": "Ciudadano tiene otra consulta",
+            "toNodeId": "safetyCheck"
+          },
+          {
+            "name": "Ciudadano no necesita más",
+            "toNodeId": "emApiReg"
+          }
+        ],
+        "script": "Su reporte de emergencia ha sido registrado con el folio L100-EME-{hs_ticket_id} y enviado a la entidad de respuesta correspondiente. Le enviamos confirmación a su correo. ¿Hay algo más en lo que le pueda ayudar?",
+        "instructions": "Confirmar registro de emergencia. Entregar folio en bloques de dos dígitos. Indicar entidad asignada según {tipoProblema}. Mencionar confirmación por correo. No prometer hora. Si no necesita más, despedirse."
+      },
+      {
+        "nodeId": "notifyEmail",
+        "name": "Notificar ciudadano por correo",
+        "nodeType": 40,
+        "transitions": [
+          {
+            "name": "Notificación enviada",
+            "toNodeId": "registered"
+          },
+          {
+            "name": "Error al notificar",
+            "toNodeId": "registered"
+          }
+        ],
+        "apiSettings": {
+          "name": "Notificar ciudadano por correo",
+          "method": 2,
+          "endpointUrl": "https://voice-brain-mcp.vercel.app/webhooks/nlpearl/notificar",
+          "body": [
+            {
+              "key": "conversationId",
+              "variableId": "callId",
+              "type": 1,
+              "required": true
+            },
+            {
+              "key": "pearlId",
+              "type": 1,
+              "value": "6a88a6da0137ea6b03c574c2",
+              "required": true
+            },
+            {
+              "key": "phone",
+              "variableId": "phoneNumber",
+              "type": 1,
+              "required": true
+            },
+            {
+              "key": "email",
+              "variableId": "emailCiudadano",
+              "type": 1,
+              "required": false
+            },
+            {
+              "key": "nombre",
+              "variableId": "nombreCiudadano",
+              "type": 1,
+              "required": false
+            },
+            {
+              "key": "folio",
+              "type": 1,
+              "value": "L100-DEMO-{hs_ticket_id}",
+              "required": true
+            },
+            {
+              "key": "tipoProblema",
+              "variableId": "tipoProblema",
+              "type": 1,
+              "required": true
+            },
+            {
+              "key": "ubicacion",
+              "variableId": "ubicacion",
+              "type": 1,
+              "required": true
+            },
+            {
+              "key": "tipo",
+              "type": 1,
+              "value": "ticket_creado",
+              "required": true
+            }
+          ],
+          "headers": {
+            "Content-Type": "application/json"
+          },
+          "description": "Envía notificación por correo al ciudadano con el folio del ticket creado para reporte de vehículo abandonado",
+          "credentialId": "ztTnlhZQ"
+        }
+      },
+      {
+        "nodeId": "emNotifyEmail",
+        "name": "Emergencia - Notificar ciudadano",
+        "nodeType": 40,
+        "transitions": [
+          {
+            "name": "Notificación enviada",
+            "toNodeId": "emRegistered"
+          },
+          {
+            "name": "Error al notificar",
+            "toNodeId": "emRegistered"
+          }
+        ],
+        "apiSettings": {
+          "name": "Emergencia - Notificar ciudadano",
+          "method": 2,
+          "endpointUrl": "https://voice-brain-mcp.vercel.app/webhooks/nlpearl/notificar",
+          "body": [
+            {
+              "key": "conversationId",
+              "variableId": "callId",
+              "type": 1,
+              "required": true
+            },
+            {
+              "key": "pearlId",
+              "type": 1,
+              "value": "6a88a6da0137ea6b03c574c2",
+              "required": true
+            },
+            {
+              "key": "phone",
+              "variableId": "phoneNumber",
+              "type": 1,
+              "required": true
+            },
+            {
+              "key": "email",
+              "variableId": "emailCiudadano",
+              "type": 1,
+              "required": false
+            },
+            {
+              "key": "nombre",
+              "variableId": "nombreCiudadano",
+              "type": 1,
+              "required": false
+            },
+            {
+              "key": "folio",
+              "type": 1,
+              "value": "L100-EME-{hs_ticket_id}",
+              "required": true
+            },
+            {
+              "key": "tipoProblema",
+              "variableId": "tipoProblema",
+              "type": 1,
+              "required": true
+            },
+            {
+              "key": "ubicacion",
+              "variableId": "ubicacion",
+              "type": 1,
+              "required": true
+            },
+            {
+              "key": "tipo",
+              "type": 1,
+              "value": "ticket_creado",
+              "required": true
+            }
+          ],
+          "headers": {
+            "Content-Type": "application/json"
+          },
+          "description": "Envía notificación por correo al ciudadano con el folio del ticket de emergencia creado",
+          "credentialId": "ztTnlhZQ"
+        }
+      },
+      {
+        "nodeId": "personalGreet",
+        "name": "Saludo personalizado",
+        "nodeType": 10,
+        "transitions": [
+          {
+            "name": "Ciudadano responde",
+            "toNodeId": "safetyCheck"
+          }
+        ],
+        "script": "Gracias por escribirnos. Cuénteme, ¿en qué le puedo ayudar?",
+        "instructions": "Si {existingName} tiene valor, saludar por nombre. Si {openTicketCount} mayor a 0, mencionar caso abierto {existingTicketSubject}. Si no hay nombre, usar saludo genérico. No preguntar por emergencias. Esperar respuesta del ciudadano."
+      }
+    ]
+  },
+  "inbound": {
+    "textChannelId": "6a8a7e3b241b8bf6b7184e52",
+    "totalAgents": 1,
+    "transcriptOptions": 1,
+    "callWebhookUrl": "https://voice-brain-mcp.vercel.app/webhooks/nlpearl"
+  },
+  "name": "Línea 100 AMDC Whatsapp",
+  "type": 1,
+  "agentType": 2,
+  "variables": [
+    {
+      "id": "agentName",
+      "name": "Agent Name",
+      "group": 1,
+      "type": 1,
+      "isList": false,
+      "description": "The name of the agent.",
+      "required": true,
+      "readOnly": true,
+      "isSessionScoped": false
+    },
+    {
+      "id": "firstName",
+      "name": "First Name",
+      "group": 1,
+      "type": 1,
+      "isList": false,
+      "description": "The customer's first name formatted as a proper first name.",
+      "required": true,
+      "readOnly": true,
+      "isSessionScoped": false
+    },
+    {
+      "id": "lastName",
+      "name": "Last Name",
+      "group": 1,
+      "type": 1,
+      "isList": false,
+      "description": "The customer's last name formatted as a proper last name.",
+      "required": true,
+      "readOnly": true,
+      "isSessionScoped": false
+    },
+    {
+      "id": "emailAddress",
+      "name": "Email Address",
+      "group": 1,
+      "type": 1,
+      "isList": false,
+      "description": "The customer's email address in a standard format as defined by RFC 5321 and RFC 5322, without spaces or special characters.",
+      "required": true,
+      "readOnly": true,
+      "isSessionScoped": false
+    },
+    {
+      "id": "phoneNumber",
+      "name": "Phone Number",
+      "group": 1,
+      "type": 1,
+      "isList": false,
+      "description": "The customer's phone number, including country code with only digits and an '+' sign.",
+      "required": true,
+      "readOnly": true,
+      "isSessionScoped": false
+    },
+    {
+      "id": "localPhoneNumber",
+      "name": "Local Phone Number",
+      "group": 1,
+      "type": 1,
+      "isList": false,
+      "description": "The customer's phone number formatted according to the national conventions of their country.",
+      "required": true,
+      "readOnly": true,
+      "isSessionScoped": false
+    },
+    {
+      "id": "agentPhoneNumber",
+      "name": "Agent Phone Number",
+      "group": 1,
+      "type": 1,
+      "isList": false,
+      "description": "Your own phone number on this call — the line you are using to speak with the customer. This is not the customer's number.",
+      "required": true,
+      "readOnly": true,
+      "isSessionScoped": false
+    },
+    {
+      "id": "callId",
+      "name": "Call ID",
+      "group": 1,
+      "type": 1,
+      "isList": false,
+      "description": "The Id of the call",
+      "required": true,
+      "readOnly": false,
+      "isSessionScoped": false
+    },
+    {
+      "id": "post_call_duration",
+      "name": "Call Duration",
+      "group": 3,
+      "type": 1,
+      "isList": false,
+      "description": "Duration of the call.",
+      "required": false,
+      "readOnly": true,
+      "isSessionScoped": false
+    },
+    {
+      "id": "post_call_summary",
+      "name": "Call Summary",
+      "group": 3,
+      "type": 1,
+      "isList": false,
+      "description": "Summary generated after the call concludes.",
+      "required": false,
+      "readOnly": true,
+      "isSessionScoped": false
+    },
+    {
+      "id": "post_call_transcript",
+      "name": "Call Transcript",
+      "group": 3,
+      "type": 1,
+      "isList": false,
+      "description": "Transcript of the call for reference.",
+      "required": false,
+      "readOnly": true,
+      "isSessionScoped": false
+    },
+    {
+      "id": "post_call_call_time",
+      "name": "Call Time",
+      "group": 3,
+      "type": 1,
+      "isList": false,
+      "description": "Timestamp indicating when the call occurred.",
+      "required": false,
+      "readOnly": true,
+      "isSessionScoped": false
+    },
+    {
+      "id": "post_call_recording",
+      "name": "Recording Link",
+      "group": 3,
+      "type": 1,
+      "isList": false,
+      "description": "Link to the call recording.",
+      "required": false,
+      "readOnly": true,
+      "isSessionScoped": false
+    },
+    {
+      "id": "post_call_indicator_tags",
+      "name": "Indicator Tags",
+      "group": 3,
+      "type": 1,
+      "isList": false,
+      "description": "Names of the indicator tags detected during the call, separated by commas.",
+      "required": false,
+      "readOnly": true,
+      "isSessionScoped": false
+    },
+    {
+      "id": "post_call_sentiment_analysis",
+      "name": "Sentiment Analysis",
+      "group": 3,
+      "type": 1,
+      "isList": false,
+      "description": "Overall sentiment of the call. Possible values: 'Negative', 'SlightlyNegative', 'Neutral', 'SlightlyPositive', 'Positive'.",
+      "required": false,
+      "readOnly": true,
+      "isSessionScoped": false
+    },
+    {
+      "id": "tipoConsulta",
+      "name": "Tipo de Consulta",
+      "group": 2,
+      "type": 1,
+      "isList": false,
+      "description": "Tipo de consulta o reporte del ciudadano. Valores posibles: Denuncia, Reporte, Emergencia, Consulta de trámite, Otro. Extraer del contexto de la conversación.",
+      "required": true,
+      "readOnly": false,
+      "isSessionScoped": false
+    },
+    {
+      "id": "tipoProblema",
+      "name": "Tipo de Problema",
+      "group": 2,
+      "type": 1,
+      "isList": false,
+      "description": "Categoría del problema reportado: baches, basura, contaminación, tala de árboles, incendio, inundación, deslizamiento, construcción ilegal, problema de agua, problema de tránsito, u otro. Extraer según lo que describe el ciudadano.",
+      "required": true,
+      "readOnly": false,
+      "isSessionScoped": false
+    },
+    {
+      "id": "ubicacion",
+      "name": "Ubicación",
+      "group": 2,
+      "type": 1,
+      "isList": false,
+      "description": "Ubicación exacta del problema reportado. Incluir colonia, barrio, calle, avenida, punto de referencia o cualquier dato que permita localizar el lugar en Tegucigalpa o Comayagüela.",
+      "required": true,
+      "readOnly": false,
+      "isSessionScoped": false
+    },
+    {
+      "id": "descripcion",
+      "name": "Descripción del Problema",
+      "group": 2,
+      "type": 1,
+      "isList": false,
+      "description": "Descripción detallada de la situación reportada por el ciudadano. Incluir qué está pasando, desde cuándo, gravedad percibida y cualquier detalle relevante.",
+      "required": true,
+      "readOnly": false,
+      "isSessionScoped": false
+    },
+    {
+      "id": "nombreCiudadano",
+      "name": "Nombre del Ciudadano",
+      "group": 2,
+      "type": 1,
+      "isList": false,
+      "description": "Nombre del ciudadano que realiza el reporte o denuncia. Es opcional, el ciudadano puede preferir mantenerse anónimo.",
+      "required": true,
+      "readOnly": false,
+      "isSessionScoped": false
+    },
+    {
+      "id": "contactoCiudadano",
+      "name": "Contacto del Ciudadano",
+      "group": 2,
+      "type": 1,
+      "isList": false,
+      "description": "Número de teléfono o correo electrónico de contacto del ciudadano para darle seguimiento a su reporte. Es opcional.",
+      "required": true,
+      "readOnly": false,
+      "isSessionScoped": false
+    },
+    {
+      "id": "hubspotContactId",
+      "name": "ID Contacto HubSpot",
+      "group": 2,
+      "type": 1,
+      "isList": false,
+      "description": "ID del contacto creado o existente en HubSpot al registrar el reporte del ciudadano. Se obtiene de la respuesta de la API de contactos de HubSpot.",
+      "required": true,
+      "readOnly": false,
+      "isSessionScoped": false
+    },
+    {
+      "id": "latitud",
+      "name": "Latitud",
+      "group": 2,
+      "type": 1,
+      "isList": false,
+      "description": "Latitud geográfica de la ubicación del reporte, obtenida de la API de Google Geocoding. Formato decimal, por ejemplo: 14.0723.",
+      "required": true,
+      "readOnly": false,
+      "isSessionScoped": false
+    },
+    {
+      "id": "longitud",
+      "name": "Longitud",
+      "group": 2,
+      "type": 1,
+      "isList": false,
+      "description": "Longitud geográfica de la ubicación del reporte, obtenida de la API de Google Geocoding. Formato decimal, por ejemplo: -87.1921.",
+      "required": true,
+      "readOnly": false,
+      "isSessionScoped": false
+    },
+    {
+      "id": "direccionFormateada",
+      "name": "Dirección formateada",
+      "group": 2,
+      "type": 1,
+      "isList": false,
+      "description": "Dirección completa y formateada devuelta por Google Geocoding, por ejemplo: Col. Kennedy, Tegucigalpa, Francisco Morazán, Honduras.",
+      "required": true,
+      "readOnly": false,
+      "isSessionScoped": false
+    },
+    {
+      "id": "hubspotTaskId",
+      "name": "ID Tarea HubSpot",
+      "group": 2,
+      "type": 1,
+      "isList": false,
+      "description": "ID de la tarea creada en HubSpot para seguimiento del reporte",
+      "required": true,
+      "readOnly": false,
+      "isSessionScoped": false
+    },
+    {
+      "id": "fotoRecibida",
+      "name": "Foto recibida",
+      "group": 2,
+      "type": 1,
+      "isList": false,
+      "description": "Indica si el ciudadano envió evidencia fotográfica del vehículo reportado. Valores posibles: Sí, No.",
+      "required": true,
+      "readOnly": false,
+      "isSessionScoped": false
+    },
+    {
+      "id": "hs_ticket_id",
+      "name": "ID Ticket HubSpot",
+      "group": 2,
+      "type": 1,
+      "isList": false,
+      "description": "ID del ticket creado en HubSpot para el reporte del ciudadano.",
+      "required": true,
+      "readOnly": false,
+      "isSessionScoped": false
+    },
+    {
+      "id": "tipo_espacio",
+      "name": "Tipo de espacio",
+      "group": 2,
+      "type": 1,
+      "isList": false,
+      "description": "Indica si el vehículo está sobre la vía o la acera. Valores posibles: vía, acera, otro. Extraer de la respuesta del ciudadano en el paso de detalles adicionales.",
+      "required": true,
+      "readOnly": false,
+      "isSessionScoped": false
+    },
+    {
+      "id": "obstruye_paso",
+      "name": "Obstruye paso",
+      "group": 2,
+      "type": 1,
+      "isList": false,
+      "description": "Indica si el vehículo obstruye el paso de personas o vehículos. Valores posibles: sí, no, parcialmente, no sé. Extraer de la respuesta del ciudadano.",
+      "required": true,
+      "readOnly": false,
+      "isSessionScoped": false
+    },
+    {
+      "id": "tiempo_observado",
+      "name": "Tiempo observado",
+      "group": 2,
+      "type": 1,
+      "isList": false,
+      "description": "Tiempo aproximado que el ciudadano ha observado el vehículo en ese lugar. Formato libre, por ejemplo: 2 semanas, 3 días, no sé. Extraer de la respuesta del ciudadano.",
+      "required": true,
+      "readOnly": false,
+      "isSessionScoped": false
+    },
+    {
+      "id": "existingContactId",
+      "name": "ID Contacto Existente",
+      "group": 2,
+      "type": 1,
+      "isList": false,
+      "description": "ID del contacto existente en HubSpot encontrado por teléfono del ciudadano. Se obtiene de la búsqueda de contactos al inicio de la conversación.",
+      "required": true,
+      "readOnly": false,
+      "isSessionScoped": false
+    },
+    {
+      "id": "contactFound",
+      "name": "Contactos Encontrados",
+      "group": 2,
+      "type": 2,
+      "isList": false,
+      "description": "Número total de contactos encontrados en HubSpot con este teléfono. 0 si no hay coincidencias.",
+      "required": true,
+      "readOnly": false,
+      "isSessionScoped": false
+    },
+    {
+      "id": "existingTicketSubject",
+      "name": "Asunto Ticket Abierto",
+      "group": 2,
+      "type": 1,
+      "isList": false,
+      "description": "Asunto del ticket abierto más reciente del ciudadano en HubSpot. Vacío si no tiene tickets abiertos.",
+      "required": true,
+      "readOnly": false,
+      "isSessionScoped": false
+    },
+    {
+      "id": "existingTicketId",
+      "name": "ID Ticket Abierto",
+      "group": 2,
+      "type": 1,
+      "isList": false,
+      "description": "ID del ticket abierto más reciente del ciudadano en HubSpot.",
+      "required": true,
+      "readOnly": false,
+      "isSessionScoped": false
+    },
+    {
+      "id": "openTicketCount",
+      "name": "Tickets Abiertos",
+      "group": 2,
+      "type": 2,
+      "isList": false,
+      "description": "Cantidad de tickets abiertos del ciudadano en HubSpot. 0 si no tiene.",
+      "required": true,
+      "readOnly": false,
+      "isSessionScoped": false
+    },
+    {
+      "id": "similarTicketCount",
+      "name": "Tickets Similares",
+      "group": 2,
+      "type": 2,
+      "isList": false,
+      "description": "Cantidad de tickets similares de emergencia (categoría Riesgos) encontrados abiertos. Se usa para detectar eventos masivos.",
+      "required": true,
+      "readOnly": false,
+      "isSessionScoped": false
+    },
+    {
+      "id": "similarTicketId",
+      "name": "ID Ticket Similar",
+      "group": 2,
+      "type": 1,
+      "isList": false,
+      "description": "ID del ticket similar más reciente para asociación entre tickets en caso de evento masivo.",
+      "required": true,
+      "readOnly": false,
+      "isSessionScoped": false
+    },
+    {
+      "id": "entidadId",
+      "name": "ID Entidad Principal",
+      "group": 2,
+      "type": 1,
+      "isList": false,
+      "description": "ID de la empresa/entidad principal de respuesta en HubSpot. Bomberos=57749530768, COPECO=57748602663, Policía=57746898324, 911=57750831968.",
+      "required": true,
+      "readOnly": false,
+      "isSessionScoped": false
+    },
+    {
+      "id": "entidadId2",
+      "name": "ID Segunda Entidad",
+      "group": 2,
+      "type": 1,
+      "isList": false,
+      "description": "ID de la segunda empresa/entidad de respuesta si aplica. Vacío si solo hay una entidad asignada.",
+      "required": true,
+      "readOnly": false,
+      "isSessionScoped": false
+    },
+    {
+      "id": "emailCiudadano",
+      "name": "Email del ciudadano",
+      "group": 2,
+      "type": 1,
+      "isList": false,
+      "description": "Correo electrónico del ciudadano. Se busca primero en HubSpot por el contacto existente; si no existe, se pide durante la conversación al recopilar datos de contacto.",
+      "required": true,
+      "readOnly": false,
+      "isSessionScoped": false
+    },
+    {
+      "id": "existingName",
+      "name": "Nombre existente en HubSpot",
+      "group": 2,
+      "type": 1,
+      "isList": false,
+      "description": "Nombre del ciudadano encontrado en HubSpot al buscar por número de teléfono. Se usa para personalizar el saludo si el ciudadano ya está registrado.",
+      "required": true,
+      "readOnly": false,
+      "isSessionScoped": false
+    }
+  ]
+}

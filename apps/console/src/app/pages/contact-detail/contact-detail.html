@@ -55,11 +55,27 @@
     }
 
     <!-- ===== Panel de chat ===== -->
-    <section class="chat">
+    <section class="chat" [class.chat--flujo]="vistaActiva() === 'flujo'">
       <header class="chat__head">
         @if (!withThreads()) {
           <a routerLink="/contacts" class="chat__back" title="Volver">‹</a>
         }
+        <!-- Chat o Caso. Automático: mientras Pearl solo manda avances se ve
+             el CASO formándose; en cuanto llega la conversación, el chat pasa
+             al frente solo. El tab fija la elección a mano. -->
+        <div class="vistatab" role="tablist">
+          <button class="vistatab__op" role="tab" [class.vistatab__op--on]="vistaActiva() === 'chat'"
+                  (click)="vista.set('chat')" title="La conversación completa">
+            <ui-icon name="chat" /> Chat
+            @if (chat().length && vistaActiva() !== 'chat') {
+              <i class="vistatab__num">{{ chat().length }}</i>
+            }
+          </button>
+          <button class="vistatab__op" role="tab" [class.vistatab__op--on]="vistaActiva() === 'flujo'"
+                  (click)="vista.set('flujo')" title="Cómo se está desarrollando el caso">
+            <ui-icon name="zap" /> Caso
+          </button>
+        </div>
         <div class="chat__who">
           <div class="chat__name">{{ ctx.contact.displayName || 'Sin nombre' }}</div>
           <div class="chat__meta">
@@ -100,6 +116,80 @@
           }
         </div>
       }
+
+      @if (vistaActiva() === 'flujo') {
+        <!-- ===== El caso, formándose en vivo =====
+             Pearl entrega la conversación entera recién al cerrar o escalar;
+             lo que SÍ llega en tiempo real son los avances del flujo. Este
+             diagrama los convierte en el protagonista: cada hito aparece con
+             su dato nuevo, el último late, y los pasos que faltan se ven en
+             tenue — el caso muestra a dónde va, no solo por dónde pasó. -->
+        <div class="wf">
+          <div class="wf__top">
+            <span class="wf__estado" [class]="'wf__estado wf__estado--' + estadoCaso().clase">
+              <i class="wf__punto"></i> {{ estadoCaso().texto }}
+            </span>
+            @if (hitos().length) {
+              <span class="wf__meta">
+                {{ hitos().length }} hito(s) · {{ horaCorta(hitos().at(-1)?.occurredAt) }}
+              </span>
+            }
+          </div>
+
+          @if (!hitos().length && !chat().length) {
+            <div class="wf__vacio">
+              <span class="wf__vacio-hex"></span>
+              <p>El agente está atendiendo la conversación.<br />
+                 Cada avance del caso va a aparecer acá en vivo.</p>
+            </div>
+          } @else {
+            <ol class="wf__linea">
+              @for (a of hitos(); track a.paso + (a.occurredAt ?? ''); let i = $index; let ultimo = $last) {
+                <li class="wf__item" [class.wf__item--escala]="a.paso === 'escalamiento'"
+                    [style.animation-delay.ms]="i * 70">
+                  <span class="wf__marca" [class.wf__marca--vivo]="ultimo && !chat().length">
+                    <span class="wf__hex" [class.wf__hex--escala]="a.paso === 'escalamiento'">
+                      @if (a.paso === 'escalamiento') { ! } @else { {{ i + 1 }} }
+                    </span>
+                  </span>
+                  <div class="wf__card">
+                    <div class="wf__cab">
+                      <span class="wf__titulo">{{ etiquetaPaso(a.paso) }}</span>
+                      <span class="wf__hora">{{ horaCorta(a.occurredAt) }}</span>
+                    </div>
+                    @if (a.nuevos.length) {
+                      <div class="wf__datos">
+                        @for (d of a.nuevos; track d.clave) {
+                          <span class="wf__dato" [title]="d.valor">{{ recorte(d.valor, 46) }}</span>
+                        }
+                      </div>
+                    }
+                  </div>
+                </li>
+              }
+
+              <!-- A dónde va el caso: los pasos que el flujo aún no recorrió. -->
+              @for (p of pasosPendientes(); track p.paso) {
+                <li class="wf__item wf__item--fantasma">
+                  <span class="wf__marca"><span class="wf__hex wf__hex--fantasma"></span></span>
+                  <div class="wf__card wf__card--fantasma">{{ p.etiqueta }}</div>
+                </li>
+              }
+
+              @if (chat().length) {
+                <li class="wf__item" [style.animation-delay.ms]="hitos().length * 70">
+                  <span class="wf__marca"><span class="wf__hex wf__hex--fin"><ui-icon name="checks" /></span></span>
+                  <div class="wf__card wf__card--fin">
+                    <span class="wf__titulo">Conversación completa</span>
+                    <p class="wf__fin-txt">{{ chat().length }} mensaje(s) recibidos del agente.</p>
+                    <button class="wf__verchat" (click)="vista.set('chat')">Ver el chat →</button>
+                  </div>
+                </li>
+              }
+            </ol>
+          }
+        </div>
+      } @else {
 
       <div class="chat__scroll" #scrollEl>
         @if (!chat().length) {
@@ -226,7 +316,7 @@
                 [title]="tomada()
                   ? (modo() === 'nota' ? 'Cambiar a responderle al ciudadano' : 'Cambiar a nota interna')
                   : 'Tomá la conversación para poder responder'">
-          @if (modo() === 'nota') { 📝 Nota } @else { 💬 Responder }
+          @if (modo() === 'nota') { <ui-icon name="note" /> Nota } @else { <ui-icon name="chat" /> Responder }
         </button>
         <input
           class="chat__input"
@@ -249,6 +339,8 @@
           }
         </button>
       </footer>
+
+      }
     </section>
 
     <!-- ===== Contexto en vivo (avatar de voz + info) ===== -->
