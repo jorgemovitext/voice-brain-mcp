@@ -102,8 +102,10 @@
     transition: stroke 0.15s, stroke-width 0.15s;
   }
 
+  /* Los dormidos van en gris, no en el navy del panel: es lo que los hace
+     leerse "apagados" contra los encendidos, como en las píldoras de antes. */
   .hex__fondo {
-    fill: var(--panel);
+    fill: #1a1f2b;
     transition: fill 0.15s;
   }
 
@@ -118,7 +120,7 @@
   }
 }
 
-/* Activos: encendidos de verdad. */
+/* Activos: encendidos de verdad — vuelven al navy del panel. */
 .hex--activo {
   .hex__fondo { fill: var(--panel-2); }
 

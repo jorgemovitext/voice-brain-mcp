@@ -86,7 +86,7 @@ function sePisan(
  * distancia sobre las dos aristas y se une con una curva cuyo control es el
  * vértice original: así la esquina queda mullida y no en pico.
  */
-function hexRedondo(cx: number, cy: number, r: number, suavidad = 0.3): string {
+function hexRedondo(cx: number, cy: number, r: number, suavidad = 0.16): string {
   const v = Array.from({ length: 6 }, (_, i) => {
     const a = (Math.PI / 180) * (60 * i);
     return { x: cx + r * Math.cos(a), y: cy + r * Math.sin(a) };
@@ -117,6 +117,35 @@ function hexRedondo(cx: number, cy: number, r: number, suavidad = 0.3): string {
 export function esHash(v: string): boolean {
   const s = v.trim();
   return /^[0-9a-f]{16,}$/i.test(s) || /^[0-9a-f]{8}-[0-9a-f-]{20,}$/i.test(s);
+}
+
+/**
+ * Dónde va el siguiente hexágono grande: pegado a alguno de los ya puestos,
+ * en la primera de las seis direcciones que no choque. Con radios distintos
+ * una retícula de paso fijo dejaría al más chico flotando, así que la
+ * distancia se calcula por par: (R₁+R₂)·√3/2 más la junta.
+ */
+function ubicarGrande(
+  puestos: Array<{ x: number; y: number; r: number }>,
+  r: number,
+  mortero: number,
+): { x: number; y: number } {
+  if (!puestos.length) return { x: 0, y: 0 };
+  // Normales de arista: es por donde dos hexágonos de lado plano se besan.
+  const DIRS = [30, 90, 150, 210, 270, 330].map((g) => ({
+    x: Math.cos((Math.PI / 180) * g),
+    y: Math.sin((Math.PI / 180) * g),
+  }));
+  for (const base of puestos) {
+    const paso = ((base.r + r) * Math.sqrt(3)) / 2 + mortero;
+    for (const u of DIRS) {
+      const p = { x: base.x + u.x * paso, y: base.y + u.y * paso, r };
+      if (puestos.every((q) => !sePisan(p, q, mortero / 2))) return { x: p.x, y: p.y };
+    }
+  }
+  // Sin sitio pegado: se cuelga arriba, lejos de todo.
+  const alto = puestos.reduce((m, q) => Math.min(m, q.y - q.r), 0);
+  return { x: 0, y: alto - r * 2 };
 }
 
 /** Dos letras para el hexágono chico, donde no cabe el nombre. */
@@ -189,12 +218,20 @@ export class WorkersPage {
     const resto = this.dormidos();
     if (!activos.length && !resto.length) return [];
 
+    /*
+     * Los radios NO son a gusto: sobre esta retícula solo 2·S y 3·S encajan a
+     * ras. Medido barriendo de 1.8 a 3.2, el hueco hasta la celda chica
+     * superviviente más cercana es 0.00 en esos dos valores y sube hasta
+     * 0.69·S en los intermedios — esos huecos son los espacios negros que se
+     * veían. Un grande de 2·S se come 7 celdas (la suya y su anillo); uno de
+     * 3·S se come 13, y sus propias esquinas rellenan lo que ocupaban.
+     */
     const S = 46;
-    const R_ACTIVO = S * 2.15;
-    // El que atiende su canal manda: se lleva el hexágono más grande.
-    const R_EN_USO = S * 2.45;
-    /** Junta mínima entre bordes, para que el trazo no se monte. */
-    const MORTERO = 6;
+    const R_ACTIVO = S * 2;
+    // El que atiende su canal manda: mitad más grande y a ras con sus vecinas.
+    const R_EN_USO = S * 3;
+    /** Junta mínima entre bordes, para que los trazos no se monten. */
+    const MORTERO = 3;
 
     // Los que están en uso primero: ocupan el mero centro del racimo.
     const grandes = [...activos].sort(
@@ -202,37 +239,32 @@ export class WorkersPage {
     );
 
     /*
-     * Los grandes van PEGADOS entre sí, en su propio racimo espiral: paso de
-     * retícula = el que deja a dos celdas del radio mayor casi tocándose.
-     * (Separar los grandes y meter chicos entre medio era justo lo que no
-     * quería el usuario: el centro debe ser un bloque.)
+     * Cada grande se coloca A RAS del anterior, en la primera de las seis
+     * direcciones que quede libre. No se usa una retícula común porque los
+     * radios son distintos: con un paso único, el activo pequeño quedaba
+     * flotando a media celda de su vecino.
      */
-    const mayor = grandes.some((w) => this.isAssigned(w)) ? R_EN_USO : R_ACTIVO;
-    const pasoGrande = (mayor * Math.sqrt(3) + MORTERO) / Math.sqrt(3);
-
     const celdas: Celda[] = [];
-    for (const [i, w] of grandes.entries()) {
-      const pos = espiral(3)[i];
-      if (!pos) break;
-      const { x, y } = aPixel(pos.q, pos.r, pasoGrande);
+    const nucleo: Array<{ x: number; y: number; r: number }> = [];
+    for (const w of grandes) {
       const r = this.isAssigned(w) ? R_EN_USO : R_ACTIVO;
+      const donde = ubicarGrande(nucleo, r, MORTERO);
+      nucleo.push({ ...donde, r });
       celdas.push({
-        w, x, y, r, activo: true, luz: 1,
+        w, x: donde.x, y: donde.y, r, activo: true, luz: 1,
         iniciales: iniciales(w.name), lineas: lineasDe(w.name),
-        d: hexRedondo(x, y, r),
+        d: hexRedondo(donde.x, donde.y, r),
       });
     }
-    const nucleo = celdas.map((c) => ({ x: c.x, y: c.y, r: c.r }));
 
     /*
      * Los dormidos abrazan el racimo por FUERA: candidatos en espiral sobre
-     * la retícula chica, descartando por test de ejes separadores todo el que
-     * pise un grande. Como entre dos grandes solo queda el mortero, ahí no
-     * cabe ninguno — no hay chicos incrustados en el centro.
+     * la retícula chica, descartando solo los que de verdad pisan un grande.
+     * El margen es 0 — cualquier holgura extra se ve como hueco negro.
      */
     const libres = espiral(18)
       .map(({ q, r }) => aPixel(q, r, S))
-      .filter((p) => nucleo.every((g) => !sePisan({ ...p, r: S }, g, 3)))
+      .filter((p) => nucleo.every((g) => !sePisan({ ...p, r: S }, g)))
       .sort((a, b) => Math.hypot(a.x, a.y) - Math.hypot(b.x, b.y));
 
     const ultima = libres[Math.min(resto.length, libres.length) - 1];
