@@ -117,22 +117,6 @@ export class ContactDetailPage implements OnDestroy {
     return tel ? `/api/nlpearl/progress?phone=${encodeURIComponent(tel)}` : undefined;
   });
 
-  /**
-   * La línea de tiempo, con SOLO lo que aporta cada paso.
-   *
-   * El flujo empuja en cada avance el acumulado completo de variables, así
-   * que pintarlo tal cual hacía que el último paso repitiera todo lo anterior
-   * y la tarjeta se volviera ilegible. Acá se descarta lo ya visto: cada hito
-   * muestra únicamente el dato nuevo o el que cambió.
-   */
-  readonly avances = computed(() =>
-    ContactDetailPage.conDeltas(
-      [...(this.progreso.value() ?? [])].sort((a, b) =>
-        (a.occurredAt ?? '').localeCompare(b.occurredAt ?? ''),
-      ),
-    ),
-  );
-
   /** El acumulado del flujo → solo lo que aporta cada paso. */
   private static conDeltas(
     ordenados: AvanceFlujo[],
@@ -151,11 +135,17 @@ export class ContactDetailPage implements OnDestroy {
   }
 
   /**
-   * Los hitos del CASO ACTUAL (la conversación más reciente), para el
-   * diagrama de flujo. El endpoint devuelve los avances de todo el teléfono,
-   * y el mismo número reporta varias veces: mezclar casos en el diagrama
-   * pintaría un flujo que nunca existió. La marca de escalamiento no lleva
-   * conversationId y se incluye — pertenece al incidente, no al hilo.
+   * Los hitos del CASO ACTUAL (la conversación más reciente). Alimenta las
+   * DOS líneas de tiempo: la del panel de contexto y la de la vista Caso.
+   *
+   * El endpoint devuelve los avances de todo el teléfono, y el mismo número
+   * reporta varias veces. El panel los mostraba todos y la vista Caso solo
+   * los de esta conversación, así que el mismo caso se contaba dos veces con
+   * distinto largo. La marca de escalamiento no lleva conversationId y se
+   * incluye igual — pertenece al incidente, no al hilo.
+   *
+   * Cada hito trae SOLO lo que aporta: el flujo empuja el acumulado completo
+   * en cada avance, y pintarlo tal cual repetía todo lo anterior.
    */
   readonly hitos = computed(() => {
     const orden = [...(this.progreso.value() ?? [])].sort((a, b) =>

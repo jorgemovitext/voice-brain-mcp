@@ -436,13 +436,13 @@
         <div class="panel">
           <div class="panel__head">
             <span class="panel__title">Avance del caso</span>
-            @if (avances().length) {
+            @if (hitos().length) {
               <span class="panel__aside"><span class="avance__pulso"></span> en curso</span>
             }
           </div>
-          @if (avances().length) {
+          @if (hitos().length) {
             <ol class="avance">
-              @for (a of avances(); track a.paso + a.occurredAt) {
+              @for (a of hitos(); track a.paso + a.occurredAt) {
                 <li class="avance__paso">
                   <div class="avance__cuerpo">
                     <span class="avance__hito">{{ etiquetaPaso(a.paso) }}</span>

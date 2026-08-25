@@ -2,6 +2,7 @@ import { BadRequestException, Inject, Injectable, Logger } from '@nestjs/common'
 import { BrainService } from '../brain/brain.service';
 import { HubspotClient } from '../hubspot/hubspot.client';
 import { ChannelPort, WHATSAPP_CHANNEL } from '../ports/channel.port';
+import { WebhookLogService } from '../shared/webhook-log.service';
 import { NlpearlActivityStore } from './activity.store';
 
 /**
@@ -24,6 +25,7 @@ export class EjecutarService {
     private readonly brain: BrainService,
     private readonly store: NlpearlActivityStore,
     private readonly hubspot: HubspotClient,
+    private readonly webhookLog: WebhookLogService,
     @Inject(WHATSAPP_CHANNEL) private readonly whatsapp: ChannelPort,
   ) {}
 
@@ -78,20 +80,32 @@ export class EjecutarService {
       templateSaludo: string;
       sendTemplate: (to: string, id: string, params: string[]) => Promise<unknown>;
     }>;
-    if (typeof gupshup.sendTemplate !== 'function' || !gupshup.templateSaludo) {
-      return { aviso: 'Sin plantilla configurada no se le pudo escribir al ciudadano.' };
+
+    // Cada salida deja rastro en la bitácora. Sin esto, un saludo que no sale
+    // es indistinguible de un saludo que nunca se intentó.
+    const fallo = (motivo: string) => {
+      this.webhookLog.push('saliente', `Saludo al tomar el hilo: ${motivo}`, false);
+      return { aviso: motivo };
+    };
+
+    if (typeof gupshup.sendTemplate !== 'function') {
+      return fallo('el proveedor de WhatsApp activo no manda plantillas (revisá las credenciales de Gupshup).');
+    }
+    if (!gupshup.templateSaludo) {
+      return fallo('falta GUPSHUP_TEMPLATE_SALUDO: sin el id de la plantilla no se puede iniciar la conversación.');
     }
 
     const ctx = await this.brain.getContext({ contactId });
     const tel = ctx.contact.phones?.[0];
-    if (!tel) return { aviso: 'El contacto no tiene teléfono: no se envió el saludo.' };
+    if (!tel) return fallo('el contacto no tiene teléfono.');
 
     try {
       await gupshup.sendTemplate(tel, gupshup.templateSaludo, [operador]);
       this.logger.log(`${operador} se presentó con ${contactId} por plantilla`);
+      this.webhookLog.push('saliente', `Saludo enviado a ${tel} de parte de ${operador}`, true);
       return {};
     } catch (err) {
-      return { aviso: `No se pudo enviar el saludo: ${(err as Error).message}` };
+      return fallo(`Gupshup rechazó el saludo — ${(err as Error).message}`);
     }
   }
 
