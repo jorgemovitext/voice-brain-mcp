@@ -391,7 +391,7 @@ $overlap: 44px;
   flex-shrink: 0;
   align-self: flex-start;
   /* Pegada a la esquina y ocupando lo mínimo: es un control, no una barra. */
-  margin: 0.5rem 0 0.15rem 1rem;
+  margin: 0.4rem 0 0.2rem 0.9rem;
   display: inline-flex;
   gap: 2px;
   /* SIN fondo: la barra que las contiene no pinta nada. Con la cápsula
@@ -456,6 +456,9 @@ $overlap: 44px;
   overflow-y: auto;
   padding: 1.1rem $overlap 1.6rem 1.3rem;
   color: var(--ink);
+  /* Mismo desvanecido que el chat en el canto de arriba. */
+  mask-image: linear-gradient(to bottom, transparent 0, #000 20px);
+  -webkit-mask-image: linear-gradient(to bottom, transparent 0, #000 20px);
 }
 
 .wf__top {
@@ -860,6 +863,12 @@ $overlap: 44px;
   display: flex;
   flex-direction: column;
   gap: 0.55rem;
+  /* El canto de arriba corta el mensaje que va saliendo, y una burbuja
+     rebanada a media línea justo debajo del tab se lee como texto roto. Con
+     el degradado el mensaje se desvanece: se entiende que sigue hacia arriba
+     en vez de parecer que algo lo tapó. */
+  mask-image: linear-gradient(to bottom, transparent 0, #000 20px);
+  -webkit-mask-image: linear-gradient(to bottom, transparent 0, #000 20px);
 }
 
 /* Se centra en el alto disponible en vez de quedar pegado arriba, que hacía
