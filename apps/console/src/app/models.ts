@@ -131,6 +131,12 @@ export interface HiveStatus {
   };
   /** Tráfico total por canal, para los anillos y las barras. */
   porCanal: Array<{ channel: Channel; total: number; inbound: number }>;
+  /**
+   * Pulso en vivo del WhatsApp de NL Pearl (no de nuestra base de datos).
+   * `null` = no se pudo consultar (sin Pearl asignada o la API no respondió),
+   * distinto de `0` = "consultado, nadie escribiendo ahora".
+   */
+  enVivo: { total: number; enCola: number | null } | null;
   esperando: Array<{
     contactId: string;
     displayName?: string;

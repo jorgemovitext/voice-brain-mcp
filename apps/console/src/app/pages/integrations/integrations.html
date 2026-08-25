@@ -88,6 +88,15 @@
             <span class="mini__num">{{ hive.value()?.obreros?.activos ?? 0 }}</span>
             <span class="mini__txt">Agentes activos</span>
           </a>
+          <!-- Pulso en vivo: viene de la propia API de NL Pearl, no de
+               nuestra base — es lo único "tiempo real" que la API permite
+               hoy para WhatsApp (cuenta, no lista quién ni qué dice). -->
+          <a class="mini" routerLink="/conversations"
+             [class.mini--alerta]="(hive.value()?.enVivo?.total ?? 0) > 0"
+             [title]="enVivoTitulo()">
+            <span class="mini__num">{{ hive.value()?.enVivo?.total ?? '—' }}</span>
+            <span class="mini__txt">En curso ahora (WhatsApp)</span>
+          </a>
         </div>
       </section>
 

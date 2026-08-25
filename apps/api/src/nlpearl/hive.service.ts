@@ -47,6 +47,17 @@ export interface HiveStatus {
   };
   /** Tráfico total por canal, para el mapa de flujo. */
   porCanal: Array<{ channel: Channel; total: number; inbound: number }>;
+  /**
+   * Pulso en vivo del WhatsApp de NL Pearl: cuántas conversaciones tiene
+   * abiertas AHORA MISMO, según su propia API — no nuestra base de datos.
+   *
+   * `null` significa "no se pudo consultar" (sin Pearl asignada al canal, o
+   * la API no respondió), y se distingue a propósito de `0`: un cero real
+   * dice "nadie está escribiendo ahora"; un null dice "no lo sabemos". Nunca
+   * se lista quién ni qué dice — la API de NL Pearl no expone eso para
+   * conversaciones de texto, solo el conteo.
+   */
+  enVivo: { total: number; enCola: number | null } | null;
   esperando: WaitingThread[];
   actividad: Array<{
     contactId: string;
@@ -81,6 +92,14 @@ export class HiveService {
   /** Canal de texto NL Pearl, cacheado: cambia casi nunca y el panel refresca cada 5 s. */
   private textChannelCache: { value: string | null; at: number } | null = null;
 
+  /**
+   * El pulso en vivo, cacheado 4 s: el panel sondea cada 5 s, y con varias
+   * pestañas abiertas cada una dispararía su propia consulta a NL Pearl al
+   * mismo tiempo. La caché las junta en una sola llamada real.
+   */
+  private enVivoCache: { value: HiveStatus['enVivo']; at: number } | null = null;
+  private static readonly EN_VIVO_TTL_MS = 4_000;
+
   constructor(
     private readonly brain: BrainService,
     private readonly store: NlpearlActivityStore,
@@ -113,6 +132,8 @@ export class HiveService {
       this.store.countsByPearl(),
       this.routing.all(),
     ]);
+    // Depende de `routing.whatsapp`: va después, no dentro del Promise.all de arriba.
+    const enVivo = await this.enVivoAhora(routing.whatsapp);
 
     // --- Hilos esperando respuesta: el último mensaje es del cliente ---
     // Las notas internas no cuentan: son apuntes del equipo, no una
@@ -224,6 +245,7 @@ export class HiveService {
         porHora,
       },
       porCanal,
+      enVivo,
       esperando: esperando.slice(0, 8),
       actividad,
       canales: {
@@ -235,6 +257,30 @@ export class HiveService {
         db: this.dbMode,
       },
     };
+  }
+
+  /**
+   * Cuenta conversaciones abiertas AHORA en el WhatsApp de NL Pearl.
+   *
+   * Solo WhatsApp: es el único canal de texto en uso hoy (sin proveedor de
+   * voz propio, ese canal queda fuera de este pulso). Sin Pearl asignada al
+   * canal, o si la cuenta no está configurada, se devuelve `null` en vez de
+   * `0` — la ausencia de dato no es lo mismo que "cero conversaciones".
+   */
+  private async enVivoAhora(pearlIdWhatsapp?: string): Promise<HiveStatus['enVivo']> {
+    if (!pearlIdWhatsapp || !this.nlpearlOk) return null;
+
+    if (this.enVivoCache && Date.now() - this.enVivoCache.at < HiveService.EN_VIVO_TTL_MS) {
+      return this.enVivoCache.value;
+    }
+
+    const valor = await this.client
+      .getOngoingCalls(pearlIdWhatsapp)
+      .then((r) => ({ total: r.totalOngoingCalls, enCola: r.totalOnQueue }))
+      .catch(() => null);
+
+    this.enVivoCache = { value: valor, at: Date.now() };
+    return valor;
   }
 
   private async textChannel(): Promise<string | null> {

@@ -81,6 +81,13 @@ export class IntegrationsPage {
   readonly totalCanal = computed(() => this.canales().reduce((acc, c) => acc + c.total, 0));
   readonly entrantes = computed(() => this.canales().reduce((acc, c) => acc + c.inbound, 0));
 
+  /** Explica el guion cuando no hay dato, en vez de dejarlo sin contexto. */
+  readonly enVivoTitulo = computed(() => {
+    const v = this.hive.value()?.enVivo;
+    if (!v) return 'Sin dato en vivo: no hay Pearl de WhatsApp asignada, o la API no respondió';
+    return v.enCola ? `${v.total} en curso, ${v.enCola} en cola` : `${v.total} en curso`;
+  });
+
   constructor() {
     // Es una pantalla de "ahora mismo": se refresca sola y se calla si no pasa nada.
     const parar = crearSondeo({
@@ -92,7 +99,8 @@ export class IntegrationsPage {
       },
       firma: () => {
         const e = this.activity.value()?.[0];
-        return `${e?.at ?? ''}|${this.m()?.esperandoRespuesta ?? ''}`;
+        const v = this.hive.value()?.enVivo;
+        return `${e?.at ?? ''}|${this.m()?.esperandoRespuesta ?? ''}|${v?.total ?? ''}`;
       },
     });
     this.destroyRef.onDestroy(parar);
