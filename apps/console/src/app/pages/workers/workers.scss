@@ -1,12 +1,20 @@
 /* Centrado y con tope amplio: pegado a la izquierda dejaba un hueco muerto
    a la derecha en pantallas anchas. */
 .page {
+  /* `.stage` (el escenario de app.scss) ya mide 100dvh y es el que hace
+     scroll; acá se hereda ese 100% exacto en vez de recalcular con vh, que
+     no sabe cuánto ocupa el header y por eso el lateral se pasaba de largo. */
+  height: 100%;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
   padding: 1.4rem 1.5rem;
   max-width: 1360px;
   margin-inline: auto;
 }
 
 .head {
+  flex-shrink: 0;
   display: flex;
   justify-content: space-between;
   align-items: flex-start;
@@ -23,38 +31,87 @@
    debajo, en pantallas anchas sobraba media pantalla vacía a cada lado del
    panal. */
 .tablero {
+  /* flex:1 dentro de `.page` (columna): toma exactamente lo que sobra bajo
+     el header, así panal y lateral llegan al mismo borde inferior sin medir
+     nada en vh. `align-items: stretch` (el default, así que no se declara)
+     es lo que hace que las dos columnas compartan esa altura completa. */
+  flex: 1;
+  min-height: 0;
   display: grid;
   grid-template-columns: minmax(0, 1fr) clamp(300px, 26vw, 420px);
   gap: clamp(12px, 1.4vw, 22px);
-  align-items: start;
 
   @media (max-width: 1000px) {
+    flex: none;
     grid-template-columns: minmax(0, 1fr);
   }
 }
 
-/* Acompaña el scroll: el panal es alto y el detalle no debe perderse. */
+/*
+ * El lateral es en sí mismo el panel de vidrio — no una tarjeta más adentro
+ * de un contenedor sticky. `height: 100%` de la fila del grid (que a su vez
+ * es `.tablero` con flex:1 dentro de `.page`, que hereda el 100dvh de
+ * `.stage`): así el borde inferior queda al mismo margen de 1.4rem que
+ * respeta el panal, sin adivinar cuánto mide el header en vh.
+ *
+ * (El intento anterior fijaba `height: calc(100vh - 2.8rem)` con
+ * `position: sticky; top: 1.4rem`, pero esa altura fija no sabía que el
+ * header ya había bajado el punto de partida, así que el panel se pasaba de
+ * largo por abajo. Con flex/grid el alto sale solo, exacto.)
+ *
+ * Receta de vidrio: la misma de `.tip` (el tooltip de los gráficos) —
+ * blur(16px) saturate(180%), tinte blanco al 10%, filo al 20%. Un elemento
+ * de DOM normal (no SVG), así que `backdrop-filter` sí desenfoca de verdad
+ * lo que hay detrás.
+ */
 .lateral {
-  position: sticky;
-  top: 1rem;
-  max-height: calc(100vh - 2rem);
-  overflow-y: auto;
+  height: 100%;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  border-radius: 20px;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  backdrop-filter: blur(20px) saturate(180%);
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
+  box-shadow:
+    0 12px 32px rgba(0, 0, 0, 0.4),
+    inset 0 1px 0 rgba(255, 255, 255, 0.12);
+  overflow: hidden;
+
+  /* La tarjeta de detalle y el estado vacío llenan el vidrio: sin esto el
+     contenido quedaba arriba y el resto del panel colgaba vacío. */
+  > * {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+  }
 
   @media (max-width: 1000px) {
-    position: static;
-    max-height: none;
+    height: auto;
+    min-height: 220px;
   }
+}
+
+/* El detalle vive DENTRO del vidrio: pierde su propio fondo y borde (los del
+   `.card` compartido) para que se vea el desenfoque, no una tarjeta opaca
+   encima de otra. */
+.lateral .detail {
+  background: transparent;
+  border: 0;
+  border-radius: 0;
+  padding: 1.3rem 1.4rem;
+  margin: 0;
 }
 
 .lateral__vacio {
   display: flex;
   flex-direction: column;
   align-items: center;
+  justify-content: center;
   gap: 0.6rem;
   text-align: center;
-  padding: 2.4rem 1.4rem;
-  border: 1px dashed var(--border);
-  border-radius: 16px;
+  padding: 1.4rem;
   color: var(--ink-soft);
   font-size: 0.83rem;
 
@@ -63,7 +120,7 @@
 
 .lateral__icono {
   font-size: 1.6rem;
-  color: var(--border);
+  color: rgba(255, 255, 255, 0.35);
 }
 
 /* ===== El panal =====
@@ -71,11 +128,21 @@
    dormidos chicos alrededor, con la luz apagándose hacia afuera como en la
    referencia. La geometría (espiral axial, dos retículas) vive en el TS;
    acá solo se pinta. */
+/* Con `.tablero` ahora fijando la altura de la fila, el panal la hereda
+   (align-items: stretch, el default del grid) y se organiza en columna para
+   que el SVG —no el título ni el pie— sea lo que absorbe ese alto. */
 .panal {
-  margin-bottom: 1.4rem;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+
+  @media (max-width: 1000px) {
+    min-height: 420px;
+  }
 }
 
 .panal__title {
+  flex-shrink: 0;
   display: flex;
   align-items: center;
   gap: 0.55rem;
@@ -122,14 +189,21 @@
 .panal__svg {
   display: block;
   width: 100%;
-  /* El viewBox manda la proporción; el tope evita que con pocos agentes un
-     hexágono gigante se coma la pantalla. Es alto a propósito: con 62vh el
-     panal se quedaba corto y dejaba franjas vacías a los lados. */
-  max-height: 78vh;
+  /* flex:1 sobre el alto exacto que ya fija `.tablero`: el viewBox + el
+     `preserveAspectRatio="xMidYMid meet"` del SVG hacen el resto, escalando
+     el mosaico para llenar ese espacio sin deformarse. Antes esto era un
+     `max-height: 78vh` a ojo, que no sabía cuánto quedaba libre de verdad. */
+  flex: 1;
+  min-height: 0;
   margin-inline: auto;
+
+  @media (max-width: 1000px) {
+    min-height: 340px;
+  }
 }
 
 .panal__pie {
+  flex-shrink: 0;
   text-align: center;
   color: var(--ink-soft);
   font-size: 0.75rem;
