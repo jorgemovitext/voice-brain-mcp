@@ -197,6 +197,169 @@ export class ContactDetailPage implements OnDestroy {
     { paso: 'registered', etiqueta: 'Reporte registrado', claves: ['regist'] },
   ];
 
+  /*
+   * ===== El árbol del flujo =====
+   *
+   * No es un adorno: cada nodo y cada bifurcación existen en el flujo real de
+   * la Pearl "Línea 100 AMDC Whatsapp". `safetyCheck` abre de verdad en tres
+   * ("Hay peligro inmediato" / "No hay peligro, ciudadano tiene reporte" /
+   * "Ciudadano pide hablar con persona"), y `confirmInfo` y `checkEscalamiento`
+   * en dos. Dibujar el árbol completo (58 nodos) sería ilegible, así que está
+   * la columna vertebral con sus cuatro decisiones.
+   *
+   * `col` es la columna (-1 izquierda, 0 centro, 1 derecha) y `fila` la
+   * altura: con eso se calculan las coordenadas del SVG y las curvas.
+   */
+  private static readonly MAPA: Array<{
+    id: string;
+    etiqueta: string;
+    fila: number;
+    col: number;
+    /** Rombo en vez de hexágono: es un punto donde el flujo elige. */
+    decision?: boolean;
+    /** Trozos de nombre de paso que marcan este nodo como recorrido. */
+    claves?: string[];
+    /** De qué decisión cuelga, para saber si quedó descartado. */
+    padre?: string;
+  }> = [
+    { id: 'saludo', etiqueta: 'Saludo', fila: 0, col: 0, claves: ['opening', 'greet'] },
+    { id: 'peligro', etiqueta: '¿Hay peligro?', fila: 1, col: 0, decision: true },
+    { id: 'emergencia', etiqueta: 'Emergencia', fila: 2, col: -1, claves: ['emergen'], padre: 'peligro' },
+    { id: 'reporte', etiqueta: 'Reporte', fila: 2, col: 1, claves: ['problem', 'identif'], padre: 'peligro' },
+    { id: 'ubicacion', etiqueta: 'Ubicación', fila: 3, col: 0, claves: ['loc', 'ubic', 'geocode'] },
+    { id: 'cobertura', etiqueta: '¿En cobertura?', fila: 4, col: 0, decision: true },
+    { id: 'fuera', etiqueta: 'Fuera del área', fila: 5, col: -1, claves: ['fuera', 'coverage'], padre: 'cobertura' },
+    { id: 'detalle', etiqueta: 'Detalle y foto', fila: 5, col: 1, claves: ['desc', 'detail', 'photo', 'foto'], padre: 'cobertura' },
+    { id: 'contacto', etiqueta: 'Contacto', fila: 6, col: 0, claves: ['cont'] },
+    { id: 'confirma', etiqueta: '¿Confirma?', fila: 7, col: 0, decision: true },
+    { id: 'corregir', etiqueta: 'Corregir', fila: 8, col: -1, claves: ['correg'], padre: 'confirma' },
+    { id: 'ticket', etiqueta: 'Reporte registrado', fila: 8, col: 1, claves: ['regist', 'ticket'], padre: 'confirma' },
+    { id: 'escala', etiqueta: '¿Escala?', fila: 9, col: 0, decision: true },
+    { id: 'despacho', etiqueta: 'Al despacho', fila: 10, col: -1, claves: ['escalamiento', 'alcalde'], padre: 'escala' },
+    { id: 'cierre', etiqueta: 'Cierre', fila: 10, col: 1, claves: ['farewell', 'closing', 'endcall'], padre: 'escala' },
+  ];
+
+  /** Las aristas del árbol, con la etiqueta de la rama cuando decide algo. */
+  private static readonly ARISTAS: Array<{ de: string; a: string; ramo?: string }> = [
+    { de: 'saludo', a: 'peligro' },
+    { de: 'peligro', a: 'emergencia', ramo: 'sí' },
+    { de: 'peligro', a: 'reporte', ramo: 'no' },
+    { de: 'emergencia', a: 'ubicacion' },
+    { de: 'reporte', a: 'ubicacion' },
+    { de: 'ubicacion', a: 'cobertura' },
+    { de: 'cobertura', a: 'fuera', ramo: 'no' },
+    { de: 'cobertura', a: 'detalle', ramo: 'sí' },
+    { de: 'detalle', a: 'contacto' },
+    { de: 'contacto', a: 'confirma' },
+    { de: 'confirma', a: 'corregir', ramo: 'no' },
+    { de: 'confirma', a: 'ticket', ramo: 'sí' },
+    { de: 'ticket', a: 'escala' },
+    { de: 'escala', a: 'despacho', ramo: 'sí' },
+    { de: 'escala', a: 'cierre', ramo: 'no' },
+  ];
+
+  private static readonly ANCHO_NODO = 128;
+  private static readonly ALTO_NODO = 40;
+  private static readonly PASO_FILA = 74;
+  private static readonly PASO_COL = 152;
+
+  /** Centro de un nodo en el lienzo. */
+  private static centro(nodo: { fila: number; col: number }): { x: number; y: number } {
+    return {
+      x: 190 + nodo.col * ContactDetailPage.PASO_COL,
+      y: 32 + nodo.fila * ContactDetailPage.PASO_FILA,
+    };
+  }
+
+  /**
+   * El árbol con el estado de cada nodo y cada arista.
+   *
+   * `hecho` = el flujo pasó por ahí. `actual` = está parado ahí ahora.
+   * `descartado` = es la rama que la decisión NO tomó, y se dibuja fantasma:
+   * ver el camino que se descartó es lo que convierte una lista de pasos en
+   * una decisión.
+   */
+  readonly arbol = computed(() => {
+    const pasos = this.hitos().map((a) => a.paso.toLowerCase());
+    const ultimo = pasos.at(-1) ?? '';
+    const cerrada = this.chat().length > 0;
+
+    const tocado = (claves?: string[]) =>
+      !!claves && pasos.some((p) => claves.some((c) => p.includes(c)));
+
+    const hechos = new Set(
+      ContactDetailPage.MAPA.filter((n) => tocado(n.claves)).map((n) => n.id),
+    );
+    // Una decisión se dio por recorrida si alguno de sus hijos lo fue.
+    for (const d of ContactDetailPage.MAPA.filter((n) => n.decision)) {
+      if (ContactDetailPage.MAPA.some((n) => n.padre === d.id && hechos.has(n.id))) hechos.add(d.id);
+    }
+
+    const idActual = cerrada
+      ? null
+      : (ContactDetailPage.MAPA.find((n) => n.claves?.some((c) => ultimo.includes(c)))?.id ?? null);
+
+    const nodos = ContactDetailPage.MAPA.map((n) => {
+      const { x, y } = ContactDetailPage.centro(n);
+      // Descartado: hermano de una rama que sí se tomó.
+      const hermanoVivo =
+        !!n.padre &&
+        !hechos.has(n.id) &&
+        ContactDetailPage.MAPA.some((o) => o.padre === n.padre && o.id !== n.id && hechos.has(o.id));
+      return {
+        ...n,
+        x,
+        y,
+        estado: hermanoVivo
+          ? 'descartado'
+          : n.id === idActual
+            ? 'actual'
+            : hechos.has(n.id)
+              ? 'hecho'
+              : 'pendiente',
+      };
+    });
+
+    const porId = new Map(nodos.map((n) => [n.id, n]));
+    const aristas = ContactDetailPage.ARISTAS.map((e) => {
+      const a = porId.get(e.de)!;
+      const b = porId.get(e.a)!;
+      const y1 = a.y + ContactDetailPage.ALTO_NODO / 2;
+      const y2 = b.y - ContactDetailPage.ALTO_NODO / 2;
+      const medio = (y1 + y2) / 2;
+      return {
+        ...e,
+        d: `M ${a.x} ${y1} C ${a.x} ${medio}, ${b.x} ${medio}, ${b.x} ${y2}`,
+        // Viva solo si los DOS extremos se recorrieron: así la corriente
+        // marca el camino real y no ilumina lo que todavía no pasó.
+        viva: hechos.has(a.id) && hechos.has(b.id),
+        muerta: b.estado === 'descartado',
+        etiquetaX: (a.x + b.x) / 2,
+        etiquetaY: medio - 2,
+      };
+    });
+
+    const filas = Math.max(...ContactDetailPage.MAPA.map((n) => n.fila));
+    return { nodos, aristas, alto: 32 + filas * ContactDetailPage.PASO_FILA + 40 };
+  });
+
+  /** Puntos del hexágono alargado de un nodo (la forma de la marca). */
+  puntosHex(n: { x: number; y: number }): string {
+    const w = ContactDetailPage.ANCHO_NODO;
+    const h = ContactDetailPage.ALTO_NODO;
+    const c = 13;
+    const x = n.x - w / 2;
+    const y = n.y - h / 2;
+    return `${x + c},${y} ${x + w - c},${y} ${x + w},${y + h / 2} ${x + w - c},${y + h} ${x + c},${y + h} ${x},${y + h / 2}`;
+  }
+
+  /** Rombo de una decisión. */
+  puntosRombo(n: { x: number; y: number }): string {
+    const w = ContactDetailPage.ANCHO_NODO;
+    const h = ContactDetailPage.ALTO_NODO + 10;
+    return `${n.x},${n.y - h / 2} ${n.x + w / 2},${n.y} ${n.x},${n.y + h / 2} ${n.x - w / 2},${n.y}`;
+  }
+
   readonly pasosPendientes = computed(() => {
     if (this.chat().length) return [];
     const hechos = this.hitos().map((a) => a.paso.toLowerCase());

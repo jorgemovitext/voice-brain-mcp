@@ -216,8 +216,6 @@
             <div class="wf__vacio">
               <span class="wf__vacio-hex"></span>
               @if (chat().length) {
-                <!-- Conversación vieja, de antes de que el flujo reportara
-                     avances: no hay recorrido que reconstruir. -->
                 <p>Esta conversación no reportó su recorrido.<br />
                    Los hilos nuevos lo dibujan acá, nodo por nodo.</p>
               } @else {
@@ -226,34 +224,34 @@
               }
             </div>
           } @else {
-            <ol class="rt">
-              @for (a of hitos(); track a.paso + (a.occurredAt ?? ''); let i = $index; let ultimo = $last) {
-                <li class="rt__nodo" [class.rt__nodo--escala]="a.paso === 'escalamiento'"
-                    [class.rt__nodo--vivo]="ultimo && !chat().length"
-                    [style.animation-delay.ms]="i * 60">
-                  <span class="rt__hex">
-                    @if (a.paso === 'escalamiento') { ! } @else { {{ i + 1 }} }
-                  </span>
-                  <div class="rt__info">
-                    <span class="rt__nombre">{{ etiquetaPaso(a.paso) }}</span>
-                    <span class="rt__hora">{{ horaCorta(a.occurredAt) }}</span>
-                  </div>
-                  @if (ultimo && !chat().length) {
-                    <span class="rt__vivo"><i></i> en este nodo</span>
-                  }
-                </li>
+            <!-- El árbol. Cada nodo y cada bifurcación existen en el flujo
+                 real de la Pearl; acá se ilumina el camino que el agente
+                 tomó y queda fantasma el que descartó. -->
+            <svg class="arb" [attr.viewBox]="'0 0 380 ' + arbol().alto" preserveAspectRatio="xMidYMin meet">
+              @for (e of arbol().aristas; track e.de + e.a) {
+                <path class="arb__via" [class.arb__via--viva]="e.viva"
+                      [class.arb__via--muerta]="e.muerta" [attr.d]="e.d" />
+                @if (e.ramo) {
+                  <text class="arb__ramo" [class.arb__ramo--viva]="e.viva"
+                        [class.arb__ramo--muerta]="e.muerta"
+                        [attr.x]="e.etiquetaX" [attr.y]="e.etiquetaY">{{ e.ramo }}</text>
+                }
               }
 
-              @if (chat().length) {
-                <li class="rt__nodo rt__nodo--fin" [style.animation-delay.ms]="hitos().length * 60">
-                  <span class="rt__hex rt__hex--fin"><ui-icon name="checks" /></span>
-                  <div class="rt__info">
-                    <span class="rt__nombre">Recorrido completo</span>
-                    <span class="rt__hora">La conversación ya está en el chat</span>
-                  </div>
-                </li>
+              @for (n of arbol().nodos; track n.id; let i = $index) {
+                <g [class]="'arb__n arb__n--' + n.estado" [style.animation-delay.ms]="i * 45">
+                  @if (n.decision) {
+                    <polygon class="arb__forma" [attr.points]="puntosRombo(n)" />
+                  } @else {
+                    <polygon class="arb__forma" [attr.points]="puntosHex(n)" />
+                  }
+                  <text class="arb__txt" [attr.x]="n.x" [attr.y]="n.y + 4">{{ n.etiqueta }}</text>
+                  @if (n.estado === 'actual') {
+                    <circle class="arb__pulso" [attr.cx]="n.x" [attr.cy]="n.y" r="4" />
+                  }
+                </g>
               }
-            </ol>
+            </svg>
           }
         </div>
       } @else {
