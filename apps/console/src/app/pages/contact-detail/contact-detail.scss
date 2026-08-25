@@ -214,17 +214,14 @@ $overlap: 44px;
   .chat__composer { padding-right: 0.9rem; }
 }
 
-/* Vidrio esmerilado, la misma receta que el lateral de Agentes y los tooltips
-   del tablero: los mensajes se difuminan al pasar por debajo en vez de
-   desaparecer contra un blanco opaco. */
+/* Blanco sólido a propósito: con vidrio, el panel oscuro de la derecha se
+   traslucía por debajo y dejaba una banda gris sucia en el borde. */
 .chat__head {
   display: flex;
   align-items: center;
   gap: 0.7rem;
   padding: 0.85rem $overlap 0.85rem 1.1rem;
-  background: rgba(255, 255, 255, 0.72);
-  backdrop-filter: blur(16px) saturate(180%);
-  -webkit-backdrop-filter: blur(16px) saturate(180%);
+  background: #fff;
   border-bottom: 1px solid var(--chat-border);
   position: relative;
   z-index: 2;
@@ -326,9 +323,7 @@ $overlap: 44px;
     font-size: 0.72rem;
     font-weight: 700;
     color: var(--chat-ink-soft);
-    background: rgba(255, 255, 255, 0.75);
-    backdrop-filter: blur(12px) saturate(180%);
-    -webkit-backdrop-filter: blur(12px) saturate(180%);
+    background: #fff;
     border: 1px solid var(--chat-border);
     border-radius: 999px;
     padding: 0.2rem 0.75rem;
