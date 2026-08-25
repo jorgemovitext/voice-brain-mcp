@@ -141,7 +141,7 @@
             }
           </div>
 
-          @if (!hitos().length && !chat().length) {
+          @if (!hitos().length && !mensajesDelCaso().length) {
             <div class="wf__vacio">
               <span class="wf__vacio-hex"></span>
               <p>El agente está atendiendo la conversación.<br />
@@ -152,7 +152,7 @@
               @for (a of hitos(); track a.paso + (a.occurredAt ?? ''); let i = $index; let ultimo = $last) {
                 <li class="wf__item" [class.wf__item--escala]="a.paso === 'escalamiento'"
                     [style.animation-delay.ms]="i * 70">
-                  <span class="wf__marca" [class.wf__marca--vivo]="ultimo && !chat().length">
+                  <span class="wf__marca" [class.wf__marca--vivo]="ultimo && casoEnCurso()">
                     <span class="wf__hex" [class.wf__hex--escala]="a.paso === 'escalamiento'">
                       @if (a.paso === 'escalamiento') { ! } @else { {{ i + 1 }} }
                     </span>
@@ -181,12 +181,12 @@
                 </li>
               }
 
-              @if (chat().length) {
+              @if (mensajesDelCaso().length) {
                 <li class="wf__item" [style.animation-delay.ms]="hitos().length * 70">
                   <span class="wf__marca"><span class="wf__hex wf__hex--fin"><ui-icon name="checks" /></span></span>
                   <div class="wf__card wf__card--fin">
                     <span class="wf__titulo">Conversación completa</span>
-                    <p class="wf__fin-txt">{{ chat().length }} mensaje(s) recibidos del agente.</p>
+                    <p class="wf__fin-txt">{{ mensajesDelCaso().length }} mensaje(s) recibidos del agente.</p>
                     <button class="wf__verchat" (click)="vista.set('chat')">Ver el chat →</button>
                   </div>
                 </li>
@@ -215,7 +215,7 @@
           @if (!hitos().length) {
             <div class="wf__vacio">
               <span class="wf__vacio-hex"></span>
-              @if (chat().length) {
+              @if (mensajesDelCaso().length) {
                 <p>Esta conversación no reportó su recorrido.<br />
                    Los hilos nuevos lo dibujan acá, nodo por nodo.</p>
               } @else {

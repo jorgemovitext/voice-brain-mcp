@@ -152,6 +152,39 @@ export class ContactDetailPage implements OnDestroy {
    * Cada hito trae SOLO lo que aporta: el flujo empuja el acumulado completo
    * en cada avance, y pintarlo tal cual repetía todo lo anterior.
    */
+  /**
+   * El id de la conversación que está corriendo AHORA: la más reciente entre
+   * los avances del flujo.
+   */
+  readonly conversacionActual = computed(() => {
+    const orden = [...(this.progreso.value() ?? [])].sort((a, b) =>
+      (a.occurredAt ?? '').localeCompare(b.occurredAt ?? ''),
+    );
+    return [...orden].reverse().find((a) => a.conversationId)?.conversationId ?? null;
+  });
+
+  /**
+   * Los mensajes que pertenecen a ESA conversación, no al contacto entero.
+   *
+   * Es la corrección de un bug de fondo: todo lo "en vivo" se decidía con
+   * `chat().length`, que son todos los mensajes históricos del número. Un
+   * ciudadano que ya había escrito antes nunca volvía a mostrar flujo en
+   * curso — el caso nuevo nacía marcado como "conversación completa" y sin
+   * nodo actual.
+   *
+   * El vínculo es el id: la ingesta guarda cada turno como
+   * `nlpearl:{conversationId}:{n}`.
+   */
+  readonly mensajesDelCaso = computed(() => {
+    const id = this.conversacionActual();
+    if (!id) return this.chat();
+    const prefijo = `nlpearl:${id}:`;
+    return this.chat().filter((m) => m.interaction.id.startsWith(prefijo));
+  });
+
+  /** El caso está corriendo: hay avances y todavía ningún mensaje suyo. */
+  readonly casoEnCurso = computed(() => this.hitos().length > 0 && this.mensajesDelCaso().length === 0);
+
   readonly hitos = computed(() => {
     const orden = [...(this.progreso.value() ?? [])].sort((a, b) =>
       (a.occurredAt ?? '').localeCompare(b.occurredAt ?? ''),
@@ -172,14 +205,16 @@ export class ContactDetailPage implements OnDestroy {
    * y cambiar de hilo la borra.
    */
   readonly vista = signal<'chat' | 'flujo' | 'ruta' | null>(null);
-  readonly vistaActiva = computed(() => this.vista() ?? (this.chat().length ? 'chat' : 'ruta'));
+  readonly vistaActiva = computed(() => this.vista() ?? (this.mensajesDelCaso().length ? 'chat' : 'ruta'));
 
   /** Estado del caso para la cabecera del diagrama. */
   readonly estadoCaso = computed<{ clase: string; texto: string }>(() => {
-    if (this.chat().length) return { clase: 'fin', texto: 'Conversación completa' };
+    // El escalamiento manda aunque la conversación ya haya cerrado: es el
+    // estado del CASO, no el de la charla.
     if (this.hitos().some((a) => a.paso === 'escalamiento'))
       return { clase: 'escala', texto: 'Escalado al despacho' };
-    if (this.hitos().length) return { clase: 'vivo', texto: 'Caso formándose en vivo' };
+    if (this.mensajesDelCaso().length) return { clase: 'fin', texto: 'Conversación completa' };
+    if (this.hitos().length) return { clase: 'vivo', texto: 'Conversación en curso' };
     return { clase: 'espera', texto: 'Esperando al agente' };
   });
 
@@ -283,7 +318,7 @@ export class ContactDetailPage implements OnDestroy {
   readonly arbol = computed(() => {
     const pasos = this.hitos().map((a) => a.paso.toLowerCase());
     const ultimo = pasos.at(-1) ?? '';
-    const cerrada = this.chat().length > 0;
+    const cerrada = this.mensajesDelCaso().length > 0;
 
     const tocado = (claves?: string[]) =>
       !!claves && pasos.some((p) => claves.some((c) => p.includes(c)));
@@ -356,7 +391,7 @@ export class ContactDetailPage implements OnDestroy {
   }
 
   readonly pasosPendientes = computed(() => {
-    if (this.chat().length) return [];
+    if (this.mensajesDelCaso().length) return [];
     const hechos = this.hitos().map((a) => a.paso.toLowerCase());
     if (!hechos.length) return [];
     const cumplido = (claves: string[]) => hechos.some((h) => claves.some((c) => h.includes(c)));
@@ -556,6 +591,17 @@ export class ContactDetailPage implements OnDestroy {
     });
 
     this.iniciarRefrescoAutomatico();
+    /*
+     * Cuando el ciudadano vuelve a escribir, NL Pearl abre una conversación
+     * nueva sobre el mismo hilo. Eso es un caso nuevo: la elección manual de
+     * tab del caso anterior ya no aplica, y el automático tiene que volver a
+     * decidir — que sin mensajes todavía significa mostrar el Flujo en curso.
+     */
+    effect(() => {
+      this.conversacionActual();
+      this.vista.set(null);
+    });
+
     // Al alternar de conversación se resetea el estado de llamada/composer,
     // y la elección Chat/Caso vuelve al automático del hilo nuevo.
     effect(() => {
