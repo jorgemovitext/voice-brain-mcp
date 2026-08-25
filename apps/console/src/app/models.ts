@@ -28,6 +28,11 @@ export interface Interaction {
   source?: 'nlpearl' | 'own';
   /** Agente (Pearl) que atendió esta interacción. */
   handledBy?: string;
+  /**
+   * La persona mandó un archivo en vez de texto. El archivo NO lo tenemos:
+   * NL Pearl entrega esos turnos vacíos y no expone ninguna ruta de media.
+   */
+  attachment?: 'foto' | 'ubicacion' | 'adjunto';
 }
 
 export interface Signal {

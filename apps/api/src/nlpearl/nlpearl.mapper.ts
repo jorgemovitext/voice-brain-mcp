@@ -114,6 +114,19 @@ function mapCollectedInfo(info?: NlpearlCallApiView['collectedInfo']): Record<st
   return Object.fromEntries(info.map((v) => [v.name, v.value]));
 }
 
+/**
+ * Qué mandó la persona cuando no mandó texto.
+ *
+ * NL Pearl entrega esos turnos VACÍOS: `{role: 3, content: ""}`, sin tipo, sin
+ * URL y sin ningún campo extra (el esquema del transcript es
+ * `{role, content, startTime, endTime}` con `additionalProperties: false`, y
+ * no hay ruta de media: `/Call/{id}/Media|Attachments|Recording` dan 404).
+ * O sea que el archivo no existe para nosotros y el tipo tampoco viene.
+ *
+ * `adjunto` es el caso honesto: sabemos que mandó algo y nada más.
+ */
+export type AdjuntoTipo = 'foto' | 'ubicacion' | 'adjunto';
+
 /** Un mensaje suelto de una conversación de texto (SMS/WhatsApp). */
 export interface ChatMessage {
   /** `agent` = la Pearl contestando; `customer` = la persona escribiendo. */
@@ -121,7 +134,38 @@ export interface ChatMessage {
   content: string;
   /** Momento del mensaje, ISO 8601. */
   at: string;
+  /** Presente solo si el turno no traía texto: la persona mandó un archivo. */
+  adjunto?: AdjuntoTipo;
 }
+
+/**
+ * De qué era el adjunto, deducido de lo que el agente contestó justo después.
+ *
+ * Es la ÚNICA señal disponible: el turno vacío no dice nada de sí mismo. Si el
+ * agente no lo menciona, se queda en `adjunto` en vez de inventar un tipo.
+ */
+function tipoDeAdjunto(
+  transcript: NonNullable<NlpearlCallApiView['transcript']>,
+  desde: number,
+): AdjuntoTipo {
+  for (let i = desde + 1; i < transcript.length; i++) {
+    const m = transcript[i];
+    const texto = typeof m.content === 'string' ? m.content : '';
+    if (!texto.trim()) continue;
+    if (!esDelAgente(m.role)) break; // habló la persona antes que el agente
+    if (/\bfotos?\b|\bimagen|fotograf/i.test(texto)) return 'foto';
+    if (/ubicaci|ubiqu[eé]|el punto|\bpin\b|mapa|coordenada/i.test(texto)) return 'ubicacion';
+    break;
+  }
+  return 'adjunto';
+}
+
+/** Lo que se guarda como texto del mensaje cuando el turno fue un adjunto. */
+const ETIQUETA_ADJUNTO: Record<AdjuntoTipo, string> = {
+  foto: 'Foto recibida',
+  ubicacion: 'Ubicación compartida',
+  adjunto: 'Adjunto recibido',
+};
 
 /**
  * Convierte el transcript en mensajes sueltos para pintarlos como chat.
@@ -130,17 +174,27 @@ export interface ChatMessage {
  * bloque; en texto CADA entrada es un mensaje real del hilo, así que se
  * separan para que la conversación se vea como tal (y se distinga quién
  * escribió qué).
+ *
+ * Los turnos sin texto NO se descartan: son las fotos y las ubicaciones que
+ * manda la persona por WhatsApp. Descartarlos dejaba el hilo con agujeros —
+ * el agente agradecía una foto que nunca aparecía.
  */
 export function toChatMessages(call: NlpearlCallApiView): ChatMessage[] {
   const base = call.startTime ? new Date(call.startTime).getTime() : Date.now();
+  const transcript = call.transcript ?? [];
 
-  return (call.transcript ?? [])
-    .filter((m) => typeof m.content === 'string' && m.content.trim())
-    .map((m, i) => ({
-      role: esDelAgente(m.role) ? ('agent' as const) : ('customer' as const),
-      content: m.content.trim(),
-      at: new Date(momentoDe(base, m.startTime, i)).toISOString(),
-    }));
+  // flatMap sobre el array ORIGINAL: `tipoDeAdjunto` mira los turnos vecinos
+  // por índice, así que filtrar antes desalinearía la vecindad.
+  return transcript.flatMap((m, i) => {
+    if (typeof m.content !== 'string') return [];
+    const texto = m.content.trim();
+    const at = new Date(momentoDe(base, m.startTime, i)).toISOString();
+    const role = esDelAgente(m.role) ? ('agent' as const) : ('customer' as const);
+    if (texto) return [{ role, content: texto, at }];
+
+    const adjunto = tipoDeAdjunto(transcript, i);
+    return [{ role, content: ETIQUETA_ADJUNTO[adjunto], at, adjunto }];
+  });
 }
 
 /**

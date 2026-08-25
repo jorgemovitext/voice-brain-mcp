@@ -542,6 +542,8 @@ export class PearlSyncService {
           source: "nlpearl",
           // Quién contestó: con varios agentes conviviendo, es parte del hilo.
           handledBy,
+          // Foto o ubicación de WhatsApp: el turno llegó sin texto.
+          attachment: mensaje.adjunto,
           // El análisis de la conversación (sentimiento, datos capturados) se
           // cuelga del último mensaje, que es cuando NL Pearl ya lo calculó.
           sentiment: i === mensajes.length - 1 ? ctx.sentiment : undefined,

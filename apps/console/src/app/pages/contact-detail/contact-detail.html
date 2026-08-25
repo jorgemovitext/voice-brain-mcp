@@ -233,6 +233,23 @@
                   <span class="bubble__note-tag">📝 Nota interna</span>
                   {{ m.interaction.summary }}
                 </div>
+              } @else if (m.interaction.attachment) {
+                <!-- La persona mandó un archivo, no texto. NL Pearl entrega
+                     ese turno vacío y no expone el archivo por ningún lado,
+                     así que se muestra que existió y dónde va en el hilo. -->
+                <div class="bubble bubble--adj" [class.bubble--adj-mapa]="m.interaction.attachment === 'ubicacion'">
+                  <span class="adj__icono">
+                    <ui-icon [name]="m.interaction.attachment === 'ubicacion' ? 'pin' : 'image'" />
+                  </span>
+                  <span class="adj__texto">
+                    <b>{{ m.interaction.summary }}</b>
+                    @if (m.interaction.attachment === 'ubicacion' && lugarDelCaso(); as lugar) {
+                      <a class="adj__mapa" [href]="lugar.mapa" target="_blank" rel="noopener">{{ lugar.texto }}</a>
+                    } @else {
+                      <i class="adj__nota">El archivo queda en WhatsApp: NL Pearl no nos lo entrega.</i>
+                    }
+                  </span>
+                </div>
               } @else {
                 <div class="bubble">{{ m.interaction.summary }}</div>
               }
@@ -254,23 +271,6 @@
           <div class="chat__day"><span>📞 Llamada de voz en curso ({{ timerLabel() }})</span></div>
         }
 
-        <!-- El ciudadano mandó una foto. La imagen NO llega: el transcript de
-             NL Pearl no incluye archivos, así que se deja constancia del
-             hecho en vez de fingir un adjunto que no tenemos. -->
-        @if (fotoRecibida()) {
-          <div class="msg msg--in">
-            <span class="msg__avatar">{{ initials() }}</span>
-            <div class="msg__stack">
-              <div class="bubble bubble--foto">
-                <span class="foto__icono">🖼</span>
-                <span>
-                  <b>Foto recibida</b>
-                  <em>La imagen queda en WhatsApp; NL Pearl no la comparte por API.</em>
-                </span>
-              </div>
-            </div>
-          </div>
-        }
       </div>
 
       @if (sendError(); as e) {

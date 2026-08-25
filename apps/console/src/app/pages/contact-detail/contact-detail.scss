@@ -1014,24 +1014,50 @@ $overlap: 44px;
   color: #5c4d13;
 }
 
-/* Constancia de una foto que NO tenemos: se ve como adjunto pero sin fingir
-   una miniatura, y dice dónde está la imagen de verdad. */
-.bubble--foto {
+/* Adjunto: la foto o la ubicación que mandó la persona. El archivo NO lo
+   tenemos —NL Pearl entrega el turno vacío y no expone ninguna ruta de
+   media—, así que la burbuja deja constancia del hecho en su lugar del hilo
+   sin fingir una miniatura. */
+.bubble--adj {
   display: flex;
   align-items: center;
   gap: 0.55rem;
-
-  em {
-    display: block;
-    font-style: normal;
-    font-size: 0.72rem;
-    color: var(--chat-ink-soft);
-  }
 }
 
-.foto__icono {
-  font-size: 1.2rem;
+.adj__icono {
   flex-shrink: 0;
+  width: 30px;
+  height: 30px;
+  display: grid;
+  place-items: center;
+  border-radius: 10px;
+  font-size: 0.95rem;
+  background: rgba(0, 186, 254, 0.14);
+  color: #0077b3;
+}
+
+.bubble--adj-mapa .adj__icono {
+  background: rgba(243, 71, 0, 0.14);
+  color: var(--primary);
+}
+
+.adj__texto { min-width: 0; }
+
+.adj__nota,
+.adj__mapa {
+  display: block;
+  font-style: normal;
+  font-size: 0.72rem;
+  color: var(--chat-ink-soft);
+}
+
+/* La dirección sí es accionable: abre el punto en el mapa. */
+.adj__mapa {
+  color: #0077b3;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+
+  &:hover { color: var(--primary); }
 }
 
 .bubble__note-tag {

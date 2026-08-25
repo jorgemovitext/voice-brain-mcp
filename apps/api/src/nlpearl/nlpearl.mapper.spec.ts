@@ -152,7 +152,7 @@ describe('toChatMessages', () => {
     expect(mensaje.at).toBe(new Date(epoch).toISOString());
   });
 
-  it('descarta mensajes vacíos y recorta espacios', () => {
+  it('recorta espacios, y un turno en blanco es un adjunto, no basura', () => {
     const mensajes = toChatMessages({
       ...base,
       transcript: [
@@ -160,11 +160,64 @@ describe('toChatMessages', () => {
         { role: 'assistant', content: '  con espacios  ' },
       ],
     });
-    expect(mensajes).toHaveLength(1);
-    expect(mensajes[0].content).toBe('con espacios');
+    expect(mensajes).toHaveLength(2);
+    expect(mensajes[0].adjunto).toBe('adjunto');
+    expect(mensajes[1].content).toBe('con espacios');
   });
 
   it('sin transcript no inventa mensajes', () => {
     expect(toChatMessages(base)).toEqual([]);
+  });
+});
+
+/**
+ * Turnos de adjunto: NL Pearl los entrega VACÍOS —`{role: 3, content: ""}`—
+ * sin tipo ni URL. Descartarlos dejaba el hilo con agujeros: el agente
+ * agradecía una foto que nunca aparecía en el chat.
+ *
+ * Los dos casos vienen de conversaciones reales de la Línea 100.
+ */
+describe('toChatMessages con adjuntos', () => {
+  it('conserva el turno vacío y lo marca como foto por lo que contesta el agente', () => {
+    const mensajes = toChatMessages({
+      id: 'c1',
+      startTime: '2026-08-25T07:48:00.000Z',
+      transcript: [
+        { role: 3, content: 'En la calle principal, obvio que lo obstruye' },
+        { role: 2, content: 'Si puede hacerlo sin exponerse, envíeme una foto del hundimiento.' },
+        { role: 3, content: '' },
+        { role: 2, content: 'Recibí la foto, Yuni. ¿Cuál es tu correo electrónico?' },
+      ],
+    });
+
+    expect(mensajes).toHaveLength(4);
+    expect(mensajes[2]).toMatchObject({ role: 'customer', content: 'Foto recibida', adjunto: 'foto' });
+    // Los turnos con texto no se marcan.
+    expect(mensajes[0].adjunto).toBeUndefined();
+  });
+
+  it('lo marca como ubicación cuando el agente dice que ubicó el punto', () => {
+    const mensajes = toChatMessages({
+      id: 'c2',
+      transcript: [
+        { role: 2, content: 'Compartime la ubicación, el pin de WhatsApp o la dirección.' },
+        { role: 3, content: '' },
+        { role: 2, content: 'Ya ubiqué el punto en Barrio Los Jucos.' },
+      ],
+    });
+
+    expect(mensajes[1]).toMatchObject({ content: 'Ubicación compartida', adjunto: 'ubicacion' });
+  });
+
+  it('no inventa el tipo cuando el agente no lo menciona', () => {
+    const mensajes = toChatMessages({
+      id: 'c3',
+      transcript: [
+        { role: 3, content: '' },
+        { role: 2, content: 'Gracias. ¿Me confirma su nombre?' },
+      ],
+    });
+
+    expect(mensajes[0]).toMatchObject({ content: 'Adjunto recibido', adjunto: 'adjunto' });
   });
 });

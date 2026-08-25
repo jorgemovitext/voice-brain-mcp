@@ -33,6 +33,12 @@ export interface Interaction {
    * canales y funciones conviviendo, saber quién contestó es parte del hilo.
    */
   handledBy?: string;
+  /**
+   * La persona mandó un archivo en vez de texto (foto o ubicación de
+   * WhatsApp). El archivo NO lo tenemos: NL Pearl entrega esos turnos vacíos
+   * y no expone ninguna ruta de media. Esto marca que el mensaje existió.
+   */
+  attachment?: 'foto' | 'ubicacion' | 'adjunto';
 }
 
 export interface Signal {

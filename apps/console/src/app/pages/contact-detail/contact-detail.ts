@@ -279,8 +279,28 @@ export class ContactDetailPage implements OnDestroy {
     this.modo.update((m) => (m === 'nota' ? 'responder' : 'nota'));
   }
 
-  /** El ciudadano mandó evidencia fotográfica (la imagen no llega a la app). */
-  readonly fotoRecibida = computed(() => !!this.expediente.value()?.fotoRecibida);
+  /**
+   * El lugar del caso, para la burbuja de ubicación.
+   *
+   * El pin de WhatsApp tampoco nos llega, pero el flujo geocodifica la
+   * referencia que dio el ciudadano y guarda dirección y coordenadas: eso sí
+   * se puede mostrar y abrir en el mapa.
+   */
+  readonly lugarDelCaso = computed(() => {
+    const capturado = this.expediente.value()?.resumen?.capturado ?? [];
+    const de = (campo: string) => capturado.find((d) => d.campo === campo)?.valor?.trim();
+    const texto = de('direccionFormateada') ?? de('Ubicación') ?? de('ubicacion');
+    const lat = de('latitud');
+    const lng = de('longitud');
+    if (!texto && !(lat && lng)) return null;
+    return {
+      texto: texto ?? 'Ver en el mapa',
+      mapa:
+        lat && lng
+          ? `https://www.google.com/maps/search/?api=1&query=${lat},${lng}`
+          : `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(texto!)}`,
+    };
+  });
 
   /**
    * Nombre del operador, nunca un identificador. El backend ya resuelve el
