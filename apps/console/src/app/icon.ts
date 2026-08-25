@@ -12,6 +12,7 @@ export type IconName =
   | 'inbox'
   | 'database'
   | 'check'
+  | 'checks'
   | 'play'
   | 'sparkle'
   | 'clock'
@@ -77,6 +78,12 @@ export type IconName =
         @case ('check') {
           <circle cx="12" cy="12" r="9"/>
           <path d="m8.5 12.5 2.5 2.5 5-6"/>
+        }
+        @case ('checks') {
+          <!-- "Entregado": dos tildes traslapadas, sin el círculo del check
+               de arriba — ese es para estados de éxito, este es de mensajería. -->
+          <path d="M18 6 7 17l-5-5"/>
+          <path d="m22 10-7.5 7.5L13 16"/>
         }
         @case ('play') {
           <path d="M8 5.5v13l11-6.5z" fill="currentColor" stroke="none"/>

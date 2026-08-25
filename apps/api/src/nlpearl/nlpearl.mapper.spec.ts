@@ -87,6 +87,36 @@ describe('toChatMessages', () => {
       expect(t[0].content).toBe('Buenas.\n¿En qué le ayudo?');
     });
 
+    /*
+     * El caso que rompía en producción: NL Pearl manda la conversación entera
+     * en UNA sola línea, con las etiquetas entre corchetes. Partir por saltos
+     * de línea no encontraba ningún corte y el chat completo se pintaba como
+     * una única burbuja gigante.
+     */
+    it('parte una conversación que viene entera en una sola línea', () => {
+      const t = normalizarTranscript(
+        '[User]: Hola [Pearl]: Hola, bienvenido a la Línea 100 de la AMDC. ' +
+          '¿En qué le puedo servir? [User]: hay una crecida en el rio ' +
+          '[Pearl]: ¿Hay alguien en peligro inmediato? [User]: gracias',
+      )!;
+
+      expect(t).toHaveLength(5);
+      expect(t.map((m) => m.content)).toEqual([
+        'Hola',
+        'Hola, bienvenido a la Línea 100 de la AMDC. ¿En qué le puedo servir?',
+        'hay una crecida en el rio',
+        '¿Hay alguien en peligro inmediato?',
+        'gracias',
+      ]);
+      expect(toChatMessages({ ...base, transcript: t }).map((m) => m.role)).toEqual([
+        'customer',
+        'agent',
+        'customer',
+        'agent',
+        'customer',
+      ]);
+    });
+
     it('un array ya normalizado pasa tal cual', () => {
       const array = [{ role: 2, content: 'Hola' }];
       expect(normalizarTranscript(array)).toBe(array);

@@ -28,33 +28,45 @@ export function canalDePearl(name: string | undefined, agentType: number | undef
  *
  * La variable `post_call_transcript` no siempre llega como el array de
  * `{role, content}` del CallApiView: el nodo castea cada variable a su tipo
- * configurado y suele entregarla como TEXTO ya formateado, una línea por
- * turno con la etiqueta de quién habló. Se aceptan las dos formas.
+ * configurado y suele entregarla como TEXTO ya formateado. Se aceptan las
+ * dos formas.
  *
- * Del texto solo se toman las líneas con etiqueta reconocible; una línea sin
- * etiqueta se cuelga del turno anterior (mensajes de varias líneas) y, si no
- * hay turno previo, se atribuye al cliente, que es el lado seguro.
+ * El escaneo de etiquetas es GLOBAL sobre el texto entero, no línea por
+ * línea: NL Pearl a veces manda toda la conversación en una sola línea,
+ * `[User]: hola [Pearl]: bienvenido [User]: ...`, sin saltos entre turnos.
+ * Dividir por `\n` primero (como hacía antes) hacía que, al no haber ningún
+ * salto de línea, ninguna etiqueta calzara al inicio de línea y la
+ * conversación ENTERA cayera en un solo turno — el bug real: un chat de
+ * varios mensajes pintado como una sola burbuja gigante en la consola.
+ * Los corchetes alrededor de la etiqueta (`[User]:`) son opcionales.
  */
 export function normalizarTranscript(crudo: unknown): NlpearlCallApiView['transcript'] {
   if (Array.isArray(crudo)) return crudo as NlpearlCallApiView['transcript'];
   if (typeof crudo !== 'string' || !crudo.trim()) return undefined;
 
-  const ETIQUETA = /^\s*(agent|agente|pearl|assistant|bot|ia|client|cliente|user|usuario|persona|caller)\s*[:>-]\s*/i;
-  const turnos: Array<{ role: string; content: string }> = [];
+  const texto = crudo.trim();
+  const ETIQUETA =
+    /\[?\s*(agent|agente|pearl|assistant|bot|ia|client|cliente|user|usuario|persona|caller)\s*\]?\s*[:>-]\s*/gi;
+  const cortes = [...texto.matchAll(ETIQUETA)];
 
-  for (const linea of crudo.split(/\r?\n/)) {
-    if (!linea.trim()) continue;
-    const etiqueta = linea.match(ETIQUETA);
-    if (etiqueta) {
-      turnos.push({ role: etiqueta[1].toLowerCase(), content: linea.replace(ETIQUETA, '').trim() });
-    } else if (turnos.length) {
-      turnos[turnos.length - 1].content += `\n${linea.trim()}`;
-    } else {
-      turnos.push({ role: 'client', content: linea.trim() });
-    }
+  // Sin ninguna etiqueta reconocible: no hay dónde partir, se atribuye
+  // entero al cliente, el lado seguro.
+  if (!cortes.length) {
+    return [{ role: 'client', content: texto }] as NlpearlCallApiView['transcript'];
   }
 
-  return turnos.filter((t) => t.content) as NlpearlCallApiView['transcript'];
+  const turnos: Array<{ role: string; content: string }> = [];
+  const preludio = texto.slice(0, cortes[0].index).trim();
+  if (preludio) turnos.push({ role: 'client', content: preludio });
+
+  for (const [i, corte] of cortes.entries()) {
+    const inicio = corte.index + corte[0].length;
+    const fin = cortes[i + 1]?.index ?? texto.length;
+    const contenido = texto.slice(inicio, fin).trim();
+    if (contenido) turnos.push({ role: corte[1].toLowerCase(), content: contenido });
+  }
+
+  return turnos as NlpearlCallApiView['transcript'];
 }
 
 /** overallSentiment v2 es un entero 1 (negativo) .. 5 (positivo). */

@@ -2,16 +2,6 @@ import { Channel, Sentiment } from './models';
 
 /** Helpers de presentación compartidos por las vistas (español CENAM). */
 
-/** Emoji del canal — usar SOLO dentro del contenido del chat. */
-export function channelIcon(channel: Channel): string {
-  switch (channel) {
-    case 'voice': return '📞';
-    case 'whatsapp': return '💬';
-    case 'sms': return '✉️';
-    case 'note': return '📝';
-  }
-}
-
 /** Nombre de icono SVG del canal (para la interfaz; ver icon.ts). */
 export function channelIconName(channel: Channel): 'phone' | 'chat' | 'mail' | 'note' {
   switch (channel) {

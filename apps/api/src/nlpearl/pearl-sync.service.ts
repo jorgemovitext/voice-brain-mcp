@@ -7,6 +7,7 @@ import { NlpearlActivityStore, StoredPearl } from "./activity.store";
 import { NlpearlCallApiView, NlpearlClient } from "./nlpearl.client";
 import {
   canalDePearl,
+  normalizarTranscript,
   PearlChannel,
   toCallContext,
   toChatMessages,
@@ -347,9 +348,21 @@ export class PearlSyncService {
     let mensajes = 0;
     for (const act of guardadas) {
       if (act.kind !== "chat") continue;
-      const call = act.raw as NlpearlCallApiView;
+      let call = act.raw as NlpearlCallApiView & { post_call_transcript?: unknown };
       const phone = act.phone ?? toCallContext(call).phoneNumber;
       if (!phone || !call?.id) continue;
+
+      /*
+       * `conversacionDelPayload` guarda el raw completo del webhook, así que
+       * el texto ORIGINAL de `post_call_transcript` sigue ahí aunque el
+       * `transcript` ya normalizado (posiblemente con el bug de las
+       * etiquetas entre corchetes en una sola línea) se haya guardado
+       * también. Reprocesar vuelve a partir ese texto con el parser
+       * corregido en vez de confiar en el array ya roto.
+       */
+      if (typeof call.post_call_transcript === "string" && call.post_call_transcript.trim()) {
+        call = { ...call, transcript: normalizarTranscript(call.post_call_transcript) };
+      }
 
       const canal = (canalPorId.get(act.pearlId ?? "") ??
         "whatsapp") as Channel;

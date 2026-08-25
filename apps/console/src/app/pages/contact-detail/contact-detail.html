@@ -123,8 +123,14 @@
                 <div class="bubble">{{ m.interaction.summary }}</div>
               }
               <span class="msg__time">
-                {{ channelIcon(m.interaction.channel) }} {{ m.time }}
-                @if (m.side === 'out' && m.interaction.channel !== 'note') { ✓✓ }
+                @if (m.interaction.channel !== 'note') {
+                  <ui-icon class="msg__canal" [name]="channelIconName(m.interaction.channel)"
+                           [style.color]="channelColor(m.interaction.channel)" />
+                }
+                {{ m.time }}
+                @if (m.side === 'out' && m.interaction.channel !== 'note') {
+                  <ui-icon class="msg__check" name="checks" title="Entregado" />
+                }
               </span>
             </div>
           </div>

@@ -29,7 +29,6 @@ import {
 } from '../../models';
 import {
   channelColor,
-  channelIcon,
   channelIconName,
   channelLabel,
   kycmLabel,
@@ -174,7 +173,6 @@ export class ContactDetailPage implements OnDestroy {
   readonly sendError = signal<string | null>(null);
   readonly expanded = signal<Set<string>>(new Set());
 
-  readonly channelIcon = channelIcon;
   readonly channelLabel = channelLabel;
   readonly channelIconName = channelIconName;
   readonly channelColor = channelColor;

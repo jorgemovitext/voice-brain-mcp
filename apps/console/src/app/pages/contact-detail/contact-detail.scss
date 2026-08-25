@@ -214,13 +214,20 @@ $overlap: 44px;
   .chat__composer { padding-right: 0.9rem; }
 }
 
+/* Vidrio esmerilado, la misma receta que el lateral de Agentes y los tooltips
+   del tablero: los mensajes se difuminan al pasar por debajo en vez de
+   desaparecer contra un blanco opaco. */
 .chat__head {
   display: flex;
   align-items: center;
   gap: 0.7rem;
   padding: 0.85rem $overlap 0.85rem 1.1rem;
-  background: #fff;
+  background: rgba(255, 255, 255, 0.72);
+  backdrop-filter: blur(16px) saturate(180%);
+  -webkit-backdrop-filter: blur(16px) saturate(180%);
   border-bottom: 1px solid var(--chat-border);
+  position: relative;
+  z-index: 2;
 }
 
 /* Cede el ancho al badge del agente en vez de empujarlo fuera. */
@@ -306,18 +313,26 @@ $overlap: 44px;
   padding: 2rem 0;
 }
 
+/* Se queda arriba mientras se recorre el día: saber en qué fecha estás
+   parado sin tener que subir a buscar la etiqueta. */
 .chat__day {
   text-align: center;
   margin: 0.4rem 0;
+  position: sticky;
+  top: 0.35rem;
+  z-index: 1;
 
   span {
     font-size: 0.72rem;
     font-weight: 700;
     color: var(--chat-ink-soft);
-    background: #fff;
+    background: rgba(255, 255, 255, 0.75);
+    backdrop-filter: blur(12px) saturate(180%);
+    -webkit-backdrop-filter: blur(12px) saturate(180%);
     border: 1px solid var(--chat-border);
     border-radius: 999px;
-    padding: 0.15rem 0.7rem;
+    padding: 0.2rem 0.75rem;
+    box-shadow: 0 2px 8px rgba(15, 23, 42, 0.07);
   }
 }
 
@@ -335,13 +350,16 @@ $overlap: 44px;
   flex-direction: row-reverse;
 }
 
+/* Hexágono, no círculo: es la forma con la que representamos a la gente y a
+   los agentes en toda la app (rail, login, panal de Agentes). Reusa el
+   clipPath global `#hexCell` de app.html. */
 .msg__avatar {
-  width: 30px;
-  height: 30px;
+  width: 32px;
+  height: 32px;
   flex-shrink: 0;
   display: grid;
   place-items: center;
-  border-radius: 50%;
+  clip-path: url(#hexCell);
   background: linear-gradient(135deg, var(--secondary), #0077b3);
   color: #fff;
   font-size: 0.68rem;
@@ -358,9 +376,28 @@ $overlap: 44px;
 .msg--out .msg__stack { align-items: flex-end; }
 
 .msg__time {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.28rem;
   font-size: 0.68rem;
   color: var(--chat-ink-soft);
   padding: 0 0.3rem;
+}
+
+/* De qué canal vino este mensaje puntual — el mismo lenguaje de ícono y
+   color que ya usamos en el registro de Actividad y en el sidebar de hilos,
+   en vez del emoji suelto que llevaba antes. */
+.msg__canal {
+  font-size: 0.72rem;
+  opacity: 0.85;
+}
+
+/* "Entregado": antes eran dos ✓ de texto pegados sin aire, que se leían como
+   un solo glifo borroso. El ícono de trazo, en el acento de marca, separa
+   las dos tildes con el espacio correcto y combina con el resto de la app. */
+.msg__check {
+  font-size: 0.85rem;
+  color: var(--secondary);
 }
 
 .bubble {
@@ -369,6 +406,9 @@ $overlap: 44px;
   padding: 0.55rem 0.85rem;
   font-size: 0.88rem;
   width: fit-content;
+  /* Un toque de profundidad, como el resto de las tarjetas de la app
+     (.card, .mini, .hex) — antes la burbuja quedaba totalmente plana. */
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.06);
 }
 
 .msg--out .bubble {
@@ -395,13 +435,18 @@ $overlap: 44px;
   margin-bottom: 3px;
 }
 
+/* Navy de la marca, no el azul genérico que traía: es el mismo degradado del
+   shell de la app, para que la llamada se sienta parte del sistema. */
 .bubble--voice {
   display: inline-flex;
   align-items: center;
   gap: 0.6rem;
   cursor: pointer;
-  background: linear-gradient(135deg, #1c6ef2, #0d4fd7);
+  background: linear-gradient(135deg, #14284a, #0e1b33);
   color: #fff;
+  transition: filter 0.15s;
+
+  &:hover { filter: brightness(1.18); }
 }
 
 .bubble__play {
@@ -423,7 +468,9 @@ $overlap: 44px;
   i {
     width: 2.5px;
     border-radius: 2px;
-    background: rgba(255, 255, 255, 0.85);
+    /* Cian de marca: la onda es el acento, no ruido blanco. */
+    background: var(--secondary);
+    opacity: 0.9;
   }
 }
 
