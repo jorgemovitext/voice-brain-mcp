@@ -258,6 +258,16 @@ export class ContactDetailPage implements OnDestroy {
     return `${corte.slice(0, corte.lastIndexOf(' ') || tope)}…`;
   }
 
+  /**
+   * Número de ticket, solo si es un número. HubSpot los numera, así que sirve
+   * para buscarlo allá; si algún día llegara un hash, no se muestra — en la
+   * consola no se enseñan identificadores opacos.
+   */
+  readonly numeroDeTicket = computed(() => {
+    const id = this.caso()?.id?.trim();
+    return id && /^\d{1,12}$/.test(id) ? `#${id}` : null;
+  });
+
   /** "24 ago" — para fechas de apertura/movimiento del caso. */
   fechaCorta(iso?: string): string {
     if (!iso) return '—';

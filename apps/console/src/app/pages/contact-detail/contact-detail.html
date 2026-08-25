@@ -211,7 +211,9 @@
         <div class="panel">
           <div class="panel__head">
             <span class="panel__title">Caso en el CRM</span>
-            @if (caso()?.hay) { <span class="panel__aside">#{{ caso()!.id }}</span> }
+            <!-- El número de ticket sí es una referencia que el operador usa
+                 para buscarlo en HubSpot; un hash no se muestra nunca. -->
+            @if (numeroDeTicket(); as n) { <span class="panel__aside">Ticket {{ n }}</span> }
           </div>
           @if (caso(); as c) {
             @if (c.hay) {

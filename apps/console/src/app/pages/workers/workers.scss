@@ -207,20 +207,10 @@
   h2 { margin: 0; font-size: 1.1rem; }
 }
 
-/* El ID solo hace falta acá: es lo que se copia a NLPEARL_PEARL_ID. */
-.detail__id {
-  margin-left: auto;
-  color: var(--ink-soft);
-  font-size: 0.72rem;
-  background: var(--panel-2);
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  padding: 0.15rem 0.5rem;
-}
-
 /* Asignar canal: vive en el detalle ahora que las celdas son hexágonos
    (dentro de un polígono SVG no cabe un botón decente). */
 .detail__cta {
+  margin-left: auto;
   font: inherit;
   font-size: 0.78rem;
   font-weight: 700;
@@ -283,35 +273,45 @@
   margin: 0 0 0.5rem;
 }
 
-/* Flow del Pearl */
+/* Flow del Pearl. Píldoras que fluyen y con scroll: estos flujos tienen
+   decenas de pasos, y en columna estirada empujaban el resto de la vista
+   fuera de la pantalla. */
 .flow {
   list-style: none;
   margin: 0;
-  padding: 0;
+  padding: 0.1rem;
   display: flex;
-  flex-direction: column;
-  gap: 0.45rem;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  max-height: 220px;
+  overflow-y: auto;
 }
 
 .flow__node {
-  display: flex;
-  align-items: baseline;
-  gap: 0.6rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
   background: var(--panel-2);
   border: 1px solid var(--border);
-  border-left: 3px solid var(--secondary);
-  border-radius: 12px;
-  padding: 0.5rem 0.8rem;
-  font-size: 0.83rem;
+  border-radius: 999px;
+  padding: 0.3rem 0.8rem 0.3rem 0.35rem;
+  font-size: 0.8rem;
 }
 
-.flow__type {
-  font-weight: 800;
-  color: var(--secondary);
-  font-size: 0.72rem;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
+/* El orden del paso, que es lo que la franja lateral intentaba sugerir. */
+.flow__num {
+  width: 20px;
+  height: 20px;
   flex-shrink: 0;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  color: var(--ink-soft);
+  font-size: 0.66rem;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
 }
 
 .flow__json {

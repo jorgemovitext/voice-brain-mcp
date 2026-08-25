@@ -110,6 +110,15 @@ function hexRedondo(cx: number, cy: number, r: number, suavidad = 0.3): string {
   return `${d}Z`;
 }
 
+/**
+ * ¿Esto es un identificador y no algo legible? Los ids de NL Pearl y HubSpot
+ * son hexadecimales largos; en la app no se muestra ninguno.
+ */
+export function esHash(v: string): boolean {
+  const s = v.trim();
+  return /^[0-9a-f]{16,}$/i.test(s) || /^[0-9a-f]{8}-[0-9a-f-]{20,}$/i.test(s);
+}
+
 /** Dos letras para el hexágono chico, donde no cabe el nombre. */
 function iniciales(nombre: string): string {
   const partes = nombre.trim().split(/\s+/).filter((p) => /[a-záéíóúñ]/i.test(p[0] ?? ''));
@@ -272,14 +281,32 @@ export class WorkersPage {
     () => (this.data.value()?.workers ?? []).find((w) => w.id === this.selectedId()) ?? null,
   );
 
-  /** Pares clave/valor del detalle, sin repetir lo ya visible en la tarjeta. */
+  /**
+   * Pares clave/valor del detalle. Se descartan los identificadores internos
+   * de NL Pearl: un hash de 24 caracteres no le dice nada a quien opera, y en
+   * la app no mostramos ids en ningún lado.
+   */
   readonly selectedDetails = computed<Array<{ key: string; value: string }>>(() => {
     const raw = this.selected()?.raw ?? {};
     return Object.entries(raw)
-      .filter(([key]) => !['id', 'name'].includes(key))
+      .filter(([key]) => !['id', 'name'].includes(key) && !/id$/i.test(key))
+      .filter(([, value]) => !esHash(String(value)))
       .slice(0, 12)
       .map(([key, value]) => ({ key, value: String(value) }));
   });
+
+  /**
+   * Nombre legible de un paso del flujo. Nunca el `nodeId`: es técnico y en
+   * la app no se muestran identificadores.
+   */
+  pasoLegible(n: { label?: string; name?: string; id?: string }): string {
+    const crudo = (n.label ?? n.name ?? '').trim();
+    if (crudo && !esHash(crudo)) return crudo;
+    // `collectLocation` → `Collect location`, que al menos se lee.
+    const id = (n.id ?? '').replace(/[_-]+/g, ' ').replace(/([a-z])([A-Z])/g, '$1 $2').trim();
+    if (!id || esHash(id)) return 'Paso del flujo';
+    return id.charAt(0).toUpperCase() + id.slice(1);
+  }
 
   select(id: string): void {
     this.selectedId.set(this.selectedId() === id ? null : id);

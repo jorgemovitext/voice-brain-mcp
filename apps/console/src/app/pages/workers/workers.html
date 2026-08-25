@@ -107,7 +107,6 @@
         <div class="detail__head">
           <h2>{{ w.name }}</h2>
           <span [class]="'pill ' + statusClass(w)">{{ statusLabel(w) }}</span>
-          <code class="detail__id" title="ID del Pearl">{{ w.id }}</code>
           @if (w.channel) {
             <button class="detail__cta" [class.detail__cta--on]="isAssigned(w)"
                     (click)="toggleAssign(w, $event)" [disabled]="assigning() === w.id">
@@ -143,11 +142,13 @@
         } @else if (flow.value(); as f) {
           @if (f.available && f.flow) {
             @if (f.flow.nodes?.length) {
+              <!-- Con scroll: este flujo tiene decenas de pasos y estirado
+                   empujaba el resto de la vista fuera de pantalla. -->
               <ol class="flow">
-                @for (n of f.flow.nodes; track n.id) {
+                @for (n of f.flow.nodes; track n.id; let i = $index) {
                   <li class="flow__node">
-                    <span class="flow__type">{{ n.type ?? 'Paso' }}</span>
-                    <span class="flow__label">{{ n.label ?? n.name ?? n.id }}</span>
+                    <span class="flow__num">{{ i + 1 }}</span>
+                    <span class="flow__label">{{ pasoLegible(n) }}</span>
                   </li>
                 }
               </ol>
