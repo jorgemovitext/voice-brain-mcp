@@ -91,20 +91,54 @@ $overlap: 44px;
 }
 
 .thread {
+  position: relative;
+  overflow: hidden;
   display: flex;
   gap: 0.6rem;
   align-items: center;
   padding: 0.55rem 0.6rem;
   border-radius: 14px;
   color: var(--ink);
+  /* Borde transparente de base: el seleccionado lo pinta, y sin esto la fila
+     se movería 1px al cambiar de selección. */
+  border: 1px solid transparent;
   transition: background 0.15s;
 
   &:hover { background: var(--panel-2); }
 }
 
+/*
+ * Vidrio esmerilado sobre el panel oscuro, más una barra de acento a la
+ * izquierda. Antes tenía EXACTAMENTE el mismo fondo que el hover, así que al
+ * pasar el mouse por la lista se perdía cuál estaba abierta.
+ *
+ * El vidrio acá sí funciona (y en los sidebares completos no): esto es una
+ * fila chica sobre un panel opaco propio, no un panel que se monta sobre el
+ * chat claro — que era lo que dejaba la banda gris sucia en el borde.
+ */
 .thread--active {
-  background: var(--panel-2);
-  outline: 1px solid var(--border);
+  background: rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(14px) saturate(180%);
+  -webkit-backdrop-filter: blur(14px) saturate(180%);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  box-shadow:
+    0 4px 18px rgba(4, 9, 20, 0.4),
+    inset 0 1px 0 rgba(255, 255, 255, 0.14);
+
+  &::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 50%;
+    translate: 0 -50%;
+    width: 3px;
+    height: 60%;
+    border-radius: 0 3px 3px 0;
+    background: var(--secondary);
+  }
+
+  .thread__name { color: #fff; }
+  .thread__preview { color: var(--ink); }
 }
 
 .thread__avatar {
@@ -246,8 +280,6 @@ $overlap: 44px;
   color: var(--chat-ink);
   font-weight: 700;
 }
-
-.chat__who { flex: 1; min-width: 0; }
 
 .chat__name { font-weight: 800; }
 
@@ -393,11 +425,8 @@ $overlap: 44px;
 .act--aviso { border-color: #e11d48; }
 .act--dato { border-color: var(--chat-border); color: var(--chat-ink-soft); }
 
-/* Urgente = el flujo del agente habría escalado acá. Late para que se note
-   que es AHORA, no cuando el operador se acuerde. */
-.act--urgente {
-  animation: act-latido 1.9s ease-in-out infinite;
-}
+/* Urgente = el flujo habría escalado acá. Late para que se note que es AHORA. */
+.act--urgente { animation: act-latido 1.9s ease-in-out infinite; }
 
 .act__pulso {
   width: 7px;
