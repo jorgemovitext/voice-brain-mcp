@@ -381,16 +381,52 @@ $overlap: 44px;
 
 .chat__dots { color: var(--chat-ink-soft); font-weight: 800; }
 
-/* ===== Tab Chat / Caso (esquina superior izquierda) ===== */
+/* ===== Tab Chat / Caso =====
+   Flota sobre el cuerpo, montado al borde inferior de la cabecera. Va suelto
+   y no dentro del header porque ahí competía por el ancho con el nombre, el
+   agente y el botón de tomar. Vidrio, para que se lea igual sobre el chat
+   claro y sobre el navy del diagrama. */
 .vistatab {
-  flex-shrink: 0;
+  position: absolute;
+  /* A caballo del borde de la cabecera: mitad sobre el blanco, mitad sobre el
+     cuerpo. Es lo que la hace leer como pieza flotante y no como parte de
+     ninguno de los dos. */
+  top: 52px;
+  left: 1.1rem;
+  z-index: 3;
   display: inline-flex;
   gap: 2px;
   padding: 3px;
-  background: #fff;
-  border: 1.5px solid var(--chat-border);
+  background: rgba(255, 255, 255, 0.82);
+  border: 1px solid rgba(255, 255, 255, 0.5);
   border-radius: 999px;
+  backdrop-filter: blur(16px) saturate(180%);
+  -webkit-backdrop-filter: blur(16px) saturate(180%);
+  box-shadow:
+    0 6px 20px rgba(4, 9, 20, 0.28),
+    inset 0 1px 0 rgba(255, 255, 255, 0.5);
 }
+
+/*
+ * Sobre el diagrama el vidrio se invierte a oscuro. Y va OPACO a propósito:
+ * la píldora cruza el borde de la cabecera, así que mitad queda sobre blanco
+ * y mitad sobre el navy; con un tinte translúcido, el texto claro se volvía
+ * ilegible justo en la mitad de arriba.
+ */
+.chat--flujo .vistatab {
+  background: rgba(13, 21, 38, 0.92);
+  border-color: rgba(255, 255, 255, 0.18);
+}
+
+.chat--flujo .vistatab__op { color: var(--ink-soft); }
+.chat--flujo .vistatab__op:hover:not(.vistatab__op--on) { color: #fff; }
+
+/* Misma razón del lado claro: opaca, para no mezclarse con dos fondos. */
+.vistatab { background: #fff; }
+
+/* El contenido arranca por debajo del tab flotante para que no lo tape. */
+.chat--flujo .wf { padding-top: 3.1rem; }
+.chat__scroll { padding-top: 3.1rem; }
 
 .vistatab__op {
   display: inline-flex;
@@ -491,65 +527,115 @@ $overlap: 44px;
 
 .wf__meta { font-size: 0.68rem; color: var(--ink-soft); font-variant-numeric: tabular-nums; }
 
-/* ===== La línea del caso ===== */
-.wf__linea {
+/* ===== El diagrama =====
+   Nodos centrados unidos por conectores verticales con punta de flecha. Los
+   terminales (inicio y cierre) van redondeados y los pasos en caja, que es
+   la convención de un diagrama de flujo. */
+.wf__diagrama {
   list-style: none;
-  margin: 0;
+  margin: 0 auto;
   padding: 0;
   display: flex;
   flex-direction: column;
-  max-width: 520px;
+  align-items: center;
+  max-width: 420px;
 }
 
-.wf__item {
-  position: relative;
-  display: grid;
-  grid-template-columns: 34px minmax(0, 1fr);
-  gap: 0.7rem;
-  padding-bottom: 1.05rem;
-  /* Entra desenfocado y sube: es lo que hace sentir que el caso se FORMA en
-     vez de aparecer de golpe. El delay escalonado viene del template. */
+.wf__nodo {
+  width: 100%;
+  display: flex;
+  justify-content: center;
+  /* Entra desenfocado y sube: hace sentir que el caso se FORMA en vez de
+     aparecer de golpe. El delay escalonado viene del template. */
   animation: wf-entra 0.4s cubic-bezier(0.2, 0.8, 0.3, 1) both;
 }
-
-/* La espina que une los hitos: cian que se apaga hacia el siguiente. */
-.wf__item::before {
-  content: '';
-  position: absolute;
-  left: 16px;
-  top: 34px;
-  bottom: -3px;
-  width: 2px;
-  border-radius: 2px;
-  background: linear-gradient(color-mix(in srgb, var(--secondary) 55%, transparent), rgba(255, 255, 255, 0.07));
-}
-
-.wf__item:last-child::before { display: none; }
-.wf__item--fantasma::before { background: rgba(255, 255, 255, 0.07); }
 
 @keyframes wf-entra {
   from { opacity: 0; transform: translateY(10px); filter: blur(6px); }
   to { opacity: 1; transform: none; filter: blur(0); }
 }
 
-/* El marcador: la celda del panal. El halo va en el wrapper porque el
-   clip-path recortaría cualquier sombra puesta en el hexágono mismo. */
-.wf__marca {
-  width: 33px;
-  display: flex;
-  justify-content: center;
+/* Terminal de arranque: píldora, como en cualquier diagrama. */
+.wf__pill {
+  display: inline-block;
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--ink-soft);
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 999px;
+  padding: 0.3rem 1rem;
 }
 
-.wf__marca--vivo { animation: wf-late 2s ease-in-out 0.5s infinite; }
+/* El conector con su flecha: es lo que convierte la lista en diagrama. */
+.wf__conector {
+  width: 2px;
+  height: 26px;
+  position: relative;
+  background: linear-gradient(color-mix(in srgb, var(--secondary) 60%, transparent), color-mix(in srgb, var(--secondary) 30%, transparent));
+  animation: wf-crece 0.3s ease-out both;
+  transform-origin: top;
+
+  &::after {
+    content: '';
+    position: absolute;
+    left: 50%;
+    bottom: -1px;
+    translate: -50% 0;
+    border-left: 4px solid transparent;
+    border-right: 4px solid transparent;
+    border-top: 6px solid color-mix(in srgb, var(--secondary) 55%, transparent);
+  }
+
+  &--fantasma {
+    background: rgba(255, 255, 255, 0.1);
+    animation: none;
+
+    &::after { border-top-color: rgba(255, 255, 255, 0.14); }
+  }
+}
+
+@keyframes wf-crece {
+  from { transform: scaleY(0); opacity: 0; }
+  to { transform: scaleY(1); opacity: 1; }
+}
+
+/* La caja del paso: hexágono a la izquierda, contenido a la derecha. */
+.wf__caja {
+  width: 100%;
+  display: grid;
+  grid-template-columns: 30px minmax(0, 1fr);
+  align-items: start;
+  gap: 0.65rem;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 14px;
+  padding: 0.55rem 0.75rem;
+  backdrop-filter: blur(14px) saturate(160%);
+  -webkit-backdrop-filter: blur(14px) saturate(160%);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08);
+}
+
+.wf__cuerpo { min-width: 0; }
+
+/* El nodo vivo late; el halo va en el nodo porque el clip-path del hexágono
+   recortaría cualquier sombra puesta en él mismo. */
+.wf__nodo--vivo { animation: wf-entra 0.4s cubic-bezier(0.2, 0.8, 0.3, 1) both, wf-late 2s ease-in-out 0.6s infinite; }
 
 @keyframes wf-late {
   0%, 100% { filter: drop-shadow(0 0 0 rgba(0, 186, 254, 0)); }
-  50% { filter: drop-shadow(0 0 9px rgba(0, 186, 254, 0.75)); }
+  50% { filter: drop-shadow(0 0 10px rgba(0, 186, 254, 0.55)); }
 }
+
+.wf__nodo--escala .wf__caja { border-color: rgba(243, 71, 0, 0.55); }
+.wf__nodo--escala .wf__titulo { color: #ff9d73; }
 
 .wf__hex {
   width: 30px;
   height: 33px;
+  flex-shrink: 0;
   clip-path: url(#hexCell);
   display: grid;
   place-items: center;
@@ -570,21 +656,6 @@ $overlap: 44px;
   70% { transform: scale(1.14); }
   to { transform: scale(1); }
 }
-
-/* La tarjeta del hito: vidrio sobre el navy. */
-.wf__card {
-  min-width: 0;
-  background: rgba(255, 255, 255, 0.06);
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  border-radius: 14px;
-  padding: 0.55rem 0.75rem;
-  backdrop-filter: blur(14px) saturate(160%);
-  -webkit-backdrop-filter: blur(14px) saturate(160%);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08);
-}
-
-.wf__item--escala .wf__card { border-color: rgba(243, 71, 0, 0.55); }
-.wf__item--escala .wf__titulo { color: #ff9d73; }
 
 .wf__cab {
   display: flex;
@@ -617,21 +688,21 @@ $overlap: 44px;
 }
 
 /* Pendiente: el caso "sabe" a dónde va, en tenue y punteado. */
-.wf__item--fantasma { opacity: 0.6; animation-duration: 0.3s; }
+.wf__nodo--fantasma { opacity: 0.55; animation: none; }
 
-.wf__card--fantasma {
+.wf__caja--fantasma {
   background: transparent;
   border: 1px dashed rgba(255, 255, 255, 0.16);
   backdrop-filter: none;
   -webkit-backdrop-filter: none;
   box-shadow: none;
-  color: var(--ink-soft);
-  font-size: 0.74rem;
-  padding: 0.42rem 0.75rem;
+  align-items: center;
+
+  .wf__titulo { color: var(--ink-soft); font-weight: 600; font-size: 0.76rem; }
 }
 
 /* Cierre: la conversación llegó. */
-.wf__card--fin { border-color: color-mix(in srgb, var(--positive) 45%, transparent); }
+.wf__caja--fin { border-color: color-mix(in srgb, var(--positive) 45%, transparent); }
 .wf__fin-txt { margin: 0.25rem 0 0.55rem; font-size: 0.74rem; color: var(--ink-soft); }
 
 .wf__verchat {
@@ -679,9 +750,9 @@ $overlap: 44px;
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .wf__item,
+  .wf__nodo,
+  .wf__conector,
   .wf__hex,
-  .wf__marca--vivo,
   .wf__vacio-hex,
   .wf__estado--vivo .wf__punto,
   .wf__estado--escala .wf__punto {
