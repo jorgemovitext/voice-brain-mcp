@@ -22,6 +22,22 @@ export function channelIconName(channel: Channel): 'phone' | 'chat' | 'mail' | '
   }
 }
 
+/**
+ * Color por canal, validado con el checker de paletas del proyecto
+ * (ΔE ≥ 8 entre pares sobre fondo oscuro). Único lugar donde vive: antes
+ * estaba duplicado en tablero.ts e integrations.ts con los mismos valores.
+ */
+const COLOR_CANAL: Record<Channel, string> = {
+  whatsapp: '#729B26',
+  voice: '#2196CC',
+  sms: '#D9532C',
+  note: '#8A8F98',
+};
+
+export function channelColor(channel: Channel): string {
+  return COLOR_CANAL[channel] ?? '#8A8F98';
+}
+
 export function channelLabel(channel: Channel): string {
   switch (channel) {
     case 'voice': return 'Voz';

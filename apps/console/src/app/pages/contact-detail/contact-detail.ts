@@ -27,7 +27,15 @@ import {
   Signal as BrainSignal,
   UnifiedContext,
 } from '../../models';
-import { channelIcon, channelLabel, kycmLabel, sentimentClass, sentimentLabel } from '../../ui';
+import {
+  channelColor,
+  channelIcon,
+  channelIconName,
+  channelLabel,
+  kycmLabel,
+  sentimentClass,
+  sentimentLabel,
+} from '../../ui';
 
 /** Mensaje del hilo, listo para pintar como burbuja. */
 interface ChatItem {
@@ -168,6 +176,20 @@ export class ContactDetailPage implements OnDestroy {
 
   readonly channelIcon = channelIcon;
   readonly channelLabel = channelLabel;
+  readonly channelIconName = channelIconName;
+  readonly channelColor = channelColor;
+
+  /**
+   * El sidebar en el orden en que un operador espera verlo: el hilo con
+   * movimiento más reciente arriba, sea porque llegó un mensaje nuevo o
+   * porque alguien lo acaba de responder. `lastInteraction` no distingue
+   * dirección a propósito — un envío nuestro también cuenta como actividad.
+   */
+  readonly hilos = computed(() =>
+    [...(this.conversations.value() ?? [])].sort((a, b) =>
+      (b.lastInteraction?.occurredAt ?? '').localeCompare(a.lastInteraction?.occurredAt ?? ''),
+    ),
+  );
   readonly sentimentClass = sentimentClass;
   readonly sentimentLabel = sentimentLabel;
   readonly kycmLabel = kycmLabel;

@@ -27,9 +27,17 @@
           <a routerLink="/contacts" class="threads__all" title="Ver directorio"><ui-icon name="users" /></a>
         </div>
         <div class="threads__list">
-          @for (c of conversations.value() ?? []; track c.id) {
+          @for (c of hilos(); track c.id) {
             <a class="thread" [class.thread--active]="c.id === id()" [routerLink]="[threadBase(), c.id]">
-              <span class="thread__avatar" [style.background]="tileColor(c.id)">{{ initialsOf(c.displayName) }}</span>
+              <span class="thread__avatar" [style.background]="tileColor(c.id)">
+                {{ initialsOf(c.displayName) }}
+                <!-- De dónde vino la última actividad de este hilo. -->
+                @if (c.lastInteraction?.channel; as canal) {
+                  <span class="thread__canal" [style.background]="channelColor(canal)" [title]="channelLabel(canal)">
+                    <ui-icon [name]="channelIconName(canal)" />
+                  </span>
+                }
+              </span>
               <span class="thread__body">
                 <span class="thread__top">
                   <span class="thread__name">{{ c.displayName || 'Sin nombre' }}</span>

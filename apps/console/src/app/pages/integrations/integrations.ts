@@ -3,7 +3,7 @@ import { httpResource } from '@angular/common/http';
 import { RouterLink } from '@angular/router';
 import { Channel, HiveStatus, WebhookEvent } from '../../models';
 import { crearSondeo } from '../../sondeo';
-import { channelLabel } from '../../ui';
+import { channelColor, channelLabel } from '../../ui';
 
 /**
  * Actividad: qué está pasando ahora mismo en los canales.
@@ -24,13 +24,6 @@ const COLOR_FUENTE: Record<string, string> = {
   'whatsapp-cloud': '#729B26',
   precall: '#B08968',
   saliente: '#D9532C',
-};
-
-const COLOR_CANAL: Record<string, string> = {
-  whatsapp: '#729B26',
-  voice: '#2196CC',
-  sms: '#D9532C',
-  note: '#8A8F98',
 };
 
 const OK = '#34D399';
@@ -124,7 +117,7 @@ export class IntegrationsPage {
   }
 
   colorCanal(c: Channel): string {
-    return COLOR_CANAL[c] ?? '#8A8F98';
+    return channelColor(c);
   }
 
   /** Espera en lenguaje humano: los minutos crudos no dicen nada de un vistazo. */

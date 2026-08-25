@@ -2,7 +2,7 @@ import { ChangeDetectionStrategy, Component, computed, signal } from '@angular/c
 import { httpResource } from '@angular/common/http';
 import { RouterLink } from '@angular/router';
 import { Analytics, Channel } from '../../models';
-import { channelLabel } from '../../ui';
+import { channelColor, channelLabel } from '../../ui';
 
 /**
  * Tablero de inicio, calcado del layout de la referencia (AppDynamics):
@@ -17,15 +17,6 @@ import { channelLabel } from '../../ui';
  * el peor par bajo daltonismo); verde/ámbar/rojo quedan reservados a estado
  * y siempre van acompañados de etiqueta y número.
  */
-
-/** Paleta categórica verificada (modo oscuro). El canal fija el color. */
-const COLOR_CANAL: Record<string, string> = {
-  whatsapp: '#729B26',
-  voice: '#2196CC',
-  sms: '#D9532C',
-  email: '#B08968',
-  note: '#8A8F98',
-};
 
 const OK = '#34D399';
 const MAL = '#F87171';
@@ -115,8 +106,8 @@ export class TableroPage {
   readonly NARANJA = '#F34700';
   readonly CIAN = '#00BAFE';
 
-  colorCanal(channel: string): string {
-    return COLOR_CANAL[channel] ?? '#8A8F98';
+  colorCanal(channel: Channel): string {
+    return channelColor(channel);
   }
 
   cambiarRango(dias: number): void {
@@ -235,7 +226,7 @@ export class TableroPage {
           y,
           w: c.w,
           h,
-          color: col === 0 ? this.colorCanal(id) : col === 2 ? (id === 'atendida' ? OK : MAL) : undefined,
+          color: col === 0 ? this.colorCanal(id as never) : col === 2 ? (id === 'atendida' ? OK : MAL) : undefined,
           tag: col === 2 ? { texto: id === 'atendida' ? 'OK' : 'Espera', color: id === 'atendida' ? OK : MAL } : undefined,
         });
         y += h + 14;
