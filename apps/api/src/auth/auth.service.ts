@@ -77,36 +77,52 @@ export class AuthService {
     password: string,
     phone: string,
     name?: string,
-  ): Promise<{ message: string }> {
+  ): Promise<{ token: string; user: SessionUser }> {
     const porUsuario = await this.users.findByUsername(username);
     const porTelefono = await this.users.findByPhone(phone);
 
-    // El usuario o el teléfono ya pertenecen a alguien verificado: no se toca
-    // nada ni se manda OTP (ni spam al dueño real, ni pistas al atacante).
     const tomado = porUsuario?.verified || (porTelefono?.verified && porTelefono.id !== porUsuario?.id);
-
     if (tomado) {
       this.logger.warn(`Registro sobre usuario/teléfono ya verificado: ${username}`);
-    } else {
-      const existing = porUsuario ?? porTelefono;
-      const user: AuthUser = existing ?? {
-        id: randomUUID(),
-        username,
-        phone,
-        passwordHash: '',
-        verified: false,
-        failedLogins: 0,
-        otpAttempts: 0,
-        createdAt: new Date().toISOString(),
-      };
-      user.username = username;
-      user.phone = phone;
-      user.name = name ?? user.name;
-      user.passwordHash = await this.hashPassword(password);
-      await this.issueOtp(user);
+      throw new ConflictException('Ese usuario o ese teléfono ya están registrados.');
     }
 
-    return { message: 'Si el usuario está disponible, te enviamos un código por WhatsApp.' };
+    const existing = porUsuario ?? porTelefono;
+    const user: AuthUser = existing ?? {
+      id: randomUUID(),
+      username,
+      phone,
+      passwordHash: '',
+      verified: false,
+      failedLogins: 0,
+      otpAttempts: 0,
+      createdAt: new Date().toISOString(),
+    };
+    user.username = username;
+    user.phone = phone;
+    user.name = name ?? user.name;
+    user.passwordHash = await this.hashPassword(password);
+    /*
+     * Se entra de una. El número queda sin comprobar —el OTP era lo que lo
+     * comprobaba— y el mensaje neutro de antes ya no aplica: al responder
+     * "ya está registrado" se admite que ese usuario existe.
+     *
+     * Es la contra de que crear la cuenta sea un paso y no tres, y para una
+     * consola interna con altas contadas es un cambio aceptable. Si algún día
+     * el registro se abre a cualquiera, esto se revierte.
+     */
+    user.verified = true;
+    user.failedLogins = 0;
+    await this.users.save(user);
+
+    const sessionUser: SessionUser = {
+      id: user.id,
+      username: user.username,
+      phone: user.phone,
+      name: user.name,
+    };
+    const token = await this.jwt.signAsync({ sub: user.id, username: user.username });
+    return { token, user: sessionUser };
   }
 
   /**
@@ -122,7 +138,10 @@ export class AuthService {
 
   // =============== Login (password + OTP como segundo factor) ===============
 
-  async login(usuario: string, password: string): Promise<{ otpRequired: true }> {
+  async login(
+    usuario: string,
+    password: string,
+  ): Promise<{ otpRequired: false; token: string; user: SessionUser }> {
     const user = await this.buscarCuenta(usuario);
 
     // Usuario inexistente: se verifica contra un hash de sacrificio para que
@@ -153,8 +172,26 @@ export class AuthService {
     }
 
     user.failedLogins = 0;
-    await this.issueOtp(user, true);
-    return { otpRequired: true };
+    user.lockedUntil = undefined;
+    await this.users.save(user);
+
+    /*
+     * Sin segundo factor: la cuenta ya verificó su número al registrarse, y
+     * pedir un OTP por WhatsApp en CADA entrada dejaba al operador fuera de la
+     * consola cada vez que expiraba la sesión — con una emergencia abierta,
+     * eso es peor que el riesgo que cubría.
+     *
+     * El OTP sigue vivo donde sí hace falta: verificar el número al registrar
+     * (`verifyOtp` marca `verified`) y recuperar el acceso.
+     */
+    const sessionUser: SessionUser = {
+      id: user.id,
+      username: user.username,
+      phone: user.phone,
+      name: user.name,
+    };
+    const token = await this.jwt.signAsync({ sub: user.id, username: user.username });
+    return { otpRequired: false, token, user: sessionUser };
   }
 
   // =============== OTP ===============

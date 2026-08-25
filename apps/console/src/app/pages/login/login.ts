@@ -49,6 +49,14 @@ type Paso = 'credenciales' | 'otp';
             @if (modo() === 'login') {
               <p class="auth__hint">¿Cuenta creada antes? Entrá con tu teléfono.</p>
             }
+            @if (modo() === 'login') {
+              <!-- El código dejó de ser obligatorio, pero sigue siendo la
+                   salida cuando la contraseña no aparece. -->
+              <button class="auth__link auth__link--suelto" type="button"
+                      (click)="entrarConCodigo()" [disabled]="busy() || !username().trim()">
+                No me acuerdo la contraseña, mandame un código
+              </button>
+            }
             @if (modo() === 'register') {
               <label class="auth__field">
                 <span>Teléfono (WhatsApp)</span>
@@ -145,10 +153,18 @@ export class LoginPage {
       const usuario = this.username().trim().toLowerCase();
       if (this.modo() === 'register') {
         await this.auth.register(usuario, this.password(), this.phone().trim(), this.name().trim() || undefined);
-      } else {
-        await this.auth.login(usuario, this.password());
+        await this.router.navigate(['/home']);
+        return;
       }
-      this.paso.set('otp');
+
+      // Entrar es usuario y contraseña. El código quedó como la vía para
+      // recuperar el acceso, no como un paso obligatorio de cada entrada.
+      const { otpRequired } = await this.auth.login(usuario, this.password());
+      if (otpRequired) {
+        this.paso.set('otp');
+        return;
+      }
+      await this.router.navigate(['/home']);
     } catch (err) {
       this.error.set(this.mensajeDe(err));
     } finally {
@@ -163,6 +179,22 @@ export class LoginPage {
     try {
       await this.auth.verifyOtp(this.username().trim().toLowerCase(), this.code());
       await this.router.navigate(['/home']);
+    } catch (err) {
+      this.error.set(this.mensajeDe(err));
+    } finally {
+      this.busy.set(false);
+    }
+  }
+
+  /** Pide un código y salta al paso de verificación: sin contraseña. */
+  async entrarConCodigo(): Promise<void> {
+    const usuario = this.username().trim().toLowerCase();
+    if (!usuario || this.busy()) return;
+    this.error.set('');
+    this.busy.set(true);
+    try {
+      await this.auth.resendOtp(usuario);
+      this.paso.set('otp');
     } catch (err) {
       this.error.set(this.mensajeDe(err));
     } finally {

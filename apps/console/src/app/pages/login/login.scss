@@ -175,3 +175,11 @@ form {
   height: 14px;
   border-width: 2px;
 }
+
+/* La salida cuando la contraseña no aparece. Va alineada a la izquierda y
+   discreta: es un recurso, no la acción principal del formulario. */
+.auth__link--suelto {
+  align-self: flex-start;
+  font-size: 0.78rem;
+  margin-top: -0.2rem;
+}

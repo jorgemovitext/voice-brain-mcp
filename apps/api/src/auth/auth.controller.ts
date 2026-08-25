@@ -89,16 +89,20 @@ export class AuthController {
 
   @Public()
   @Post('register')
-  register(@Body() body: unknown) {
+  async register(@Body() body: unknown, @Res({ passthrough: true }) res: FastifyReply) {
     const { username, password, phone, name } = this.parse(registerSchema, body);
-    return this.auth.register(username, password, phone, name);
+    const { token, user } = await this.auth.register(username, password, phone, name);
+    this.abrirSesion(res, token);
+    return { user };
   }
 
   @Public()
   @Post('login')
-  login(@Body() body: unknown) {
+  async login(@Body() body: unknown, @Res({ passthrough: true }) res: FastifyReply) {
     const { username, password } = this.parse(loginSchema, body);
-    return this.auth.login(username, password);
+    const { token, user, otpRequired } = await this.auth.login(username, password);
+    this.abrirSesion(res, token);
+    return { otpRequired, user };
   }
 
   @Public()
@@ -113,7 +117,12 @@ export class AuthController {
   async verifyOtp(@Body() body: unknown, @Res({ passthrough: true }) res: FastifyReply) {
     const { username, code } = this.parse(otpSchema, body);
     const { token, user } = await this.auth.verifyOtp(username, code);
+    this.abrirSesion(res, token);
+    return { user };
+  }
 
+  /** La cookie de sesión: httpOnly, así que el JS de la consola nunca la ve. */
+  private abrirSesion(res: FastifyReply, token: string): void {
     res.setCookie(SESSION_COOKIE, token, {
       httpOnly: true,
       secure: this.secureCookies,
@@ -121,7 +130,6 @@ export class AuthController {
       path: '/',
       maxAge: this.auth.sessionHours * 3600,
     });
-    return { user };
   }
 
   /**

@@ -36,14 +36,19 @@ export class AuthService {
     }
   }
 
-  register(username: string, password: string, phone: string, name?: string): Promise<{ message: string }> {
-    return firstValueFrom(
-      this.http.post<{ message: string }>('/api/auth/register', { username, password, phone, name }),
+  async register(username: string, password: string, phone: string, name?: string): Promise<void> {
+    const { user } = await firstValueFrom(
+      this.http.post<{ user: SessionUser }>('/api/auth/register', { username, password, phone, name }),
     );
+    this.user.set(user);
   }
 
-  login(username: string, password: string): Promise<{ otpRequired: boolean }> {
-    return firstValueFrom(this.http.post<{ otpRequired: boolean }>('/api/auth/login', { username, password }));
+  async login(username: string, password: string): Promise<{ otpRequired: boolean }> {
+    const res = await firstValueFrom(
+      this.http.post<{ otpRequired: boolean; user: SessionUser }>('/api/auth/login', { username, password }),
+    );
+    if (!res.otpRequired) this.user.set(res.user);
+    return res;
   }
 
   async verifyOtp(username: string, code: string): Promise<SessionUser> {
