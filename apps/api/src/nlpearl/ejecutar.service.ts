@@ -101,6 +101,23 @@ export class EjecutarService {
 
     try {
       await gupshup.sendTemplate(tel, gupshup.templateSaludo, [operador]);
+
+      /*
+       * Y queda EN EL HILO. Sin esto el saludo salía de verdad pero el chat
+       * no mostraba nada, así que desde la consola era indistinguible de un
+       * envío que falló — y el operador no tenía cómo saber qué se mandó en
+       * su nombre. El cuerpo exacto lo guarda Meta, así que se registra lo
+       * que sí sabemos: que se envió el saludo y de parte de quién.
+       */
+      await this.brain.appendInteraction({
+        contactId,
+        channel: 'whatsapp',
+        direction: 'outbound',
+        occurredAt: new Date().toISOString(),
+        summary: `Saludo de presentación enviado de parte de ${operador}.`,
+        source: 'own',
+      });
+
       this.logger.log(`${operador} se presentó con ${contactId} por plantilla`);
       this.webhookLog.push('saliente', `Saludo enviado a ${tel} de parte de ${operador}`, true);
       return {};
