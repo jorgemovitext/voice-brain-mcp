@@ -3,6 +3,36 @@
   height: 100%;
 }
 
+/* Barras finas y discretas: las nativas de escritorio son anchas y opacas, y
+   en tres paneles contiguos se comían el aire entre columnas. Aparecen al
+   pasar el mouse por la zona que scrollea. */
+.threads__list,
+.chat__scroll,
+.voice,
+.flow {
+  scrollbar-width: thin;
+  scrollbar-color: transparent transparent;
+  transition: scrollbar-color 0.2s;
+
+  &:hover { scrollbar-color: rgba(255, 255, 255, 0.18) transparent; }
+
+  &::-webkit-scrollbar { width: 8px; }
+  &::-webkit-scrollbar-track { background: transparent; }
+  &::-webkit-scrollbar-thumb {
+    background: transparent;
+    border-radius: 999px;
+    border: 2px solid transparent;
+    background-clip: content-box;
+  }
+  &:hover::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.18); background-clip: content-box; }
+}
+
+/* El chat es panel claro: ahí la barra tiene que ser oscura. */
+.chat__scroll {
+  &:hover { scrollbar-color: rgba(24, 35, 51, 0.22) transparent; }
+  &:hover::-webkit-scrollbar-thumb { background: rgba(24, 35, 51, 0.22); background-clip: content-box; }
+}
+
 .state__hint {
   color: var(--ink-soft);
   font-size: 0.85rem;
@@ -61,6 +91,7 @@ $overlap: 44px;
 }
 
 .threads__head {
+  flex-shrink: 0;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -102,9 +133,21 @@ $overlap: 44px;
   /* Borde transparente de base: el seleccionado lo pinta, y sin esto la fila
      se movería 1px al cambiar de selección. */
   border: 1px solid transparent;
-  transition: background 0.15s;
+  /* El desplazamiento es lo que da la sensación de "se puede tocar"; sin él
+     el hover solo cambiaba de color y se sentía inerte. */
+  transition: background 0.15s, transform 0.15s;
 
-  &:hover { background: var(--panel-2); }
+  &:hover {
+    background: var(--panel-2);
+    transform: translateX(2px);
+  }
+
+  /* Navegación con teclado: el anillo va por dentro para no desbordar la
+     columna, que tiene overflow oculto. */
+  &:focus-visible {
+    outline: none;
+    box-shadow: inset 0 0 0 2px var(--secondary);
+  }
 }
 
 /*
@@ -223,10 +266,20 @@ $overlap: 44px;
   overflow: hidden;
 }
 
-/* Solo en el módulo de Conversaciones el chat se monta sobre la lista. */
+/*
+ * El efecto de solapa: además de la sombra, un filo claro de 1px en el canto
+ * que se monta. Es lo que hace que se lea como una tarjeta LEVANTADA sobre la
+ * otra y no como dos paneles pegados — el mismo recurso que ya usan las
+ * celdas del panal y el tooltip del tablero (`inset 0 1px 0` claro arriba).
+ * La sombra va en dos capas: una corta y densa que define el canto, y una
+ * larga y suave que da la profundidad.
+ */
 .convo--threads .chat {
   margin-left: -14px;
-  box-shadow: -16px 0 36px rgba(4, 9, 20, 0.35);
+  box-shadow:
+    -1px 0 0 rgba(255, 255, 255, 0.1),
+    -6px 0 14px rgba(4, 9, 20, 0.34),
+    -22px 0 48px rgba(4, 9, 20, 0.34);
 }
 
 @media (max-width: 1100px) {
@@ -486,10 +539,24 @@ $overlap: 44px;
   gap: 0.55rem;
 }
 
+/* Se centra en el alto disponible en vez de quedar pegado arriba, que hacía
+   ver el panel como si estuviera a medio cargar. */
 .chat__empty {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
   text-align: center;
   color: var(--chat-ink-soft);
-  padding: 2rem 0;
+  font-size: 0.85rem;
+
+  &::before {
+    content: '⬢';
+    font-size: 1.8rem;
+    color: color-mix(in srgb, var(--secondary) 40%, transparent);
+  }
 }
 
 /* Se queda arriba mientras se recorre el día: saber en qué fecha estás
@@ -518,6 +585,19 @@ $overlap: 44px;
   display: flex;
   gap: 0.5rem;
   max-width: 85%;
+  /* Entrada corta: con el sondeo cada pocos segundos, un mensaje que aparece
+     de golpe se pierde. 160ms alcanzan para notarlo sin que estorbe al leer
+     un hilo largo. */
+  animation: msg-entra 0.16s ease-out;
+}
+
+@keyframes msg-entra {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: none; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .msg { animation: none; }
 }
 
 .msg--in { align-self: flex-start; }
@@ -781,7 +861,12 @@ $overlap: 44px;
   position: relative;
   z-index: 2; /* se superpone al borde derecho del chat */
   margin-left: -26px;
-  box-shadow: -20px 0 44px rgba(4, 9, 20, 0.5);
+  /* Mismo tratamiento de solapa que el chat, un escalón más marcado: es la
+     capa de más arriba de las tres. */
+  box-shadow:
+    -1px 0 0 rgba(255, 255, 255, 0.12),
+    -8px 0 18px rgba(4, 9, 20, 0.46),
+    -28px 0 56px rgba(4, 9, 20, 0.42);
   display: flex;
   flex-direction: column;
   min-height: 0;
