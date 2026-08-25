@@ -283,28 +283,6 @@ export class ContactDetailPage implements OnDestroy {
   readonly fotoRecibida = computed(() => !!this.expediente.value()?.fotoRecibida);
 
   /**
-   * Nombre legible de la variable del flujo, para la ficha del caso: el
-   * diagrama muestra "Ubicación", no "ubicacion".
-   */
-  nombreCampo(clave: string): string {
-    const CAMPOS: Record<string, string> = {
-      tipoConsulta: 'Consulta',
-      tipoProblema: 'Problema',
-      ubicacion: 'Ubicación',
-      descripcion: 'Detalle',
-      nombreCiudadano: 'Nombre',
-      contactoCiudadano: 'Contacto',
-      obstruye_paso: 'Obstruye el paso',
-      tipo_espacio: 'Espacio',
-      tiempo_observado: 'Tiempo observado',
-      fotoRecibida: 'Foto',
-      hs_ticket_id: 'Ticket',
-      motivo: 'Motivo',
-    };
-    return CAMPOS[clave] ?? clave.replace(/[_-]+/g, ' ');
-  }
-
-  /**
    * Nombre del operador, nunca un identificador. El backend ya resuelve el
    * nombre real, pero si un hilo quedó tomado con un id viejo guardado, acá
    * se cae a "vos" en vez de escupir un UUID.
