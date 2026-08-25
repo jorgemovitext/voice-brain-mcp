@@ -20,6 +20,7 @@ import { VoiceNebula } from '../../nebula';
 import { crearSondeo } from '../../sondeo';
 import {
   AvanceFlujo,
+  AccionSugerida,
   Expediente,
   ContactListItem,
   Interaction,
@@ -190,6 +191,30 @@ export class ContactDetailPage implements OnDestroy {
   readonly acciones = computed(() =>
     this.tomada() ? (this.expediente.value()?.acciones ?? []) : [],
   );
+
+  /** Acción que se está ejecutando ahora, para bloquear solo esa pill. */
+  readonly ejecutando = signal<string | null>(null);
+
+  /**
+   * Ejecuta la acción sugerida. Solo las accionables: "falta la ubicación" es
+   * un aviso para que el operador lo pregunte, no algo que el sistema pueda
+   * hacer por él.
+   */
+  async ejecutarAccion(accion: AccionSugerida): Promise<void> {
+    if (accion.tipo !== 'hubspot' || this.ejecutando()) return;
+    this.ejecutando.set(accion.id);
+    this.sendError.set(null);
+    try {
+      const r = await this.api.ejecutarAccion(this.id(), accion.id);
+      if (r.aviso) this.sendError.set(r.aviso);
+      this.expediente.reload();
+    } catch (err: unknown) {
+      const msg = (err as { error?: { message?: string } })?.error?.message;
+      this.sendError.set(msg ?? 'No se pudo ejecutar la acción.');
+    } finally {
+      this.ejecutando.set(null);
+    }
+  }
 
   /** Tomar el hilo o devolvérselo al agente. */
   async alternarAtencion(): Promise<void> {

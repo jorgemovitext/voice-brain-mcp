@@ -96,4 +96,14 @@ export class BrainApiService {
       this.http.post<Atencion>(`/api/contacts/${contactId}/atencion`, { tomar }),
     );
   }
+
+  /** Ejecuta una acción sugerida (hoy: crear el ticket en HubSpot). */
+  ejecutarAccion(contactId: string, accion: string): Promise<{ id: string; aviso?: string }> {
+    return firstValueFrom(
+      this.http.post<{ id: string; aviso?: string }>(
+        `/api/contacts/${contactId}/acciones/${accion}`,
+        {},
+      ),
+    );
+  }
 }

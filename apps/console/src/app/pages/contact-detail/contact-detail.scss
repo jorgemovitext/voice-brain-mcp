@@ -378,7 +378,18 @@ $overlap: 44px;
 
 /* El tipo tiñe el borde: registrar en el CRM no es lo mismo que avisar a una
    cuadrilla ni que pedir un dato que falta. */
-.act--hubspot { border-color: #f5a623; }
+/* Esta SÍ se ejecuta, así que se comporta como botón. */
+.act--hubspot {
+  border-color: #f5a623;
+  font: inherit;
+  font-size: 0.75rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 0.15s;
+
+  &:hover:not(:disabled) { background: color-mix(in srgb, #f5a623 16%, #fff); }
+  &:disabled { opacity: 0.6; cursor: default; }
+}
 .act--aviso { border-color: #e11d48; }
 .act--dato { border-color: var(--chat-border); color: var(--chat-ink-soft); }
 

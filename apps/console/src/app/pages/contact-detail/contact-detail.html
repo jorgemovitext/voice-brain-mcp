@@ -172,11 +172,25 @@
         <div class="acts">
           <span class="acts__cabeza">Te toca a vos</span>
           @for (a of acciones(); track a.id) {
-            <span class="act" [class]="'act act--' + a.tipo"
-                  [class.act--urgente]="a.urgente" [title]="a.motivo">
-              @if (a.urgente) { <i class="act__pulso"></i> }
-              {{ a.etiqueta }}
-            </span>
+            <!-- Las de tipo `hubspot` se ejecutan; las demás son avisos para
+                 que el operador pregunte o llame — botón sería mentira. -->
+            @if (a.tipo === 'hubspot') {
+              <button class="act act--hubspot" [class.act--urgente]="a.urgente"
+                      [title]="a.motivo" (click)="ejecutarAccion(a)"
+                      [disabled]="ejecutando() === a.id">
+                @if (ejecutando() === a.id) { Registrando… }
+                @else {
+                  @if (a.urgente) { <i class="act__pulso"></i> }
+                  {{ a.etiqueta }}
+                }
+              </button>
+            } @else {
+              <span class="act" [class]="'act act--' + a.tipo"
+                    [class.act--urgente]="a.urgente" [title]="a.motivo">
+                @if (a.urgente) { <i class="act__pulso"></i> }
+                {{ a.etiqueta }}
+              </span>
+            }
           }
         </div>
       }

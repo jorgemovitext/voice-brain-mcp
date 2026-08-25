@@ -14,6 +14,7 @@ import { ExpedienteService } from './expediente.service';
 import { ResumenService } from './resumen.service';
 import { AtencionService } from './atencion.service';
 import { AccionesService } from './acciones.service';
+import { EjecutarService } from './ejecutar.service';
 import { AnalyticsService } from './analytics.service';
 import { HiveService } from './hive.service';
 import { NlpearlDiagnosticsController } from './nlpearl-diagnostics.controller';
@@ -59,6 +60,7 @@ import { WorkersController } from './workers.controller';
     ResumenService,
     AtencionService,
     AccionesService,
+    EjecutarService,
     NlpearlMockEngine,
     NlpearlVoiceEngine,
     WebhookSignatureGuard,

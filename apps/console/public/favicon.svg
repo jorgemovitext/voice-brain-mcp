@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <!-- La celda del panal: la misma forma que representa a un agente en toda
+       la consola (rail, login, panal de Agentes), con el degradado de marca
+       naranja → cian. Va en SVG para que se vea nítido en cualquier densidad
+       y siga el mismo lenguaje gráfico que el resto. -->
+  <defs>
+    <linearGradient id="m" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#F34700"/>
+      <stop offset="100%" stop-color="#00BAFE"/>
+    </linearGradient>
+  </defs>
+  <rect width="64" height="64" rx="14" fill="#0D1526"/>
+  <path
+    fill="url(#m)"
+    d="M45.6 38.7 L38.6 50.8 Q34.7 57.5 27.0 57.5 L21.0 57.5 Q13.3 57.5 9.4 50.8 L2.4 38.7 Q-1.4 32.0 2.4 25.3 L9.4 13.2 Q13.3 6.5 21.0 6.5 L27.0 6.5 Q34.7 6.5 38.6 13.2 L45.6 25.3 Q49.4 32.0 45.6 38.7 Z"
+    transform="translate(8 0)"
+  />
+</svg>

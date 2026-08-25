@@ -1,6 +1,7 @@
 import { BadRequestException, Body, Controller, Get, Param, Post, Req } from '@nestjs/common';
 import { FastifyRequest } from 'fastify';
 import { AtencionService } from './atencion.service';
+import { EjecutarService } from './ejecutar.service';
 import { ExpedienteService } from './expediente.service';
 
 /**
@@ -15,6 +16,7 @@ export class ExpedienteController {
   constructor(
     private readonly expediente: ExpedienteService,
     private readonly atencion: AtencionService,
+    private readonly ejecutor: EjecutarService,
   ) {}
 
   @Get(':id/expediente')
@@ -43,5 +45,28 @@ export class ExpedienteController {
     const quien = req.user?.username ?? req.user?.sub;
     if (!quien) throw new BadRequestException('No se pudo identificar al operador');
     return this.atencion.tomar(id, quien);
+  }
+
+  /**
+   * Ejecuta una de las acciones sugeridas. Solo con el hilo TOMADO: si lo
+   * está atendiendo el agente, su flujo hace estas mismas cosas y ejecutarlas
+   * acá crearía el ticket dos veces.
+   */
+  @Post(':id/acciones/:accion')
+  async ejecutar(
+    @Param('id') id: string,
+    @Param('accion') accion: string,
+    @Req() req: FastifyRequest & { user?: { username?: string; sub?: string } },
+  ) {
+    const quien = req.user?.username ?? req.user?.sub;
+    if (!quien) throw new BadRequestException('No se pudo identificar al operador');
+
+    const { operador } = await this.atencion.de(id);
+    if (!operador) {
+      throw new BadRequestException('Tomá la conversación antes de ejecutar acciones');
+    }
+
+    if (accion === 'crear-ticket') return this.ejecutor.crearTicket(id, quien);
+    throw new BadRequestException(`Acción desconocida: ${accion}`);
   }
 }

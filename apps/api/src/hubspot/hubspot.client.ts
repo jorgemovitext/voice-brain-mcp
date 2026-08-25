@@ -52,6 +52,10 @@ export class HubspotClient {
   private readonly token: string;
   private readonly base = 'https://api.hubapi.com';
 
+  /** El esquema del portal cambia casi nunca; se relee cada 10 minutos. */
+  private esquemaCache: { value: Map<string, Set<string> | null>; at: number } | null = null;
+  private static readonly ESQUEMA_TTL_MS = 10 * 60 * 1000;
+
   constructor(config: ConfigService) {
     this.token = config.get<string>('HUBSPOT_TOKEN', '');
   }
@@ -68,10 +72,10 @@ export class HubspotClient {
     }
   }
 
-  private async pedir<T>(path: string, cuerpo?: unknown): Promise<T> {
+  private async pedir<T>(path: string, cuerpo?: unknown, metodo?: string): Promise<T> {
     this.assertConfigured();
     const res = await fetch(this.base + path, {
-      method: cuerpo === undefined ? 'GET' : 'POST',
+      method: metodo ?? (cuerpo === undefined ? 'GET' : 'POST'),
       headers: { Authorization: `Bearer ${this.token}`, 'Content-Type': 'application/json' },
       body: cuerpo === undefined ? undefined : JSON.stringify(cuerpo),
     });
@@ -209,5 +213,104 @@ export class HubspotClient {
       }
     }
     return mapa;
+  }
+
+  // =============== Escritura ===============
+
+  /**
+   * Esquema real de las propiedades de ticket del portal, cacheado.
+   *
+   * Es la pieza que evita repetir los errores del flujo: HubSpot rechaza el
+   * POST ENTERO si mandás una propiedad que no existe (`es_demo`) o un valor
+   * fuera de las opciones permitidas (`whatsapp` cuando la opción es
+   * `Whatsapp`). En vez de acertar de memoria, se lee el esquema y se sanea
+   * contra él.
+   */
+  private async propiedadesDeTicket(): Promise<Map<string, Set<string> | null>> {
+    if (this.esquemaCache && Date.now() - this.esquemaCache.at < HubspotClient.ESQUEMA_TTL_MS) {
+      return this.esquemaCache.value;
+    }
+
+    const res = await this.pedir<{
+      results?: Array<{ name: string; options?: Array<{ value: string }> }>;
+    }>('/crm/v3/properties/tickets');
+
+    const mapa = new Map<string, Set<string> | null>();
+    for (const p of res.results ?? []) {
+      // null = campo libre; Set = enumerado con opciones cerradas.
+      mapa.set(p.name, p.options?.length ? new Set(p.options.map((o) => o.value)) : null);
+    }
+    this.esquemaCache = { value: mapa, at: Date.now() };
+    return mapa;
+  }
+
+  /**
+   * Deja solo lo que el portal acepta y corrige los enumerados que difieren
+   * únicamente en mayúsculas. Devuelve también lo descartado: callar un campo
+   * que se perdió sería peor que el error original.
+   */
+  private async sanear(
+    props: Record<string, string>,
+  ): Promise<{ limpias: Record<string, string>; descartadas: string[] }> {
+    const esquema = await this.propiedadesDeTicket();
+    const limpias: Record<string, string> = {};
+    const descartadas: string[] = [];
+
+    for (const [nombre, valor] of Object.entries(props)) {
+      if (!valor?.trim()) continue;
+      if (!esquema.has(nombre)) {
+        descartadas.push(`${nombre} (no existe en el portal)`);
+        continue;
+      }
+      const opciones = esquema.get(nombre);
+      if (!opciones) {
+        limpias[nombre] = valor;
+        continue;
+      }
+      const exacta = opciones.has(valor)
+        ? valor
+        : [...opciones].find((o) => o.toLowerCase() === valor.toLowerCase());
+      if (exacta) limpias[nombre] = exacta;
+      else descartadas.push(`${nombre}="${valor}" (opción inválida)`);
+    }
+    return { limpias, descartadas };
+  }
+
+  /**
+   * Crea el ticket y lo asocia al contacto del teléfono, que es lo que hace
+   * que después aparezca en la tarjeta "Caso en el CRM" — el emparejamiento
+   * es por asociación, no por una propiedad de teléfono en el ticket.
+   */
+  async crearTicket(
+    props: Record<string, string>,
+    telefono?: string,
+  ): Promise<{ id: string; descartadas: string[] }> {
+    const { limpias, descartadas } = await this.sanear(props);
+    if (descartadas.length) {
+      this.logger.warn(`Ticket creado sin: ${descartadas.join(', ')}`);
+    }
+
+    const creado = await this.pedir<{ id: string }>('/crm/v3/objects/tickets', {
+      properties: limpias,
+    });
+
+    if (telefono) {
+      await this.asociarAlContacto(creado.id, telefono).catch((err) => {
+        // El ticket ya existe: perder la asociación no justifica fallar todo.
+        this.logger.warn(`Ticket ${creado.id} creado pero sin asociar: ${(err as Error).message}`);
+      });
+    }
+    return { id: creado.id, descartadas };
+  }
+
+  /** Asocia el ticket al contacto dueño de ese teléfono, si existe. */
+  private async asociarAlContacto(ticketId: string, telefono: string): Promise<void> {
+    const [contactId] = await this.contactosPorTelefono(telefono);
+    if (!contactId) return;
+    await this.pedir(
+      `/crm/v4/objects/tickets/${ticketId}/associations/default/contacts/${contactId}`,
+      {},
+      'PUT',
+    );
   }
 }
