@@ -1558,3 +1558,115 @@ $overlap: 44px;
   0%, 100% { opacity: 1; }
   50% { opacity: 0.3; }
 }
+
+/* ===== Vista Flujo: el recorrido, nodo a nodo =====
+   Solo el camino que el agente TOMÓ: una cadena vertical donde cada nodo
+   aparece cuando el flujo pasa por él. Las ramas no tomadas no se dibujan —
+   a dónde PODRÍA ir el caso lo cuenta la vista Caso con sus pendientes. */
+.rt {
+  list-style: none;
+  margin: 0;
+  padding: 0.2rem 0 1.4rem 0.3rem;
+  display: flex;
+  flex-direction: column;
+  max-width: 460px;
+}
+
+.rt__nodo {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+  padding: 0.4rem 0;
+  animation: wf-entra 0.35s ease-out both;
+}
+
+/* El conector entre nodos: la corriente punteada fluye hacia el nodo nuevo,
+   que es lo que hace sentir que el caso AVANZA y no que está dibujado. */
+.rt__nodo + .rt__nodo::before {
+  content: '';
+  position: absolute;
+  left: 16px;
+  top: -13px;
+  width: 2px;
+  height: 24px;
+  background: repeating-linear-gradient(
+    to bottom,
+    color-mix(in srgb, var(--secondary) 55%, transparent) 0 4px,
+    transparent 4px 8px
+  );
+  animation: rt-corriente 0.9s linear infinite;
+}
+
+@keyframes rt-corriente {
+  to { background-position: 0 8px; }
+}
+
+.rt__hex {
+  width: 33px;
+  height: 37px;
+  flex-shrink: 0;
+  clip-path: url(#hexCell);
+  display: grid;
+  place-items: center;
+  background: linear-gradient(135deg, var(--secondary), #0077b3);
+  color: #04283a;
+  font-size: 0.72rem;
+  font-weight: 800;
+  z-index: 1;
+}
+
+.rt__nodo--escala .rt__hex { background: linear-gradient(135deg, var(--primary), #a33000); color: #fff; }
+.rt__hex--fin { background: linear-gradient(135deg, var(--positive), #0d8a53); color: #04240f; font-size: 0.82rem; }
+
+.rt__info {
+  display: flex;
+  flex-direction: column;
+  gap: 0.05rem;
+  min-width: 0;
+}
+
+.rt__nombre { font-size: 0.84rem; font-weight: 800; color: #fff; }
+.rt__nodo--escala .rt__nombre { color: #ff9d73; }
+.rt__hora { font-size: 0.66rem; color: var(--ink-soft); font-variant-numeric: tabular-nums; }
+
+/* El nodo donde el agente está parado AHORA. */
+.rt__nodo--vivo .rt__hex { animation: rt-late 2s ease-in-out infinite; }
+
+@keyframes rt-late {
+  0%, 100% { filter: brightness(1); }
+  50% { filter: brightness(1.4); }
+}
+
+.rt__vivo {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  margin-left: 0.35rem;
+  font-size: 0.62rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--secondary);
+  background: rgba(0, 186, 254, 0.1);
+  border: 1px solid rgba(0, 186, 254, 0.35);
+  border-radius: 999px;
+  padding: 0.14rem 0.5rem;
+
+  i {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--secondary);
+    animation: wf-beat 1.8s ease-out infinite;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .rt__nodo,
+  .rt__nodo--vivo .rt__hex,
+  .rt__nodo + .rt__nodo::before,
+  .rt__vivo i {
+    animation: none;
+  }
+}

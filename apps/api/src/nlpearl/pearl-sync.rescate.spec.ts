@@ -6,14 +6,12 @@ import { NlpearlClient } from './nlpearl.client';
 import { PearlSyncService } from './pearl-sync.service';
 
 /**
- * El aviso post-conversación de NL Pearl llega UNA vez y sin reintentos. Si se
- * pierde, el caso queda con todos sus avances y el chat vacío para siempre.
- *
- * El rescate cierra ese hueco por el otro lado: el `conversationId` que el
- * flujo manda en cada avance ES el callId, así que la conversación se puede
- * pedir por id sin depender del aviso.
+ * La conversación se puede pedir por id desde el primer avance: el
+ * `conversationId` que manda el flujo ES el callId. Eso llena el chat en
+ * vivo y cubre el aviso post-conversación de NL Pearl, que llega UNA vez y
+ * sin reintentos.
  */
-describe('PearlSyncService.rescatarCierre', () => {
+describe('PearlSyncService.rescatarConversacion', () => {
   /** Un ObjectId de NL Pearl: 24 hex. */
   const CALL_ID = 'a1b2c3d4e5f6a7b8c9d0e1f2';
 
@@ -73,7 +71,7 @@ describe('PearlSyncService.rescatarCierre', () => {
   it('pide la conversación por id y la ingiere', async () => {
     const { service, pedidos, guardadas } = build();
 
-    const nuevas = await service.rescatarCierre(CALL_ID, 'Jorge');
+    const nuevas = await service.rescatarConversacion(CALL_ID, 'Jorge');
 
     expect(pedidos).toEqual([CALL_ID]);
     expect(nuevas).toBe(2);
@@ -85,7 +83,7 @@ describe('PearlSyncService.rescatarCierre', () => {
 
     // El simulador y las conversaciones de prueba usan UUID: pedirlas
     // devolvería 400 y quemaría el intento.
-    const nuevas = await service.rescatarCierre('5383eb27-5059-4c30-9c16-bae7dc775d4c');
+    const nuevas = await service.rescatarConversacion('5383eb27-5059-4c30-9c16-bae7dc775d4c');
 
     expect(nuevas).toBe(0);
     expect(pedidos).toEqual([]);
@@ -94,9 +92,9 @@ describe('PearlSyncService.rescatarCierre', () => {
   it('no repite el pedido en cada sondeo de la consola', async () => {
     const { service, pedidos } = build();
 
-    await service.rescatarCierre(CALL_ID);
-    await service.rescatarCierre(CALL_ID);
-    await service.rescatarCierre(CALL_ID);
+    await service.rescatarConversacion(CALL_ID);
+    await service.rescatarConversacion(CALL_ID);
+    await service.rescatarConversacion(CALL_ID);
 
     expect(pedidos).toEqual([CALL_ID]);
   });

@@ -165,6 +165,26 @@ export class NlpearlWebhookController {
     });
 
     /*
+     * El contacto nace con el PRIMER avance, no con el primer mensaje. Sin
+     * esto, una conversación recién abierta no aparecía en la consola hasta
+     * que llegaba el chat — y el chat puede tardar toda la conversación. Con
+     * el contacto creado, el hilo sale en Conversaciones de inmediato y la
+     * vista Flujo va dibujando el recorrido en vivo. Si el flujo ya capturó
+     * el nombre, se aprovecha; corregirlo después no pisa nada.
+     */
+    try {
+      const { contactId } = await this.brain.resolveIdentity({ phone, system: 'nlpearl' });
+      const nombre = typeof datos['nombreCiudadano'] === 'string' ? datos['nombreCiudadano'].trim() : '';
+      if (nombre) {
+        const ctx = await this.brain.getContext({ contactId });
+        if (!ctx.contact.displayName) await this.brain.upsertContact({ id: contactId, displayName: nombre });
+      }
+    } catch (err) {
+      // El avance ya quedó guardado: la identidad nunca lo tumba.
+      this.logger.warn(`No se pudo crear el contacto del avance: ${(err as Error).message}`);
+    }
+
+    /*
      * Escalamiento sin tocar el flujo: el nodo `apiCollectLocation` ya manda
      * acá la ubicación y el teléfono en cada reporte, así que este es el
      * punto donde se puede saber si el incidente ya cruzó el umbral. Agregar

@@ -55,7 +55,7 @@
     }
 
     <!-- ===== Panel de chat ===== -->
-    <section class="chat" [class.chat--flujo]="vistaActiva() === 'flujo'">
+    <section class="chat" [class.chat--flujo]="vistaActiva() !== 'chat'">
       <header class="chat__head">
         @if (!withThreads()) {
           <a routerLink="/contacts" class="chat__back" title="Volver">‹</a>
@@ -104,6 +104,10 @@
         <button class="vistatab__op" role="tab" [class.vistatab__op--on]="vistaActiva() === 'flujo'"
                 (click)="vista.set('flujo')" title="Cómo se está desarrollando el caso">
           <ui-icon name="zap" /> Caso
+        </button>
+        <button class="vistatab__op" role="tab" [class.vistatab__op--on]="vistaActiva() === 'ruta'"
+                (click)="vista.set('ruta')" title="Por qué nodos del flujo pasó el agente, en vivo">
+          <ui-icon name="chip" /> Flujo
         </button>
       </div>
 
@@ -184,6 +188,68 @@
                     <span class="wf__titulo">Conversación completa</span>
                     <p class="wf__fin-txt">{{ chat().length }} mensaje(s) recibidos del agente.</p>
                     <button class="wf__verchat" (click)="vista.set('chat')">Ver el chat →</button>
+                  </div>
+                </li>
+              }
+            </ol>
+          }
+        </div>
+      } @else if (vistaActiva() === 'ruta') {
+        <!-- ===== El recorrido del flujo, nodo a nodo =====
+             Solo el camino que el agente TOMÓ: cada avance es un nodo real
+             del flujo de NL Pearl, y acá se encadenan en el orden en que
+             pasaron. Las ramas que no se tomaron no se dibujan — a dónde
+             PODRÍA ir el caso lo cuenta la vista Caso con sus pendientes. -->
+        <div class="wf">
+          <div class="wf__top">
+            <span class="wf__estado" [class]="'wf__estado wf__estado--' + estadoCaso().clase">
+              <i class="wf__punto"></i> {{ estadoCaso().texto }}
+            </span>
+            @if (hitos().length) {
+              <span class="wf__meta">
+                {{ hitos().length }} nodo(s) · {{ horaCorta(hitos().at(-1)?.occurredAt) }}
+              </span>
+            }
+          </div>
+
+          @if (!hitos().length) {
+            <div class="wf__vacio">
+              <span class="wf__vacio-hex"></span>
+              @if (chat().length) {
+                <!-- Conversación vieja, de antes de que el flujo reportara
+                     avances: no hay recorrido que reconstruir. -->
+                <p>Esta conversación no reportó su recorrido.<br />
+                   Los hilos nuevos lo dibujan acá, nodo por nodo.</p>
+              } @else {
+                <p>Apenas el agente entre al flujo, su recorrido<br />
+                   se va a dibujar acá, nodo por nodo y en vivo.</p>
+              }
+            </div>
+          } @else {
+            <ol class="rt">
+              @for (a of hitos(); track a.paso + (a.occurredAt ?? ''); let i = $index; let ultimo = $last) {
+                <li class="rt__nodo" [class.rt__nodo--escala]="a.paso === 'escalamiento'"
+                    [class.rt__nodo--vivo]="ultimo && !chat().length"
+                    [style.animation-delay.ms]="i * 60">
+                  <span class="rt__hex">
+                    @if (a.paso === 'escalamiento') { ! } @else { {{ i + 1 }} }
+                  </span>
+                  <div class="rt__info">
+                    <span class="rt__nombre">{{ etiquetaPaso(a.paso) }}</span>
+                    <span class="rt__hora">{{ horaCorta(a.occurredAt) }}</span>
+                  </div>
+                  @if (ultimo && !chat().length) {
+                    <span class="rt__vivo"><i></i> en este nodo</span>
+                  }
+                </li>
+              }
+
+              @if (chat().length) {
+                <li class="rt__nodo rt__nodo--fin" [style.animation-delay.ms]="hitos().length * 60">
+                  <span class="rt__hex rt__hex--fin"><ui-icon name="checks" /></span>
+                  <div class="rt__info">
+                    <span class="rt__nombre">Recorrido completo</span>
+                    <span class="rt__hora">La conversación ya está en el chat</span>
                   </div>
                 </li>
               }

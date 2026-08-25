@@ -161,15 +161,17 @@ export class ContactDetailPage implements OnDestroy {
   });
 
   /**
-   * Qué mostrar en el cuerpo del panel: el diagrama del caso o el chat.
+   * Qué mostrar en el cuerpo del panel: el chat, el CASO (qué datos capturó
+   * el flujo) o el FLUJO (por qué nodos pasó el agente, uno tras otro).
    *
-   * `null` = automático: mientras Pearl solo manda avances (la conversación
-   * llega entera al cerrar o escalar), lo único vivo es el CASO y eso es lo
-   * que se muestra; en cuanto hay mensajes, el chat pasa al frente solo. El
-   * tab de la cabecera fija la elección manual, y cambiar de hilo la borra.
+   * `null` = automático: mientras no hay mensajes —la conversación entera
+   * puede tardar en llegar— lo único vivo son los avances, y el recorrido
+   * del flujo es lo que se muestra en lugar del chat vacío; en cuanto hay
+   * mensajes, el chat pasa al frente solo. El tab fija la elección manual,
+   * y cambiar de hilo la borra.
    */
-  readonly vista = signal<'chat' | 'flujo' | null>(null);
-  readonly vistaActiva = computed(() => this.vista() ?? (this.chat().length ? 'chat' : 'flujo'));
+  readonly vista = signal<'chat' | 'flujo' | 'ruta' | null>(null);
+  readonly vistaActiva = computed(() => this.vista() ?? (this.chat().length ? 'chat' : 'ruta'));
 
   /** Estado del caso para la cabecera del diagrama. */
   readonly estadoCaso = computed<{ clase: string; texto: string }>(() => {

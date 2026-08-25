@@ -107,21 +107,21 @@ export class PearlSyncService {
   }
 
   /**
-   * Rescate de cierre.
+   * Trae la conversación por su id — desde el PRIMER avance, no solo al
+   * cierre.
    *
-   * El flujo nos manda avances en vivo (variables, no texto) y NL Pearl
-   * promete el hilo completo al terminar, por el nodo post-conversación. Ese
-   * aviso llega UNA vez y sin reintentos: si se pierde, el caso se queda con
-   * el workflow lleno y el chat vacío para siempre.
+   * El flujo manda avances en vivo (variables, no texto) y NL Pearl promete
+   * el hilo completo al terminar, por un aviso que llega UNA vez y sin
+   * reintentos. Pero el `conversationId` de cada avance ES el callId, así que
+   * pedirla temprano y seguido llena el chat con los turnos que ya existan y,
+   * de paso, cubre el aviso de cierre perdido. Los listados (`/Calls`,
+   * `/Calls/Bulk`) responden cero para esta cuenta; el detalle por id es la
+   * única ruta que entrega.
    *
-   * Acá se cierra ese hueco por el otro lado: el `conversationId` que viene en
-   * cada avance ES el callId de NL Pearl, así que la conversación se puede
-   * pedir por id sin depender del aviso. Los listados (`/Calls`, `/Calls/Bulk`)
-   * responden cero para esta cuenta, pero el detalle por id es otra ruta.
-   *
-   * Si tampoco está, no pasa nada: se reintenta en el siguiente sondeo.
+   * Si todavía no hay turnos, no pasa nada: se reintenta en el siguiente
+   * sondeo (con el throttle de abajo, para no castigar al API).
    */
-  async rescatarCierre(conversationId: string, etiqueta?: string): Promise<number> {
+  async rescatarConversacion(conversationId: string, etiqueta?: string): Promise<number> {
     // Los ids de NL Pearl son ObjectId de 24 hex; los del simulador no, y
     // pedirlos devuelve 400.
     if (!/^[0-9a-f]{24}$/i.test(conversationId)) return 0;
@@ -135,7 +135,7 @@ export class PearlSyncService {
       if (nuevas) {
         this.flowLog.push(
           'sync',
-          `Conversación de ${etiqueta ?? 'un ciudadano'} recuperada al cierre: ${nuevas} mensaje(s)`,
+          `Conversación de ${etiqueta ?? 'un ciudadano'} recuperada del API: ${nuevas} mensaje(s)`,
         );
       }
       return nuevas;

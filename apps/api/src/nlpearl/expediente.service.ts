@@ -178,18 +178,21 @@ export class ExpedienteService {
     const delCaso = reciente?.items ?? [];
 
     /*
-     * El caso tiene avances pero ningún mensaje: o la conversación sigue
-     * abierta (y todavía no hay hilo que traer), o ya cerró y el aviso
-     * post-conversación de NL Pearl se perdió. En el segundo caso el chat se
-     * quedaría vacío para siempre, así que se pide la conversación por su id.
+     * La conversación se pide por su id desde el PRIMER avance, sin esperar
+     * al cierre: el `conversationId` que manda el flujo ES el callId. Si NL
+     * Pearl ya tiene turnos, el hilo se va llenando en vivo; si todavía no,
+     * el intento no cuesta nada y el siguiente sondeo vuelve a probar (el
+     * sync lo limita a uno cada 45 s por conversación).
      *
-     * Se espera un minuto desde el último avance para no pedirla mientras el
-     * ciudadano todavía está escribiendo. No se bloquea la respuesta con el
-     * resultado: si trae mensajes, el siguiente sondeo de la consola los ve.
+     * `viva` mantiene el rescate activo un rato después del último avance
+     * aunque ya haya mensajes: es lo que trae los turnos nuevos de una
+     * conversación abierta y atrapa el cierre si el aviso se pierde. No se
+     * bloquea la respuesta con el resultado: el sondeo siguiente lo ve.
      */
-    if (reciente && !delCaso.some((a) => a.kind === 'call' || a.kind === 'chat')) {
-      const quieto = Date.now() - new Date(reciente.cuando || 0).getTime();
-      if (quieto > 60_000) void this.sync.rescatarCierre(reciente.id, ctx.contact.displayName);
+    if (reciente) {
+      const sinMensajes = !delCaso.some((a) => a.kind === 'call' || a.kind === 'chat');
+      const viva = Date.now() - new Date(reciente.cuando || 0).getTime() < 10 * 60_000;
+      if (sinMensajes || viva) void this.sync.rescatarConversacion(reciente.id, ctx.contact.displayName);
     }
 
     // Lo que el flujo recopiló EN ESA conversación; gana el valor más nuevo.
