@@ -262,10 +262,17 @@ export class WorkersPage {
      * la retícula chica, descartando solo los que de verdad pisan un grande.
      * El margen es 0 — cualquier holgura extra se ve como hueco negro.
      */
+    /*
+     * El orden de llenado es elíptico, no circular: la distancia horizontal
+     * cuenta un 60%, así que el panal crece antes a lo ancho que a lo alto.
+     * Con orden circular salía un bloque casi cuadrado y en pantallas anchas
+     * sobraba media pantalla vacía a cada lado.
+     */
+    const lejania = (p: { x: number; y: number }) => Math.hypot(p.x * 0.6, p.y);
     const libres = espiral(18)
       .map(({ q, r }) => aPixel(q, r, S))
       .filter((p) => nucleo.every((g) => !sePisan({ ...p, r: S }, g)))
-      .sort((a, b) => Math.hypot(a.x, a.y) - Math.hypot(b.x, b.y));
+      .sort((a, b) => lejania(a) - lejania(b));
 
     const ultima = libres[Math.min(resto.length, libres.length) - 1];
     const alcance = ultima ? Math.hypot(ultima.x, ultima.y) || 1 : 1;

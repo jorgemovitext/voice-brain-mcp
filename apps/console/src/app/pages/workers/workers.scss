@@ -19,6 +19,53 @@
   font-size: 0.85rem;
 }
 
+/* Dos bandas: panal a la izquierda, detalle a la derecha. Con el detalle
+   debajo, en pantallas anchas sobraba media pantalla vacía a cada lado del
+   panal. */
+.tablero {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) clamp(300px, 26vw, 420px);
+  gap: clamp(12px, 1.4vw, 22px);
+  align-items: start;
+
+  @media (max-width: 1000px) {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+/* Acompaña el scroll: el panal es alto y el detalle no debe perderse. */
+.lateral {
+  position: sticky;
+  top: 1rem;
+  max-height: calc(100vh - 2rem);
+  overflow-y: auto;
+
+  @media (max-width: 1000px) {
+    position: static;
+    max-height: none;
+  }
+}
+
+.lateral__vacio {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.6rem;
+  text-align: center;
+  padding: 2.4rem 1.4rem;
+  border: 1px dashed var(--border);
+  border-radius: 16px;
+  color: var(--ink-soft);
+  font-size: 0.83rem;
+
+  p { margin: 0; max-width: 26ch; }
+}
+
+.lateral__icono {
+  font-size: 1.6rem;
+  color: var(--border);
+}
+
 /* ===== El panal =====
    Un solo SVG con todo el mosaico: los activos en grande al centro, los
    dormidos chicos alrededor, con la luz apagándose hacia afuera como en la
@@ -76,8 +123,9 @@
   display: block;
   width: 100%;
   /* El viewBox manda la proporción; el tope evita que con pocos agentes un
-     hexágono gigante se coma la pantalla. */
-  max-height: 62vh;
+     hexágono gigante se coma la pantalla. Es alto a propósito: con 62vh el
+     panal se quedaba corto y dejaba franjas vacías a los lados. */
+  max-height: 78vh;
   margin-inline: auto;
 }
 

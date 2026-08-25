@@ -20,6 +20,9 @@
   } @else if (data.value(); as d) {
 
     <!-- ===== El panal ===== -->
+    <!-- Dos bandas: el panal ocupa el ancho y el detalle vive a la derecha.
+         Antes el detalle iba debajo y sobraba muchísimo espacio a los lados. -->
+    <div class="tablero">
     <section class="panal">
       <h2 class="panal__title">
         <span class="panal__pulse"></span>
@@ -96,12 +99,10 @@
         }
       </svg>
 
-      <p class="panal__pie">
-        Tocá un hexágono para ver su flujo. Los encendidos atienden ahora mismo.
-      </p>
+      <p class="panal__pie">Los encendidos atienden ahora mismo.</p>
     </section>
 
-    <!-- ===== Detalle del perfil abierto ===== -->
+      <aside class="lateral">
     @if (selected(); as w) {
       <section class="card detail">
         <div class="detail__head">
@@ -161,6 +162,14 @@
         }
       </section>
     }
+        @if (!selected()) {
+          <div class="lateral__vacio">
+            <span class="lateral__icono">⬢</span>
+            <p>Tocá un hexágono para ver su flujo, sus propiedades y asignarle un canal.</p>
+          </div>
+        }
+      </aside>
+    </div>
 
   }
 
