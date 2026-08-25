@@ -215,19 +215,35 @@
         </div>
       }
 
-      <!-- Composer = nota interna: los agentes conversan; el operador apunta -->
-      <footer class="chat__composer chat__composer--note">
+      <!-- Dos modos: anotar para el equipo o responderle al ciudadano.
+           Responder solo con el hilo tomado, para no tener dos voces
+           contestando a la vez. -->
+      <footer class="chat__composer" [class.chat__composer--note]="modo() === 'nota'">
+        <button class="chat__modo" (click)="alternarModo()" [disabled]="!tomada()"
+                [title]="tomada()
+                  ? (modo() === 'nota' ? 'Cambiar a responderle al ciudadano' : 'Cambiar a nota interna')
+                  : 'Tomá la conversación para poder responder'">
+          @if (modo() === 'nota') { 📝 Nota } @else { 💬 Responder }
+        </button>
         <input
           class="chat__input"
           type="text"
-          placeholder="Nota interna del equipo (el contacto no la ve)…"
+          [placeholder]="modo() === 'nota'
+            ? 'Nota interna del equipo (el contacto no la ve)…'
+            : 'Respuesta al ciudadano (sale por WhatsApp)…'"
           [value]="draft()"
           (input)="onDraft($event)"
           (keydown.enter)="addNote()"
           [disabled]="sending()"
         />
-        <button class="chat__send chat__send--note" (click)="addNote()" [disabled]="sending() || !draft().trim()" title="Guardar nota interna">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M13 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-9"/><path d="m18.4 2.6 2 2L13 12l-3 1 1-3z"/></svg>
+        <button class="chat__send" [class.chat__send--note]="modo() === 'nota'"
+                (click)="addNote()" [disabled]="sending() || !draft().trim()"
+                [title]="modo() === 'nota' ? 'Guardar nota interna' : 'Enviar al ciudadano'">
+          @if (modo() === 'nota') {
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M13 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-9"/><path d="m18.4 2.6 2 2L13 12l-3 1 1-3z"/></svg>
+          } @else {
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m22 2-7 20-4-9-9-4z"/><path d="M22 2 11 13"/></svg>
+          }
         </button>
       </footer>
     </section>

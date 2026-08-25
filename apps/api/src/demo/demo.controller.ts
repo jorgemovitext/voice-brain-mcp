@@ -12,6 +12,10 @@ const triggerSchema = z.object({
 });
 const followupSchema = z.object({ channel: z.enum(['whatsapp', 'sms']).optional() });
 const noteSchema = z.object({ text: z.string().trim().min(1).max(2000) });
+const mensajeSchema = z.object({
+  text: z.string().trim().min(1).max(2000),
+  channel: z.enum(['whatsapp', 'sms']).optional(),
+});
 
 /**
  * Acciones de la consola: correr la demo, disparar llamadas y
@@ -72,5 +76,25 @@ export class DemoController {
     const parsed = followupSchema.safeParse(body ?? {});
     if (!parsed.success) throw new BadRequestException(parsed.error.issues);
     return this.followup.sendFollowup(id, parsed.data.channel);
+  }
+
+  /**
+   * Mensaje libre del operador AL CIUDADANO.
+   *
+   * `FollowupService.sendMessage` ya existía pero nunca se había expuesto,
+   * así que el compositor del chat solo podía dejar notas internas: se
+   * escribía creyendo que se respondía y el mensaje no salía de la app.
+   *
+   * Sale por el proveedor propio (Gupshup), no por NL Pearl: su API no tiene
+   * ningún endpoint para enviar a una conversación. Eso implica que WhatsApp
+   * exige una ventana de 24 h abierta con NUESTRO número — si el ciudadano
+   * nunca nos escribió a él, el proveedor lo rechaza y el motivo se muestra
+   * tal cual en la consola.
+   */
+  @Post('contacts/:id/mensaje')
+  sendMessage(@Param('id') id: string, @Body() body: unknown) {
+    const parsed = mensajeSchema.safeParse(body ?? {});
+    if (!parsed.success) throw new BadRequestException(parsed.error.issues);
+    return this.followup.sendMessage(id, parsed.data.text, parsed.data.channel);
   }
 }

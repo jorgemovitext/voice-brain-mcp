@@ -182,6 +182,20 @@ export class ContactDetailPage implements OnDestroy {
   readonly atencion = computed(() => this.expediente.value()?.atencion ?? null);
   readonly tomada = computed(() => !!this.atencion()?.operador);
 
+  /**
+   * Qué hace el compositor: anotar para el equipo o responderle al ciudadano.
+   *
+   * Arranca en `nota` a propósito. Responder solo tiene sentido con el hilo
+   * TOMADO: si lo atiende el agente y el operador escribe, saldrían dos voces
+   * contestando lo mismo. Al soltar el hilo vuelve solo a `nota`.
+   */
+  readonly modo = signal<'nota' | 'responder'>('nota');
+
+  alternarModo(): void {
+    if (!this.tomada()) return;
+    this.modo.update((m) => (m === 'nota' ? 'responder' : 'nota'));
+  }
+
   /** El ciudadano mandó evidencia fotográfica (la imagen no llega a la app). */
   readonly fotoRecibida = computed(() => !!this.expediente.value()?.fotoRecibida);
 
@@ -236,7 +250,10 @@ export class ContactDetailPage implements OnDestroy {
     if (this.cambiandoAtencion()) return;
     this.cambiandoAtencion.set(true);
     try {
-      await this.api.atenderConversacion(this.id(), !this.tomada());
+      const tomando = !this.tomada();
+      await this.api.atenderConversacion(this.id(), tomando);
+      // Al soltar, el compositor vuelve a nota: el agente retoma el hilo.
+      this.modo.set(tomando ? 'responder' : 'nota');
       this.expediente.reload();
     } finally {
       this.cambiandoAtencion.set(false);
@@ -585,7 +602,8 @@ export class ContactDetailPage implements OnDestroy {
     this.sending.set(true);
     this.sendError.set(null);
     try {
-      await this.api.addNote(this.id(), text);
+      if (this.modo() === 'responder') await this.api.enviarMensaje(this.id(), text);
+      else await this.api.addNote(this.id(), text);
       this.draft.set('');
       this.context.reload();
     } catch (err) {

@@ -97,6 +97,16 @@ export class BrainApiService {
     );
   }
 
+  /** Mensaje libre del operador al ciudadano (sale por el proveedor propio). */
+  enviarMensaje(contactId: string, text: string): Promise<{ message: string; channel: string }> {
+    return firstValueFrom(
+      this.http.post<{ message: string; channel: string }>(
+        `/api/contacts/${contactId}/mensaje`,
+        { text },
+      ),
+    );
+  }
+
   /** Ejecuta una acción sugerida (hoy: crear el ticket en HubSpot). */
   ejecutarAccion(contactId: string, accion: string): Promise<{ id: string; aviso?: string }> {
     return firstValueFrom(
