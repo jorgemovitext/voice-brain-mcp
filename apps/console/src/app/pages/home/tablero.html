@@ -359,7 +359,7 @@
                 <li>
                   <i class="lead__dot" [style.background]="MAL"></i>
                   <a class="lead__txt lead__txt--link" [routerLink]="['/conversations', e.contactId]">
-                    {{ e.displayName || 'Sin nombre' }}
+                    {{ e.displayName || 'Anónimo' }}
                   </a>
                   <b [style.color]="MAL">{{ duracion(e.esperaMin) }}</b>
                 </li>

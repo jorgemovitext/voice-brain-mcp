@@ -132,7 +132,7 @@
               <li>
                 <i class="lead__dot" [style.background]="MAL"></i>
                 <a class="lead__txt lead__txt--link" [routerLink]="['/conversations', t.contactId]">
-                  {{ t.displayName || t.phone || 'Sin nombre' }}
+                  {{ t.displayName || t.phone || 'Anónimo' }}
                 </a>
                 <b [style.color]="MAL">{{ espera(t.waitingMin) }}</b>
               </li>
@@ -151,7 +151,7 @@
               <li>
                 <i class="lead__dot" [style.background]="a.direction === 'outbound' ? OK : colorCanal(a.channel)"></i>
                 <a class="lead__txt lead__txt--link" [routerLink]="['/conversations', a.contactId]">
-                  {{ a.displayName || a.summary || 'Sin nombre' }}
+                  {{ a.displayName || a.summary || 'Anónimo' }}
                 </a>
                 <b>{{ time(a.occurredAt) }}</b>
               </li>

@@ -43,7 +43,7 @@
               </span>
               <span class="thread__body">
                 <span class="thread__top">
-                  <span class="thread__name">{{ c.displayName || 'Sin nombre' }}</span>
+                  <span class="thread__name">{{ c.displayName || 'Anónimo' }}</span>
                   <span class="thread__time">{{ shortTime(c.lastInteraction?.occurredAt) }}</span>
                 </span>
                 <span class="thread__preview">{{ preview(c) }}</span>
@@ -61,7 +61,7 @@
           <a routerLink="/contacts" class="chat__back" title="Volver">‹</a>
         }
         <div class="chat__who">
-          <div class="chat__name">{{ ctx.contact.displayName || 'Sin nombre' }}</div>
+          <div class="chat__name">{{ ctx.contact.displayName || 'Anónimo' }}</div>
           <div class="chat__meta">
             {{ ctx.contact.phones[0] || 'Sin teléfono' }}
             · {{ kycmLabel(ctx.contact.kycmStatus) }}

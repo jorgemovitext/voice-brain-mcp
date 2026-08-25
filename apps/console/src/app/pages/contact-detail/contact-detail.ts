@@ -592,7 +592,7 @@ export class ContactDetailPage implements OnDestroy {
   // ===== Sidebar de conversaciones =====
 
   initialsOf(name?: string): string {
-    return (name ?? '?')
+    return (name || 'Anónimo')
       .split(/\s+/)
       .slice(0, 2)
       .map((w) => w[0]?.toUpperCase() ?? '')

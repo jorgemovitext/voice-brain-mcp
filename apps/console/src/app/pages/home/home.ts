@@ -77,7 +77,7 @@ export class HomePage {
     const esperas: FeedBubble[] = h.esperando.slice(0, 3).map((t) => ({
       contactId: t.contactId,
       side: 'in',
-      title: t.displayName || t.phone || 'Sin nombre',
+      title: t.displayName || t.phone || 'Anónimo',
       text: t.summary || '(sin resumen)',
       when: this.espera(t.waitingMin),
       waiting: true,
