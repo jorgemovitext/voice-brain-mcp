@@ -211,9 +211,13 @@ export class FollowupService {
     const to = ctx.contact.phones[0];
     if (!to) return null;
 
-    const nombre = ctx.contact.displayName?.trim().split(/\s+/)[0] ?? 'buenas';
+    /*
+     * Un solo parámetro: el nombre de quien atiende, tal como quedó
+     * registrada `hive_saludo` en Meta. El orden y la cantidad tienen que
+     * calzar con la plantilla aprobada — Gupshup rechaza el envío si sobran o
+     * faltan valores, no los ignora.
+     */
     return gupshup.sendTemplate(to, gupshup.templateSaludo, [
-      nombre,
       operador?.trim() || 'un operador de la AMDC',
     ]);
   }
