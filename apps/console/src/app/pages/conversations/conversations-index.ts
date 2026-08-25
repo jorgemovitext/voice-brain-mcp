@@ -2,7 +2,7 @@ import { Component, DestroyRef, effect, inject } from '@angular/core';
 import { httpResource } from '@angular/common/http';
 import { Router, RouterLink } from '@angular/router';
 import { BrainApiService } from '../../brain-api.service';
-import { ContactListItem } from '../../models';
+import { ContactListItem, FlujoEnCurso } from '../../models';
 
 /**
  * Índice del módulo Conversaciones (/conversations): abre el hilo con la
@@ -29,8 +29,9 @@ import { ContactListItem } from '../../models';
         <div class="spinner"></div>
         Esperando conversaciones…
         <p>
-          Escribí al número de la Pearl y el hilo aparece acá solo. También podés
-          dar de alta un número en <a routerLink="/integrations">Integraciones</a>.
+          Escribí al número de la Pearl y el hilo aparece acá solo, con su flujo
+          dibujándose en vivo. También podés dar de alta un número en
+          <a routerLink="/integrations">Integraciones</a>.
         </p>
       </div>
     }
@@ -42,15 +43,33 @@ export class ConversationsIndexPage {
   private readonly destroyRef = inject(DestroyRef);
 
   readonly contacts = httpResource<ContactListItem[]>(() => '/api/contacts');
+  /**
+   * Teléfonos con una conversación abierta ahora mismo.
+   *
+   * Una que está abriéndose todavía no tiene NI UN mensaje —el hilo completo
+   * llega al cerrar—, así que ordenar por `lastInteraction` la dejaba
+   * última y el operador entraba a un caso viejo mientras el nuevo corría.
+   */
+  private readonly flujoAbierto = httpResource<FlujoEnCurso[]>(() => '/api/nlpearl/en-curso');
 
   constructor() {
     effect(() => {
       const list = this.contacts.value();
       if (!list?.length) return;
-      // El hilo con la interacción más reciente primero.
-      const [first] = [...list].sort((a, b) =>
-        (b.lastInteraction?.occurredAt ?? '').localeCompare(a.lastInteraction?.occurredAt ?? ''),
-      );
+      const abierto = new Map((this.flujoAbierto.value() ?? []).map((f) => [f.phone, f.lastFlowAt]));
+
+      // Lo más reciente contando mensajes Y avances del flujo.
+      const cuando = (c: ContactListItem) => {
+        const avance = c.phones
+          .map((p) => abierto.get(p.replace(/\D/g, '')))
+          .filter((x): x is string => !!x)
+          .sort()
+          .at(-1) ?? '';
+        const mensaje = c.lastInteraction?.occurredAt ?? '';
+        return avance > mensaje ? avance : mensaje;
+      };
+
+      const [first] = [...list].sort((a, b) => cuando(b).localeCompare(cuando(a)));
       void this.router.navigate(['/conversations', first.id], { replaceUrl: true });
     });
 
@@ -69,6 +88,7 @@ export class ConversationsIndexPage {
       if (document.visibilityState !== 'visible') return;
       void this.api.syncNlpearl().catch(() => undefined);
       this.contacts.reload();
+      this.flujoAbierto.reload();
     }, 4000);
 
     this.destroyRef.onDestroy(() => clearInterval(tick));

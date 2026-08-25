@@ -260,9 +260,13 @@ export class NlpearlWebhookController {
       return { received: true, entregado: false, motivo: 'Falta phone' };
     }
 
-    const texto =
-      `Tu reporte quedó registrado${folio ? ` con el folio ${folio}` : ''}. ` +
-      `Ya se notificó a los equipos correspondientes. Te avisaremos cada vez que haya novedades.`;
+    const texto = NlpearlWebhookController.redactarAviso(p, folio);
+    const etiquetaAviso =
+      {
+        alerta_emergencia: 'Alerta de emergencia',
+        escalamiento_ejecutivo: 'Escalamiento al despacho',
+        ticket_hijo_asignado: 'Aviso de asignación',
+      }[String(p['tipo'] ?? '')] ?? 'Confirmación';
 
     let entregado = false;
     let motivo: string | undefined;
@@ -277,8 +281,8 @@ export class NlpearlWebhookController {
     this.webhookLog.push(
       'nlpearl',
       entregado
-        ? `Confirmación enviada a ${quien}${folio ? ` · folio ${folio}` : ''}`
-        : `Confirmación NO entregada a ${quien}: ${motivo}`,
+        ? `${etiquetaAviso} a ${quien}${folio ? ` · folio ${folio}` : ''}`
+        : `${etiquetaAviso} NO entregado a ${quien}: ${motivo}`,
       entregado,
       { phone, folio },
     );
@@ -432,4 +436,66 @@ export class NlpearlWebhookController {
     }
     return undefined;
   }
+  /**
+   * Qué decir según QUÉ aviso pidió el flujo.
+   *
+   * Los 14 nodos de notificación mandan un `tipo` y, según el caso, el área,
+   * la ubicación y hasta un `mensajeSms` ya redactado — y todo eso se estaba
+   * ignorando: salía el mismo "Tu reporte quedó registrado" para los cuatro
+   * cuerpos de emergencia, para el despacho del alcalde y para el ciudadano.
+   * Los bomberos recibían un acuse de recibo en vez de una alerta.
+   */
+  private static redactarAviso(p: Record<string, unknown>, folio?: string): string {
+    const dato = (k: string) => {
+      const v = p[k];
+      return typeof v === 'string' && v.trim() ? v.trim() : undefined;
+    };
+    const tipo = dato('tipo') ?? '';
+    const area = dato('area');
+    const ubicacion = dato('ubicacion');
+    const problema = dato('tipoProblema');
+    const detalle = dato('descripcion');
+    const conFolio = folio ? ` · Folio ${folio}` : '';
+
+    if (tipo === 'alerta_emergencia') {
+      return [
+        `🚨 EMERGENCIA · Línea 100 AMDC${area ? ` · ${area}` : ''}`,
+        problema,
+        ubicacion ? `Ubicación: ${ubicacion}` : undefined,
+        detalle ? `Detalle: ${detalle}` : undefined,
+        `Reportado por un ciudadano${conFolio}.`,
+      ]
+        .filter(Boolean)
+        .join('\n');
+    }
+
+    if (tipo === 'escalamiento_ejecutivo') {
+      const vinculados = dato('reportesVinculados');
+      return [
+        '⚠️ ESCALAMIENTO EJECUTIVO · Línea 100 AMDC',
+        dato('detalleCompleto') ?? dato('mensajeSms') ?? problema,
+        ubicacion && !dato('detalleCompleto') ? `Ubicación: ${ubicacion}` : undefined,
+        vinculados && vinculados !== '0' ? `${vinculados} reporte(s) del mismo incidente.` : undefined,
+        `Requiere decisión del despacho${conFolio}.`,
+        // El comunicado va como borrador, nunca como algo ya publicado: lo
+        // autoriza una persona.
+        dato('comunicadoBorrador') ? `\nBorrador de comunicado:\n${dato('comunicadoBorrador')}` : undefined,
+      ]
+        .filter(Boolean)
+        .join('\n');
+    }
+
+    if (tipo === 'ticket_hijo_asignado') {
+      return [
+        `Tu reporte fue asignado a ${area ?? 'la gerencia correspondiente'}${conFolio}.`,
+        'Te avisamos cada vez que haya novedades.',
+      ].join(' ');
+    }
+
+    return (
+      `Tu reporte quedó registrado${folio ? ` con el folio ${folio}` : ''}. ` +
+      'Ya se notificó a los equipos correspondientes. Te avisaremos cada vez que haya novedades.'
+    );
+  }
+
 }

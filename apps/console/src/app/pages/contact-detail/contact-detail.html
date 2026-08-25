@@ -44,9 +44,15 @@
               <span class="thread__body">
                 <span class="thread__top">
                   <span class="thread__name">{{ c.displayName || 'Anónimo' }}</span>
-                  <span class="thread__time">{{ shortTime(c.lastInteraction?.occurredAt) }}</span>
+                  <span class="thread__time">{{ shortTime(c.enCurso ? c.cuando : c.lastInteraction?.occurredAt) }}</span>
                 </span>
-                <span class="thread__preview">{{ preview(c) }}</span>
+                <!-- Conversación abriéndose: todavía no hay mensajes que
+                     previsualizar, pero es lo más urgente de la lista. -->
+                @if (c.enCurso) {
+                  <span class="thread__vivo"><i></i> Conversando ahora</span>
+                } @else {
+                  <span class="thread__preview">{{ preview(c) }}</span>
+                }
               </span>
             </a>
           }

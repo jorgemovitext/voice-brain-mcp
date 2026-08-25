@@ -85,6 +85,32 @@ export class PearlSyncController {
       .sort((a, b) => (a.occurredAt ?? '').localeCompare(b.occurredAt ?? ''));
   }
 
+  /**
+   * Qué teléfonos tienen una conversación abierta ahora mismo, con la hora de
+   * su último avance.
+   *
+   * Existe porque una conversación recién abierta no tiene NI UN mensaje —el
+   * hilo completo llega al cerrar—, así que el listado de la consola, que
+   * ordena por el último mensaje, la mandaba al fondo justo cuando era lo más
+   * urgente de la pantalla. Con esto la sube y la marca en curso.
+   *
+   * Va acá y no en `/api/contacts` porque los avances viven en este módulo,
+   * y BrainModule no puede importarlo sin cerrar un ciclo (NlpearlModule ya
+   * importa BrainModule).
+   */
+  @Get('en-curso')
+  async enCurso(): Promise<Array<{ phone: string; lastFlowAt: string }>> {
+    const avances = await this.store.listActivity({ kind: 'progress', limit: 400 });
+    const ultimo = new Map<string, string>();
+    for (const a of avances) {
+      const tel = (a.phone ?? '').replace(/\D/g, '');
+      if (!tel || !a.occurredAt) continue;
+      const previo = ultimo.get(tel);
+      if (!previo || a.occurredAt > previo) ultimo.set(tel, a.occurredAt);
+    }
+    return [...ultimo].map(([phone, lastFlowAt]) => ({ phone, lastFlowAt }));
+  }
+
   @Get('activity')
   activity(
     @Query('pearlId') pearlId?: string,

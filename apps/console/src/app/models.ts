@@ -57,6 +57,12 @@ export interface ContactListItem extends Contact {
   activePromise?: Signal;
 }
 
+/** Teléfono con una conversación abierta: GET /api/nlpearl/en-curso. */
+export interface FlujoEnCurso {
+  phone: string;
+  lastFlowAt: string;
+}
+
 export interface FlowStep {
   at: string;
   step: string;

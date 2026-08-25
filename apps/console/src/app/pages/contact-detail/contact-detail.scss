@@ -1765,3 +1765,26 @@ $overlap: 44px;
     animation: none;
   }
 }
+
+/* Un hilo que está abriéndose: sin mensajes que previsualizar, pero es lo que
+   hay que mirar. Ocupa el renglón de la vista previa. */
+.thread__vivo {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.72rem;
+  font-weight: 800;
+  color: var(--secondary);
+
+  i {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--secondary);
+    animation: wf-beat 1.8s ease-out infinite;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .thread__vivo i { animation: none; }
+}

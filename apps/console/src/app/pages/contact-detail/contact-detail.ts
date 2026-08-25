@@ -23,6 +23,7 @@ import {
   AccionSugerida,
   Expediente,
   ContactListItem,
+  FlujoEnCurso,
   Interaction,
   Sentiment,
   Signal as BrainSignal,
@@ -98,6 +99,18 @@ export class ContactDetailPage implements OnDestroy {
   /** Lista de hilos del sidebar; solo se pide en el módulo de Conversaciones. */
   readonly conversations = httpResource<ContactListItem[]>(() =>
     this.withThreads() ? '/api/contacts' : undefined,
+  );
+
+  /**
+   * Teléfonos con conversación abierta, para ordenar y marcar el sidebar. Un
+   * hilo que está abriéndose no tiene mensajes y sin esto caía al fondo.
+   */
+  private readonly flujoAbierto = httpResource<FlujoEnCurso[]>(() =>
+    this.withThreads() ? '/api/nlpearl/en-curso' : undefined,
+  );
+
+  private readonly enCurso = computed(
+    () => new Map((this.flujoAbierto.value() ?? []).map((f) => [f.phone, f.lastFlowAt])),
   );
 
   /**
@@ -560,11 +573,31 @@ export class ContactDetailPage implements OnDestroy {
    * porque alguien lo acaba de responder. `lastInteraction` no distingue
    * dirección a propósito — un envío nuestro también cuenta como actividad.
    */
-  readonly hilos = computed(() =>
-    [...(this.conversations.value() ?? [])].sort((a, b) =>
-      (b.lastInteraction?.occurredAt ?? '').localeCompare(a.lastInteraction?.occurredAt ?? ''),
-    ),
-  );
+  /**
+   * Los hilos, del más reciente al más viejo — contando TAMBIÉN los avances
+   * del flujo. Ordenar solo por el último mensaje mandaba al fondo la
+   * conversación que estaba abriéndose en ese momento, que es justo la que
+   * hay que mirar.
+   */
+  readonly hilos = computed(() => {
+    const flujo = this.enCurso();
+    return [...(this.conversations.value() ?? [])]
+      .map((c) => {
+        const ultimoAvance = c.phones
+          .map((p) => flujo.get(p.replace(/\D/g, '')))
+          .filter((x): x is string => !!x)
+          .sort()
+          .at(-1);
+        const mensaje = c.lastInteraction?.occurredAt ?? '';
+        return {
+          ...c,
+          // El agente está conversando y todavía no hay hilo que mostrar.
+          enCurso: !!ultimoAvance && ultimoAvance > mensaje,
+          cuando: (ultimoAvance ?? '') > mensaje ? (ultimoAvance ?? '') : mensaje,
+        };
+      })
+      .sort((a, b) => b.cuando.localeCompare(a.cuando));
+  });
   readonly sentimentClass = sentimentClass;
   readonly sentimentLabel = sentimentLabel;
   readonly kycmLabel = kycmLabel;
