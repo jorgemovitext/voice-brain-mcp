@@ -100,6 +100,46 @@
         </div>
       </section>
 
+      <!-- Estado de los proveedores. Va acá porque una credencial que falta
+           se ve en el registro como un silencio que no se explica solo. -->
+      <section class="sec">
+        <span class="sec__head">Conexiones</span>
+        <ul class="lead">
+          @for (c of conexiones.value() ?? []; track c.id) {
+            <li>
+              <i class="lead__dot" [style.background]="c.connected ? OK : MAL"></i>
+              <span class="lead__txt">{{ c.name }}</span>
+              <b [style.color]="c.connected ? OK : MAL">{{ c.connected ? 'lista' : 'incompleta' }}</b>
+            </li>
+            @for (d of detalles(c); track d.k) {
+              <li class="lead__sub"><span class="lead__txt">{{ d.k }}</span><em>{{ d.v }}</em></li>
+            }
+          }
+        </ul>
+
+        <!-- La plantilla no se puede probar por el camino real: ese depende de
+             que Gupshup rechace por ventana cerrada, y eso no se provoca a
+             voluntad. Acá se manda sola. -->
+        <div class="prueba">
+          <span class="prueba__tit">Probar la plantilla de saludo</span>
+          <div class="prueba__fila">
+            <input class="prueba__campo" type="tel" inputmode="tel" placeholder="+50497616546"
+                   [value]="numeroPrueba()" (input)="escribirNumero($event)" />
+            <button class="ctrl ctrl--btn" (click)="probarPlantilla()"
+                    [disabled]="probando() || !numeroPrueba().trim()">
+              {{ probando() ? 'Enviando…' : 'Enviar' }}
+            </button>
+          </div>
+          <span class="prueba__pie">
+            Manda un WhatsApp real, con tu nombre en la variable de la plantilla, y consume
+            saldo del proveedor.
+          </span>
+          @if (resultadoPrueba(); as r) {
+            <span class="prueba__res">{{ r }}</span>
+          }
+        </div>
+      </section>
+
       <section class="sec">
         <span class="sec__head">Por dónde entra</span>
         @if (!canales().length) {

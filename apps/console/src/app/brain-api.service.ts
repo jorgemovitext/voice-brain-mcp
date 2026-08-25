@@ -73,6 +73,20 @@ export class BrainApiService {
    * ingeridos con un mapeo viejo (p. ej. respuestas del agente atribuidas al
    * cliente); la API de NL Pearl no permite releerlos, así que esta es la vía.
    */
+  /**
+   * Manda la plantilla de saludo aprobada a un número. OJO: es un WhatsApp
+   * real y consume saldo del proveedor.
+   */
+  probarPlantilla(to: string, nombre: string): Promise<{ ok: boolean; error?: string }> {
+    return firstValueFrom(
+      this.http.post<{ ok: boolean; error?: string }>('/api/integrations/whatsapp/test', {
+        to,
+        nombre,
+        plantilla: true,
+      }),
+    );
+  }
+
   reprocessChats(): Promise<{ conversaciones: number; mensajes: number }> {
     return firstValueFrom(
       this.http.post<{ conversaciones: number; mensajes: number }>('/api/nlpearl/reprocess', {}),

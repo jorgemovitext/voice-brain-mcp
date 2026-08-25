@@ -414,3 +414,58 @@ a.sec__head:hover { color: var(--d-primario); }
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+
+/* Sub-línea de un detalle de conexión: cuelga del proveedor de arriba. */
+.lead__sub {
+  padding-left: 1.1rem;
+  font-size: 0.72rem;
+  color: var(--ink-soft);
+
+  em { font-style: normal; }
+}
+
+/* Prueba de la plantilla. Manda un mensaje real, así que se ve como una
+   acción con consecuencia y no como un control más del riel. */
+.prueba {
+  margin-top: 0.7rem;
+  padding-top: 0.7rem;
+  border-top: 1px dashed var(--border);
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.prueba__tit {
+  font-size: 0.7rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--ink-soft);
+}
+
+.prueba__fila {
+  display: flex;
+  gap: 0.4rem;
+}
+
+.prueba__campo {
+  flex: 1;
+  min-width: 0;
+  font: inherit;
+  font-size: 0.78rem;
+  color: var(--ink);
+  background: var(--panel-2);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 0.3rem 0.6rem;
+
+  &:focus-visible { outline: none; border-color: var(--secondary); }
+}
+
+.prueba__pie { font-size: 0.68rem; color: var(--ink-soft); }
+.prueba__res {
+  font-size: 0.74rem;
+  font-weight: 700;
+  color: var(--ink);
+  overflow-wrap: anywhere;
+}

@@ -1,7 +1,9 @@
 import { ChangeDetectionStrategy, Component, DestroyRef, computed, inject, signal } from '@angular/core';
 import { httpResource } from '@angular/common/http';
 import { RouterLink } from '@angular/router';
-import { Channel, HiveStatus, WebhookEvent } from '../../models';
+import { AuthService } from '../../auth/auth.service';
+import { BrainApiService } from '../../brain-api.service';
+import { Channel, HiveStatus, Integracion, WebhookEvent } from '../../models';
 import { crearSondeo } from '../../sondeo';
 import { channelColor, channelLabel } from '../../ui';
 
@@ -40,8 +42,55 @@ const NEUTRO = 'rgba(255,255,255,0.10)';
 export class IntegrationsPage {
   private readonly destroyRef = inject(DestroyRef);
 
+  private readonly api = inject(BrainApiService);
+  private readonly auth = inject(AuthService);
+
   readonly hive = httpResource<HiveStatus>(() => '/api/hive');
   readonly activity = httpResource<WebhookEvent[]>(() => '/api/integrations/activity');
+  /*
+   * La configuración de proveedores salió de esta vista a propósito, pero el
+   * ESTADO sí es actividad: si una credencial falta, lo que se ve en el
+   * registro es un silencio que no se explica solo. Va compacto y sin
+   * secretos — el gateway nunca los devuelve.
+   */
+  readonly conexiones = httpResource<Integracion[]>(() => '/api/integrations');
+
+  /** Prueba de la plantilla de saludo: manda un WhatsApp real. */
+  readonly numeroPrueba = signal('');
+  readonly probando = signal(false);
+  readonly resultadoPrueba = signal<string | null>(null);
+
+  async probarPlantilla(): Promise<void> {
+    const to = this.numeroPrueba().trim();
+    if (!to || this.probando()) return;
+    this.probando.set(true);
+    this.resultadoPrueba.set(null);
+    try {
+      // {{1}} es el nombre de quien atiende: el mismo que saldría de verdad.
+      const quien = this.auth.user()?.name?.trim() || 'un operador de la AMDC';
+      const r = await this.api.probarPlantilla(to, quien);
+      this.resultadoPrueba.set(r.ok ? 'Plantilla aceptada por Gupshup.' : (r.error ?? 'Rechazada.'));
+    } catch (e) {
+      this.resultadoPrueba.set((e as Error).message);
+    } finally {
+      this.probando.set(false);
+      this.activity.reload();
+    }
+  }
+
+  escribirNumero(event: Event): void {
+    this.numeroPrueba.set((event.target as HTMLInputElement).value);
+  }
+
+  /**
+   * Solo los detalles que cambian de estado: URLs y nombres fijos no aportan
+   * nada acá y alargarían el riel sin decir nada nuevo.
+   */
+  detalles(c: Integracion): Array<{ k: string; v: string }> {
+    return Object.entries(c.details ?? {})
+      .filter(([, v]) => /configurad|falta|sin |validad/i.test(String(v)))
+      .map(([k, v]) => ({ k, v: String(v) }));
+  }
 
   /** null = todos los orígenes. */
   readonly fuente = signal<string | null>(null);

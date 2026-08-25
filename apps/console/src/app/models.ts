@@ -303,3 +303,14 @@ export interface Expediente {
   atencion: Atencion;
   acciones: AccionSugerida[];
 }
+
+/** Estado de un proveedor conectado, tal como lo reporta el gateway. */
+export interface Integracion {
+  id: string;
+  name: string;
+  kind: string;
+  connected: boolean;
+  mode: string;
+  missing: string[];
+  details: Record<string, string>;
+}

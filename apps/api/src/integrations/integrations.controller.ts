@@ -11,6 +11,13 @@ const whatsappTestSchema = z.object({
     .trim()
     .regex(/^\+?[1-9]\d{6,14}$/, 'Teléfono en formato E.164, por ejemplo +50497616546'),
   text: z.string().trim().min(1).max(1000).default('Prueba de conexión desde el gateway'),
+  /**
+   * Manda la plantilla aprobada en vez de texto libre. Es la única forma de
+   * probarla sin esperar a que un envío real choque con la ventana de 24 h.
+   */
+  plantilla: z.coerce.boolean().default(false),
+  /** Valor de {{1}}: el nombre de quien atiende. */
+  nombre: z.string().trim().min(1).max(60).default('un operador de la AMDC'),
 });
 
 @Controller('api/integrations')
@@ -32,11 +39,13 @@ export class IntegrationsController {
   async testWhatsapp(@Body() body: unknown) {
     const parsed = whatsappTestSchema.safeParse(body ?? {});
     if (!parsed.success) throw new BadRequestException(parsed.error.issues);
-    const { to, text } = parsed.data;
+    const { to, text, plantilla, nombre } = parsed.data;
 
     if (this.integrations.whatsappProvider() !== 'gupshup') {
       return { ok: false, error: 'El proveedor activo no es Gupshup; revisá las variables.' };
     }
+
+    if (plantilla) return this.probarPlantilla(to, nombre);
 
     const { status, data, sent } = await this.gupshup.postMessage(to, text);
     const estado = String(data?.status ?? '').toLowerCase();
@@ -50,6 +59,34 @@ export class IntegrationsController {
       // Lo que se envió realmente: útil para comparar con el curl que funciona.
       enviado: { ...sent, apikey: '(oculta)' },
     };
+  }
+
+  /**
+   * Manda la plantilla de saludo tal como saldría de verdad: mismo id y mismo
+   * único parámetro que usa `FollowupService.abrirConPlantilla`.
+   *
+   * Se prueba aparte porque el camino real depende de que Gupshup rechace por
+   * ventana cerrada, y ese rechazo no se puede provocar a voluntad. Acá se
+   * comprueba la plantilla sola: si el id o la cantidad de variables están
+   * mal, se ve el motivo del proveedor sin adivinar.
+   */
+  private async probarPlantilla(to: string, nombre: string) {
+    if (!this.gupshup.templateSaludo) {
+      return {
+        ok: false,
+        error: 'Falta GUPSHUP_TEMPLATE_SALUDO. Sin el id de la plantilla no se puede iniciar conversación.',
+      };
+    }
+
+    try {
+      const res = await this.gupshup.sendTemplate(to, this.gupshup.templateSaludo, [nombre]);
+      this.webhookLog.push('saliente', `Prueba de plantilla a ${to}: aceptada`, true, res);
+      return { ok: true, plantilla: true, respuesta: res };
+    } catch (err) {
+      const motivo = (err as Error).message;
+      this.webhookLog.push('saliente', `Prueba de plantilla a ${to}: rechazada — ${motivo}`, false);
+      return { ok: false, plantilla: true, error: motivo };
+    }
   }
 
   /** Estado de las integraciones para la consola (nunca devuelve secretos). */
