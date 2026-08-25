@@ -25,6 +25,9 @@ export class GupshupAdapter implements ChannelPort {
   private readonly logger = new Logger('Gupshup');
 
   private readonly apiUrl: string;
+  private readonly templateUrl: string;
+  /** Id de la plantilla de saludo aprobada en Meta (vacío = sin configurar). */
+  readonly templateSaludo: string;
   private readonly apiKey: string;
   private readonly appName: string;
   private readonly source: string;
@@ -35,6 +38,10 @@ export class GupshupAdapter implements ChannelPort {
     config: ConfigService,
   ) {
     this.apiUrl = config.get<string>('GUPSHUP_API_URL', 'https://api.gupshup.io/wa/api/v1/msg');
+    // Las plantillas van por otra ruta; se deriva de la base para no pedir
+    // una variable de entorno más.
+    this.templateUrl = this.apiUrl.replace(/\/msg$/, '/template/msg');
+    this.templateSaludo = config.get<string>('GUPSHUP_TEMPLATE_SALUDO', '');
     this.apiKey = config.get<string>('GUPSHUP_API_KEY', '');
     this.appName = config.get<string>('GUPSHUP_APP_NAME', '');
     this.source = config.get<string>('GUPSHUP_SOURCE_NUMBER', '').replace(/^\+/, '');
@@ -64,6 +71,56 @@ export class GupshupAdapter implements ChannelPort {
 
     this.logger.log(`→ WhatsApp (Gupshup) a ${to} — ${estado} ${data?.messageId ?? ''}`);
     return { delivered: true, providerId: data?.messageId };
+  }
+
+  /**
+   * Abre la conversación con una plantilla aprobada.
+   *
+   * Es el ÚNICO camino cuando el ciudadano nunca le escribió a nuestro
+   * número: WhatsApp solo deja mandar texto libre dentro de la ventana de
+   * 24 h que abre un mensaje entrante, y acá el ciudadano le escribió al
+   * número de NL Pearl, no al nuestro. La plantilla se salta esa regla
+   * porque Meta ya aprobó el texto.
+   *
+   * Endpoint distinto al de texto libre: `/template/msg`, con el `template`
+   * como JSON `{id, params}` y los valores en el orden de las variables.
+   */
+  async sendTemplate(
+    to: string,
+    templateId: string,
+    params: string[],
+  ): Promise<{ delivered: boolean; providerId?: string }> {
+    const body = new URLSearchParams({
+      channel: 'whatsapp',
+      source: this.source,
+      destination: to.replace(/^\+/, ''),
+      'src.name': this.appName,
+      template: JSON.stringify({ id: templateId, params }),
+    });
+
+    const res = await firstValueFrom(
+      this.http.post<GupshupResponse>(this.templateUrl, body.toString(), {
+        headers: {
+          apikey: this.apiKey,
+          'Content-Type': 'application/x-www-form-urlencoded',
+          'Cache-Control': 'no-cache',
+        },
+        timeout: 15_000,
+        validateStatus: () => true,
+      }),
+    ).catch((err) => {
+      throw new ServiceUnavailableException(`Gupshup no respondió: ${(err as Error).message}`);
+    });
+
+    const estado = String(res.data?.status ?? '').toLowerCase();
+    if (res.status >= 400 || !['submitted', 'success', 'sent', 'queued'].includes(estado)) {
+      const detalle = this.describeError(res.status, res.data ?? {});
+      this.logger.warn(`Gupshup rechazó la plantilla a ${to}: ${detalle}`);
+      throw new ServiceUnavailableException(`Gupshup (plantilla): ${detalle}`);
+    }
+
+    this.logger.log(`→ WhatsApp (plantilla) a ${to} — ${estado} ${res.data?.messageId ?? ''}`);
+    return { delivered: true, providerId: res.data?.messageId };
   }
 
   /** POST crudo: devuelve status y body sin interpretar (para diagnóstico). */

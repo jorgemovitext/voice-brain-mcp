@@ -1,4 +1,5 @@
 import { Module } from '@nestjs/common';
+import { AuthModule } from '../auth/auth.module';
 import { BrainModule } from '../brain/brain.module';
 import { ChannelsModule } from '../channels/channels.module';
 import { NlpearlModule } from '../nlpearl/nlpearl.module';
@@ -7,7 +8,7 @@ import { DemoSeeder } from './demo.seeder';
 import { DemoService } from './demo.service';
 
 @Module({
-  imports: [BrainModule, ChannelsModule, NlpearlModule],
+  imports: [BrainModule, ChannelsModule, NlpearlModule, AuthModule],
   controllers: [DemoController],
   providers: [DemoService, DemoSeeder],
 })

@@ -1,6 +1,7 @@
 import { BadRequestException, Body, Controller, Get, Param, Post, Req } from '@nestjs/common';
 import { FastifyRequest } from 'fastify';
 import { z } from 'zod';
+import { AuthService } from '../auth/auth.service';
 import { BrainService } from '../brain/brain.service';
 import { FollowupService } from '../channels/followup.service';
 import { DemoService } from './demo.service';
@@ -27,6 +28,7 @@ export class DemoController {
     private readonly demo: DemoService,
     private readonly followup: FollowupService,
     private readonly brain: BrainService,
+    private readonly auth: AuthService,
   ) {}
 
   @Post('demo/run')
@@ -92,9 +94,23 @@ export class DemoController {
    * tal cual en la consola.
    */
   @Post('contacts/:id/mensaje')
-  sendMessage(@Param('id') id: string, @Body() body: unknown) {
+  async sendMessage(
+    @Param('id') id: string,
+    @Body() body: unknown,
+    @Req() req: FastifyRequest & { user?: { sub?: string; username?: string } },
+  ) {
     const parsed = mensajeSchema.safeParse(body ?? {});
     if (!parsed.success) throw new BadRequestException(parsed.error.issues);
-    return this.followup.sendMessage(id, parsed.data.text, parsed.data.channel);
+
+    // El nombre real del operador va a la plantilla de apertura: el saludo
+    // tiene que sonar a una persona, no a un aviso automático.
+    let operador = req.user?.username;
+    if (req.user?.sub) {
+      operador = await this.auth
+        .me(req.user.sub)
+        .then((u) => u.name?.trim() || u.username?.trim() || operador)
+        .catch(() => operador);
+    }
+    return this.followup.sendMessage(id, parsed.data.text, parsed.data.channel, operador);
   }
 }

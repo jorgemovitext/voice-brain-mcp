@@ -2,6 +2,7 @@ import { Inject, Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { BrainService } from '../brain/brain.service';
 import { Interaction } from '../brain/types';
+import type { GupshupAdapter } from '../integrations/whatsapp/gupshup.adapter';
 import { ChannelPort, SMS_CHANNEL, WHATSAPP_CHANNEL } from '../ports/channel.port';
 import { FlowLogService } from '../shared/flow-log.service';
 
@@ -155,10 +156,28 @@ export class FollowupService {
     contactId: string,
     text: string,
     channel?: 'whatsapp' | 'sms',
-  ): Promise<{ message: string; channel: string }> {
+    /** Nombre real del operador, para la plantilla de apertura. */
+    operador?: string,
+  ): Promise<{ message: string; channel: string; abrioConPlantilla?: boolean }> {
     const target = channel ?? this.defaultChannel;
     const port = target === 'sms' ? this.sms : this.whatsapp;
-    const result = await port.send(contactId, text);
+
+    let abrioConPlantilla = false;
+    let result: { delivered: boolean; providerId?: string };
+    try {
+      result = await port.send(contactId, text);
+    } catch (err) {
+      /*
+       * Ventana de 24 h cerrada: el ciudadano le escribió al número de NL
+       * Pearl, no al nuestro, así que WhatsApp no deja texto libre. Se abre
+       * con la plantilla aprobada —que sí puede iniciar— y el operador
+       * reenvía su mensaje cuando el ciudadano conteste.
+       */
+      const plantilla = await this.abrirConPlantilla(contactId, target, err, operador);
+      if (!plantilla) throw err;
+      result = plantilla;
+      abrioConPlantilla = true;
+    }
 
     await this.brain.appendInteraction({
       contactId,
@@ -169,6 +188,33 @@ export class FollowupService {
       source: 'own',
       collectedInfo: { providerId: result.providerId },
     });
-    return { message: text, channel: target };
+    return { message: text, channel: target, abrioConPlantilla };
+  }
+
+  /**
+   * Intenta abrir la conversación con la plantilla de saludo. Devuelve null
+   * si no aplica —otro error, otro canal, o sin plantilla configurada— para
+   * que el llamador propague el fallo original en vez de enmascararlo.
+   */
+  private async abrirConPlantilla(
+    contactId: string,
+    target: 'whatsapp' | 'sms',
+    err: unknown,
+    operador?: string,
+  ): Promise<{ delivered: boolean; providerId?: string } | null> {
+    const gupshup = this.whatsapp as Partial<GupshupAdapter>;
+    const esVentana = /sesión abierta|session|24|window|opt.?in/i.test((err as Error).message ?? '');
+    if (target !== 'whatsapp' || !esVentana) return null;
+    if (typeof gupshup.sendTemplate !== 'function' || !gupshup.templateSaludo) return null;
+
+    const ctx = await this.brain.getContext({ contactId });
+    const to = ctx.contact.phones[0];
+    if (!to) return null;
+
+    const nombre = ctx.contact.displayName?.trim().split(/\s+/)[0] ?? 'buenas';
+    return gupshup.sendTemplate(to, gupshup.templateSaludo, [
+      nombre,
+      operador?.trim() || 'un operador de la AMDC',
+    ]);
   }
 }
