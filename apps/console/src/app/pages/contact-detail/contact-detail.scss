@@ -943,12 +943,12 @@ $overlap: 44px;
    los agentes en toda la app (rail, login, panal de Agentes). Reusa el
    clipPath global `#hexCell` de app.html. */
 .msg__avatar {
-  width: 32px;
-  height: 32px;
+  width: 30px;
+  height: 30px;
   flex-shrink: 0;
   display: grid;
   place-items: center;
-  clip-path: url(#hexCell);
+  border-radius: 50%;
   background: linear-gradient(135deg, var(--secondary), #0077b3);
   color: #fff;
   font-size: 0.68rem;
