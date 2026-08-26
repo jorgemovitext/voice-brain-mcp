@@ -29,13 +29,6 @@ export class AtencionService {
     return (await this.settings.get<Atencion>(clave(contactId))) ?? { operador: null };
   }
 
-  /** Varias de una: el listado de conversaciones las necesita todas juntas. */
-  async deVarios(contactIds: string[]): Promise<Map<string, Atencion>> {
-    const pares = await Promise.all(
-      contactIds.map(async (id) => [id, await this.de(id)] as const),
-    );
-    return new Map(pares.filter(([, a]) => a.operador));
-  }
 
   async tomar(contactId: string, operador: string): Promise<Atencion> {
     const estado: Atencion = { operador, desde: new Date().toISOString() };

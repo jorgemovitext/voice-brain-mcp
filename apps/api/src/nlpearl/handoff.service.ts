@@ -73,8 +73,4 @@ export class HandoffService {
     this.logger.log(`Handoff entregado al flujo (lo pidió ${p.operador})`);
     return true;
   }
-
-  async cancelar(conversationId: string): Promise<void> {
-    await this.settings.set(clave(conversationId), { operador: '', pedidoAt: '', entregadoAt: '' });
-  }
 }
