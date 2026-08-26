@@ -72,6 +72,26 @@ export class PearlSyncController {
       kind: 'progress',
       limit: limit ? Number(limit) : 50,
     });
+
+    /*
+     * De paso, se intenta traer la conversación de NL Pearl.
+     *
+     * Antes esto colgaba del expediente, que la consola recarga cada SEIS
+     * vueltas del sondeo: una conversación cerrada podía tardar dos minutos
+     * en aparecer. Este endpoint se pide en CADA vuelta, así que es el lugar
+     * correcto — el gasto real lo limita el propio rescate, que no vuelve a
+     * preguntar por la misma conversación antes de su ventana.
+     *
+     * No se espera el resultado: la respuesta de esta petición son los
+     * avances, y el hilo lo trae el sondeo siguiente.
+     */
+    const ultima = [...eventos]
+      .sort((a, b) => (a.occurredAt ?? '').localeCompare(b.occurredAt ?? ''))
+      .map((e) => ((e.raw ?? {}) as { conversationId?: string }).conversationId)
+      .filter((x): x is string => !!x)
+      .at(-1);
+    if (ultima) void this.sync.rescatarConversacion(ultima);
+
     return eventos
       .map((e) => {
         const raw = (e.raw ?? {}) as { conversationId?: string; paso?: string; datos?: Record<string, unknown> };

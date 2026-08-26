@@ -56,7 +56,14 @@ export class PearlSyncService {
   private static readonly LIVE_INTERVAL_MS = 8_000;
   /** Último intento de rescate por conversación, para no pedir en cada sondeo. */
   private readonly rescates = new Map<string, number>();
-  private static readonly RESCATE_MS = 45_000;
+  /*
+   * 15 s y no 45: con el sondeo rápido pidiendo esto en cada vuelta, la
+   * ventana es lo único que decide cuánto tarda en aparecer una conversación
+   * recién cerrada. Cuarenta y cinco segundos se sentían como que la app no
+   * se había enterado. El costo es una consulta por conversación abierta cada
+   * 15 s, que para una línea con pocas conversaciones simultáneas es nada.
+   */
+  private static readonly RESCATE_MS = 15_000;
 
   constructor(
     private readonly client: NlpearlClient,

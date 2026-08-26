@@ -695,6 +695,22 @@ export class ContactDetailPage implements OnDestroy {
       this.vista.set(null);
     });
 
+    /*
+     * Y cuando por fin LLEGA la conversación, pasa al frente sola.
+     *
+     * Mientras el caso corre, lo único que se puede mostrar es el flujo. El
+     * momento en que NL Pearl entrega los mensajes es el momento en que hay
+     * algo mejor que mirar, y obligar a buscar el tab de Chat para verlo es
+     * pedirle al operador que adivine cuándo pasó. Se suelta la elección
+     * manual: el automático ya lleva al chat.
+     */
+    let teniaMensajes = false;
+    effect(() => {
+      const hay = this.mensajesDelCaso().length > 0;
+      if (hay && !teniaMensajes) this.vista.set(null);
+      teniaMensajes = hay;
+    });
+
     // Al alternar de conversación se resetea el estado de llamada/composer,
     // y la elección Chat/Caso vuelve al automático del hilo nuevo.
     effect(() => {
@@ -888,6 +904,15 @@ export class ContactDetailPage implements OnDestroy {
         // La línea de tiempo va al mismo ritmo que el hilo: su URL ya no
         // cambia sola, así que sin esto se quedaría congelada.
         this.progreso.reload();
+        /*
+         * Quién está conversando AHORA, en cada vuelta.
+         *
+         * Se pedía una sola vez al abrir la vista y quedaba congelado: una
+         * conversación que arrancaba mientras mirabas otro hilo no se marcaba
+         * nunca. Es una lectura de nuestra propia base, no del API de NL
+         * Pearl, así que preguntarlo seguido no cuesta nada.
+         */
+        if (this.withThreads()) this.flujoAbierto.reload();
         // La lista de hilos cambia menos: se refresca cada 3 vueltas.
         if (++vuelta % 3 === 0 && this.withThreads()) this.conversations.reload();
         // El expediente consulta el CRM: se refresca aún más espaciado.
