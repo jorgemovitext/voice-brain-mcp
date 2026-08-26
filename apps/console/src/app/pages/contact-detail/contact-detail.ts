@@ -189,12 +189,31 @@ export class ContactDetailPage implements OnDestroy {
    *
    * El vínculo es el id: la ingesta guarda cada turno como
    * `nlpearl:{conversationId}:{n}`.
+   *
+   * Pero el caso no termina donde termina la conversación del agente. Cuando
+   * un operador toma el hilo, lo que sigue —el saludo por plantilla y las
+   * respuestas del ciudadano— lo escribimos NOSOTROS, sin ese prefijo: el
+   * Brain les pone un id propio. Filtrar solo por prefijo los borraba de la
+   * pantalla, y por eso una respuesta que sí había entrado no aparecía nunca.
+   *
+   * Entra entonces todo lo que no sea de OTRA conversación del agente y haya
+   * pasado desde que arrancó esta. El corte por fecha es lo que evita que el
+   * historial viejo del mismo número se cuele en el caso nuevo.
    */
   readonly mensajesDelCaso = computed(() => {
     const id = this.conversacionActual();
     if (!id) return this.chat();
+
     const prefijo = `nlpearl:${id}:`;
-    return this.chat().filter((m) => m.interaction.id.startsWith(prefijo));
+    const propios = this.chat().filter((m) => m.interaction.id.startsWith(prefijo));
+    const desde = propios[0]?.interaction.occurredAt ?? this.hitos()[0]?.occurredAt ?? '';
+
+    return this.chat().filter((m) => {
+      if (m.interaction.id.startsWith(prefijo)) return true;
+      // De otra conversación del agente: es otro caso.
+      if (m.interaction.id.startsWith('nlpearl:')) return false;
+      return !!desde && m.interaction.occurredAt >= desde;
+    });
   });
 
   /** El caso está corriendo: hay avances y todavía ningún mensaje suyo. */
