@@ -1788,3 +1788,33 @@ $overlap: 44px;
 @media (prefers-reduced-motion: reduce) {
   .thread__vivo i { animation: none; }
 }
+
+/* Pearl está conversando: se dice quién atiende, no se ofrece un botón que
+   no puede cumplir. El takeover real vive en el panel de NL Pearl — su API
+   no lo expone. */
+.chat__pearl {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  flex-shrink: 0;
+  font-size: 0.75rem;
+  font-weight: 800;
+  color: var(--chat-ink-soft);
+  background: rgba(0, 186, 254, 0.08);
+  border: 1px solid rgba(0, 186, 254, 0.28);
+  border-radius: 999px;
+  padding: 0.34rem 0.8rem;
+  cursor: default;
+
+  i {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--secondary);
+    animation: wf-beat 1.8s ease-out infinite;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .chat__pearl i { animation: none; }
+}

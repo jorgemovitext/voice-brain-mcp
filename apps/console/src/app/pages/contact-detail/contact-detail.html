@@ -84,15 +84,29 @@
             </span>
           </span>
         }
-        <!-- Tomar el hilo es un compromiso: a partir de acá el agente ya no
-             lo cierra y las acciones del flujo quedan en manos del operador. -->
-        <button class="chat__tomar" [class.chat__tomar--on]="tomada()"
-                (click)="alternarAtencion()" [disabled]="cambiandoAtencion()"
-                [title]="tomada() ? 'Devolverle la conversación al agente' : 'Atender vos esta conversación'">
-          @if (cambiandoAtencion()) { … }
-          @else if (tomada()) { Soltar }
-          @else { Tomar }
-        </button>
+        <!--
+          Tomar el hilo solo se ofrece cuando la conversación YA CERRÓ.
+
+          Mientras Pearl está conversando, nuestro "Tomar" no la silencia: la
+          API v2 no expone takeover ni forma de escribir dentro de una
+          conversación en curso (se probaron las 15 rutas plausibles, las 15
+          dan 404). Ofrecerlo ahí prometía algo que no ocurre y dejaba dos
+          voces contestándole al ciudadano. Queda pendiente el rodeo por
+          `forceHandoff` en la respuesta de /avance, que exige tocar el flujo.
+        -->
+        @if (casoEnCurso()) {
+          <span class="chat__pearl" title="La API de NL Pearl no permite tomar una conversación en curso desde afuera">
+            <i></i> Pearl está atendiendo
+          </span>
+        } @else {
+          <button class="chat__tomar" [class.chat__tomar--on]="tomada()"
+                  (click)="alternarAtencion()" [disabled]="cambiandoAtencion()"
+                  [title]="tomada() ? 'Devolverle la conversación al agente' : 'Atender vos esta conversación'">
+            @if (cambiandoAtencion()) { … }
+            @else if (tomada()) { Soltar }
+            @else { Tomar }
+          </button>
+        }
         <span class="chat__dots">⋯</span>
       </header>
 
