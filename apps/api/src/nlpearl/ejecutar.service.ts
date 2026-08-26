@@ -1,4 +1,5 @@
 import { BadRequestException, Inject, Injectable, Logger } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { BrainService } from '../brain/brain.service';
 import { HubspotClient } from '../hubspot/hubspot.client';
 import { ChannelPort, WHATSAPP_CHANNEL } from '../ports/channel.port';
@@ -27,6 +28,7 @@ export class EjecutarService {
     private readonly hubspot: HubspotClient,
     private readonly webhookLog: WebhookLogService,
     @Inject(WHATSAPP_CHANNEL) private readonly whatsapp: ChannelPort,
+    private readonly config: ConfigService,
   ) {}
 
   /**
@@ -126,7 +128,21 @@ export class EjecutarService {
       });
 
       this.logger.log(`${operador} se presentó con ${contactId} por plantilla`);
-      this.webhookLog.push('saliente', `Saludo enviado a ${tel} de parte de ${operador}`, true);
+      /*
+       * Se nombra el número EMISOR, no solo el destino.
+       *
+       * El ciudadano tiene dos chats abiertos con nosotros: el de la línea
+       * del agente, donde ocurrió la conversación, y el nuestro, de donde
+       * sale esta plantilla. Solo lo que responda al segundo pasa por
+       * Gupshup y llega acá. Sin decir cuál es, "respondí y no llegó" no se
+       * puede distinguir de "respondiste en el otro chat".
+       */
+      const emisor = this.config.get<string>('GUPSHUP_SOURCE_NUMBER', '') || 'nuestro número';
+      this.webhookLog.push(
+        'saliente',
+        `Saludo enviado a ${tel} desde ${emisor} de parte de ${operador} — solo lo que responda a ${emisor} llega a la app`,
+        true,
+      );
       return {};
     } catch (err) {
       return fallo(`Gupshup rechazó el saludo — ${(err as Error).message}`);

@@ -1,3 +1,4 @@
+import { ConfigService } from '@nestjs/config';
 import { BrainService } from '../brain/brain.service';
 import { HubspotClient } from '../hubspot/hubspot.client';
 import { ChannelPort } from '../ports/channel.port';
@@ -12,6 +13,8 @@ import { EjecutarService } from './ejecutar.service';
  */
 describe('EjecutarService.saludar', () => {
   const TEL = '+50497616546';
+  /** Número emisor de Gupshup: es el dato que dice a qué chat responder. */
+  const EMISOR = '50433030235';
 
   function build(adaptador: Partial<ChannelPort> & Record<string, unknown>) {
     const interacciones: Array<Record<string, unknown>> = [];
@@ -31,6 +34,10 @@ describe('EjecutarService.saludar', () => {
       {} as unknown as HubspotClient,
       { push: (_f: string, texto: string, ok: boolean) => bitacora.push({ ok, texto }) } as unknown as WebhookLogService,
       adaptador as unknown as ChannelPort,
+      {
+        get: (clave: string, def?: unknown) =>
+          clave === 'GUPSHUP_SOURCE_NUMBER' ? EMISOR : def,
+      } as unknown as ConfigService,
     );
     return { service, interacciones, bitacora };
   }
@@ -53,6 +60,14 @@ describe('EjecutarService.saludar', () => {
     expect(interacciones[0]).toMatchObject({ contactId: 'c1', channel: 'whatsapp', direction: 'outbound' });
     expect(interacciones[0]['summary']).toContain('Jorge Murcia');
     expect(bitacora[0].ok).toBe(true);
+    /*
+     * La bitácora nombra el número EMISOR. El ciudadano tiene dos chats
+     * abiertos con nosotros —el de la línea del agente y el nuestro— y solo lo
+     * que responda a este último pasa por Gupshup y llega a la app. Sin ese
+     * dato, "respondí y no llegó" es indistinguible de "respondiste en el
+     * otro chat", que fue exactamente donde se atascó el diagnóstico.
+     */
+    expect(bitacora[0].texto).toContain(EMISOR);
   });
 
   it('sin el id de la plantilla avisa y no toca el hilo', async () => {

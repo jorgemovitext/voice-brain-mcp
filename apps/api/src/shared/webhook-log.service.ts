@@ -1,6 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { get, put } from '@vercel/blob';
+import { BlobNotFoundError, get, put } from '@vercel/blob';
 
 export interface WebhookEvent {
   at: string;
@@ -75,9 +75,20 @@ export class WebhookLogService {
     return [...this.events];
   }
 
+  /**
+   * `true` si la última lectura remota falló.
+   *
+   * Importa porque `persist()` escribe el arreglo ENTERO: si no se pudo leer
+   * lo que ya había, guardar significaría reemplazar la bitácora de todas las
+   * instancias por lo poco que tiene ésta en memoria. Una lectura fallida
+   * borraría historial en vez de agregarle.
+   */
+  private lecturaFallida = false;
+
   private async load(): Promise<void> {
     // Copia local válida por un rato: la bitácora no necesita ser exacta.
     if (Date.now() - this.loadedAt < 1000) return;
+    this.lecturaFallida = false;
     try {
       const res = await get(this.pathname, { access: 'private', token: this.token, useCache: false });
       if (res?.stream) {
@@ -94,8 +105,16 @@ export class WebhookLogService {
           .sort((a, b) => b.at.localeCompare(a.at))
           .slice(0, WebhookLogService.MAX);
       }
-    } catch {
-      // Todavía no existe el blob: se queda lo local.
+    } catch (err) {
+      /*
+       * Que el blob todavía no exista es lo normal la primera vez y no es un
+       * fallo: se queda lo local y se escribe. Cualquier otro error —red,
+       * token, servicio caído— sí lo es, y marcarlo evita que el guardado de
+       * abajo pise con estos pocos eventos lo que ya había.
+       */
+      const noExiste = err instanceof BlobNotFoundError;
+      this.lecturaFallida = !noExiste;
+      if (!noExiste) this.logger.warn(`No se pudo leer la bitácora: ${(err as Error).message}`);
     }
     this.loadedAt = Date.now();
   }
@@ -103,6 +122,12 @@ export class WebhookLogService {
   private async persist(): Promise<void> {
     try {
       await this.load();
+      if (this.lecturaFallida) {
+        // Escribir acá reemplazaría la bitácora entera por lo que tenga esta
+        // instancia en memoria — que en serverless suele ser un solo evento.
+        this.logger.warn('Bitácora NO guardada: no se pudo leer la anterior y escribirla borraría historial');
+        return;
+      }
       await put(this.pathname, JSON.stringify(this.events), {
         access: 'private',
         token: this.token,
