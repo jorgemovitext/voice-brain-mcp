@@ -1,7 +1,8 @@
 import { Public } from '../../auth/public.decorator';
-import { Controller, Get, HttpCode, Logger, Post, Req } from '@nestjs/common';
+import { Controller, Get, HttpCode, Logger, Post, Req, UseGuards } from '@nestjs/common';
 import { WhatsappInboundService } from '../../channels/whatsapp-inbound.service';
 import { WebhookLogService } from '../../shared/webhook-log.service';
+import { GupshupWebhookGuard } from './gupshup-webhook.guard';
 
 /**
  * POST /webhooks/gupshup — webhook único de Gupshup (esta es la URL que se
@@ -47,6 +48,7 @@ export class GupshupWebhookController {
   }
 
   @Post()
+  @UseGuards(GupshupWebhookGuard)
   @HttpCode(200)
   async receive(@Req() req: { body?: Record<string, unknown> }) {
     const body = req.body ?? {};

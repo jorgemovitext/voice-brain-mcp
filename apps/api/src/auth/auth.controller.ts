@@ -1,14 +1,16 @@
-import { BadRequestException, Body, Controller, Get, Post, Req, Res } from '@nestjs/common';
+import { BadRequestException, Body, Controller, Get, Post, Req, Res, UseGuards } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { FastifyReply, FastifyRequest } from 'fastify';
 import { z } from 'zod';
 import { AuthService } from './auth.service';
 import { SESSION_COOKIE } from './auth.guard';
 import { Public } from './public.decorator';
+import { RateLimitGuard } from './rate-limit.guard';
 
 /**
- * Endpoints de autenticación. Los tres primeros son públicos por necesidad;
- * el resto de la API queda detrás del AuthGuard global.
+ * Endpoints de autenticación. Los cuatro públicos (register/login/resend-otp/
+ * verify-otp) llevan además un freno por IP (RateLimitGuard); el resto de la
+ * API queda detrás del AuthGuard global.
  *
  * La sesión viaja en cookie httpOnly + Secure + SameSite=Lax: el JS del
  * navegador nunca ve el token (anti-XSS) y no se envía en requests
@@ -88,6 +90,7 @@ export class AuthController {
   }
 
   @Public()
+  @UseGuards(RateLimitGuard)
   @Post('register')
   async register(@Body() body: unknown, @Res({ passthrough: true }) res: FastifyReply) {
     const { username, password, phone, name } = this.parse(registerSchema, body);
@@ -97,6 +100,7 @@ export class AuthController {
   }
 
   @Public()
+  @UseGuards(RateLimitGuard)
   @Post('login')
   async login(@Body() body: unknown, @Res({ passthrough: true }) res: FastifyReply) {
     const { username, password } = this.parse(loginSchema, body);
@@ -106,6 +110,7 @@ export class AuthController {
   }
 
   @Public()
+  @UseGuards(RateLimitGuard)
   @Post('resend-otp')
   resend(@Body() body: unknown) {
     const { username } = this.parse(resendSchema, body);
@@ -113,6 +118,7 @@ export class AuthController {
   }
 
   @Public()
+  @UseGuards(RateLimitGuard)
   @Post('verify-otp')
   async verifyOtp(@Body() body: unknown, @Res({ passthrough: true }) res: FastifyReply) {
     const { username, code } = this.parse(otpSchema, body);

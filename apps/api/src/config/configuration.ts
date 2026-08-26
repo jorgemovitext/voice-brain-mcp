@@ -98,6 +98,13 @@ export const configSchema = z.object({
   GUPSHUP_APP_NAME: z.string().default(''),
   /** Número emisor registrado en Gupshup, sin '+' (ej. 917834811114). */
   GUPSHUP_SOURCE_NUMBER: z.string().default(''),
+  /**
+   * Secreto propio para autenticar el webhook de Gupshup. Vacío = el webhook
+   * no exige token (comportamiento actual). Al setearlo, hay que hornearlo
+   * también en la URL del callback del panel (`?token=…`) o mandarlo en el
+   * header `x-webhook-token`; recién ahí se empieza a exigir.
+   */
+  GUPSHUP_WEBHOOK_TOKEN: z.string().default(''),
 
   // --- WhatsApp Cloud API (Meta directo) — alternativa a Gupshup ---
   WHATSAPP_API_VERSION: z.string().default('v21.0'),

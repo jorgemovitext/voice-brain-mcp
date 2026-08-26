@@ -1,4 +1,5 @@
 import { Logger, Module } from '@nestjs/common';
+import { RateLimitGuard } from './rate-limit.guard';
 import { ConfigService } from '@nestjs/config';
 import { APP_GUARD } from '@nestjs/core';
 import { JwtModule } from '@nestjs/jwt';
@@ -41,6 +42,7 @@ import { JsonUsersRepository, PgUsersRepository, USERS_REPOSITORY } from './user
   controllers: [AuthController],
   providers: [
     AuthService,
+    RateLimitGuard,
     OtpSender,
     PgUsersRepository,
     JsonUsersRepository,
