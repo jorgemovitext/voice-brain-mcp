@@ -46,7 +46,7 @@ export const routes: Routes = [
     path: 'workers',
     canActivate: [authGuard],
     loadComponent: () => import('./pages/workers/workers').then((m) => m.WorkersPage),
-    title: 'Obreros · Brain',
+    title: 'Agentes · Brain',
   },
   {
     path: 'actividad',
