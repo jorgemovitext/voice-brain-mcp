@@ -13,7 +13,6 @@ import { AnalyticsController } from './analytics.controller';
 import { ExpedienteController } from './expediente.controller';
 import { ExpedienteService } from './expediente.service';
 import { ResumenService } from './resumen.service';
-import { AtencionService } from './atencion.service';
 import { AccionesService } from './acciones.service';
 import { EjecutarService } from './ejecutar.service';
 import { EscalamientoService } from './escalamiento.service';
@@ -61,7 +60,6 @@ import { WorkersController } from './workers.controller';
     AnalyticsService,
     ExpedienteService,
     ResumenService,
-    AtencionService,
     AccionesService,
     EjecutarService,
     EscalamientoService,

@@ -1,4 +1,5 @@
-import { Inject, Injectable, Optional } from '@nestjs/common';
+import { Inject, Injectable, Logger, Optional } from '@nestjs/common';
+import { digitosDe } from './telefono';
 import { Pool } from 'pg';
 import { ensureSchema, PG_POOL } from '../shared/database.module';
 import { BrainRepository } from './brain.repository';
@@ -12,6 +13,8 @@ import { Contact, Interaction, Signal } from './types';
  */
 @Injectable()
 export class PgBrainRepository implements BrainRepository {
+  private readonly logger = new Logger(PgBrainRepository.name);
+
   constructor(@Optional() @Inject(PG_POOL) private readonly pool: Pool | null) {}
 
   /** El módulo solo selecciona este repo cuando hay pool; el assert es defensa. */
@@ -47,10 +50,40 @@ export class PgBrainRepository implements BrainRepository {
 
   async findContactByPhone(phone: string): Promise<Contact | undefined> {
     const db = await this.db();
-    const res = await db.query('SELECT * FROM contacts WHERE phones @> $1::jsonb LIMIT 1', [
+
+    // Camino rápido: el formato tal cual vino. Cubre la enorme mayoría.
+    const exacto = await db.query('SELECT * FROM contacts WHERE phones @> $1::jsonb LIMIT 1', [
       JSON.stringify([phone]),
     ]);
-    return res.rows[0] ? this.rowToContact(res.rows[0]) : undefined;
+    if (exacto.rows[0]) return this.rowToContact(exacto.rows[0]);
+
+    /*
+     * Y si no, por dígitos: el mismo número llega escrito distinto según el
+     * canal (NL Pearl manda `504…`, Gupshup `+504…`), y con igualdad exacta
+     * el ciudadano terminaba duplicado en dos contactos.
+     *
+     * Va DESPUÉS del exacto y dentro de un try a propósito: si esta consulta
+     * fallara, la identidad —que es la llave de toda la app— se degrada al
+     * comportamiento de siempre en vez de romperse.
+     */
+    const digitos = digitosDe(phone);
+    if (!digitos) return undefined;
+
+    try {
+      const res = await db.query(
+        `SELECT * FROM contacts
+           WHERE EXISTS (
+             SELECT 1 FROM jsonb_array_elements_text(phones) AS p
+              WHERE regexp_replace(p, '\\D', '', 'g') = $1
+           )
+           LIMIT 1`,
+        [digitos],
+      );
+      return res.rows[0] ? this.rowToContact(res.rows[0]) : undefined;
+    } catch (err) {
+      this.logger.warn(`Búsqueda por dígitos falló, se usa solo el formato exacto: ${(err as Error).message}`);
+      return undefined;
+    }
   }
 
   async findContactByExternalId(system: string, externalId: string): Promise<Contact | undefined> {

@@ -1,5 +1,6 @@
 import { SettingsService } from './settings.service';
 import { Global, Injectable, Module } from '@nestjs/common';
+import { AtencionService } from './atencion.service';
 import { WebhookLogService } from './webhook-log.service';
 
 export interface FlowStep {
@@ -39,7 +40,7 @@ export class FlowLogService {
 
 @Global()
 @Module({
-  providers: [FlowLogService, WebhookLogService, SettingsService],
-  exports: [FlowLogService, WebhookLogService, SettingsService],
+  providers: [FlowLogService, WebhookLogService, SettingsService, AtencionService],
+  exports: [FlowLogService, WebhookLogService, SettingsService, AtencionService],
 })
 export class SharedModule {}

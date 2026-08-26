@@ -4,7 +4,7 @@ import { UnifiedContext } from '../brain/types';
 import { HubspotClient } from '../hubspot/hubspot.client';
 import { NlpearlActivityStore, StoredActivity } from './activity.store';
 import { AccionesService, AccionSugerida } from './acciones.service';
-import { Atencion, AtencionService } from './atencion.service';
+import { Atencion, AtencionService } from '../shared/atencion.service';
 import { PearlSyncService } from './pearl-sync.service';
 import { ResumenService } from './resumen.service';
 

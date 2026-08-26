@@ -1,6 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
+import { AtencionService } from '../shared/atencion.service';
+import { BrainService } from '../brain/brain.service';
 import { WebhookLogService } from '../shared/webhook-log.service';
-import { FollowupService } from './followup.service';
 
 /**
  * Procesa los eventos entrantes de WhatsApp, vengan en el formato que vengan.
@@ -11,11 +12,17 @@ import { FollowupService } from './followup.service';
  * Detectarlo acá evita depender de qué endpoint se configuró en el proveedor
  * y que un mensaje se pierda en silencio por no reconocer el shape.
  *
- * IMPORTANTE: Gupshup quedó SOLO para entregar los OTP del acceso. Las
- * conversaciones con clientes las atienden los agentes por el canal de texto
- * de NL Pearl, así que lo que llega acá se registra en la bitácora (sirve para
- * diagnosticar la entrega del OTP) pero NO entra al Brain: si entrara,
- * aparecerían hilos duplicados y sin agente en Conversaciones.
+ * QUÉ ENTRA AL HILO Y QUÉ NO. Los ciudadanos conversan con los agentes por
+ * el canal de texto de NL Pearl, no por el nuestro: si todo lo que llega acá
+ * entrara al Brain, aparecerían hilos duplicados y sin agente en
+ * Conversaciones. Por eso, de base, esto es solo bitácora (y así se
+ * diagnostica también la entrega del OTP).
+ *
+ * La excepción son los hilos TOMADOS. Cuando un operador toma una
+ * conversación, la app le escribe al ciudadano por Gupshup — y la respuesta
+ * vuelve por acá. Dejarla solo en la bitácora hacía que el operador escribiera
+ * a ciegas: el ciudadano contestaba y en la consola no aparecía nada. Si el
+ * número tiene un hilo tomado, su mensaje ES de esa conversación y entra.
  */
 
 interface MensajeNormalizado {
@@ -32,7 +39,8 @@ export class WhatsappInboundService {
   private readonly seen = new Set<string>();
 
   constructor(
-    private readonly followup: FollowupService,
+    private readonly brain: BrainService,
+    private readonly atencion: AtencionService,
     private readonly webhookLog: WebhookLogService,
   ) {}
 
@@ -44,13 +52,57 @@ export class WhatsappInboundService {
 
     for (const m of mensajes) {
       if (this.yaVisto(m.id)) continue;
-      this.logger.log(`← ${origen} de ${m.from}: "${m.text}" (solo bitácora)`);
+
+      const contactId = await this.hiloTomado(m.from);
+      if (!contactId) {
+        this.logger.log(`← ${origen} de ${m.from}: "${m.text}" (solo bitácora)`);
+        this.webhookLog.push(
+          origen,
+          `Mensaje de ${m.profileName ?? m.from}: “${m.text}” — sin hilo tomado, no entra al Brain`,
+          true,
+          { from: m.from },
+        );
+        continue;
+      }
+
+      /*
+       * Entra como mensaje del ciudadano en el hilo que el operador atiende.
+       * NO se auto-responde: el hilo lo tiene una persona, y una respuesta
+       * automática encima sería una segunda voz contestando.
+       */
+      await this.brain.appendInteraction({
+        contactId,
+        channel: 'whatsapp',
+        direction: 'inbound',
+        occurredAt: new Date().toISOString(),
+        summary: m.text,
+        source: 'own',
+      });
+      this.logger.log(`← ${origen} de ${m.from}: "${m.text}" → hilo tomado`);
       this.webhookLog.push(
         origen,
-        `Mensaje de ${m.profileName ?? m.from}: “${m.text}” — no entra al Brain (este canal es solo para OTP)`,
+        `Respuesta de ${m.profileName ?? m.from} en un hilo tomado: “${m.text}”`,
         true,
         { from: m.from },
       );
+    }
+  }
+
+  /**
+   * El contacto de ese número, SOLO si su conversación está tomada por una
+   * persona. Devuelve null en cualquier otro caso — incluido un número que
+   * nunca escribió, para no crear hilos fantasma desde este canal.
+   */
+  private async hiloTomado(telefono: string): Promise<string | null> {
+    try {
+      const { contactId, created } = await this.brain.resolveIdentity({ phone: telefono, system: 'sender' });
+      // Recién creado = no había hilo: entonces no hay nada tomado.
+      if (created) return null;
+      const { operador } = await this.atencion.de(contactId);
+      return operador ? contactId : null;
+    } catch (err) {
+      this.logger.warn(`No se pudo resolver ${telefono}: ${(err as Error).message}`);
+      return null;
     }
   }
 

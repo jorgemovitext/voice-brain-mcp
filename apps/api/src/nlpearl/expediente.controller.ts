@@ -1,7 +1,7 @@
 import { BadRequestException, Body, Controller, Get, Param, Post, Req } from '@nestjs/common';
 import { FastifyRequest } from 'fastify';
 import { AuthService } from '../auth/auth.service';
-import { AtencionService } from './atencion.service';
+import { AtencionService } from '../shared/atencion.service';
 import { EjecutarService } from './ejecutar.service';
 import { ExpedienteService } from './expediente.service';
 import { HandoffService } from './handoff.service';

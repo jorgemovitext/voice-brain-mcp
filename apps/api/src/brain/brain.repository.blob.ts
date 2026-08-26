@@ -1,4 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
+import { mismoTelefono } from './telefono';
 import { ConfigService } from '@nestjs/config';
 import { get, put } from '@vercel/blob';
 import { BrainRepository } from './brain.repository';
@@ -110,7 +111,8 @@ export class BlobBrainRepository implements BrainRepository {
   }
 
   async findContactByPhone(phone: string): Promise<Contact | undefined> {
-    return (await this.fresh()).contacts.find((c) => c.phones.includes(phone));
+    // Por dígitos: el mismo número llega escrito distinto según el canal.
+    return (await this.fresh()).contacts.find((c) => c.phones.some((p) => mismoTelefono(p, phone)));
   }
 
   async findContactByExternalId(system: string, externalId: string): Promise<Contact | undefined> {

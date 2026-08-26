@@ -1,5 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { SettingsService } from '../shared/settings.service';
+import { SettingsService } from './settings.service';
 
 /**
  * Quién atiende una conversación: el agente de NL Pearl o una persona.
