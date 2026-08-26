@@ -174,12 +174,20 @@
               <span class="net__pie">conversaciones</span>
             </article>
             <article class="net">
+              <!-- Las dos cifras miden cosas distintas y la card solo daba
+                   sus unidades. "0 min" y "hilo" no dicen de qué. -->
               <a class="net__head" routerLink="/conversations">Tiempos <i>↗</i></a>
               <div class="net__fila">
-                <span class="net__big net__big--md">{{ duracion(an.resumen.primeraRespuestaMin) }}</span>
-                <span class="net__mini">{{ duracion(an.resumen.duracionMin) }}<em>hilo</em></span>
+                <span class="net__big net__big--md"
+                      title="Desde que el ciudadano escribe hasta que recibe la primera respuesta. Mediana de todas las conversaciones del período.">
+                  {{ respuesta(an.resumen.primeraRespuestaMin) }}
+                </span>
+                <span class="net__mini"
+                      title="Del primer al último mensaje de la conversación. Mediana del período.">
+                  {{ duracion(an.resumen.duracionMin) }}<em>duración</em>
+                </span>
               </div>
-              <span class="net__pie">1ª respuesta (mediana)</span>
+              <span class="net__pie">tarda el agente en contestar</span>
             </article>
             <article class="net" [class.net--alerta]="an.resumen.sinRespuesta > 0">
               <a class="net__head" routerLink="/conversations">Sin respuesta <i>↗</i></a>

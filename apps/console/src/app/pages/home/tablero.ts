@@ -25,10 +25,16 @@ const ALERTA = '#FFB020';
 const NEUTRO = 'rgba(255,255,255,0.10)';
 
 /**
- * El nodo que el backend usa cuando una conversación no dejó ningún avance.
- * Sus cintas salen de vidrio, no de color: ver `CintaSankey.cristal`.
+ * Los dos nodos que NO son una categoría, sino la ausencia de una.
+ *
+ * `Sin clasificar` es lo que usa el backend cuando la conversación no dejó
+ * ningún avance; `Otros` es el pliegue de los problemas que quedaron fuera
+ * del top 4. Ninguno nombra un problema real, así que sus cintas salen de
+ * vidrio en vez de color: ver `CintaSankey.cristal`.
  */
 const SIN_CLASIFICAR = 'Sin clasificar';
+const OTROS = 'Otros';
+const SIN_CATEGORIA = [SIN_CLASIFICAR, OTROS];
 
 interface NodoSankey {
   id: string;
@@ -58,10 +64,10 @@ interface CintaSankey {
   /** Pasa por ENCIMA de otra en un cruce: se le aplica el vidrio. */
   encima: boolean;
   /**
-   * Sale de "Sin clasificar": se pinta como vidrio esmerilado en vez de con
-   * el color del resultado. Ese nodo no es una categoría, es la ausencia de
-   * una; darle el verde de "atendida" o el rojo de "en espera" afirmaría algo
-   * que no sabemos.
+   * Sale de un nodo que no nombra un problema — "Sin clasificar" u "Otros":
+   * se pinta como vidrio esmerilado en vez de con el color del resultado.
+   * Esos nodos no son una categoría, son la ausencia de una; darles el verde
+   * de "atendida" o el rojo de "en espera" afirmaría algo que no sabemos.
    */
   cristal: boolean;
   /** Texto del tooltip: la cinta sola no dice de dónde viene ni cuánto pesa. */
@@ -208,7 +214,7 @@ export class TableroPage {
     const porProblema = new Map<string, number>();
     for (const f of flujo) porProblema.set(f.problema, (porProblema.get(f.problema) ?? 0) + f.total);
     const top = [...porProblema.entries()].sort((a, b) => b[1] - a[1]).slice(0, 4).map(([p]) => p);
-    const nombreProblema = (p: string) => (top.includes(p) ? p : 'Otros');
+    const nombreProblema = (p: string) => (top.includes(p) ? p : OTROS);
 
     const totales = (ids: string[], de: (f: Analytics['flujo'][number]) => string) => {
       const m = new Map(ids.map((id) => [id, 0]));
@@ -278,7 +284,7 @@ export class TableroPage {
         y2,
         seg,
         encima: false,
-        cristal: a.id === SIN_CLASIFICAR,
+        cristal: SIN_CATEGORIA.includes(a.id),
         tip: `${a.etiqueta} → ${b.etiqueta}: ${TableroPage.parte(total, S)}`,
       };
     };
@@ -465,6 +471,20 @@ export class TableroPage {
     const resto = min % 60;
     if (h < 24) return resto ? `${h} h ${resto} min` : `${h} h`;
     return `${Math.floor(h / 24)} d ${h % 24} h`;
+  }
+
+  /**
+   * Lo mismo que `duracion`, pero "0 min" se dice con palabras.
+   *
+   * El agente contesta en segundos, así que la mediana redondea a cero — y un
+   * "0 min" grande en un tablero se lee como un dato faltante o roto, justo
+   * al revés de lo que significa, que es el mejor resultado posible.
+   */
+  respuesta(min: number | null | undefined): string {
+    if (min === null || min === undefined) return '—';
+    // '< 1 min' y no 'al instante': la cifra es la protagonista de la card y
+    // debe caber en UNA línea. Envuelta en dos, descuadra la fila entera.
+    return min < 1 ? '< 1 min' : this.duracion(min);
   }
 
   horas1(h: number | null | undefined): string {
