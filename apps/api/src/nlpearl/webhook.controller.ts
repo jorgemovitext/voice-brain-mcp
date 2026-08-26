@@ -82,7 +82,7 @@ export class NlpearlWebhookController {
       throw new BadRequestException('No se encontró el id de la actividad en el webhook');
     }
 
-    this.flowLog.push('webhook', `NL Pearl avisó: ${evento} · ${this.referencia(payload, telefono)}`);
+    this.flowLog.push('webhook', `El agente avisó: ${evento} · ${this.referencia(payload, telefono)}`);
 
     try {
       // Se pasa el cuerpo entero: si ya trae la conversación, se ingiere de

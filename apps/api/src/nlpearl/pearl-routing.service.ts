@@ -62,7 +62,7 @@ export class PearlRoutingService {
     const pearlId = (await this.all())[channel];
     if (!pearlId) {
       throw new ServiceUnavailableException(
-        `No hay un Pearl asignado al canal "${channel}". Elegí uno en la vista Obreros ` +
+        `No hay un agente asignado al canal "${channel}". Elegí uno en la vista Agentes ` +
           '(botón "Usar para ' + channel + '") o mandá el pearlId en la petición.',
       );
     }

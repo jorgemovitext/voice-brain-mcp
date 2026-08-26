@@ -29,7 +29,7 @@ import { ContactListItem, FlujoEnCurso } from '../../models';
         <div class="spinner"></div>
         Esperando conversaciones…
         <p>
-          Escribí al número de la Pearl y el hilo aparece acá solo, con su flujo
+          Escribí al número del agente y el hilo aparece acá solo, con su flujo
           dibujándose en vivo. También podés dar de alta un número en
           <a routerLink="/integrations">Integraciones</a>.
         </p>

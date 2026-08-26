@@ -134,7 +134,7 @@ export class IntegrationsController {
       // fallarían recién al intentar marcar.
       const configurado = todos.find((p) => p.id === this.nlpearl.pearlId);
 
-      this.webhookLog.push('saliente', `Prueba de conexión con NL Pearl: OK (${todos.length} Pearls)`, true);
+      this.webhookLog.push('saliente', `Prueba de conexión con los agentes: OK (${todos.length} agentes)`, true);
       return {
         ok: true,
         ms: Date.now() - started,
@@ -146,7 +146,7 @@ export class IntegrationsController {
       };
     } catch (err) {
       const message = (err as { response?: { message?: string } }).response?.message ?? (err as Error).message;
-      this.webhookLog.push('saliente', `Prueba de conexión con NL Pearl: falló — ${message}`, false);
+      this.webhookLog.push('saliente', `Prueba de conexión con los agentes: falló — ${message}`, false);
       return { ok: false, ms: Date.now() - started, error: message };
     }
   }

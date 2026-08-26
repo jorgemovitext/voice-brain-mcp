@@ -133,7 +133,7 @@ export class IntegrationsPage {
   /** Explica el guion cuando no hay dato, en vez de dejarlo sin contexto. */
   readonly enVivoTitulo = computed(() => {
     const v = this.hive.value()?.enVivo;
-    if (!v) return 'Sin dato en vivo: no hay Pearl de WhatsApp asignada, o la API no respondió';
+    if (!v) return 'Sin dato en vivo: no hay agente de WhatsApp asignado, o no respondió';
     return v.enCola ? `${v.total} en curso, ${v.enCola} en cola` : `${v.total} en curso`;
   });
 

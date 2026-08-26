@@ -15,7 +15,7 @@ type Scenario = 'outbound' | 'inbound';
 /** Escenario 1 — flujo saliente completo. */
 const OUTBOUND_STEPS: StepDef[] = [
   { key: 'seed', label: 'Sembrado: contacto con promesa activa e historial de WhatsApp', icon: 'sprout' },
-  { key: 'addLead', label: 'addLead (NL Pearl v2): llamada saliente disparada', icon: 'send' },
+  { key: 'addLead', label: 'addLead: llamada saliente disparada', icon: 'send' },
   { key: 'precall', label: 'PreCallAPI: contexto del Brain inyectado al agente', icon: 'chip' },
   { key: 'webhook', label: 'Webhook: llamada finalizada', icon: 'inbox' },
   { key: 'brain', label: 'Brain actualizado: transcripción, resumen, sentimiento y promesa', icon: 'database' },

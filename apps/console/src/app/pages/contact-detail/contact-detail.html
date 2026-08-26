@@ -103,8 +103,8 @@
           `forceHandoff` en la respuesta de /avance, que exige tocar el flujo.
         -->
         @if (casoEnCurso()) {
-          <span class="chat__pearl" title="La API de NL Pearl no permite tomar una conversación en curso desde afuera">
-            <i></i> Pearl está atendiendo
+          <span class="chat__pearl" title="No se puede tomar una conversación mientras el agente la está atendiendo">
+            <i></i> El agente está atendiendo
           </span>
         } @else {
           <button class="chat__tomar" [class.chat__tomar--on]="tomada()"
@@ -361,7 +361,7 @@
                     @if (m.interaction.attachment === 'ubicacion' && lugarDelCaso(); as lugar) {
                       <a class="adj__mapa" [href]="lugar.mapa" target="_blank" rel="noopener">{{ lugar.texto }}</a>
                     } @else {
-                      <i class="adj__nota">El archivo queda en WhatsApp: NL Pearl no nos lo entrega.</i>
+                      <i class="adj__nota">El archivo queda en WhatsApp: el agente no nos lo entrega.</i>
                     }
                   </span>
                 </div>
@@ -589,7 +589,7 @@
                   <ui-icon name="sparkle" /> Resumen de la conversación
                 </span>
                 @if (r.fuente === 'agente') {
-                  <span class="panel__aside" title="Texto tal cual lo dejó NL Pearl, sin resumir">sin resumir</span>
+                  <span class="panel__aside" title="Texto tal cual lo dejó el agente, sin resumir">sin resumir</span>
                 } @else if (r.fuente === 'datos') {
                   <span class="panel__aside" title="Compuesto con los datos del flujo">datos</span>
                 }

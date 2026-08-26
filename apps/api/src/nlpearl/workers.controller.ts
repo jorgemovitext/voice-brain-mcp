@@ -283,7 +283,7 @@ export class WorkersController {
         available: false,
         message:
           'NL Pearl no expuso el flow por API (endpoint por confirmar). ' +
-          `Se edita en PearlVibe. Detalle: ${(err as Error).message}`,
+          `El flujo se edita en la plataforma del agente. Detalle: ${(err as Error).message}`,
       };
     }
   }

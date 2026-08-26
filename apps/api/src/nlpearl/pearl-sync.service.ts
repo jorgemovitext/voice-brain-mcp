@@ -320,7 +320,7 @@ export class PearlSyncService {
     if (report.nuevas > 0) {
       this.flowLog.push(
         "brain",
-        `Sync NL Pearl: ${report.nuevas} mensaje(s)/llamada(s) nueva(s) de ${report.pearls} pearls`,
+        `Sincronización: ${report.nuevas} mensaje(s)/llamada(s) nueva(s) de ${report.pearls} agentes`,
         { nuevas: report.nuevas, pearls: report.pearls },
       );
     }
