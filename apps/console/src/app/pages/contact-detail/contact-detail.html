@@ -43,7 +43,15 @@
               </span>
               <span class="thread__body">
                 <span class="thread__top">
-                  <span class="thread__name">{{ c.displayName || 'Anónimo' }}</span>
+                  <span class="thread__name">
+                    {{ c.displayName || 'Anónimo' }}
+                    <!-- El agente se quedó esperando una respuesta que nunca
+                         llegó y el caso nunca se cerró. -->
+                    @if (c.inconclusa) {
+                      <ui-icon class="thread__warn" name="alerta"
+                               title="Conversación inconclusa: el ciudadano dejó de responder y el caso quedó sin registrar. Abrila y tomala para terminarla vos." />
+                    }
+                  </span>
                   <span class="thread__time">{{ shortTime(c.enCurso ? c.cuando : c.lastInteraction?.occurredAt) }}</span>
                 </span>
                 <!-- Conversación abriéndose: todavía no hay mensajes que

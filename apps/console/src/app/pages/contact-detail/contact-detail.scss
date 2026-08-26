@@ -1851,3 +1851,14 @@ $overlap: 44px;
 @media (prefers-reduced-motion: reduce) {
   .chat__pearl i { animation: none; }
 }
+
+/* Conversación que se quedó sin respuesta y sin cerrar. El ámbar es el color
+   de "esto necesita a alguien", distinto del rojo de error: nada falló, hay
+   trabajo pendiente. */
+.thread__warn {
+  margin-left: 0.3rem;
+  font-size: 0.82rem;
+  color: #f5a623;
+  vertical-align: -0.1em;
+  cursor: help;
+}

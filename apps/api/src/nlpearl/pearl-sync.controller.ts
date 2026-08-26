@@ -86,29 +86,67 @@ export class PearlSyncController {
   }
 
   /**
-   * Qué teléfonos tienen una conversación abierta ahora mismo, con la hora de
-   * su último avance.
+   * Estado de la conversación más reciente de cada teléfono, para el listado.
    *
    * Existe porque una conversación recién abierta no tiene NI UN mensaje —el
-   * hilo completo llega al cerrar—, así que el listado de la consola, que
-   * ordena por el último mensaje, la mandaba al fondo justo cuando era lo más
-   * urgente de la pantalla. Con esto la sube y la marca en curso.
+   * hilo completo llega al cerrar—, así que el listado, que ordena por el
+   * último mensaje, la mandaba al fondo justo cuando era lo más urgente.
    *
    * Va acá y no en `/api/contacts` porque los avances viven en este módulo,
-   * y BrainModule no puede importarlo sin cerrar un ciclo (NlpearlModule ya
-   * importa BrainModule).
+   * y BrainModule no puede importarlo sin cerrar un ciclo.
    */
   @Get('en-curso')
-  async enCurso(): Promise<Array<{ phone: string; lastFlowAt: string }>> {
+  async enCurso(): Promise<Array<{ phone: string; lastFlowAt: string; inconclusa: boolean }>> {
     const avances = await this.store.listActivity({ kind: 'progress', limit: 400 });
-    const ultimo = new Map<string, string>();
+
+    /*
+     * Se agrupa por teléfono y, dentro, por conversación: el mismo número
+     * reporta varias veces y solo interesa en qué quedó la ÚLTIMA.
+     */
+    const porTelefono = new Map<string, Map<string, { pasos: Set<string>; ultimo: string }>>();
     for (const a of avances) {
       const tel = (a.phone ?? '').replace(/\D/g, '');
-      if (!tel || !a.occurredAt) continue;
-      const previo = ultimo.get(tel);
-      if (!previo || a.occurredAt > previo) ultimo.set(tel, a.occurredAt);
+      const raw = (a.raw ?? {}) as { conversationId?: string; paso?: string };
+      if (!tel || !a.occurredAt || !raw.conversationId) continue;
+
+      const conversaciones = porTelefono.get(tel) ?? new Map();
+      const c = conversaciones.get(raw.conversationId) ?? { pasos: new Set<string>(), ultimo: '' };
+      if (raw.paso) c.pasos.add(raw.paso.toLowerCase());
+      if (a.occurredAt > c.ultimo) c.ultimo = a.occurredAt;
+      conversaciones.set(raw.conversationId, c);
+      porTelefono.set(tel, conversaciones);
     }
-    return [...ultimo].map(([phone, lastFlowAt]) => ({ phone, lastFlowAt }));
+
+    return [...porTelefono].map(([phone, conversaciones]) => {
+      const ultima = [...conversaciones.values()].sort((a, b) => b.ultimo.localeCompare(a.ultimo))[0];
+      return {
+        phone,
+        lastFlowAt: ultima.ultimo,
+        inconclusa: PearlSyncController.quedoInconclusa(ultima),
+      };
+    });
+  }
+
+  /**
+   * Una conversación quedó inconclusa cuando el agente dejó de recibir
+   * respuesta y nunca llegó a cerrar el caso.
+   *
+   * La regla sale de NUESTROS datos y no del estado que reporta NL Pearl:
+   * los listados de su API devuelven cero para esta cuenta, así que el estado
+   * de una conversación concreta no se puede consultar. Lo que sí tenemos son
+   * los avances del flujo, y ahí se ve si pasó por un nodo de cierre.
+   *
+   * "Dejó de moverse" son 15 minutos: el flujo empuja un avance por paso, y
+   * una conversación viva no pasa ese rato en silencio. Menos que eso
+   * marcaría como abandonada a alguien que está escribiendo.
+   */
+  private static readonly CIERRA = ['regist', 'farewell', 'closing', 'escalamiento'];
+  private static readonly QUIETA_MS = 15 * 60_000;
+
+  private static quedoInconclusa(c: { pasos: Set<string>; ultimo: string }): boolean {
+    const cerro = [...c.pasos].some((p) => PearlSyncController.CIERRA.some((k) => p.includes(k)));
+    if (cerro) return false;
+    return Date.now() - new Date(c.ultimo).getTime() > PearlSyncController.QUIETA_MS;
   }
 
   @Get('activity')

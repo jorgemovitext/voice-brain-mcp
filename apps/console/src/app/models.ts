@@ -57,10 +57,12 @@ export interface ContactListItem extends Contact {
   activePromise?: Signal;
 }
 
-/** Teléfono con una conversación abierta: GET /api/nlpearl/en-curso. */
+/** Estado de la última conversación de un teléfono: GET /api/nlpearl/en-curso. */
 export interface FlujoEnCurso {
   phone: string;
   lastFlowAt: string;
+  /** El agente dejó de recibir respuesta y nunca cerró el caso. */
+  inconclusa: boolean;
 }
 
 export interface FlowStep {

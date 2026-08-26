@@ -19,6 +19,7 @@ export type IconName =
   | 'note'
   | 'image'
   | 'pin'
+  | 'alerta'
   | 'chevron';
 
 /**
@@ -110,6 +111,11 @@ export type IconName =
         @case ('pin') {
           <path d="M12 21s7-6.2 7-11a7 7 0 1 0-14 0c0 4.8 7 11 7 11"/>
           <circle cx="12" cy="10" r="2.5"/>
+        }
+        @case ('alerta') {
+          <path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0"/>
+          <path d="M12 9v4"/>
+          <path d="M12 17h.01"/>
         }
         @case ('chevron') {
           <path d="m9 6 6 6-6 6"/>

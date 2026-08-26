@@ -112,7 +112,7 @@ export class ContactDetailPage implements OnDestroy {
   );
 
   private readonly enCurso = computed(
-    () => new Map((this.flujoAbierto.value() ?? []).map((f) => [f.phone, f.lastFlowAt])),
+    () => new Map((this.flujoAbierto.value() ?? []).map((f) => [f.phone, f])),
   );
 
   /**
@@ -585,17 +585,20 @@ export class ContactDetailPage implements OnDestroy {
     const flujo = this.enCurso();
     return [...(this.conversations.value() ?? [])]
       .map((c) => {
-        const ultimoAvance = c.phones
+        const estado = c.phones
           .map((p) => flujo.get(p.replace(/\D/g, '')))
-          .filter((x): x is string => !!x)
-          .sort()
+          .filter((x): x is FlujoEnCurso => !!x)
+          .sort((a, b) => a.lastFlowAt.localeCompare(b.lastFlowAt))
           .at(-1);
+        const ultimoAvance = estado?.lastFlowAt ?? '';
         const mensaje = c.lastInteraction?.occurredAt ?? '';
         return {
           ...c,
           // El agente está conversando y todavía no hay hilo que mostrar.
           enCurso: !!ultimoAvance && ultimoAvance > mensaje,
-          cuando: (ultimoAvance ?? '') > mensaje ? (ultimoAvance ?? '') : mensaje,
+          // Se quedó sin respuesta y nadie cerró el caso: alguien tiene que tomarla.
+          inconclusa: !!estado?.inconclusa,
+          cuando: ultimoAvance > mensaje ? ultimoAvance : mensaje,
         };
       })
       .sort((a, b) => b.cuando.localeCompare(a.cuando));
