@@ -69,15 +69,22 @@ describe('WhatsappInboundService', () => {
     await service.process(mensaje('Hola'), 'gupshup');
 
     expect(guardadas).toHaveLength(0);
-    expect(bitacora[0]).toContain('sin hilo tomado');
+    // El motivo, no solo el rechazo: lo resuelve el operador con un clic.
+    expect(bitacora[0]).toContain('nadie tomó esa conversación');
   });
 
   it('un número desconocido no crea un contacto fantasma', async () => {
-    const { service, guardadas } = build({ operador: 'Jorge Murcia', contactoNuevo: true });
+    const { service, guardadas, bitacora } = build({ operador: 'Jorge Murcia', contactoNuevo: true });
 
     await service.process(mensaje('Número que nunca escribió'), 'gupshup');
 
     expect(guardadas).toHaveLength(0);
+    /*
+     * Y se distingue del caso de arriba. Los dos terminan en "no entra al
+     * Brain", pero uno lo arregla el operador tomando el hilo y el otro es un
+     * fallo de emparejado de teléfonos que hay que corregir en el código.
+     */
+    expect(bitacora[0]).toContain('no hay ninguna conversación con ese número');
   });
 
   it('no duplica cuando el proveedor reintenta el mismo mensaje', async () => {

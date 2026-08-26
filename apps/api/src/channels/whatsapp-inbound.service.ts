@@ -53,17 +53,28 @@ export class WhatsappInboundService {
     for (const m of mensajes) {
       if (this.yaVisto(m.id)) continue;
 
-      const contactId = await this.hiloTomado(m.from);
-      if (!contactId) {
-        this.logger.log(`← ${origen} de ${m.from}: "${m.text}" (solo bitácora)`);
-        this.webhookLog.push(
-          origen,
-          `Mensaje de ${m.profileName ?? m.from}: “${m.text}” — sin hilo tomado, no entra al Brain`,
-          true,
-          { from: m.from },
-        );
+      const quien = m.profileName ?? m.from;
+      const puerta = await this.hiloTomado(m.from);
+      if (puerta.estado !== 'tomado') {
+        /*
+         * Se dice CUÁL de las dos puertas lo frenó, porque se arreglan al
+         * revés: "nadie lo tomó" lo resuelve el operador con un clic, y "no
+         * conocemos el número" es un problema de emparejado de teléfonos que
+         * hay que corregir en el código. Un solo mensaje para los dos casos
+         * dejaba el diagnóstico a mitad de camino.
+         */
+        const motivo =
+          puerta.estado === 'desconocido'
+            ? `no hay ninguna conversación con ese número (${m.from})`
+            : 'nadie tomó esa conversación todavía — el operador tiene que pulsar "Tomar"';
+        this.logger.log(`← ${origen} de ${m.from}: "${m.text}" (solo bitácora: ${puerta.estado})`);
+        this.webhookLog.push(origen, `Mensaje de ${quien}: “${m.text}” — no entra al Brain: ${motivo}`, true, {
+          from: m.from,
+          estado: puerta.estado,
+        });
         continue;
       }
+      const contactId = puerta.contactId;
 
       /*
        * Entra como mensaje del ciudadano en el hilo que el operador atiende.
@@ -89,22 +100,27 @@ export class WhatsappInboundService {
   }
 
   /**
-   * El contacto de ese número, SOLO si su conversación está tomada por una
-   * persona. Devuelve null en cualquier otro caso — incluido un número que
-   * nunca escribió, para no crear hilos fantasma desde este canal.
+   * Si ese número puede escribir en un hilo, y si no, POR QUÉ no.
+   *
+   * `desconocido` = no hay conversación con ese número (nunca escribió, o no
+   * estamos emparejando bien el teléfono). `sin-tomar` = la conversación
+   * existe pero la sigue atendiendo el agente. Son causas distintas con
+   * arreglos distintos, y por eso no comparten respuesta.
    */
-  private async hiloTomado(telefono: string): Promise<string | null> {
+  private async hiloTomado(
+    telefono: string,
+  ): Promise<{ estado: 'tomado'; contactId: string } | { estado: 'desconocido' | 'sin-tomar' }> {
     try {
       // `findByPhone` y no `resolveIdentity`: preguntar no debe dar de alta a
       // nadie. Con resolveIdentity, un mensaje de un número desconocido
       // dejaba un contacto fantasma en Conversaciones.
       const contacto = await this.brain.findByPhone(telefono);
-      if (!contacto) return null;
+      if (!contacto) return { estado: 'desconocido' };
       const { operador } = await this.atencion.de(contacto.id);
-      return operador ? contacto.id : null;
+      return operador ? { estado: 'tomado', contactId: contacto.id } : { estado: 'sin-tomar' };
     } catch (err) {
       this.logger.warn(`No se pudo resolver ${telefono}: ${(err as Error).message}`);
-      return null;
+      return { estado: 'desconocido' };
     }
   }
 
