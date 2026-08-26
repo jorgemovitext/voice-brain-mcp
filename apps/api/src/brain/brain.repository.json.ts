@@ -136,6 +136,16 @@ export class JsonBrainRepository implements BrainRepository {
     return signal;
   }
 
+async mergeContacts(keepId: string, dropIds: string[]): Promise<void> {
+    if (!dropIds.length) return;
+    await this.ensureLoaded();
+    const fuera = new Set(dropIds);
+    for (const i of this.interactions) if (fuera.has(i.contactId)) i.contactId = keepId;
+    for (const s of this.signals) if (fuera.has(s.contactId)) s.contactId = keepId;
+    for (const id of fuera) this.contacts.delete(id);
+    this.schedulePersist();
+  }
+
   async reset(): Promise<void> {
     this.loaded = true;
     this.contacts.clear();

@@ -125,10 +125,18 @@
                      vidrio solo se lee como vidrio si deja ver algo debajo. -->
                 @for (c of sk.cintas; track c.d; let i = $index) {
                   @if (c.cristal) {
+                    <!-- Sombra propia, justo debajo del vidrio. Sin ella el
+                         panel se apoyaba sobre las cintas sin despegarse: al
+                         ser casi transparente y mostrar lo de atrás
+                         difuminado, se leía como si el color pasara POR
+                         ENCIMA. La sombra es lo que dice cuál está arriba. -->
+                    <path class="flow__sombra" [attr.d]="c.d" [attr.stroke-width]="c.grosor + 8" />
                     <g [attr.mask]="'url(#flowMask' + i + ')'" class="flow__vidrio">
                       <use href="#flowFondo" filter="url(#flowEsmerilado)" />
-                      <!-- Mismo tinte que `.tip`: rgba(255,255,255,0.1). -->
-                      <rect x="0" y="0" width="720" height="306" fill="rgba(255,255,255,0.1)" />
+                      <!-- Tinte del vidrio. Más alto que el 0.1 de `.tip`:
+                           acá compite con cintas saturadas debajo, no con el
+                           fondo liso del tablero. -->
+                      <rect x="0" y="0" width="720" height="306" fill="rgba(255,255,255,0.16)" />
                     </g>
                     <!-- El canto, encima: con el tinte tan bajo es lo que
                          dibuja la cinta donde no hay nada detrás. -->

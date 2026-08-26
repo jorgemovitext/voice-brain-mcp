@@ -169,6 +169,24 @@ export class BlobBrainRepository implements BrainRepository {
     return signal;
   }
 
+  async mergeContacts(keepId: string, dropIds: string[]): Promise<void> {
+    if (!dropIds.length) return;
+    /*
+     * `force`: se va a reescribir el snapshot COMPLETO, así que hay que partir
+     * del remoto y no de la copia local, que puede tener hasta 300 ms. Con una
+     * copia vieja, lo que otra instancia hubiera guardado en ese hueco se
+     * perdería al escribir.
+     */
+    const snap = await this.fresh(true);
+    const fuera = new Set(dropIds);
+    for (const i of snap.interactions) if (fuera.has(i.contactId)) i.contactId = keepId;
+    for (const s of snap.signals) if (fuera.has(s.contactId)) s.contactId = keepId;
+    snap.contacts = snap.contacts.filter((c) => !fuera.has(c.id));
+    this.snapshot = snap;
+    await this.persist();
+    this.loadedAt = Date.now();
+  }
+
   async reset(): Promise<void> {
     // Vaciado real: se escribe sin fusionar y se invalida la copia local para
     // que la próxima lectura no reviva lo borrado.

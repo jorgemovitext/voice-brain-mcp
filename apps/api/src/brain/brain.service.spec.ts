@@ -55,6 +55,12 @@ class InMemoryRepo implements BrainRepository {
     else this.signals.push(signal);
     return signal;
   }
+  async mergeContacts(keepId: string, dropIds: string[]) {
+    const fuera = new Set(dropIds);
+    for (const i of this.interactions) if (fuera.has(i.contactId)) i.contactId = keepId;
+    for (const s of this.signals) if (fuera.has(s.contactId)) s.contactId = keepId;
+    for (const id of fuera) this.contacts.delete(id);
+  }
   async reset() {
     this.contacts.clear();
     this.interactions = [];

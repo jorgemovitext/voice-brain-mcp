@@ -241,6 +241,29 @@ export class PgBrainRepository implements BrainRepository {
     return signal;
   }
 
+  async mergeContacts(keepId: string, dropIds: string[]): Promise<void> {
+    if (!dropIds.length) return;
+    const db = await this.db();
+    const cliente = await db.connect();
+    try {
+      /*
+       * En una transacción: si el borrado de contactos ocurriera sin que las
+       * interacciones se hayan movido, quedarían apuntando a un contacto que
+       * ya no existe y el hilo se vería vacío sin ningún error visible.
+       */
+      await cliente.query('BEGIN');
+      await cliente.query('UPDATE interactions SET contact_id = $1 WHERE contact_id = ANY($2)', [keepId, dropIds]);
+      await cliente.query('UPDATE signals SET contact_id = $1 WHERE contact_id = ANY($2)', [keepId, dropIds]);
+      await cliente.query('DELETE FROM contacts WHERE id = ANY($1)', [dropIds]);
+      await cliente.query('COMMIT');
+    } catch (err) {
+      await cliente.query('ROLLBACK').catch(() => undefined);
+      throw err;
+    } finally {
+      cliente.release();
+    }
+  }
+
   async reset(): Promise<void> {
     const db = await this.db();
     await db.query('TRUNCATE contacts, interactions, signals, nlpearl_pearls, nlpearl_activity');

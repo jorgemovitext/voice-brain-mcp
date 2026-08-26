@@ -2,7 +2,7 @@ import { Inject, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { randomUUID } from 'crypto';
 import { BRAIN_REPOSITORY, BrainRepository } from './brain.repository';
 import { IdentityService, ResolveIdentityInput, ResolveIdentityResult } from './identity.service';
-import { mismoTelefono } from './telefono';
+import { digitosDe, mismoTelefono } from './telefono';
 import {
   Contact,
   ContactListItem,
@@ -77,6 +77,55 @@ export class BrainService {
   async findAllByPhone(phone: string): Promise<Contact[]> {
     const todos = await this.repo.listContacts();
     return todos.filter((c) => (c.phones ?? []).some((p) => mismoTelefono(p, phone)));
+  }
+
+  /**
+   * Un contacto por número: fusiona los duplicados que dejó el emparejado por
+   * texto exacto ("+504 9761-6546" y "50497616546" eran dos personas).
+   *
+   * Se conserva el que MÁS interacciones tiene, no el más viejo: es el que
+   * arrastra la conversación de verdad, y mover pocas hacia muchas deja menos
+   * expuesto si algo sale mal a mitad. El que sobrevive se queda con la unión
+   * de teléfonos y de externalIds, y con el nombre de quien lo tenga — un
+   * duplicado suele ser justo el que no alcanzó a aprenderlo.
+   *
+   * Devuelve las fusiones hechas para que quien la llame decida qué más mover
+   * (el estado de "quién atiende" no vive en el Brain).
+   */
+  async unificarPorTelefono(): Promise<Array<{ keepId: string; dropIds: string[] }>> {
+    const contactos = await this.repo.listContacts();
+
+    const porNumero = new Map<string, Contact[]>();
+    for (const c of contactos) {
+      // Por el PRIMER teléfono: es el que identifica al hilo. Agrupar por
+      // cualquiera encadenaría contactos que solo comparten un secundario.
+      const clave = digitosDe(c.phones?.[0]);
+      if (!clave) continue;
+      porNumero.set(clave, [...(porNumero.get(clave) ?? []), c]);
+    }
+
+    const interacciones = await this.repo.listInteractions();
+    const cuantas = new Map<string, number>();
+    for (const i of interacciones) cuantas.set(i.contactId, (cuantas.get(i.contactId) ?? 0) + 1);
+
+    const hechas: Array<{ keepId: string; dropIds: string[] }> = [];
+    for (const [numero, grupo] of porNumero) {
+      if (grupo.length < 2) continue;
+
+      const [keep, ...drop] = [...grupo].sort((a, b) => (cuantas.get(b.id) ?? 0) - (cuantas.get(a.id) ?? 0));
+      await this.repo.saveContact({
+        ...keep,
+        displayName: keep.displayName ?? drop.find((d) => d.displayName)?.displayName,
+        phones: [...new Set([...(keep.phones ?? []), ...drop.flatMap((d) => d.phones ?? [])])],
+        externalIds: Object.assign({}, ...drop.map((d) => d.externalIds ?? {}), keep.externalIds ?? {}),
+      });
+
+      const dropIds = drop.map((d) => d.id);
+      await this.repo.mergeContacts(keep.id, dropIds);
+      this.logger.log(`Unificados ${grupo.length} contactos del número ${numero} en ${keep.id}`);
+      hechas.push({ keepId: keep.id, dropIds });
+    }
+    return hechas;
   }
 
   async listContacts(): Promise<ContactListItem[]> {

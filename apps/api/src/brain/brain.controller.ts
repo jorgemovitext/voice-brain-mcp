@@ -1,6 +1,7 @@
 import { BadRequestException, Body, Controller, Get, Param, Post, Query } from '@nestjs/common';
 import { z } from 'zod';
 import { BrainService } from './brain.service';
+import { UnificacionService } from './unificacion.service';
 
 /** Alta de contacto por teléfono: la llave de identidad es E.164. */
 const newContactSchema = z.object({
@@ -17,11 +18,29 @@ const newContactSchema = z.object({
  */
 @Controller('api')
 export class BrainController {
-  constructor(private readonly brain: BrainService) {}
+  constructor(
+    private readonly brain: BrainService,
+    private readonly unificacion: UnificacionService,
+  ) {}
 
   @Get('health')
   health() {
     return { status: 'ok', service: 'voice-brain-api', at: new Date().toISOString() };
+  }
+
+  /**
+   * Deja un solo hilo por número, ahora.
+   *
+   * Corre sola al arrancar la API, pero con una ventana de 5 minutos entre
+   * instancias; esto es la corrida a pedido, para no tener que esperarla.
+   */
+  @Post('contacts/unificar')
+  async unificar() {
+    const hechas = await this.unificacion.ahora();
+    return {
+      numeros: hechas.length,
+      contactosFusionados: hechas.reduce((n: number, h) => n + h.dropIds.length, 0),
+    };
   }
 
   @Get('contacts')

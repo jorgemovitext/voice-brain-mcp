@@ -7,6 +7,7 @@ import { PgBrainRepository } from './brain.repository.pg';
 import { BlobImportService } from './blob-import.service';
 import { BrainController } from './brain.controller';
 import { BrainService } from './brain.service';
+import { UnificacionService } from './unificacion.service';
 import { IdentityService } from './identity.service';
 import { StorageDiagnosticsController } from './storage-diagnostics.controller';
 
@@ -18,6 +19,7 @@ import { StorageDiagnosticsController } from './storage-diagnostics.controller';
   controllers: [BrainController, StorageDiagnosticsController],
   providers: [
     BrainService,
+    UnificacionService,
     IdentityService,
     BlobImportService,
     PgBrainRepository,
@@ -48,6 +50,6 @@ import { StorageDiagnosticsController } from './storage-diagnostics.controller';
       },
     },
   ],
-  exports: [BrainService, IdentityService, BRAIN_REPOSITORY],
+  exports: [BrainService, IdentityService, UnificacionService, BRAIN_REPOSITORY],
 })
 export class BrainModule {}

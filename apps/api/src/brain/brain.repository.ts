@@ -26,6 +26,16 @@ export interface BrainRepository {
   listSignals(contactId?: string): Promise<Signal[]>;
   saveSignal(signal: Signal): Promise<Signal>;
 
+  /**
+   * Pasa todo lo de `dropIds` a `keepId` y borra esos contactos.
+   *
+   * Es la única operación del Brain que destruye datos, así que vive acá y no
+   * se arma con `saveContact` + borrados sueltos: en Postgres tiene que ser
+   * una transacción. A medias dejaría interacciones apuntando a un contacto
+   * que ya no existe, y eso no se ve hasta que alguien abre ese hilo.
+   */
+  mergeContacts(keepId: string, dropIds: string[]): Promise<void>;
+
   /** Borra todo — útil para re-correr la demo desde cero. */
   reset(): Promise<void>;
 }

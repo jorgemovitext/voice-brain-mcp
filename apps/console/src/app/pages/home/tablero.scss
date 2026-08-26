@@ -325,11 +325,26 @@
   pointer-events: none;
 }
 
-/* El borde de `.tip`: 1px de rgba(255,255,255,0.2). Es un <rect> recortado por
-   una máscara en anillo, no un trazo: un trazo del ancho de la cinta la
-   rellena de blanco, que es lo que la hacía parecer un neón. */
+/* Lo que despega el vidrio de las cintas que tiene debajo.
+   Un panel casi transparente que además muestra el fondo difuminado no tiene
+   cómo anunciar que está encima: sin sombra, el verde de atrás se leía como
+   si pasara por delante. */
+.flow__sombra {
+  fill: none;
+  stroke: rgba(2, 6, 16, 0.6);
+  stroke-linecap: butt;
+  filter: blur(5px);
+  pointer-events: none;
+}
+
+/* El canto del panel. Más marcado que el borde de `.tip` (rgba .2): sobre
+   cintas saturadas ese valor se perdía, y el canto es justo lo que dibuja el
+   filo del vidrio contra lo que tiene detrás.
+   Es un <rect> recortado por una máscara en anillo, no un trazo: un trazo del
+   ancho de la cinta la rellena de blanco, que es lo que la hacía parecer un
+   neón. */
 .flow__filo {
-  fill: rgba(255, 255, 255, 0.2);
+  fill: rgba(255, 255, 255, 0.38);
   pointer-events: none;
 }
 
