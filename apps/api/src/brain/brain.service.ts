@@ -2,6 +2,7 @@ import { Inject, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { randomUUID } from 'crypto';
 import { BRAIN_REPOSITORY, BrainRepository } from './brain.repository';
 import { IdentityService, ResolveIdentityInput, ResolveIdentityResult } from './identity.service';
+import { mismoTelefono } from './telefono';
 import {
   Contact,
   ContactListItem,
@@ -61,6 +62,21 @@ export class BrainService {
    */
   async findByPhone(phone: string): Promise<Contact | undefined> {
     return this.repo.findContactByPhone(phone);
+  }
+
+  /**
+   * TODOS los contactos de ese número, no el primero.
+   *
+   * El mismo teléfono llegó a tener varios contactos: antes de emparejar por
+   * dígitos, cada formato distinto ("+504 9761-6546", "50497616546") daba de
+   * alta uno nuevo. `findContactByPhone` devuelve uno solo, y cuál sea es
+   * cuestión de suerte — así que un mensaje entrante podía resolver a un
+   * duplicado mientras el operador tenía tomado el otro, y quedaba fuera del
+   * hilo con un "nadie tomó esta conversación" que contradecía la pantalla.
+   */
+  async findAllByPhone(phone: string): Promise<Contact[]> {
+    const todos = await this.repo.listContacts();
+    return todos.filter((c) => (c.phones ?? []).some((p) => mismoTelefono(p, phone)));
   }
 
   async listContacts(): Promise<ContactListItem[]> {

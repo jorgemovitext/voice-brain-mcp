@@ -111,13 +111,23 @@ export class WhatsappInboundService {
     telefono: string,
   ): Promise<{ estado: 'tomado'; contactId: string } | { estado: 'desconocido' | 'sin-tomar' }> {
     try {
-      // `findByPhone` y no `resolveIdentity`: preguntar no debe dar de alta a
-      // nadie. Con resolveIdentity, un mensaje de un número desconocido
-      // dejaba un contacto fantasma en Conversaciones.
-      const contacto = await this.brain.findByPhone(telefono);
-      if (!contacto) return { estado: 'desconocido' };
-      const { operador } = await this.atencion.de(contacto.id);
-      return operador ? { estado: 'tomado', contactId: contacto.id } : { estado: 'sin-tomar' };
+      /*
+       * `findAllByPhone` y no `findByPhone`: el mismo número puede tener más
+       * de un contacto (duplicados que dejó el emparejado por texto exacto),
+       * y el primero que devuelva la consulta no tiene por qué ser el que el
+       * operador tomó. Gana el que esté tomado, venga en el orden que venga.
+       *
+       * Y ninguno de los dos crea: con `resolveIdentity`, preguntar por un
+       * número desconocido dejaba un contacto fantasma en Conversaciones.
+       */
+      const contactos = await this.brain.findAllByPhone(telefono);
+      if (!contactos.length) return { estado: 'desconocido' };
+
+      for (const contacto of contactos) {
+        const { operador } = await this.atencion.de(contacto.id);
+        if (operador) return { estado: 'tomado', contactId: contacto.id };
+      }
+      return { estado: 'sin-tomar' };
     } catch (err) {
       this.logger.warn(`No se pudo resolver ${telefono}: ${(err as Error).message}`);
       return { estado: 'desconocido' };

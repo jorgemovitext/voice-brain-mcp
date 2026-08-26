@@ -26,20 +26,31 @@ describe('WhatsappInboundService', () => {
     },
   });
 
-  function build({ operador, contactoNuevo = false }: { operador: string | null; contactoNuevo?: boolean }) {
+  /**
+   * @param operador  Quién atiende cada contacto del número. Es un mapa y no
+   *                  un valor suelto porque el mismo teléfono puede tener
+   *                  varios contactos, y el que importa es el TOMADO.
+   * @param contactos Los contactos que comparten ese número.
+   */
+  function build({
+    operador,
+    contactos = ['c1'],
+  }: {
+    operador: Record<string, string | null>;
+    contactos?: string[];
+  }) {
     const guardadas: Array<Record<string, unknown>> = [];
     const bitacora: string[] = [];
 
     const brain = {
-      // `findByPhone` no crea: preguntar por un número no debe dar de alta a
-      // nadie. `contactoNuevo` simula un número que no está en la base.
-      findByPhone: async () => (contactoNuevo ? undefined : { id: 'c1' }),
+      // No crea: preguntar por un número no debe dar de alta a nadie.
+      findAllByPhone: async () => contactos.map((id) => ({ id })),
       appendInteraction: async (i: Record<string, unknown>) => {
         guardadas.push(i);
         return i;
       },
     };
-    const atencion = { de: async () => ({ operador }) };
+    const atencion = { de: async (id: string) => ({ operador: operador[id] ?? null }) };
 
     const service = new WhatsappInboundService(
       brain as unknown as BrainService,
@@ -50,7 +61,7 @@ describe('WhatsappInboundService', () => {
   }
 
   it('la respuesta del ciudadano entra al hilo que un operador tomó', async () => {
-    const { service, guardadas } = build({ operador: 'Jorge Murcia' });
+    const { service, guardadas } = build({ operador: { c1: 'Jorge Murcia' } });
 
     await service.process(mensaje('Sí, es en la esquina de la cancha'), 'gupshup');
 
@@ -64,7 +75,7 @@ describe('WhatsappInboundService', () => {
   });
 
   it('sin hilo tomado se queda en la bitácora: el agente atiende por NL Pearl', async () => {
-    const { service, guardadas, bitacora } = build({ operador: null });
+    const { service, guardadas, bitacora } = build({ operador: { c1: null } });
 
     await service.process(mensaje('Hola'), 'gupshup');
 
@@ -74,7 +85,7 @@ describe('WhatsappInboundService', () => {
   });
 
   it('un número desconocido no crea un contacto fantasma', async () => {
-    const { service, guardadas, bitacora } = build({ operador: 'Jorge Murcia', contactoNuevo: true });
+    const { service, guardadas, bitacora } = build({ operador: {}, contactos: [] });
 
     await service.process(mensaje('Número que nunca escribió'), 'gupshup');
 
@@ -87,8 +98,27 @@ describe('WhatsappInboundService', () => {
     expect(bitacora[0]).toContain('no hay ninguna conversación con ese número');
   });
 
+  it('con contactos duplicados del mismo número, entra al que está tomado', async () => {
+    /*
+     * El teléfono llegó a tener varios contactos: antes de emparejar por
+     * dígitos, cada formato distinto daba de alta uno nuevo. La consulta
+     * devolvía el primero, que no tiene por qué ser el que el operador tomó,
+     * y el mensaje quedaba fuera con un rechazo que contradecía la pantalla:
+     * la app mostraba el hilo tomado y la bitácora decía que nadie lo tomó.
+     */
+    const { service, guardadas } = build({
+      operador: { duplicado: null, tomado: 'Jorge Murcia' },
+      contactos: ['duplicado', 'tomado'],
+    });
+
+    await service.process(mensaje('Ya la tomé, respondeme acá'), 'gupshup');
+
+    expect(guardadas).toHaveLength(1);
+    expect(guardadas[0]).toMatchObject({ contactId: 'tomado' });
+  });
+
   it('no duplica cuando el proveedor reintenta el mismo mensaje', async () => {
-    const { service, guardadas } = build({ operador: 'Jorge Murcia' });
+    const { service, guardadas } = build({ operador: { c1: 'Jorge Murcia' } });
 
     await service.process(mensaje('Una sola vez', 'repetido'), 'gupshup');
     await service.process(mensaje('Una sola vez', 'repetido'), 'gupshup');
@@ -97,7 +127,7 @@ describe('WhatsappInboundService', () => {
   });
 
   it('un acuse de entrega no es un mensaje del ciudadano', async () => {
-    const { service, guardadas } = build({ operador: 'Jorge Murcia' });
+    const { service, guardadas } = build({ operador: { c1: 'Jorge Murcia' } });
 
     await service.process(
       { type: 'message-event', payload: { type: 'delivered', destination: TEL, payload: {} } },
