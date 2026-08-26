@@ -128,9 +128,18 @@ $overlap: 44px;
   display: flex;
   gap: 0.6rem;
   align-items: center;
-  padding: 0.55rem 0.6rem;
-  border-radius: 14px;
+  padding: 0.5rem 0.75rem 0.5rem 0.5rem;
+  /* Pill: la fila es una pieza, como el resto de la app. */
+  border-radius: 999px;
   color: var(--ink);
+  /*
+   * Lo que impedía que la lista scrolleara. Los hijos de un flex column se
+   * encogen por defecto, así que al crecer la lista cada fila se achataba en
+   * vez de desbordar: el nombre y la vista previa quedaban cortados y el
+   * scroll no aparecía nunca. Con esto la fila conserva su alto y el
+   * `overflow-y: auto` del contenedor por fin hace su trabajo.
+   */
+  flex-shrink: 0;
   /* Borde transparente de base: el seleccionado lo pinta, y sin esto la fila
      se movería 1px al cambiar de selección. */
   border: 1px solid transparent;
@@ -176,7 +185,7 @@ $overlap: 44px;
     top: 50%;
     translate: 0 -50%;
     width: 3px;
-    height: 60%;
+    height: 55%;
     border-radius: 0 3px 3px 0;
     background: var(--secondary);
   }
@@ -187,12 +196,14 @@ $overlap: 44px;
 
 .thread__avatar {
   position: relative;
-  width: 40px;
-  height: 40px;
+  width: 38px;
+  height: 38px;
   flex-shrink: 0;
   display: grid;
   place-items: center;
-  border-radius: 13px;
+  /* Redondo, para acompañar la pill: un cuadrado redondeado dentro de una
+     forma capsular deja dos radios peleando. */
+  border-radius: 50%;
   font-size: 0.78rem;
   font-weight: 800;
   color: #22303c;

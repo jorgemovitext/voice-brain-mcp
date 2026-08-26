@@ -581,6 +581,9 @@ export class ContactDetailPage implements OnDestroy {
    * conversación que estaba abriéndose en ese momento, que es justo la que
    * hay que mirar.
    */
+  /** Lo que separa "conversando ahora" de "esto pasó hace rato". */
+  private static readonly VIVA_MS = 15 * 60_000;
+
   readonly hilos = computed(() => {
     const flujo = this.enCurso();
     return [...(this.conversations.value() ?? [])]
@@ -592,10 +595,23 @@ export class ContactDetailPage implements OnDestroy {
           .at(-1);
         const ultimoAvance = estado?.lastFlowAt ?? '';
         const mensaje = c.lastInteraction?.occurredAt ?? '';
+        /*
+         * "Conversando ahora" tiene que ser AHORA.
+         *
+         * Antes bastaba con que el último avance fuera posterior al último
+         * mensaje, y eso es cierto para siempre en cualquier conversación
+         * donde el flujo reportó después de cerrar el hilo: quedaban rótulos
+         * de "Conversando ahora" en conversaciones de hace días.
+         *
+         * El corte es el mismo que decide si una conversación quedó
+         * inconclusa, así que las dos etiquetas no pueden convivir: o se está
+         * moviendo, o hace rato que no.
+         */
+        const quieto = Date.now() - new Date(ultimoAvance || 0).getTime();
         return {
           ...c,
           // El agente está conversando y todavía no hay hilo que mostrar.
-          enCurso: !!ultimoAvance && ultimoAvance > mensaje,
+          enCurso: !!ultimoAvance && ultimoAvance > mensaje && quieto < ContactDetailPage.VIVA_MS,
           // Se quedó sin respuesta y nadie cerró el caso: alguien tiene que tomarla.
           inconclusa: !!estado?.inconclusa,
           cuando: ultimoAvance > mensaje ? ultimoAvance : mensaje,
