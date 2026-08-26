@@ -5,6 +5,23 @@ import { FlowLogService } from '../shared/flow-log.service';
 import { NlpearlActivityStore } from './activity.store';
 import { NlpearlClient } from './nlpearl.client';
 import { PearlSyncService } from './pearl-sync.service';
+import { SettingsService } from '../shared/settings.service';
+
+/**
+ * Settings en memoria. La ventana entre rescates vive ahí porque en serverless
+ * la memoria del proceso no sobrevive de una invocación a otra; un Map por
+ * test reproduce lo mismo sin necesitar Postgres.
+ */
+function settingsEnMemoria(): SettingsService {
+  const datos = new Map<string, unknown>();
+  return {
+    get: async (k: string) => datos.get(k),
+    set: async (k: string, v: unknown) => {
+      datos.set(k, v);
+      return v;
+    },
+  } as unknown as SettingsService;
+}
 
 /**
  * La API de NL Pearl no permite releer las conversaciones de texto: el raw que
@@ -84,6 +101,7 @@ describe('PearlSyncService.reprocesarChats', () => {
       store as unknown as NlpearlActivityStore,
       brain as unknown as BrainService,
       { registrar: () => undefined } as unknown as FlowLogService,
+      settingsEnMemoria(),
       { get: (_k: string, def?: unknown) => def } as unknown as ConfigService,
     );
 

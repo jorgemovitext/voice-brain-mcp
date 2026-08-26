@@ -3,6 +3,7 @@ import { ConfigService } from "@nestjs/config";
 import { BrainService } from "../brain/brain.service";
 import { Channel } from "../brain/types";
 import { FlowLogService } from "../shared/flow-log.service";
+import { SettingsService } from "../shared/settings.service";
 import { NlpearlActivityStore, StoredPearl } from "./activity.store";
 import { NlpearlCallApiView, NlpearlClient } from "./nlpearl.client";
 import {
@@ -70,6 +71,7 @@ export class PearlSyncService {
     private readonly store: NlpearlActivityStore,
     private readonly brain: BrainService,
     private readonly flowLog: FlowLogService,
+    private readonly settings: SettingsService,
     config: ConfigService,
   ) {
     this.textPearlIds = new Set(
@@ -136,6 +138,20 @@ export class PearlSyncService {
     const ahora = Date.now();
     if (ahora - (this.rescates.get(conversationId) ?? 0) < PearlSyncService.RESCATE_MS) return 0;
     this.rescates.set(conversationId, ahora);
+
+    /*
+     * La ventana de verdad vive en la DB, no en el Map de arriba.
+     *
+     * En serverless cada invocación es una instancia nueva con la memoria en
+     * blanco: el Map nunca frena nada y, ahora que el rescate se espera en
+     * lugar de dispararse al aire, eso serían tantas peticiones a NL Pearl
+     * como vueltas del sondeo. El Map se conserva porque en local —proceso
+     * largo— ahorra el viaje a la DB.
+     */
+    const clave = `rescate:${conversationId}`;
+    const ultimo = await this.settings.get<number>(clave);
+    if (ultimo && ahora - ultimo < PearlSyncService.RESCATE_MS) return 0;
+    await this.settings.set(clave, ahora);
 
     try {
       const { nuevas } = await this.ingestCall(conversationId);

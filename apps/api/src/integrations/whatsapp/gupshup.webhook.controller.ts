@@ -37,6 +37,9 @@ export class GupshupWebhookController {
       this.logger.error(`Error procesando evento de Gupshup: ${(err as Error).message}`);
       this.webhookLog.push('gupshup', `Error procesando evento: ${(err as Error).message}`, false);
     }
+    // Sin esperar el guardado, en serverless el evento se pierde al congelarse
+    // la instancia y Actividad queda diciendo que Gupshup nunca nos llamó.
+    await this.webhookLog.flush();
     return { received: true };
   }
 }

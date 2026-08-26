@@ -83,12 +83,19 @@ export class IntegrationsPage {
   }
 
   /**
-   * Solo los detalles que cambian de estado: URLs y nombres fijos no aportan
-   * nada acá y alargarían el riel sin decir nada nuevo.
+   * Se esconden los detalles que son un valor fijo —las URLs de callback y los
+   * huecos sin llenar—: no cambian de estado y alargarían el riel sin decir
+   * nada. Todo lo demás se muestra.
+   *
+   * Antes esto era una lista blanca de palabras ("configurada", "falta",
+   * "sin…"), y cualquier diagnóstico redactado distinto quedaba invisible. Así
+   * se perdió el más importante: "Entrantes de Gupshup", que es el que dice si
+   * el proveedor nos llama o no, nunca llegó a verse en pantalla.
    */
   detalles(c: Integracion): Array<{ k: string; v: string }> {
+    const fijo = /^(https?:\/\/|—$)/i;
     return Object.entries(c.details ?? {})
-      .filter(([k, v]) => k === 'Estado' || /configurad|falta|sin |validad/i.test(String(v)))
+      .filter(([, v]) => !fijo.test(String(v).trim()))
       .map(([k, v]) => ({ k, v: String(v) }));
   }
 

@@ -28,17 +28,45 @@ export class WebhookLogService {
   private events: WebhookEvent[] = [];
   private loadedAt = 0;
 
+  /**
+   * Los guardados en vuelo, encadenados.
+   *
+   * Se encadenan y no se disparan en paralelo porque cada uno escribe el
+   * arreglo COMPLETO: dos `put` simultáneos se pisan y el que llega segundo
+   * puede ser el que leyó el estado más viejo.
+   */
+  private pendiente: Promise<void> = Promise.resolve();
+
   constructor(config: ConfigService) {
     this.token = config.get<string>('BLOB_READ_WRITE_TOKEN', '');
     this.pathname = config.get<string>('WEBHOOK_LOG_BLOB_PATH', 'brain/webhook-log.json');
   }
 
-  /** Registra el evento; la persistencia va detrás sin bloquear la respuesta. */
+  /**
+   * Registra el evento. La escritura no bloquea a quien llama, pero queda
+   * agendada: hay que cerrarla con `flush()` antes de responder.
+   */
   push(source: WebhookEvent['source'], summary: string, ok = true, detail?: unknown): void {
     const evento: WebhookEvent = { at: new Date().toISOString(), source, summary, ok, detail };
     this.events.unshift(evento);
     if (this.events.length > WebhookLogService.MAX) this.events.length = WebhookLogService.MAX;
-    if (this.token) void this.persist();
+    if (this.token) this.pendiente = this.pendiente.then(() => this.persist());
+  }
+
+  /**
+   * Espera a que lo registrado esté realmente guardado.
+   *
+   * Sin esto la bitácora miente en producción. En serverless la instancia se
+   * congela apenas se devuelve la respuesta, así que un guardado disparado y
+   * no esperado se pierde a medio camino — y como la copia en memoria muere
+   * con la instancia, el evento no queda en ningún lado. El resultado es que
+   * "¿el proveedor nos pegó alguna vez?" siempre respondía que no, que es
+   * justo la pregunta que hay que contestar cuando un webhook no llega.
+   *
+   * Lo llaman los controladores de webhook antes de su `return`.
+   */
+  async flush(): Promise<void> {
+    await this.pendiente;
   }
 
   async list(): Promise<WebhookEvent[]> {

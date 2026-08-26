@@ -182,17 +182,20 @@ export class ExpedienteService {
      * al cierre: el `conversationId` que manda el flujo ES el callId. Si NL
      * Pearl ya tiene turnos, el hilo se va llenando en vivo; si todavía no,
      * el intento no cuesta nada y el siguiente sondeo vuelve a probar (el
-     * sync lo limita a uno cada 45 s por conversación).
+     * sync lo limita a uno cada 15 s por conversación).
      *
      * `viva` mantiene el rescate activo un rato después del último avance
      * aunque ya haya mensajes: es lo que trae los turnos nuevos de una
-     * conversación abierta y atrapa el cierre si el aviso se pierde. No se
-     * bloquea la respuesta con el resultado: el sondeo siguiente lo ve.
+     * conversación abierta y atrapa el cierre si el aviso se pierde.
+     *
+     * Se espera el resultado: en serverless la instancia se congela al
+     * responder, y un `void` acá dejaba la petición a NL Pearl a medio hacer
+     * — el rescate no ocurría nunca en producción, solo en local.
      */
     if (reciente) {
       const sinMensajes = !delCaso.some((a) => a.kind === 'call' || a.kind === 'chat');
       const viva = Date.now() - new Date(reciente.cuando || 0).getTime() < 10 * 60_000;
-      if (sinMensajes || viva) void this.sync.rescatarConversacion(reciente.id, ctx.contact.displayName);
+      if (sinMensajes || viva) await this.sync.rescatarConversacion(reciente.id, ctx.contact.displayName);
     }
 
     // Lo que el flujo recopiló EN ESA conversación; gana el valor más nuevo.

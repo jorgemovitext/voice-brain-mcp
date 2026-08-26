@@ -183,14 +183,30 @@ export class WhatsappInboundService {
       );
       return [];
     }
-    if (tipo !== 'message') return [];
+    if (tipo !== 'message') {
+      this.webhookLog.push(origen as 'gupshup', `Evento "${String(tipo)}" ignorado: no es un mensaje`, true);
+      return [];
+    }
 
     const interno = (payload['payload'] as Record<string, unknown>) ?? {};
     const sender = (payload['sender'] as Record<string, unknown>) ?? {};
     const texto = (interno['text'] ?? interno['title'] ?? interno['postbackText']) as string | undefined;
     const phone = (sender['phone'] ?? payload['source']) as string | undefined;
 
-    if (!texto || !phone) return [];
+    /*
+     * Se deja rastro del descarte. Antes salía por acá en silencio, y en la
+     * bitácora "Gupshup nos mandó algo que no supimos leer" era idéntico a
+     * "Gupshup nunca nos llamó" — que se arreglan de maneras opuestas.
+     */
+    if (!texto || !phone) {
+      this.webhookLog.push(
+        origen as 'gupshup',
+        `Mensaje descartado: ${!phone ? 'sin remitente' : 'sin texto (¿imagen o ubicación?)'}`,
+        false,
+        { tipoInterno: interno['type'] },
+      );
+      return [];
+    }
     return [
       {
         id: String(payload['id'] ?? `${phone}-${Date.now()}`),

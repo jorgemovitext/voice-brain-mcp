@@ -4,6 +4,23 @@ import { FlowLogService } from '../shared/flow-log.service';
 import { NlpearlActivityStore } from './activity.store';
 import { NlpearlClient } from './nlpearl.client';
 import { PearlSyncService } from './pearl-sync.service';
+import { SettingsService } from '../shared/settings.service';
+
+/**
+ * Settings en memoria. La ventana entre rescates se guarda ahí porque en
+ * serverless la memoria del proceso no sobrevive de una invocación a otra;
+ * un Map por test reproduce lo mismo sin necesitar Postgres.
+ */
+function settingsEnMemoria(): SettingsService {
+  const datos = new Map<string, unknown>();
+  return {
+    get: async (k: string) => datos.get(k),
+    set: async (k: string, v: unknown) => {
+      datos.set(k, v);
+      return v;
+    },
+  } as unknown as SettingsService;
+}
 
 /**
  * La conversación se puede pedir por id desde el primer avance: el
@@ -62,6 +79,7 @@ describe('PearlSyncService.rescatarConversacion', () => {
       store as unknown as NlpearlActivityStore,
       brain as unknown as BrainService,
       { push: () => undefined } as unknown as FlowLogService,
+      settingsEnMemoria(),
       { get: (_k: string, def?: unknown) => def } as unknown as ConfigService,
     );
 

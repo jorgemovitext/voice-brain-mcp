@@ -90,7 +90,16 @@ export class PearlSyncController {
       .map((e) => ((e.raw ?? {}) as { conversationId?: string }).conversationId)
       .filter((x): x is string => !!x)
       .at(-1);
-    if (ultima) void this.sync.rescatarConversacion(ultima);
+    /*
+     * Se ESPERA, no se dispara y se olvida.
+     *
+     * En Vercel la lambda se congela apenas se devuelve la respuesta: un
+     * `void` acá arrancaba la petición a NL Pearl y la dejaba a medias, así
+     * que la conversación cerrada no llegaba nunca por más que se sondeara.
+     * La ventana de `rescatarConversacion` es la que evita que esperar esto
+     * en cada vuelta castigue al API.
+     */
+    if (ultima) await this.sync.rescatarConversacion(ultima);
 
     return eventos
       .map((e) => {
