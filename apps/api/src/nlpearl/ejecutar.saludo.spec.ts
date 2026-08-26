@@ -47,7 +47,7 @@ describe('EjecutarService.saludar', () => {
     const r = await service.saludar('c1', 'Jorge Murcia');
 
     expect(r.aviso).toBeUndefined();
-    // Un solo parámetro: así quedó registrada `hive_saludo` en Meta.
+    // Un solo parámetro: así quedó registrada la plantilla en Meta.
     expect(enviados).toEqual([{ to: TEL, id: 'uuid-de-la-plantilla', params: ['Jorge Murcia'] }]);
     expect(interacciones).toHaveLength(1);
     expect(interacciones[0]).toMatchObject({ contactId: 'c1', channel: 'whatsapp', direction: 'outbound' });

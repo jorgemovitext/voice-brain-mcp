@@ -118,8 +118,13 @@ export class IntegrationsService {
                  * ventana de 24 h nunca se abre con el nuestro. Se dice si
                  * está o no, nunca el id.
                  */
+                /*
+                 * Sin nombrar la plantilla: la app solo conoce su ID, y el
+                 * nombre escrito a mano acá quedó desactualizado al primer
+                 * cambio de plantilla. Se dice si está o no, nada más.
+                 */
                 'Plantilla de saludo': this.config.get<string>('GUPSHUP_TEMPLATE_SALUDO')
-                  ? 'configurada (hive_saludo)'
+                  ? 'configurada'
                   : 'falta GUPSHUP_TEMPLATE_SALUDO — no se puede iniciar conversación',
                 'Alternativa (Meta directo)': `${base}/webhooks/whatsapp`,
               },

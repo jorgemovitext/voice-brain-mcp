@@ -14,7 +14,7 @@ por ventana cerrada, el gateway manda esta plantilla automáticamente
 
 ## La plantilla registrada
 
-**Nombre:** `hive_saludo`
+**Nombre:** `hive_saludo2`
 **Idioma:** Español (`es`)
 **Categoría:** Utility (es seguimiento de un reporte que el ciudadano ya
 inició — no es marketing; registrarla como Marketing complica la aprobación y
@@ -25,8 +25,12 @@ habilita el bloqueo por preferencias de publicidad).
 | `{{1}}` | Nombre de quien atiende en la consola | `Jorge Murcia` |
 
 **Una sola variable.** Gupshup RECHAZA el envío si la cantidad de `params` no
-calza con la plantilla aprobada — no los ignora. Si algún día se le agrega una
-segunda variable, hay que tocar `FollowupService.abrirConPlantilla`.
+calza con la plantilla aprobada — no los ignora. La app manda exactamente uno
+(`EjecutarService.saludar` y `FollowupService.abrirConPlantilla`), así que al
+cambiar de plantilla hay que confirmar que la nueva también tenga una sola.
+
+> Historial: la primera, `hive_saludo`, nunca llegó a aprobarse. `hive_saludo2`
+> es la que quedó aprobada y en uso.
 
 ## Por qué está redactado así
 
@@ -46,7 +50,7 @@ segunda variable, hay que tocar `FollowupService.abrirConPlantilla`.
 ## Después de aprobarla
 
 Gupshup le asigna un **ID** (un UUID). Va ese ID, NO el nombre: el envío
-manda `template={"id": "<uuid>", "params": [...]}`, y con `hive_saludo` ahí
+manda `template={"id": "<uuid>", "params": [...]}`, y con el NOMBRE ahí
 Gupshup rechaza el mensaje.
 
 ```

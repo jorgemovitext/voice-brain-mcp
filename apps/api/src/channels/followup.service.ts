@@ -213,7 +213,7 @@ export class FollowupService {
 
     /*
      * Un solo parámetro: el nombre de quien atiende, tal como quedó
-     * registrada `hive_saludo` en Meta. El orden y la cantidad tienen que
+     * registrada la plantilla en Meta. El orden y la cantidad tienen que
      * calzar con la plantilla aprobada — Gupshup rechaza el envío si sobran o
      * faltan valores, no los ignora.
      */
