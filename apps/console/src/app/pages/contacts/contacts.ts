@@ -1,4 +1,5 @@
 import { Component, computed, inject, input, linkedSignal, signal } from '@angular/core';
+import { valorDe } from '../../recurso';
 import { httpResource } from '@angular/common/http';
 import { Router, RouterLink } from '@angular/router';
 import { BrainApiService } from '../../brain-api.service';
@@ -44,7 +45,7 @@ export class ContactsPage {
   readonly filtered = computed<ContactListItem[]>(() => {
     const query = this.search().trim().toLowerCase();
     const filter = this.filter();
-    return (this.contacts.value() ?? [])
+    return (valorDe(this.contacts) ?? [])
       .filter((c) => {
         if (filter === 'verified') return c.kycmStatus === 'verified';
         if (filter === 'promise') return !!c.activePromise;

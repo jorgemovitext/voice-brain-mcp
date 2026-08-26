@@ -1,4 +1,5 @@
 import { Component, DestroyRef, computed, effect, inject, signal } from '@angular/core';
+import { valorDe } from '../../recurso';
 import { httpResource } from '@angular/common/http';
 import { Router, RouterLink } from '@angular/router';
 import { AuthService } from '../../auth/auth.service';
@@ -35,6 +36,9 @@ interface FeedBubble {
   styleUrl: './home.scss',
 })
 export class HomePage {
+  /** Para el template: leer un recurso sin lanzar si está en error. */
+  protected readonly valorDe = valorDe;
+
   private readonly router = inject(Router);
   private readonly sonido = inject(Sonido);
   private readonly api = inject(BrainApiService);
@@ -54,7 +58,7 @@ export class HomePage {
 
   /** Titular según el estado del panal: es un mensaje, no una decoración. */
   readonly titular = computed(() => {
-    const h = this.hive.value();
+    const h = valorDe(this.hive);
     if (!h) return '¡Hola!';
     const n = h.metricas.esperandoRespuesta;
     if (n > 0) return n === 1 ? 'Alguien espera respuesta.' : `${n} personas esperan respuesta.`;
@@ -62,11 +66,11 @@ export class HomePage {
   });
 
   /** Obreros activos: se pintan como avatares vivos, no como un número. */
-  readonly enjambre = computed(() => this.hive.value()?.obreros.enElPanal ?? []);
+  readonly enjambre = computed(() => valorDe(this.hive)?.obreros.enElPanal ?? []);
 
   /** Progreso de atención: hilos al día sobre hilos con actividad. */
   readonly atencion = computed(() => {
-    const h = this.hive.value();
+    const h = valorDe(this.hive);
     const alDia = h?.metricas.hilosAlDia ?? 0;
     const total = alDia + (h?.metricas.esperandoRespuesta ?? 0);
     return { alDia, total, pct: total ? Math.round((alDia / total) * 100) : 100 };
@@ -74,7 +78,7 @@ export class HomePage {
 
   /** Burbujas del panel en vivo: la cola primero, después la actividad. */
   readonly feed = computed<FeedBubble[]>(() => {
-    const h = this.hive.value();
+    const h = valorDe(this.hive);
     if (!h) return [];
     const esperas: FeedBubble[] = h.esperando.slice(0, 3).map((t) => ({
       contactId: t.contactId,
@@ -105,7 +109,7 @@ export class HomePage {
 
   /** Reparto por canal con su arco (share del tráfico total). */
   readonly canales = computed(() => {
-    const h = this.hive.value();
+    const h = valorDe(this.hive);
     if (!h?.porCanal.length) return [];
     const total = h.porCanal.reduce((a, c) => a + c.total, 0) || 1;
     return h.porCanal.map((c) => ({
@@ -117,7 +121,7 @@ export class HomePage {
 
   /** Barras del resumen: por hora (hoy) o por canal (total). */
   readonly barras = computed<Array<{ v: number; label?: string }>>(() => {
-    const h = this.hive.value();
+    const h = valorDe(this.hive);
     if (!h) return [];
     if (this.vista() === 'hoy') {
       const max = Math.max(1, ...h.metricas.porHora);
@@ -128,7 +132,7 @@ export class HomePage {
   });
 
   readonly totalVista = computed(() => {
-    const h = this.hive.value();
+    const h = valorDe(this.hive);
     if (!h) return 0;
     return this.vista() === 'hoy'
       ? h.metricas.conversacionesHoy
@@ -156,7 +160,7 @@ export class HomePage {
      */
     let previas = -1;
     effect(() => {
-      const hoy = this.hive.value()?.metricas?.conversacionesHoy;
+      const hoy = valorDe(this.hive)?.metricas?.conversacionesHoy;
       if (hoy === undefined) return;
       if (previas >= 0 && hoy > previas) this.sonido.tocar('nueva');
       previas = hoy;
@@ -170,7 +174,7 @@ export class HomePage {
       base: 5_000,
       max: 30_000,
       firma: () => {
-        const m = this.hive.value()?.metricas;
+        const m = valorDe(this.hive)?.metricas;
         return m ? `${m.conversacionesHoy}:${m.esperandoRespuesta}:${m.maxEsperaMin}` : undefined;
       },
       alSondear: () => {

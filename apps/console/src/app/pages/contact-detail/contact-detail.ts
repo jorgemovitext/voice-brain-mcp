@@ -10,6 +10,7 @@ import {
   signal,
   viewChild,
 } from '@angular/core';
+import { valorDe } from '../../recurso';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { HttpErrorResponse, httpResource } from '@angular/common/http';
 import { ActivatedRoute, RouterLink } from '@angular/router';
@@ -73,6 +74,9 @@ const TILE_COLORS = ['#ffd9c8', '#cdeffd', '#ffe9a8', '#f3d1ff', '#c8f7d0', '#d7
   styleUrl: './contact-detail.scss',
 })
 export class ContactDetailPage implements OnDestroy {
+  /** Para el template: leer un recurso sin lanzar si está en error. */
+  protected readonly valorDe = valorDe;
+
   /** :id de la ruta (withComponentInputBinding). */
   readonly id = input.required<string>();
 
@@ -112,7 +116,7 @@ export class ContactDetailPage implements OnDestroy {
   );
 
   private readonly enCurso = computed(
-    () => new Map((this.flujoAbierto.value() ?? []).map((f) => [f.phone, f])),
+    () => new Map((valorDe(this.flujoAbierto) ?? []).map((f) => [f.phone, f])),
   );
 
   /**
@@ -124,7 +128,7 @@ export class ContactDetailPage implements OnDestroy {
    * minutos. Con el teléfono suelto, la identidad es un string y solo cambia
    * cuando cambia de verdad.
    */
-  private readonly telefono = computed(() => this.context.value()?.contact.phones?.[0]);
+  private readonly telefono = computed(() => valorDe(this.context)?.contact.phones?.[0]);
 
   /**
    * Avances que el flujo de la Pearl empuja DURANTE la conversación. No son
@@ -172,7 +176,7 @@ export class ContactDetailPage implements OnDestroy {
    * los avances del flujo.
    */
   readonly conversacionActual = computed(() => {
-    const orden = [...(this.progreso.value() ?? [])].sort((a, b) =>
+    const orden = [...(valorDe(this.progreso) ?? [])].sort((a, b) =>
       (a.occurredAt ?? '').localeCompare(b.occurredAt ?? ''),
     );
     return [...orden].reverse().find((a) => a.conversationId)?.conversationId ?? null;
@@ -243,7 +247,7 @@ export class ContactDetailPage implements OnDestroy {
   });
 
   readonly hitos = computed(() => {
-    const orden = [...(this.progreso.value() ?? [])].sort((a, b) =>
+    const orden = [...(valorDe(this.progreso) ?? [])].sort((a, b) =>
       (a.occurredAt ?? '').localeCompare(b.occurredAt ?? ''),
     );
     const ultima = [...orden].reverse().find((a) => a.conversationId)?.conversationId;
@@ -516,7 +520,7 @@ export class ContactDetailPage implements OnDestroy {
   readonly channelColor = channelColor;
 
   /** Quién atiende el hilo; null en `operador` = lo atiende el agente. */
-  readonly atencion = computed(() => this.expediente.value()?.atencion ?? null);
+  readonly atencion = computed(() => valorDe(this.expediente)?.atencion ?? null);
   readonly tomada = computed(() => !!this.atencion()?.operador);
 
   /**
@@ -541,7 +545,7 @@ export class ContactDetailPage implements OnDestroy {
    * se puede mostrar y abrir en el mapa.
    */
   readonly lugarDelCaso = computed(() => {
-    const capturado = this.expediente.value()?.resumen?.capturado ?? [];
+    const capturado = valorDe(this.expediente)?.resumen?.capturado ?? [];
     const de = (campo: string) => capturado.find((d) => d.campo === campo)?.valor?.trim();
     const texto = de('direccionFormateada') ?? de('Ubicación') ?? de('ubicacion');
     const lat = de('latitud');
@@ -575,7 +579,7 @@ export class ContactDetailPage implements OnDestroy {
    * operador a duplicar el trabajo.
    */
   readonly acciones = computed(() =>
-    this.tomada() ? (this.expediente.value()?.acciones ?? []) : [],
+    this.tomada() ? (valorDe(this.expediente)?.acciones ?? []) : [],
   );
 
   /** Acción que se está ejecutando ahora, para bloquear solo esa pill. */
@@ -636,7 +640,7 @@ export class ContactDetailPage implements OnDestroy {
 
   readonly hilos = computed(() => {
     const flujo = this.enCurso();
-    return [...(this.conversations.value() ?? [])]
+    return [...(valorDe(this.conversations) ?? [])]
       .map((c) => {
         const estado = c.phones
           .map((p) => flujo.get(p.replace(/\D/g, '')))
@@ -709,7 +713,7 @@ export class ContactDetailPage implements OnDestroy {
     // varios seguidos sí significan que algo está mal de verdad.
     effect(() => {
       if (this.context.error()) this.fallosSeguidos.update((n) => n + 1);
-      else if (this.context.value()) this.fallosSeguidos.set(0);
+      else if (valorDe(this.context)) this.fallosSeguidos.set(0);
     });
 
     /*
@@ -779,14 +783,14 @@ export class ContactDetailPage implements OnDestroy {
    * WhatsApp y varios Pearls conviviendo, quién contesta es parte del hilo.
    */
   readonly agente = computed(() => {
-    const conAgente = [...(this.context.value()?.recentInteractions ?? [])]
+    const conAgente = [...(valorDe(this.context)?.recentInteractions ?? [])]
       .filter((i) => i.handledBy)
       .sort((a, b) => b.occurredAt.localeCompare(a.occurredAt))[0];
     return conAgente ? { nombre: conAgente.handledBy!, channel: conAgente.channel } : null;
   });
 
   readonly chat = computed<ChatItem[]>(() => {
-    const interactions = [...(this.context.value()?.recentInteractions ?? [])].sort((a, b) =>
+    const interactions = [...(valorDe(this.context)?.recentInteractions ?? [])].sort((a, b) =>
       a.occurredAt.localeCompare(b.occurredAt),
     );
     let lastDay = '';
@@ -887,7 +891,7 @@ export class ContactDetailPage implements OnDestroy {
     return new Date(iso).toLocaleTimeString('es-NI', { hour: '2-digit', minute: '2-digit' });
   }
 
-  readonly initials = computed(() => this.initialsOf(this.context.value()?.contact.displayName));
+  readonly initials = computed(() => this.initialsOf(valorDe(this.context)?.contact.displayName));
 
   readonly timerLabel = computed(() => {
     const s = this.callSeconds();
@@ -900,7 +904,7 @@ export class ContactDetailPage implements OnDestroy {
 
   /** Último sentimiento conocido del hilo. */
   readonly mood = computed<{ label: string; cls: string; pct: number } | null>(() => {
-    const last = (this.context.value()?.recentInteractions ?? []).find((i) => i.sentiment);
+    const last = (valorDe(this.context)?.recentInteractions ?? []).find((i) => i.sentiment);
     if (!last?.sentiment) return null;
     const map: Record<Sentiment, { label: string; cls: string; pct: number }> = {
       positive: { label: 'Positivo', cls: 'mood--positive', pct: 86 },
@@ -916,10 +920,10 @@ export class ContactDetailPage implements OnDestroy {
    * (`post_call_summary`) o, si no hay, uno compuesto con lo que el flujo
    * recopiló. La ficha de datos capturados acompaña al texto.
    */
-  readonly resumenAgente = computed(() => this.expediente.value()?.resumen ?? null);
+  readonly resumenAgente = computed(() => valorDe(this.expediente)?.resumen ?? null);
 
   /** Caso real del CRM: etapa viva, no un rótulo fijo. */
-  readonly caso = computed(() => this.expediente.value()?.caso ?? null);
+  readonly caso = computed(() => valorDe(this.expediente)?.caso ?? null);
 
   /**
    * Refresco periódico: los mensajes entrantes llegan por webhook, así que sin
@@ -944,9 +948,9 @@ export class ContactDetailPage implements OnDestroy {
       // Cambia si llega un mensaje NUEVO o un avance del flujo: cualquiera de
       // los dos significa que el hilo está vivo y vuelve al ritmo rápido.
       firma: () => {
-        const inter = this.context.value()?.recentInteractions;
+        const inter = valorDe(this.context)?.recentInteractions;
         if (!inter) return undefined;
-        const av = this.progreso.value() ?? [];
+        const av = valorDe(this.progreso) ?? [];
         return `${inter.length}:${inter[0]?.occurredAt ?? ''}:${av.length}:${av[av.length - 1]?.occurredAt ?? ''}`;
       },
       alSondear: () => {
@@ -975,7 +979,7 @@ export class ContactDetailPage implements OnDestroy {
   }
 
   activePromise(): BrainSignal | undefined {
-    return this.context.value()?.signals.find((s) => s.type === 'promise' && s.status === 'active');
+    return valorDe(this.context)?.signals.find((s) => s.type === 'promise' && s.status === 'active');
   }
 
   /** Número de caso estable derivado del contactId (solo presentación). */
@@ -1054,7 +1058,7 @@ export class ContactDetailPage implements OnDestroy {
     this.pollInterval = setInterval(async () => {
       this.context.reload();
       // Solo cuenta la interacción de voz creada por ESTA llamada (2s de tolerancia de reloj).
-      const hasNewVoice = (this.context.value()?.recentInteractions ?? []).some(
+      const hasNewVoice = (valorDe(this.context)?.recentInteractions ?? []).some(
         (i) => i.channel === 'voice' && new Date(i.occurredAt).getTime() >= this.callStartedAt - 2_000,
       );
       if (hasNewVoice || Date.now() - this.callStartedAt > 25_000) this.endCall();

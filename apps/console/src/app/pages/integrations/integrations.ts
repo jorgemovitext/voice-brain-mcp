@@ -1,4 +1,5 @@
 import { ChangeDetectionStrategy, Component, DestroyRef, computed, inject, signal } from '@angular/core';
+import { valorDe } from '../../recurso';
 import { httpResource } from '@angular/common/http';
 import { RouterLink } from '@angular/router';
 import { AuthService } from '../../auth/auth.service';
@@ -40,6 +41,9 @@ const NEUTRO = 'rgba(255,255,255,0.10)';
   styleUrl: './integrations.scss',
 })
 export class IntegrationsPage {
+  /** Para el template: leer un recurso sin lanzar si está en error. */
+  protected readonly valorDe = valorDe;
+
   private readonly destroyRef = inject(DestroyRef);
 
   private readonly api = inject(BrainApiService);
@@ -108,13 +112,13 @@ export class IntegrationsPage {
   readonly MAL = MAL;
   readonly NEUTRO = NEUTRO;
 
-  readonly m = computed(() => this.hive.value()?.metricas);
+  readonly m = computed(() => valorDe(this.hive)?.metricas);
 
   /** Orígenes presentes: solo se ofrecen filtros que devuelven algo. */
-  readonly fuentes = computed(() => [...new Set((this.activity.value() ?? []).map((e) => e.source))]);
+  readonly fuentes = computed(() => [...new Set((valorDe(this.activity) ?? []).map((e) => e.source))]);
 
   readonly eventos = computed(() =>
-    (this.activity.value() ?? [])
+    (valorDe(this.activity) ?? [])
       .filter((e) => !this.fuente() || e.source === this.fuente())
       .filter((e) => !this.soloFallos() || !e.ok),
   );
@@ -124,7 +128,7 @@ export class IntegrationsPage {
    * se encienden es la proporción de ese canal contra el más cargado.
    */
   readonly canales = computed(() => {
-    const porCanal = (this.hive.value()?.porCanal ?? []).filter((c) => c.total > 0);
+    const porCanal = (valorDe(this.hive)?.porCanal ?? []).filter((c) => c.total > 0);
     const tope = Math.max(1, ...porCanal.map((c) => c.total));
     return porCanal
       .sort((a, b) => b.total - a.total)
@@ -139,7 +143,7 @@ export class IntegrationsPage {
 
   /** Explica el guion cuando no hay dato, en vez de dejarlo sin contexto. */
   readonly enVivoTitulo = computed(() => {
-    const v = this.hive.value()?.enVivo;
+    const v = valorDe(this.hive)?.enVivo;
     if (!v) return 'Sin dato en vivo: no hay agente de WhatsApp asignado, o no respondió';
     return v.enCola ? `${v.total} en curso, ${v.enCola} en cola` : `${v.total} en curso`;
   });
@@ -154,8 +158,8 @@ export class IntegrationsPage {
         this.activity.reload();
       },
       firma: () => {
-        const e = this.activity.value()?.[0];
-        const v = this.hive.value()?.enVivo;
+        const e = valorDe(this.activity)?.[0];
+        const v = valorDe(this.hive)?.enVivo;
         return `${e?.at ?? ''}|${this.m()?.esperandoRespuesta ?? ''}|${v?.total ?? ''}`;
       },
     });

@@ -1,4 +1,5 @@
 import { Component, computed, inject, signal } from '@angular/core';
+import { valorDe } from '../../recurso';
 import { httpResource } from '@angular/common/http';
 import { RouterLink } from '@angular/router';
 import { BrainApiService } from '../../brain-api.service';
@@ -158,6 +159,9 @@ function lineasDe(nombre: string): string[] {
   styleUrl: './workers.scss',
 })
 export class WorkersPage {
+  /** Para el template: leer un recurso sin lanzar si está en error. */
+  protected readonly valorDe = valorDe;
+
   private readonly api = inject(BrainApiService);
 
   readonly data = httpResource<WorkersResponse>(() => '/api/workers');
@@ -170,10 +174,10 @@ export class WorkersPage {
    * apagados, para no robarles protagonismo.
    */
   readonly vivos = computed(() =>
-    (this.data.value()?.workers ?? []).filter((w) => (w.status ?? '').toLowerCase() === 'active'),
+    (valorDe(this.data)?.workers ?? []).filter((w) => (w.status ?? '').toLowerCase() === 'active'),
   );
   readonly dormidos = computed(() =>
-    (this.data.value()?.workers ?? []).filter((w) => (w.status ?? '').toLowerCase() !== 'active'),
+    (valorDe(this.data)?.workers ?? []).filter((w) => (w.status ?? '').toLowerCase() !== 'active'),
   );
 
   /**
@@ -289,7 +293,7 @@ export class WorkersPage {
   );
 
   readonly selected = computed<Worker | null>(
-    () => (this.data.value()?.workers ?? []).find((w) => w.id === this.selectedId()) ?? null,
+    () => (valorDe(this.data)?.workers ?? []).find((w) => w.id === this.selectedId()) ?? null,
   );
 
   /**
@@ -339,7 +343,7 @@ export class WorkersPage {
 
   /** ¿Esta Pearl es la asignada a su propio canal? */
   isAssigned(w: Worker): boolean {
-    const routing = this.data.value()?.routing;
+    const routing = valorDe(this.data)?.routing;
     return !!w.channel && routing?.[w.channel as 'voice' | 'whatsapp' | 'sms'] === w.id;
   }
 

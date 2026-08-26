@@ -1,4 +1,5 @@
 import { Component, DestroyRef, effect, inject } from '@angular/core';
+import { valorDe } from '../../recurso';
 import { httpResource } from '@angular/common/http';
 import { Router, RouterLink } from '@angular/router';
 import { BrainApiService } from '../../brain-api.service';
@@ -54,9 +55,9 @@ export class ConversationsIndexPage {
 
   constructor() {
     effect(() => {
-      const list = this.contacts.value();
+      const list = valorDe(this.contacts);
       if (!list?.length) return;
-      const abierto = new Map((this.flujoAbierto.value() ?? []).map((f) => [f.phone, f.lastFlowAt]));
+      const abierto = new Map((valorDe(this.flujoAbierto) ?? []).map((f) => [f.phone, f.lastFlowAt]));
 
       // Lo más reciente contando mensajes Y avances del flujo.
       const cuando = (c: ContactListItem) => {

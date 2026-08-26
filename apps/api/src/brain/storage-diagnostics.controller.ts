@@ -40,7 +40,10 @@ export class StorageDiagnosticsController {
     const resultado: Record<string, unknown> = {
       modo,
       repositorio: this.repo.constructor.name,
-      token: token ? { presente: true, largo: token.length, prefijo: token.slice(0, 12) } : { presente: false },
+      // Solo presencia y largo: el prefijo de un token de ESCRITURA no se
+      // devuelve ni a usuarios con sesión — para diagnosticar basta saber
+      // que está y que no quedó truncado.
+      token: token ? { presente: true, largo: token.length } : { presente: false },
       pathname,
       contactosVisibles: (await this.repo.listContacts()).length,
     };

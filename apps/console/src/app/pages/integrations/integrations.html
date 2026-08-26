@@ -40,7 +40,7 @@
           </span>
         </div>
 
-        @if (activity.isLoading() && !activity.value()) {
+        @if (activity.isLoading() && !valorDe(activity)) {
           <div class="estado">Leyendo el registro…</div>
         } @else if (!eventos().length) {
           <div class="estado">
@@ -85,16 +85,16 @@
             <span class="mini__txt">Hilos al día</span>
           </div>
           <a class="mini" routerLink="/workers">
-            <span class="mini__num">{{ hive.value()?.obreros?.activos ?? 0 }}</span>
+            <span class="mini__num">{{ valorDe(hive)?.obreros?.activos ?? 0 }}</span>
             <span class="mini__txt">Agentes activos</span>
           </a>
           <!-- Pulso en vivo: viene de la propia API de NL Pearl, no de
                nuestra base — es lo único "tiempo real" que la API permite
                hoy para WhatsApp (cuenta, no lista quién ni qué dice). -->
           <a class="mini" routerLink="/conversations"
-             [class.mini--alerta]="(hive.value()?.enVivo?.total ?? 0) > 0"
+             [class.mini--alerta]="(valorDe(hive)?.enVivo?.total ?? 0) > 0"
              [title]="enVivoTitulo()">
-            <span class="mini__num">{{ hive.value()?.enVivo?.total ?? '—' }}</span>
+            <span class="mini__num">{{ valorDe(hive)?.enVivo?.total ?? '—' }}</span>
             <span class="mini__txt">En curso ahora (WhatsApp)</span>
           </a>
         </div>
@@ -105,7 +105,7 @@
       <section class="sec">
         <span class="sec__head">Conexiones</span>
         <ul class="lead">
-          @for (c of conexiones.value() ?? []; track c.id) {
+          @for (c of valorDe(conexiones) ?? []; track c.id) {
             <li>
               <i class="lead__dot" [style.background]="c.connected ? OK : MAL"></i>
               <span class="lead__txt">{{ c.name }}</span>
@@ -164,11 +164,11 @@
 
       <section class="sec">
         <a class="sec__head" routerLink="/conversations">Esperando respuesta <i>↗</i></a>
-        @if (!(hive.value()?.esperando ?? []).length) {
+        @if (!(valorDe(hive)?.esperando ?? []).length) {
           <span class="sec__pie">Nadie en cola. Al día.</span>
         } @else {
           <ul class="lead">
-            @for (t of hive.value()!.esperando.slice(0, 4); track t.contactId) {
+            @for (t of valorDe(hive)!.esperando.slice(0, 4); track t.contactId) {
               <li>
                 <i class="lead__dot" [style.background]="MAL"></i>
                 <a class="lead__txt lead__txt--link" [routerLink]="['/conversations', t.contactId]">
@@ -183,11 +183,11 @@
 
       <section class="sec">
         <a class="sec__head" routerLink="/conversations">Último movimiento <i>↗</i></a>
-        @if (!(hive.value()?.actividad ?? []).length) {
+        @if (!(valorDe(hive)?.actividad ?? []).length) {
           <span class="sec__pie">Sin movimiento reciente.</span>
         } @else {
           <ul class="lead">
-            @for (a of hive.value()!.actividad.slice(0, 5); track a.contactId + a.occurredAt) {
+            @for (a of valorDe(hive)!.actividad.slice(0, 5); track a.contactId + a.occurredAt) {
               <li>
                 <i class="lead__dot" [style.background]="a.direction === 'outbound' ? OK : colorCanal(a.channel)"></i>
                 <a class="lead__txt lead__txt--link" [routerLink]="['/conversations', a.contactId]">

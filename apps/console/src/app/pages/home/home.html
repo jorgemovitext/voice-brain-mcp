@@ -116,7 +116,7 @@
               </p>
               <p>
                 <span class="dot dot--ink"></span>
-                <span class="sumcard__legend-text">Esperando <strong>{{ hive.value()?.metricas?.esperandoRespuesta ?? 0 }}</strong></span>
+                <span class="sumcard__legend-text">Esperando <strong>{{ valorDe(hive)?.metricas?.esperandoRespuesta ?? 0 }}</strong></span>
               </p>
             </div>
           </article>
@@ -162,7 +162,7 @@
 
             <footer>
               @if (enjambre().length) { Esperando trabajo · }
-              {{ hive.value()?.metricas?.promesasActivas ?? 0 }} promesa(s) activa(s)
+              {{ valorDe(hive)?.metricas?.promesasActivas ?? 0 }} promesa(s) activa(s)
             </footer>
           </a>
         </div>

@@ -17,7 +17,7 @@
       No se pudieron cargar los agentes. Revisá las credenciales en <a routerLink="/integrations">Integraciones</a>.
       <div><button class="btn btn--primary" (click)="data.reload()">Reintentar</button></div>
     </div>
-  } @else if (data.value(); as d) {
+  } @else if (valorDe(data); as d) {
 
     <!-- ===== El panal ===== -->
     <!-- Dos bandas: el panal ocupa el ancho y el detalle vive a la derecha.
@@ -140,7 +140,7 @@
         <h3 class="detail__sub">Cómo razona este agente</h3>
         @if (flow.isLoading()) {
           <div class="state"><div class="spinner"></div>Consultando el flow…</div>
-        } @else if (flow.value(); as f) {
+        } @else if (valorDe(flow); as f) {
           @if (f.available && f.flow) {
             @if (f.flow.nodes?.length) {
               <!-- Con scroll: este flujo tiene decenas de pasos y estirado

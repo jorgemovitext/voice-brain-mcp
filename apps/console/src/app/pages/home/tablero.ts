@@ -1,4 +1,5 @@
 import { ChangeDetectionStrategy, Component, DestroyRef, computed, inject, signal } from '@angular/core';
+import { valorDe } from '../../recurso';
 import { httpResource } from '@angular/common/http';
 import { RouterLink } from '@angular/router';
 import { Analytics, Channel } from '../../models';
@@ -119,7 +120,7 @@ export class TableroPage {
       base: 10_000,
       max: 60_000,
       firma: () => {
-        const r = this.datos.value()?.resumen;
+        const r = valorDe(this.datos)?.resumen;
         return r ? `${r.conversaciones}:${r.mensajes}:${r.sinRespuesta}` : undefined;
       },
       alSondear: () => this.datos.reload(),
@@ -127,7 +128,7 @@ export class TableroPage {
     this.destroyRef.onDestroy(detener);
   }
 
-  readonly a = computed(() => this.datos.value());
+  readonly a = computed(() => valorDe(this.datos));
   readonly channelLabel = channelLabel;
   readonly OK = OK;
   readonly MAL = MAL;

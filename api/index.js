@@ -26,7 +26,20 @@ async function bootstrap() {
   });
   // Cookies de sesión (httpOnly) del módulo de auth.
   await app.register(fastifyCookie);
-  app.enableCors({ origin: true, credentials: true });
+  /*
+     * CORS con lista de orígenes conocidos, no espejo de cualquiera.
+     *
+     * `origin: true` refleja el Origin que llegue, y combinado con
+     * `credentials: true` es una escopeta apuntando al pie: hoy la cookie
+     * sameSite=lax lo contiene, pero el día que alguien la cambie a none (p.
+     * ej. para embeber la consola), cualquier web podría leer respuestas
+     * autenticadas. La consola se sirve del MISMO dominio que la API, así que
+     * CORS solo hace falta para el dev server de Angular.
+     */
+    app.enableCors({
+      origin: ['https://movihive.movitext.com', 'https://voice-brain-mcp.vercel.app', /^http:\/\/localhost:\d+$/],
+      credentials: true,
+    });
   await app.init();
 
   const instance = adapter.getInstance();
