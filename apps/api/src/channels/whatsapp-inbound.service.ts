@@ -95,11 +95,13 @@ export class WhatsappInboundService {
    */
   private async hiloTomado(telefono: string): Promise<string | null> {
     try {
-      const { contactId, created } = await this.brain.resolveIdentity({ phone: telefono, system: 'sender' });
-      // Recién creado = no había hilo: entonces no hay nada tomado.
-      if (created) return null;
-      const { operador } = await this.atencion.de(contactId);
-      return operador ? contactId : null;
+      // `findByPhone` y no `resolveIdentity`: preguntar no debe dar de alta a
+      // nadie. Con resolveIdentity, un mensaje de un número desconocido
+      // dejaba un contacto fantasma en Conversaciones.
+      const contacto = await this.brain.findByPhone(telefono);
+      if (!contacto) return null;
+      const { operador } = await this.atencion.de(contacto.id);
+      return operador ? contacto.id : null;
     } catch (err) {
       this.logger.warn(`No se pudo resolver ${telefono}: ${(err as Error).message}`);
       return null;

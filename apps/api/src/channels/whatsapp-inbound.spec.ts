@@ -31,7 +31,9 @@ describe('WhatsappInboundService', () => {
     const bitacora: string[] = [];
 
     const brain = {
-      resolveIdentity: async () => ({ contactId: 'c1', created: contactoNuevo }),
+      // `findByPhone` no crea: preguntar por un número no debe dar de alta a
+      // nadie. `contactoNuevo` simula un número que no está en la base.
+      findByPhone: async () => (contactoNuevo ? undefined : { id: 'c1' }),
       appendInteraction: async (i: Record<string, unknown>) => {
         guardadas.push(i);
         return i;
@@ -70,7 +72,7 @@ describe('WhatsappInboundService', () => {
     expect(bitacora[0]).toContain('sin hilo tomado');
   });
 
-  it('un número desconocido no crea un hilo fantasma', async () => {
+  it('un número desconocido no crea un contacto fantasma', async () => {
     const { service, guardadas } = build({ operador: 'Jorge Murcia', contactoNuevo: true });
 
     await service.process(mensaje('Número que nunca escribió'), 'gupshup');

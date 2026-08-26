@@ -51,6 +51,18 @@ export class BrainService {
    * el pool de 3 conexiones de Neon eso saturaba y la vista de conversación
    * empezaba a fallar con "no se encontró".
    */
+  /**
+   * El contacto de un teléfono, o undefined. NO lo crea.
+   *
+   * `resolveIdentity` da de alta al contacto cuando no existe, que es lo
+   * correcto para una conversación entrante de verdad. Pero para PREGUNTAR
+   * —"¿este número ya tiene hilo?"— crear es justo lo que no se quiere: un
+   * webhook de un número desconocido dejaba un contacto fantasma en la lista.
+   */
+  async findByPhone(phone: string): Promise<Contact | undefined> {
+    return this.repo.findContactByPhone(phone);
+  }
+
   async listContacts(): Promise<ContactListItem[]> {
     const [contacts, interacciones, señales] = await Promise.all([
       this.repo.listContacts(),
