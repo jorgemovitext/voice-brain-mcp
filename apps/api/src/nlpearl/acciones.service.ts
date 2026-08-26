@@ -1,4 +1,5 @@
 import { Injectable } from '@nestjs/common';
+import { HubspotClient } from '../hubspot/hubspot.client';
 import { NlpearlActivityStore } from './activity.store';
 
 /**
@@ -21,7 +22,10 @@ const REQUERIDOS = ['tipoProblema', 'ubicacion', 'descripcion'] as const;
 
 @Injectable()
 export class AccionesService {
-  constructor(private readonly store: NlpearlActivityStore) {}
+  constructor(
+    private readonly store: NlpearlActivityStore,
+    private readonly hubspot: HubspotClient,
+  ) {}
 
   /**
    * Qué le toca hacer al humano en este punto de la conversación.
@@ -75,15 +79,32 @@ export class AccionesService {
         urgente: false,
       });
     } else if (!caso.hay) {
-      // Todo lo necesario está y no hay ticket: es el momento exacto en que
-      // el flujo lo habría creado.
-      acciones.push({
-        id: 'crear-ticket',
-        etiqueta: 'Registrar el reporte en HubSpot',
-        motivo: 'Ya están el problema, la ubicación y el detalle, pero no hay ticket en el CRM.',
-        tipo: 'ejecutable',
-        urgente: true,
-      });
+      /*
+       * Todo lo necesario está y no hay ticket: es el momento exacto en que
+       * el flujo lo habría creado.
+       *
+       * Pero solo se ofrece como BOTÓN si el CRM puede recibirlo. Sin
+       * HUBSPOT_TOKEN la acción aparecía igual y al tocarla reventaba con
+       * "HubSpot no está conectado" — un botón que promete algo que no puede
+       * cumplir es peor que no tenerlo.
+       */
+      acciones.push(
+        this.hubspot.configured
+          ? {
+              id: 'crear-ticket',
+              etiqueta: 'Registrar el reporte en HubSpot',
+              motivo: 'Ya están el problema, la ubicación y el detalle, pero no hay ticket en el CRM.',
+              tipo: 'ejecutable',
+              urgente: true,
+            }
+          : {
+              id: 'crm-desconectado',
+              etiqueta: 'El CRM no está conectado',
+              motivo: 'El reporte está completo, pero sin HubSpot configurado no hay dónde registrarlo.',
+              tipo: 'aviso',
+              urgente: false,
+            },
+      );
     }
 
     if (!capturado.has('contactoCiudadano') && !capturado.has('nombreCiudadano')) {

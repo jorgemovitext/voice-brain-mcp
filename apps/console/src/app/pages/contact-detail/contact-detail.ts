@@ -605,17 +605,35 @@ export class ContactDetailPage implements OnDestroy {
   readonly kycmLabel = kycmLabel;
 
   constructor() {
-    // Auto-scroll al último mensaje, pero solo si ya estabas al final: si
-    // estás leyendo mensajes viejos, el refresco automático no te mueve.
+    /*
+     * Abrir un hilo siempre muestra el final; después, el refresco solo
+     * arrastra si ya estabas abajo (si estás leyendo mensajes viejos, no se
+     * te mueve la pantalla).
+     *
+     * Dos cosas rompían lo primero. Una, `primerRender` se gastaba con el
+     * chat TODAVÍA VACÍO —el hilo carga después que el componente—, así que
+     * el scroll real nunca ocurría. Y dos, Angular REUTILIZA este componente
+     * al cambiar de conversación: sin reponer la bandera, el segundo hilo que
+     * abrías se quedaba arriba. Por eso el efecto de `id()` la repone.
+     */
     effect(() => {
-      this.chat();
+      const mensajes = this.chat();
       const el = this.scrollEl()?.nativeElement;
-      if (!el) return;
+      if (!el || !mensajes.length) return;
+
       const pegadoAlFondo = el.scrollHeight - el.scrollTop - el.clientHeight < 120;
-      if (pegadoAlFondo || this.primerRender) {
-        this.primerRender = false;
-        setTimeout(() => (el.scrollTop = el.scrollHeight), 0);
-      }
+      if (!pegadoAlFondo && !this.primerRender) return;
+
+      const alFinal = this.primerRender;
+      this.primerRender = false;
+      // Dos cuadros: el primero deja que Angular pinte las burbujas nuevas,
+      // el segundo mide ya con el alto definitivo. Con un solo setTimeout(0)
+      // el hilo largo se quedaba a media altura.
+      requestAnimationFrame(() =>
+        requestAnimationFrame(() => {
+          el.scrollTo({ top: el.scrollHeight, behavior: alFinal ? 'auto' : 'smooth' });
+        }),
+      );
     });
 
     // Lleva la cuenta de fallos seguidos: un error suelto no tapa el hilo,
@@ -664,6 +682,8 @@ export class ContactDetailPage implements OnDestroy {
       this.id();
       this.resetCallUi();
       this.vista.set(null);
+      // Hilo nuevo: se abre mostrando el final, como al entrar la primera vez.
+      this.primerRender = true;
     });
   }
 

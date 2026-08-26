@@ -24,7 +24,18 @@ export class StorageDiagnosticsController {
   async status() {
     const token = this.config.get<string>('BLOB_READ_WRITE_TOKEN', '');
     const pathname = this.config.get<string>('BRAIN_BLOB_PATH', 'brain/state.json');
-    const modo = token ? 'vercel-blob' : 'archivo local (efímero en serverless)';
+    /*
+     * El repositorio REAL manda sobre las variables: con Postgres conectado,
+     * el token de Blob puede estar y no usarse. Antes esto miraba solo el
+     * token y por eso decía "archivo local" en una instalación con Neon —
+     * justo el diagnóstico que hace perder una tarde.
+     */
+    const clase = this.repo.constructor.name;
+    const modo = clase.startsWith('Pg')
+      ? 'postgres'
+      : clase.startsWith('Blob')
+        ? 'vercel-blob'
+        : 'archivo local (efímero en serverless)';
 
     const resultado: Record<string, unknown> = {
       modo,
@@ -33,6 +44,11 @@ export class StorageDiagnosticsController {
       pathname,
       contactosVisibles: (await this.repo.listContacts()).length,
     };
+
+    if (modo === 'postgres') {
+      resultado['diagnostico'] = 'Postgres: el estado es compartido y sobrevive a los despliegues.';
+      return resultado;
+    }
 
     if (!token) {
       resultado['diagnostico'] = 'Sin token de Blob: el estado vive en /tmp y se pierde entre instancias.';

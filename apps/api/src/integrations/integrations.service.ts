@@ -3,9 +3,9 @@ import { ConfigService } from '@nestjs/config';
 
 /** Estado de una integración, sin exponer nunca el valor de los secretos. */
 export interface IntegrationStatus {
-  id: 'nlpearl' | 'whatsapp' | 'sms';
+  id: 'nlpearl' | 'whatsapp' | 'sms' | 'almacenamiento';
   name: string;
-  kind: 'voice' | 'messaging';
+  kind: 'voice' | 'messaging' | 'datos';
   /** true si tiene todo lo necesario para operar de verdad. */
   connected: boolean;
   /** Modo efectivo: real | mock (voz) o cloud-api | stub (mensajería). */
@@ -19,6 +19,17 @@ export interface IntegrationStatus {
 @Injectable()
 export class IntegrationsService {
   constructor(private readonly config: ConfigService) {}
+
+  /** Postgres > Blob > archivo local, el mismo orden que elige el Brain. */
+  private modoPersistencia(): string {
+    if (this.config.get<string>('DATABASE_URL')) return 'postgres';
+    if (this.config.get<string>('BLOB_READ_WRITE_TOKEN')) return 'vercel-blob';
+    return 'archivo local';
+  }
+
+  private persistenciaCompartida(): boolean {
+    return this.modoPersistencia() !== 'archivo local';
+  }
 
   /**
    * Proveedor de WhatsApp efectivo. Gupshup tiene prioridad sobre la Cloud API
@@ -112,6 +123,25 @@ export class IntegrationsService {
                   : 'falta GUPSHUP_TEMPLATE_SALUDO — no se puede iniciar conversación',
                 'Alternativa (Meta directo)': `${base}/webhooks/whatsapp`,
               },
+      },
+      {
+        /*
+         * Dónde vive el estado. Va acá porque "se me pierden las
+         * conversaciones" y "el almacén es efímero" son el mismo problema
+         * visto desde dos lados, y desde la consola no había forma de
+         * distinguirlos sin abrir un endpoint a mano.
+         */
+        id: 'almacenamiento',
+        name: 'Persistencia',
+        kind: 'datos',
+        connected: this.persistenciaCompartida(),
+        mode: this.modoPersistencia(),
+        missing: this.persistenciaCompartida() ? [] : ['DATABASE_URL'],
+        details: {
+          Estado: this.persistenciaCompartida()
+            ? 'compartida: sobrevive a los despliegues y a varias instancias'
+            : 'EFÍMERA: el estado vive en /tmp y se pierde entre instancias',
+        },
       },
       {
         id: 'sms',

@@ -1,4 +1,5 @@
 import { AccionesService } from './acciones.service';
+import { HubspotClient } from '../hubspot/hubspot.client';
 import { NlpearlActivityStore, StoredActivity } from './activity.store';
 
 /**
@@ -16,10 +17,12 @@ describe('AccionesService', () => {
     raw: { conversationId: 'c1', paso, datos },
   });
 
-  const servicio = (avances: StoredActivity[]) =>
-    new AccionesService({
-      listActivity: async () => avances,
-    } as unknown as NlpearlActivityStore);
+  /** `crm` = si HubSpot puede recibir el ticket; por defecto sí. */
+  const servicio = (avances: StoredActivity[], crm = true) =>
+    new AccionesService(
+      { listActivity: async () => avances } as unknown as NlpearlActivityStore,
+      { configured: crm } as unknown as HubspotClient,
+    );
 
   const COMPLETO = {
     tipoProblema: 'Fuga de agua',
@@ -40,6 +43,22 @@ describe('AccionesService', () => {
     expect(crear).toBeDefined();
     expect(crear!.urgente).toBe(true);
     expect(crear!.tipo).toBe('ejecutable');
+  });
+
+  /*
+   * Sin HUBSPOT_TOKEN el botón aparecía igual y al tocarlo reventaba con
+   * "HubSpot no está conectado". Un botón que no puede cumplir es peor que
+   * no tenerlo: ahora se dice el porqué y no se ofrece la acción.
+   */
+  it('sin CRM conectado avisa en vez de ofrecer un botón que revienta', async () => {
+    const acciones = await servicio([avance('collectDesc', COMPLETO)], false).de('+50497616546', {
+      hay: false,
+    });
+
+    expect(acciones.find((a) => a.id === 'crear-ticket')).toBeUndefined();
+    const aviso = acciones.find((a) => a.id === 'crm-desconectado');
+    expect(aviso).toBeDefined();
+    expect(aviso!.tipo).toBe('aviso');
   });
 
   it('NO pide registrar si el ticket ya existe', async () => {

@@ -189,9 +189,9 @@ export interface NlpearlTestResult {
 }
 
 export interface IntegrationStatus {
-  id: 'nlpearl' | 'whatsapp' | 'sms';
+  id: 'nlpearl' | 'whatsapp' | 'sms' | 'almacenamiento';
   name: string;
-  kind: 'voice' | 'messaging';
+  kind: 'voice' | 'messaging' | 'datos';
   connected: boolean;
   mode: string;
   /** Variables de entorno que faltan para conectarla. */
