@@ -217,7 +217,30 @@ export class ContactDetailPage implements OnDestroy {
   });
 
   /** El caso está corriendo: hay avances y todavía ningún mensaje suyo. */
-  readonly casoEnCurso = computed(() => this.hitos().length > 0 && this.mensajesDelCaso().length === 0);
+  /*
+   * El caso está corriendo AHORA.
+   *
+   * Antes era "hay avances y todavía ningún mensaje", y eso mezclaba dos
+   * cosas distintas: que el agente siga conversando, y que su transcripción
+   * no haya llegado. Con la conversación ya cerrada en el agente pero el
+   * hilo aún sin traer, la app la daba por viva y escondía el botón Tomar —
+   * justo cuando tomarla ya es lo correcto.
+   *
+   * Ahora se mira el flujo, que es lo que sí llega en vivo: un paso de
+   * cierre la termina, y si no lo hubo, el silencio prolongado también. Es
+   * la misma regla que usa la API para marcar las inconclusas.
+   */
+  private static readonly CIERRA = ['regist', 'farewell', 'closing', 'escalamiento'];
+
+  readonly casoEnCurso = computed(() => {
+    const pasos = this.hitos();
+    if (!pasos.length) return false;
+    if (pasos.some((p) => ContactDetailPage.CIERRA.some((k) => (p.paso ?? '').includes(k)))) return false;
+
+    const ultimo = pasos[pasos.length - 1]?.occurredAt;
+    if (!ultimo) return false;
+    return Date.now() - new Date(ultimo).getTime() < ContactDetailPage.VIVA_MS;
+  });
 
   readonly hitos = computed(() => {
     const orden = [...(this.progreso.value() ?? [])].sort((a, b) =>
@@ -247,8 +270,16 @@ export class ContactDetailPage implements OnDestroy {
     // estado del CASO, no el de la charla.
     if (this.hitos().some((a) => a.paso === 'escalamiento'))
       return { clase: 'escala', texto: 'Escalado al despacho' };
+    /*
+     * "En curso" y "completa" salen de la MISMA regla que decide si se puede
+     * tomar el hilo, para que la cabecera no diga que la charla sigue viva
+     * mientras el botón Tomar ya está ofrecido. Antes "completa" dependía de
+     * que hubieran llegado los mensajes, así que una conversación cerrada
+     * pero sin transcripción todavía se anunciaba como en curso.
+     */
+    if (this.casoEnCurso()) return { clase: 'vivo', texto: 'Conversación en curso' };
     if (this.mensajesDelCaso().length) return { clase: 'fin', texto: 'Conversación completa' };
-    if (this.hitos().length) return { clase: 'vivo', texto: 'Conversación en curso' };
+    if (this.hitos().length) return { clase: 'fin', texto: 'Conversación terminada' };
     return { clase: 'espera', texto: 'Esperando al agente' };
   });
 
