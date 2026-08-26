@@ -88,7 +88,7 @@ export class IntegrationsPage {
    */
   detalles(c: Integracion): Array<{ k: string; v: string }> {
     return Object.entries(c.details ?? {})
-      .filter(([, v]) => /configurad|falta|sin |validad/i.test(String(v)))
+      .filter(([k, v]) => k === 'Estado' || /configurad|falta|sin |validad/i.test(String(v)))
       .map(([k, v]) => ({ k, v: String(v) }));
   }
 
