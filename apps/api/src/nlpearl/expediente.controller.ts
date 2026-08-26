@@ -4,6 +4,9 @@ import { AuthService } from '../auth/auth.service';
 import { AtencionService } from './atencion.service';
 import { EjecutarService } from './ejecutar.service';
 import { ExpedienteService } from './expediente.service';
+import { HandoffService } from './handoff.service';
+import { NlpearlActivityStore } from './activity.store';
+import { BrainService } from '../brain/brain.service';
 
 /**
  * GET /api/contacts/:id/expediente — resumen real del hilo y su caso en el CRM.
@@ -19,6 +22,9 @@ export class ExpedienteController {
     private readonly atencion: AtencionService,
     private readonly ejecutor: EjecutarService,
     private readonly auth: AuthService,
+    private readonly handoff: HandoffService,
+    private readonly store: NlpearlActivityStore,
+    private readonly brain: BrainService,
   ) {}
 
   @Get(':id/expediente')
@@ -76,6 +82,48 @@ export class ExpedienteController {
       // Cuenta borrada o token viejo: mejor un genérico que un UUID.
     }
     return req.user?.username?.trim() || 'un operador';
+  }
+
+  /**
+   * Pide tomar una conversación que TODAVÍA está corriendo.
+   *
+   * No la corta de inmediato: la API de NL Pearl no lo permite. Deja la
+   * petición marcada y el siguiente avance del flujo se la lleva en
+   * `forceHandoff`. El flujo tiene que estar preparado para leerla — hoy no
+   * lo está, así que la respuesta lo dice con todas las letras en vez de
+   * fingir que la conversación ya es tuya.
+   */
+  @Post(':id/takeover')
+  async takeover(
+    @Param('id') id: string,
+    @Req() req: FastifyRequest & { user?: { username?: string; sub?: string } },
+  ) {
+    const quien = await this.operador(req);
+    const ctx = await this.brain.getContext({ contactId: id });
+    const tel = ctx.contact.phones?.[0];
+    if (!tel) throw new BadRequestException('El contacto no tiene teléfono');
+
+    // La conversación en curso es la del avance más reciente de ese número.
+    const avances = await this.store.listActivity({ phone: tel, kind: 'progress', limit: 40 });
+    const enCurso = avances
+      .map((a) => (a.raw ?? {}) as { conversationId?: string })
+      .reverse()
+      .find((r) => r.conversationId)?.conversationId;
+
+    if (!enCurso) {
+      throw new BadRequestException('Esta conversación todavía no reportó ningún avance del flujo');
+    }
+
+    const peticion = await this.handoff.pedir(enCurso, quien);
+    return {
+      pedido: true,
+      operador: peticion.operador,
+      // Honestidad explícita: sin la transición en el flujo, esto no deriva.
+      aviso:
+        'La petición queda anotada y viaja en el siguiente avance del flujo. ' +
+        'Para que NL Pearl derive de verdad, su flujo debe leer forceHandoff ' +
+        'y transicionar a handoffNoEmergency.',
+    };
   }
 
   /**

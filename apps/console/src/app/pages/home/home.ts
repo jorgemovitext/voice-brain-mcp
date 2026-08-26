@@ -1,4 +1,4 @@
-import { Component, DestroyRef, computed, inject, signal } from '@angular/core';
+import { Component, DestroyRef, computed, effect, inject, signal } from '@angular/core';
 import { httpResource } from '@angular/common/http';
 import { Router, RouterLink } from '@angular/router';
 import { AuthService } from '../../auth/auth.service';
@@ -8,6 +8,7 @@ import { HiveStatus } from '../../models';
 import { VoiceNebula } from '../../nebula';
 import { TableroPage } from './tablero';
 import { crearSondeo } from '../../sondeo';
+import { Sonido } from '../../sonido';
 import { channelIconName, channelLabel } from '../../ui';
 
 /** Una burbuja del panel "en vivo": quien espera primero, luego lo último. */
@@ -35,6 +36,7 @@ interface FeedBubble {
 })
 export class HomePage {
   private readonly router = inject(Router);
+  private readonly sonido = inject(Sonido);
   private readonly api = inject(BrainApiService);
   private readonly destroyRef = inject(DestroyRef);
   readonly auth = inject(AuthService);
@@ -146,6 +148,20 @@ export class HomePage {
   });
 
   constructor() {
+    /*
+     * Una conversación nueva suena distinto a un avance: desde la colmena, lo
+     * que importa es enterarse de que ENTRÓ algo, no de que algo se movió.
+     * Se compara contra el conteo anterior porque el sondeo devuelve el mismo
+     * número en cada vuelta.
+     */
+    let previas = -1;
+    effect(() => {
+      const hoy = this.hive.value()?.metricas?.conversacionesHoy;
+      if (hoy === undefined) return;
+      if (previas >= 0 && hoy > previas) this.sonido.tocar('nueva');
+      previas = hoy;
+    });
+
     void this.api.syncNlpearl().catch(() => undefined);
     let vuelta = 0;
     // Ritmo adaptativo: 5 s cuando la colmena se mueve, hasta 30 s si está

@@ -8,6 +8,7 @@ import { NlpearlActivityStore } from './activity.store';
 import { NlpearlCallApiView } from './nlpearl.client';
 import { normalizarTranscript } from './nlpearl.mapper';
 import { EscalamientoService } from './escalamiento.service';
+import { HandoffService } from './handoff.service';
 import { PearlSyncService } from './pearl-sync.service';
 import { TurnCredentialGuard } from './turn-credential.guard';
 import { WebhookSignatureGuard } from './webhook-signature.guard';
@@ -50,6 +51,7 @@ export class NlpearlWebhookController {
     private readonly flowLog: FlowLogService,
     private readonly webhookLog: WebhookLogService,
     private readonly escalamiento: EscalamientoService,
+    private readonly handoff: HandoffService,
     private readonly brain: BrainService,
     @Inject(WHATSAPP_CHANNEL) private readonly whatsapp: ChannelPort,
   ) {}
@@ -199,10 +201,29 @@ export class NlpearlWebhookController {
       });
     }
 
+    /*
+     * La única ventana para tomar una conversación EN CURSO.
+     *
+     * La API v2 no expone takeover, pero el flujo nos pega acá en cada paso:
+     * si la consola pidió tomarla, la respuesta se lo dice. Del lado de NL
+     * Pearl hace falta mapear forceHandoff a una variable y agregar la
+     * transición condicional hacia handoffNoEmergency — mientras eso no
+     * exista, el flujo ignora este campo y no pasa nada.
+     */
+    const forceHandoff = await this.handoff.reclamar(conversationId);
+    if (forceHandoff) {
+      this.webhookLog.push(
+        'nlpearl',
+        `Handoff pedido: se le avisó al flujo en «${this.pasoLegible(paso)}»`,
+        true,
+        { conversationId },
+      );
+    }
+
     const comoSeLlama = this.referencia(p, phone);
     this.webhookLog.push('nlpearl', `Avance «${this.pasoLegible(paso)}» · ${comoSeLlama}`, true, p);
     this.flowLog.push('webhook', `Avance ${this.pasoLegible(paso)} · ${comoSeLlama}`);
-    return { received: true, paso, datos: Object.keys(datos) };
+    return { received: true, paso, datos: Object.keys(datos), forceHandoff };
   }
 
   /**

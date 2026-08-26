@@ -17,6 +17,7 @@ import { AtencionService } from './atencion.service';
 import { AccionesService } from './acciones.service';
 import { EjecutarService } from './ejecutar.service';
 import { EscalamientoService } from './escalamiento.service';
+import { HandoffService } from './handoff.service';
 import { AnalyticsService } from './analytics.service';
 import { HiveService } from './hive.service';
 import { NlpearlDiagnosticsController } from './nlpearl-diagnostics.controller';
@@ -64,6 +65,7 @@ import { WorkersController } from './workers.controller';
     AccionesService,
     EjecutarService,
     EscalamientoService,
+    HandoffService,
     NlpearlMockEngine,
     NlpearlVoiceEngine,
     WebhookSignatureGuard,

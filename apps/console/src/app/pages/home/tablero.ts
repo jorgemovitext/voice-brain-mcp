@@ -1,7 +1,8 @@
-import { ChangeDetectionStrategy, Component, computed, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, DestroyRef, computed, inject, signal } from '@angular/core';
 import { httpResource } from '@angular/common/http';
 import { RouterLink } from '@angular/router';
 import { Analytics, Channel } from '../../models';
+import { crearSondeo } from '../../sondeo';
 import { channelColor, channelLabel } from '../../ui';
 
 /**
@@ -95,6 +96,30 @@ export class TableroPage {
   readonly canalesDisponibles = computed(() =>
     (this.a()?.porCanal ?? []).map((c) => c.channel).filter((c) => c !== 'note'),
   );
+
+  private readonly destroyRef = inject(DestroyRef);
+
+  constructor() {
+    /*
+     * El tablero se cargaba UNA vez y se quedaba ahí: con la consola abierta
+     * en una pared, los números eran los de cuando alguien la abrió.
+     *
+     * Va más lento que el resto (10 s a 60 s) a propósito: /api/analytics
+     * recorre todas las interacciones del rango y además consulta HubSpot, así
+     * que no es una consulta para pedir cada dos segundos. La firma corta al
+     * ritmo lento cuando nada cambia.
+     */
+    const detener = crearSondeo({
+      base: 10_000,
+      max: 60_000,
+      firma: () => {
+        const r = this.datos.value()?.resumen;
+        return r ? `${r.conversaciones}:${r.mensajes}:${r.sinRespuesta}` : undefined;
+      },
+      alSondear: () => this.datos.reload(),
+    });
+    this.destroyRef.onDestroy(detener);
+  }
 
   readonly a = computed(() => this.datos.value());
   readonly channelLabel = channelLabel;

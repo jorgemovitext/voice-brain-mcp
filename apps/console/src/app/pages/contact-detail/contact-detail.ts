@@ -18,6 +18,7 @@ import { BrainApiService } from '../../brain-api.service';
 import { Icon } from '../../icon';
 import { VoiceNebula } from '../../nebula';
 import { crearSondeo } from '../../sondeo';
+import { Sonido } from '../../sonido';
 import {
   AvanceFlujo,
   AccionSugerida,
@@ -76,6 +77,7 @@ export class ContactDetailPage implements OnDestroy {
   readonly id = input.required<string>();
 
   private readonly api = inject(BrainApiService);
+  private readonly sonido = inject(Sonido);
   private readonly route = inject(ActivatedRoute);
   private readonly destroyRef = inject(DestroyRef);
   /** El primer render siempre baja al final aunque el hilo sea largo. */
@@ -621,6 +623,27 @@ export class ContactDetailPage implements OnDestroy {
     effect(() => {
       if (this.context.error()) this.fallosSeguidos.update((n) => n + 1);
       else if (this.context.value()) this.fallosSeguidos.set(0);
+    });
+
+    /*
+     * Avisa por sonido cuando el caso se mueve, sin obligar a mirar la
+     * pantalla. Se compara contra lo anterior y no contra "hubo cambios":
+     * el sondeo re-emite el mismo arreglo en cada vuelta y sonaría siempre.
+     *
+     * El escalamiento tiene su propio tono y gana: es el único que justifica
+     * interrumpir lo que el operador esté haciendo.
+     */
+    let nodosPrevios = -1;
+    let escalado = false;
+    effect(() => {
+      const hitos = this.hitos();
+      const ahoraEscalado = hitos.some((a) => a.paso === 'escalamiento');
+
+      if (nodosPrevios >= 0 && ahoraEscalado && !escalado) this.sonido.tocar('escalado');
+      else if (nodosPrevios >= 0 && hitos.length > nodosPrevios) this.sonido.tocar('avance');
+
+      nodosPrevios = hitos.length;
+      escalado = ahoraEscalado;
     });
 
     this.iniciarRefrescoAutomatico();
