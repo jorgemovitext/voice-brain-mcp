@@ -1,5 +1,5 @@
 import { Public } from '../../auth/public.decorator';
-import { Controller, HttpCode, Logger, Post, Req } from '@nestjs/common';
+import { Controller, Get, HttpCode, Logger, Post, Req } from '@nestjs/common';
 import { WhatsappInboundService } from '../../channels/whatsapp-inbound.service';
 import { WebhookLogService } from '../../shared/webhook-log.service';
 
@@ -21,6 +21,30 @@ export class GupshupWebhookController {
     private readonly inbound: WhatsappInboundService,
     private readonly webhookLog: WebhookLogService,
   ) {}
+
+  /**
+   * Verificación de la URL, abriéndola en el navegador o desde el panel del
+   * proveedor.
+   *
+   * Existe por dos motivos concretos:
+   *
+   * 1. Sin esto un GET acá devolvía 404. Los proveedores que validan la URL
+   *    antes de habilitarla la daban por mala.
+   * 2. Una ruta MAL escrita (`/webhook/gupshup` en singular, por ejemplo) cae
+   *    en el rewrite de la SPA y devuelve 200 con el HTML de la consola: al
+   *    abrirla en el navegador se ve una página normal y parece correcta,
+   *    mientras el POST real muere con 405 y no llega nada. Devolver esta
+   *    marca es lo que distingue "la URL es esta" de "esta URL no existe".
+   */
+  @Get()
+  verificar() {
+    return {
+      ok: true,
+      endpoint: 'webhooks/gupshup',
+      metodo: 'POST',
+      nota: 'URL correcta. Si acá ves la consola en vez de este texto, la ruta está mal escrita.',
+    };
+  }
 
   @Post()
   @HttpCode(200)
