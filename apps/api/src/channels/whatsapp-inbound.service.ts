@@ -144,7 +144,18 @@ export class WhatsappInboundService {
           const from = msg['from'] as string | undefined;
 
           if (!texto || !from) {
+            /*
+             * A la bitácora, no solo al log del servidor: en Vercel ese log no
+             * se ve desde la consola, así que un descarte acá era idéntico a
+             * que el mensaje nunca hubiera llegado — y se arreglan distinto.
+             */
             this.logger.log(`Mensaje ${String(msg['type'])} ignorado (solo se procesa texto)`);
+            this.webhookLog.push(
+              origen as 'gupshup',
+              `Mensaje de tipo "${String(msg['type'] ?? 'desconocido')}" descartado: solo se procesa texto`,
+              false,
+              { from },
+            );
             continue;
           }
           salida.push({

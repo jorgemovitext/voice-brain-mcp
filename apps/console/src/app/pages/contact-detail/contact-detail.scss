@@ -161,9 +161,13 @@ $overlap: 44px;
 }
 
 /*
- * Vidrio esmerilado sobre el panel oscuro, más una barra de acento a la
- * izquierda. Antes tenía EXACTAMENTE el mismo fondo que el hover, así que al
- * pasar el mouse por la lista se perdía cuál estaba abierta.
+ * Vidrio esmerilado sobre el panel oscuro. Antes tenía EXACTAMENTE el mismo
+ * fondo que el hover, así que al pasar el mouse por la lista se perdía cuál
+ * estaba abierta; el vidrio y el borde ya la distinguen solos.
+ *
+ * Llevaba además una barra de acento pegada al borde izquierdo. Se quitó: con
+ * la pill capsular, una barra recta contra un borde curvo se leía como una
+ * astilla de color, no como un indicador.
  *
  * El vidrio acá sí funciona (y en los sidebares completos no): esto es una
  * fila chica sobre un panel opaco propio, no un panel que se monta sobre el
@@ -177,18 +181,6 @@ $overlap: 44px;
   box-shadow:
     0 4px 18px rgba(4, 9, 20, 0.4),
     inset 0 1px 0 rgba(255, 255, 255, 0.14);
-
-  &::before {
-    content: '';
-    position: absolute;
-    left: 0;
-    top: 50%;
-    translate: 0 -50%;
-    width: 3px;
-    height: 55%;
-    border-radius: 0 3px 3px 0;
-    background: var(--secondary);
-  }
 
   .thread__name { color: #fff; }
   .thread__preview { color: var(--ink); }
