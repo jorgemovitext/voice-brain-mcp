@@ -29,10 +29,12 @@ export interface Interaction {
   /** Agente (Pearl) que atendió esta interacción. */
   handledBy?: string;
   /**
-   * La persona mandó un archivo en vez de texto. El archivo NO lo tenemos:
-   * NL Pearl entrega esos turnos vacíos y no expone ninguna ruta de media.
+   * La persona mandó un archivo en vez de texto (foto, audio, ubicación…).
+   * Por NL Pearl no tenemos el archivo; por Gupshup a veces viene una URL.
    */
-  attachment?: 'foto' | 'ubicacion' | 'adjunto';
+  attachment?: 'foto' | 'ubicacion' | 'audio' | 'adjunto';
+  /** Enlace al archivo cuando el proveedor lo entrega (Gupshup v2). */
+  attachmentUrl?: string;
 }
 
 export interface Signal {

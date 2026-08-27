@@ -30,7 +30,30 @@ interface MensajeNormalizado {
   from: string;
   text: string;
   profileName?: string;
+  /** Si el mensaje era un archivo y no texto, con qué ícono se muestra. */
+  attachment?: 'foto' | 'ubicacion' | 'audio' | 'adjunto';
+  /** Enlace al archivo, cuando el proveedor lo entrega. */
+  attachmentUrl?: string;
 }
+
+/**
+ * Qué clase de adjunto es cada tipo de mensaje de WhatsApp, y con qué etiqueta
+ * se anuncia en el chat cuando no trae texto.
+ *
+ * Sin esto, una imagen o un audio se descartaban por no tener `text` y no
+ * aparecían nunca en el hilo — el operador no se enteraba de que el ciudadano
+ * había mandado algo.
+ */
+const MEDIA: Record<string, { attachment: 'foto' | 'ubicacion' | 'audio' | 'adjunto'; etiqueta: string }> = {
+  image: { attachment: 'foto', etiqueta: 'Imagen recibida' },
+  sticker: { attachment: 'foto', etiqueta: 'Sticker recibido' },
+  audio: { attachment: 'audio', etiqueta: 'Audio recibido' },
+  voice: { attachment: 'audio', etiqueta: 'Nota de voz recibida' },
+  video: { attachment: 'adjunto', etiqueta: 'Video recibido' },
+  document: { attachment: 'adjunto', etiqueta: 'Archivo recibido' },
+  file: { attachment: 'adjunto', etiqueta: 'Archivo recibido' },
+  location: { attachment: 'ubicacion', etiqueta: 'Ubicación compartida' },
+};
 
 @Injectable()
 export class WhatsappInboundService {
@@ -88,11 +111,14 @@ export class WhatsappInboundService {
         occurredAt: new Date().toISOString(),
         summary: m.text,
         source: 'own',
+        attachment: m.attachment,
+        attachmentUrl: m.attachmentUrl,
       });
-      this.logger.log(`← ${origen} de ${m.from}: "${m.text}" → hilo tomado`);
+      const clase = m.attachment ? `[${m.attachment}] ` : '';
+      this.logger.log(`← ${origen} de ${m.from}: ${clase}"${m.text}" → hilo tomado`);
       this.webhookLog.push(
         origen,
-        `Respuesta de ${m.profileName ?? m.from} en un hilo tomado: “${m.text}”`,
+        `Respuesta de ${m.profileName ?? m.from} en un hilo tomado: ${clase}“${m.text}”`,
         true,
         { from: m.from },
       );
@@ -168,28 +194,42 @@ export class WhatsappInboundService {
               'title'
             ] as string);
           const from = msg['from'] as string | undefined;
+          if (!from) continue;
+          const desde = from.startsWith('+') ? from : `+${from}`;
+          const id = String(msg['id'] ?? `${from}-${msg['timestamp']}`);
 
-          if (!texto || !from) {
-            /*
-             * A la bitácora, no solo al log del servidor: en Vercel ese log no
-             * se ve desde la consola, así que un descarte acá era idéntico a
-             * que el mensaje nunca hubiera llegado — y se arreglan distinto.
-             */
-            this.logger.log(`Mensaje ${String(msg['type'])} ignorado (solo se procesa texto)`);
-            this.webhookLog.push(
-              origen as 'gupshup',
-              `Mensaje de tipo "${String(msg['type'] ?? 'desconocido')}" descartado: solo se procesa texto`,
-              false,
-              { from },
-            );
+          if (texto) {
+            salida.push({ id, from: desde, text: texto, profileName });
             continue;
           }
-          salida.push({
-            id: String(msg['id'] ?? `${from}-${msg['timestamp']}`),
-            from: from.startsWith('+') ? from : `+${from}`,
-            text: texto,
-            profileName,
-          });
+
+          // Sin texto: puede ser un archivo. Se reconoce por `type` y se surface
+          // como adjunto en vez de tirarlo. La media de Meta viene como
+          // `{ id, mime_type, caption }` sin URL descargable; la de Gupshup v2
+          // a veces trae `url`/`link`, que se aprovecha si está.
+          const tipo = String(msg['type'] ?? '');
+          const media = MEDIA[tipo];
+          if (media) {
+            const obj = (msg[tipo] as Record<string, unknown>) ?? {};
+            const caption = (obj['caption'] as string)?.trim();
+            salida.push({
+              id,
+              from: desde,
+              text: caption || media.etiqueta,
+              profileName,
+              attachment: media.attachment,
+              attachmentUrl: (obj['url'] ?? obj['link']) as string | undefined,
+            });
+            continue;
+          }
+
+          this.logger.log(`Mensaje ${tipo} ignorado (tipo no reconocido)`);
+          this.webhookLog.push(
+            origen as 'gupshup',
+            `Mensaje de tipo "${tipo || 'desconocido'}" no reconocido`,
+            false,
+            { from, msg },
+          );
         }
       }
     }
@@ -230,28 +270,42 @@ export class WhatsappInboundService {
     const texto = (interno['text'] ?? interno['title'] ?? interno['postbackText']) as string | undefined;
     const phone = (sender['phone'] ?? payload['source']) as string | undefined;
 
-    /*
-     * Se deja rastro del descarte. Antes salía por acá en silencio, y en la
-     * bitácora "Gupshup nos mandó algo que no supimos leer" era idéntico a
-     * "Gupshup nunca nos llamó" — que se arreglan de maneras opuestas.
-     */
-    if (!texto || !phone) {
-      this.webhookLog.push(
-        origen as 'gupshup',
-        `Mensaje descartado: ${!phone ? 'sin remitente' : 'sin texto (¿imagen o ubicación?)'}`,
-        false,
-        { tipoInterno: interno['type'] },
-      );
+    if (!phone) {
+      this.webhookLog.push(origen as 'gupshup', 'Mensaje descartado: sin remitente', false, {
+        tipo: payload['type'],
+      });
       return [];
     }
-    return [
-      {
-        id: String(payload['id'] ?? `${phone}-${Date.now()}`),
-        from: phone.startsWith('+') ? phone : `+${phone}`,
-        text: texto,
-        profileName: sender['name'] as string | undefined,
-      },
-    ];
+    const desde = phone.startsWith('+') ? phone : `+${phone}`;
+    const id = String(payload['id'] ?? `${phone}-${Date.now()}`);
+    const nombre = sender['name'] as string | undefined;
+
+    if (texto) {
+      return [{ id, from: desde, text: texto, profileName: nombre }];
+    }
+
+    // Sin texto: en el formato v2 el tipo de media está en `payload.type` y el
+    // archivo, con su URL, en `payload.payload` — Gupshup sí la entrega acá.
+    const tipoMedia = String(payload['type'] ?? '');
+    const media = MEDIA[tipoMedia];
+    if (media) {
+      const caption = (interno['caption'] as string)?.trim();
+      return [
+        {
+          id,
+          from: desde,
+          text: caption || media.etiqueta,
+          profileName: nombre,
+          attachment: media.attachment,
+          attachmentUrl: (interno['url'] ?? interno['link']) as string | undefined,
+        },
+      ];
+    }
+
+    this.webhookLog.push(origen as 'gupshup', `Mensaje de tipoMedia "${tipoMedia || 'desconocido'}" sin texto`, false, {
+      payload,
+    });
+    return [];
   }
 
   private yaVisto(id: string): boolean {

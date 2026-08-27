@@ -349,19 +349,24 @@
                   {{ m.interaction.summary }}
                 </div>
               } @else if (m.interaction.attachment) {
-                <!-- La persona mandó un archivo, no texto. NL Pearl entrega
-                     ese turno vacío y no expone el archivo por ningún lado,
-                     así que se muestra que existió y dónde va en el hilo. -->
+                <!-- La persona mandó un archivo, no texto. Si el proveedor nos
+                     dio la URL (Gupshup v2), se puede abrir; si no (NL Pearl, o
+                     Meta que solo manda un id), se muestra que existió y queda
+                     en WhatsApp. En cualquier caso ya no se pierde del hilo. -->
                 <div class="bubble bubble--adj" [class.bubble--adj-mapa]="m.interaction.attachment === 'ubicacion'">
                   <span class="adj__icono">
-                    <ui-icon [name]="m.interaction.attachment === 'ubicacion' ? 'pin' : 'image'" />
+                    <ui-icon [name]="adjIcono(m.interaction.attachment)" />
                   </span>
                   <span class="adj__texto">
                     <b>{{ m.interaction.summary }}</b>
                     @if (m.interaction.attachment === 'ubicacion' && lugarDelCaso(); as lugar) {
                       <a class="adj__mapa" [href]="lugar.mapa" target="_blank" rel="noopener">{{ lugar.texto }}</a>
+                    } @else if (m.interaction.attachmentUrl) {
+                      <a class="adj__mapa" [href]="m.interaction.attachmentUrl" target="_blank" rel="noopener">
+                        {{ m.interaction.attachment === 'audio' ? 'Escuchar' : 'Abrir archivo' }}
+                      </a>
                     } @else {
-                      <i class="adj__nota">El archivo queda en WhatsApp: el agente no nos lo entrega.</i>
+                      <i class="adj__nota">El archivo queda en WhatsApp: no nos lo entregan.</i>
                     }
                   </span>
                 </div>

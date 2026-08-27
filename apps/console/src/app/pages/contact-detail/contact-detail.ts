@@ -519,6 +519,13 @@ export class ContactDetailPage implements OnDestroy {
   readonly channelIconName = channelIconName;
   readonly channelColor = channelColor;
 
+  /** Ícono del adjunto: pin para ubicación, play para audio, imagen para el resto. */
+  adjIcono(attachment: 'foto' | 'ubicacion' | 'audio' | 'adjunto'): 'pin' | 'play' | 'image' {
+    if (attachment === 'ubicacion') return 'pin';
+    if (attachment === 'audio') return 'play';
+    return 'image';
+  }
+
   /** Quién atiende el hilo; null en `operador` = lo atiende el agente. */
   readonly atencion = computed(() => valorDe(this.expediente)?.atencion ?? null);
   readonly tomada = computed(() => !!this.atencion()?.operador);

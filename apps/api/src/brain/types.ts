@@ -34,11 +34,20 @@ export interface Interaction {
    */
   handledBy?: string;
   /**
-   * La persona mandó un archivo en vez de texto (foto o ubicación de
-   * WhatsApp). El archivo NO lo tenemos: NL Pearl entrega esos turnos vacíos
-   * y no expone ninguna ruta de media. Esto marca que el mensaje existió.
+   * La persona mandó un archivo en vez de texto (foto, audio, ubicación…).
+   *
+   * Por NL Pearl el archivo NO lo tenemos: entrega esos turnos vacíos y no
+   * expone ninguna ruta. Por Gupshup, en cambio, a veces sí viene una URL —
+   * ver `attachmentUrl`. En cualquier caso esto marca que el mensaje existió,
+   * para que no se pierda del hilo como pasaba antes.
    */
-  attachment?: 'foto' | 'ubicacion' | 'adjunto';
+  attachment?: 'foto' | 'ubicacion' | 'audio' | 'adjunto';
+  /**
+   * Enlace al archivo, cuando el proveedor lo entrega (Gupshup lo hace en su
+   * formato v2; Meta manda solo un id que no podemos descargar sin sus
+   * credenciales). Sin esto, el adjunto se muestra pero sin poder abrirlo.
+   */
+  attachmentUrl?: string;
 }
 
 export interface Signal {

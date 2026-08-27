@@ -74,6 +74,56 @@ describe('WhatsappInboundService', () => {
     });
   });
 
+  it('una imagen entrante entra al hilo como adjunto, no se descarta', async () => {
+    // Formato Meta (el que manda el Gupshup del usuario): media = {id, caption},
+    // sin texto. Antes se tiraba por no tener `text` y no aparecía en el chat.
+    const imagenMeta = {
+      entry: [
+        {
+          changes: [
+            {
+              value: {
+                contacts: [{ profile: { name: 'Jorge' } }],
+                messages: [
+                  { id: 'img1', from: TEL.slice(1), type: 'image', image: { id: 'MEDIA123', caption: 'la fuga' } },
+                ],
+              },
+            },
+          ],
+        },
+      ],
+    };
+    const { service, guardadas } = build({ operador: { c1: 'Jorge Murcia' } });
+
+    await service.process(imagenMeta, 'gupshup');
+
+    expect(guardadas).toHaveLength(1);
+    expect(guardadas[0]).toMatchObject({ contactId: 'c1', attachment: 'foto', summary: 'la fuga' });
+  });
+
+  it('un audio de Gupshup v2 entra con su URL para poder escucharlo', async () => {
+    const audio = {
+      type: 'message',
+      payload: {
+        id: 'aud1',
+        source: TEL,
+        type: 'audio',
+        sender: { phone: TEL, name: 'Jorge' },
+        payload: { url: 'https://filemanager.gupshup.io/aud1.ogg', contentType: 'audio/ogg' },
+      },
+    };
+    const { service, guardadas } = build({ operador: { c1: 'Jorge Murcia' } });
+
+    await service.process(audio, 'gupshup');
+
+    expect(guardadas).toHaveLength(1);
+    expect(guardadas[0]).toMatchObject({
+      attachment: 'audio',
+      summary: 'Audio recibido',
+      attachmentUrl: 'https://filemanager.gupshup.io/aud1.ogg',
+    });
+  });
+
   it('sin hilo tomado se queda en la bitácora: el agente atiende por NL Pearl', async () => {
     const { service, guardadas, bitacora } = build({ operador: { c1: null } });
 
