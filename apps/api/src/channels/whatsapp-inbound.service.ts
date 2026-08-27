@@ -204,9 +204,8 @@ export class WhatsappInboundService {
           }
 
           // Sin texto: puede ser un archivo. Se reconoce por `type` y se surface
-          // como adjunto en vez de tirarlo. La media de Meta viene como
-          // `{ id, mime_type, caption }` sin URL descargable; la de Gupshup v2
-          // a veces trae `url`/`link`, que se aprovecha si está.
+          // como adjunto en vez de tirarlo. Gupshup entrega una URL directa a su
+          // filemanager; según el formato puede venir en `url`, `link` o `text`.
           const tipo = String(msg['type'] ?? '');
           const media = MEDIA[tipo];
           if (media) {
@@ -218,7 +217,7 @@ export class WhatsappInboundService {
               text: caption || media.etiqueta,
               profileName,
               attachment: media.attachment,
-              attachmentUrl: (obj['url'] ?? obj['link']) as string | undefined,
+              attachmentUrl: this.urlDeMedia(obj, origen, tipo),
             });
             continue;
           }
@@ -297,7 +296,7 @@ export class WhatsappInboundService {
           text: caption || media.etiqueta,
           profileName: nombre,
           attachment: media.attachment,
-          attachmentUrl: (interno['url'] ?? interno['link']) as string | undefined,
+          attachmentUrl: this.urlDeMedia(interno, origen, tipoMedia),
         },
       ];
     }
@@ -306,6 +305,30 @@ export class WhatsappInboundService {
       payload,
     });
     return [];
+  }
+
+  /**
+   * La URL del archivo, buscándola en las varias formas en que los proveedores
+   * la ponen. Gupshup entrega una URL directa a su filemanager; según el
+   * formato del callback puede venir en `url`, `link` o `text`.
+   *
+   * Si no aparece en ninguna, deja rastro del shape en la bitácora — con los
+   * NOMBRES de los campos presentes— para poder apuntar al correcto sin
+   * adivinar. Ese es el dato que dice si este proveedor nos da con qué
+   * descargar o solo un id que no sirve por sí solo.
+   */
+  private urlDeMedia(obj: Record<string, unknown>, origen: string, tipo: string): string | undefined {
+    const url = [obj['url'], obj['link'], obj['text']].find(
+      (v) => typeof v === 'string' && /^https?:\/\//i.test(v),
+    ) as string | undefined;
+    if (url) return url;
+    this.webhookLog.push(
+      origen as 'gupshup',
+      `Media "${tipo}" recibida sin URL directa — campos presentes: [${Object.keys(obj).join(', ')}]`,
+      true,
+      { media: obj },
+    );
+    return undefined;
   }
 
   private yaVisto(id: string): boolean {

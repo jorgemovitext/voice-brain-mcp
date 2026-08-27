@@ -362,7 +362,10 @@
                     @if (m.interaction.attachment === 'ubicacion' && lugarDelCaso(); as lugar) {
                       <a class="adj__mapa" [href]="lugar.mapa" target="_blank" rel="noopener">{{ lugar.texto }}</a>
                     } @else if (m.interaction.attachmentUrl) {
-                      <a class="adj__mapa" [href]="m.interaction.attachmentUrl" target="_blank" rel="noopener">
+                      <!-- Al proxy propio, no a la URL de Gupshup: baja el archivo
+                           con nuestra apikey del lado del servidor y lo sirve por
+                           sesión. Ver MediaController. -->
+                      <a class="adj__mapa" [href]="'/api/media/' + m.interaction.id" target="_blank" rel="noopener">
                         {{ m.interaction.attachment === 'audio' ? 'Escuchar' : 'Abrir archivo' }}
                       </a>
                     } @else {
