@@ -1,7 +1,9 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Inject, Injectable, Logger } from '@nestjs/common';
 import { AtencionService } from '../shared/atencion.service';
 import { BrainService } from '../brain/brain.service';
 import { WebhookLogService } from '../shared/webhook-log.service';
+import { ElevenLabsService } from '../elevenlabs/elevenlabs.service';
+import { ChannelPort, WHATSAPP_CHANNEL } from '../ports/channel.port';
 
 /**
  * Procesa los eventos entrantes de WhatsApp, vengan en el formato que vengan.
@@ -65,6 +67,8 @@ export class WhatsappInboundService {
     private readonly brain: BrainService,
     private readonly atencion: AtencionService,
     private readonly webhookLog: WebhookLogService,
+    private readonly agente: ElevenLabsService,
+    @Inject(WHATSAPP_CHANNEL) private readonly whatsapp: ChannelPort,
   ) {}
 
   /** Punto de entrada único: detecta el formato y procesa. */
@@ -80,11 +84,19 @@ export class WhatsappInboundService {
       const puerta = await this.hiloTomado(m.from);
       if (puerta.estado !== 'tomado') {
         /*
-         * Se dice CUÁL de las dos puertas lo frenó, porque se arreglan al
+         * Nadie tomó el hilo. Antes eso era el final del camino y el mensaje
+         * moría en la bitácora; ahora es el turno del agente — si está
+         * configurado. Un hilo TOMADO no pasa por acá a propósito: lo atiende
+         * una persona, y el agente encima sería una segunda voz contestando.
+         */
+        if (await this.atendioElAgente(m, origen)) continue;
+
+        /*
+         * Sin agente configurado se conserva el comportamiento de siempre, y
+         * se dice CUÁL de las dos puertas lo frenó, porque se arreglan al
          * revés: "nadie lo tomó" lo resuelve el operador con un clic, y "no
          * conocemos el número" es un problema de emparejado de teléfonos que
-         * hay que corregir en el código. Un solo mensaje para los dos casos
-         * dejaba el diagnóstico a mitad de camino.
+         * hay que corregir en el código.
          */
         const motivo =
           puerta.estado === 'desconocido'
@@ -122,6 +134,84 @@ export class WhatsappInboundService {
         true,
         { from: m.from },
       );
+    }
+  }
+
+  /**
+   * El agente contesta por nuestro canal. `true` si se hizo cargo.
+   *
+   * Acá es donde la voz deja de ser una isla: la conversación ocurre sobre
+   * NUESTRO número de Gupshup, con el contexto del Brain, y queda en el mismo
+   * hilo que el operador ve en la consola y puede tomar cuando quiera. Con NL
+   * Pearl esto era imposible — el ciudadano estaba en su número y nosotros
+   * mirábamos desde afuera.
+   *
+   * A diferencia de preguntar por un hilo, acá SÍ se da de alta al contacto si
+   * no existía: no es un fantasma, es alguien con quien estamos conversando de
+   * verdad. Ese es el primer mensaje de un hilo nuevo.
+   */
+  private async atendioElAgente(m: MensajeNormalizado, origen: 'gupshup' | 'whatsapp-cloud'): Promise<boolean> {
+    if (!this.agente.configurado()) return false;
+
+    try {
+      const { contactId } = await this.brain.resolveIdentity({
+        phone: m.from,
+        displayName: m.profileName,
+      });
+
+      // El mensaje entra ANTES de responder: si el agente falla, igual queda
+      // registrado lo que la persona dijo y un humano puede retomarlo.
+      await this.brain.appendInteraction({
+        contactId,
+        channel: 'whatsapp',
+        direction: 'inbound',
+        occurredAt: new Date().toISOString(),
+        summary: m.text,
+        source: 'own',
+        attachment: m.attachment,
+        attachmentUrl: m.attachmentUrl,
+      });
+
+      const respuesta = await this.agente.responderEnHilo(contactId, m.text);
+      if (!respuesta) {
+        // El motor está encendido pero no contestó. No se inventa una
+        // respuesta: queda el mensaje del ciudadano y el aviso para que un
+        // humano lo vea en la consola.
+        this.webhookLog.push(
+          origen,
+          `Mensaje de ${m.profileName ?? m.from}: “${m.text}” — el agente no contestó; queda para un humano`,
+          false,
+          { from: m.from },
+        );
+        return true;
+      }
+
+      const envio = await this.whatsapp.send(contactId, respuesta);
+      await this.brain.appendInteraction({
+        contactId,
+        channel: 'whatsapp',
+        direction: 'outbound',
+        occurredAt: new Date().toISOString(),
+        summary: respuesta,
+        source: 'own',
+        handledBy: 'agente',
+        collectedInfo: envio.providerId ? { providerId: envio.providerId } : undefined,
+      });
+
+      this.logger.log(`← ${origen} de ${m.from}: "${m.text}" → el agente respondió`);
+      this.webhookLog.push(
+        origen,
+        `El agente atendió a ${m.profileName ?? m.from}: “${m.text}” → “${respuesta}”`,
+        true,
+        { from: m.from },
+      );
+      return true;
+    } catch (err) {
+      // Que el agente falle no puede tumbar el webhook: se deja rastro y el
+      // mensaje sigue el camino de siempre (bitácora).
+      this.logger.warn(`El agente no pudo atender a ${m.from}: ${(err as Error).message}`);
+      this.webhookLog.push(origen, `El agente falló atendiendo a ${m.from}: ${(err as Error).message}`, false);
+      return false;
     }
   }
 

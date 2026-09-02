@@ -106,6 +106,24 @@ export const configSchema = z.object({
    */
   GUPSHUP_WEBHOOK_TOKEN: z.string().default(''),
 
+  // --- ElevenLabs Agents — el motor conversacional sobre NUESTROS canales ---
+  ELEVENLABS_API_URL: z.string().default('https://api.elevenlabs.io'),
+  /** ElevenLabs → Developers → API Keys. */
+  ELEVENLABS_API_KEY: z.string().default(''),
+  /**
+   * El agente que contesta. Vacío = APAGADO: los entrantes siguen yendo solo
+   * a la bitácora, exactamente como hoy. El agente empieza a contestar recién
+   * cuando este id está puesto — así encenderlo es una decisión explícita y
+   * no un efecto colateral de desplegar.
+   */
+  ELEVENLABS_AGENT_ID: z.string().default(''),
+  /**
+   * Cuánto se espera la respuesta del agente. Por debajo del `maxDuration`
+   * de 30 s de la función: si el agente no contestó para entonces, es mejor
+   * cortar y responder nosotros que dejar morir la lambda a mitad.
+   */
+  ELEVENLABS_TIMEOUT_MS: z.coerce.number().int().positive().default(20_000),
+
   // --- WhatsApp Cloud API (Meta directo) — alternativa a Gupshup ---
   WHATSAPP_API_VERSION: z.string().default('v21.0'),
   /** ID del número emisor (Meta → WhatsApp → API Setup). */

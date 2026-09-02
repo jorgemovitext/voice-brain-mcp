@@ -2,6 +2,8 @@ import { BrainService } from '../brain/brain.service';
 import { AtencionService } from '../shared/atencion.service';
 import { WebhookLogService } from '../shared/webhook-log.service';
 import { WhatsappInboundService } from './whatsapp-inbound.service';
+import { ElevenLabsService } from '../elevenlabs/elevenlabs.service';
+import { ChannelPort } from '../ports/channel.port';
 
 /**
  * Qué entra al hilo y qué no.
@@ -35,19 +37,35 @@ describe('WhatsappInboundService', () => {
   function build({
     operador,
     contactos = ['c1'],
+    respuestaAgente = null,
   }: {
     operador: Record<string, string | null>;
     contactos?: string[];
+    /** Qué contesta el agente. null = motor apagado (el caso por defecto). */
+    respuestaAgente?: string | null;
   }) {
     const guardadas: Array<Record<string, unknown>> = [];
     const bitacora: string[] = [];
 
+    const enviados: Array<{ contactId: string; texto: string }> = [];
     const brain = {
       // No crea: preguntar por un número no debe dar de alta a nadie.
       findAllByPhone: async () => contactos.map((id) => ({ id })),
+      // El agente SÍ da de alta, porque ahí sí hay una conversación real.
+      resolveIdentity: async () => ({ contactId: 'nuevo', created: true }),
       appendInteraction: async (i: Record<string, unknown>) => {
         guardadas.push(i);
         return i;
+      },
+    };
+    const agente = {
+      configurado: () => respuestaAgente !== null,
+      responderEnHilo: async () => respuestaAgente,
+    };
+    const canal = {
+      send: async (contactId: string, texto: string) => {
+        enviados.push({ contactId, texto });
+        return { delivered: true, providerId: 'p1' };
       },
     };
     const atencion = { de: async (id: string) => ({ operador: operador[id] ?? null }) };
@@ -56,8 +74,10 @@ describe('WhatsappInboundService', () => {
       brain as unknown as BrainService,
       atencion as unknown as AtencionService,
       { push: (_o: string, texto: string) => bitacora.push(texto) } as unknown as WebhookLogService,
+      agente as unknown as ElevenLabsService,
+      canal as unknown as ChannelPort,
     );
-    return { service, guardadas, bitacora };
+    return { service, guardadas, bitacora, enviados };
   }
 
   it('la respuesta del ciudadano entra al hilo que un operador tomó', async () => {
@@ -165,6 +185,62 @@ describe('WhatsappInboundService', () => {
 
     expect(guardadas).toHaveLength(1);
     expect(guardadas[0]).toMatchObject({ contactId: 'tomado' });
+  });
+
+  it('con el agente encendido, contesta él y la respuesta sale por nuestro canal', async () => {
+    /*
+     * El caso que justifica todo el cambio de motor: la conversación ocurre
+     * sobre NUESTRO número, con nuestro contexto, y queda en el mismo hilo que
+     * el operador puede tomar. Con NL Pearl el ciudadano estaba en su número y
+     * nosotros mirábamos desde afuera.
+     */
+    const { service, guardadas, enviados } = build({
+      operador: { c1: null },
+      respuestaAgente: 'Claro, contame en qué te ayudo.',
+    });
+
+    await service.process(mensaje('Hola, quiero reportar un bache'), 'gupshup');
+
+    // Los DOS turnos quedan en el hilo: lo que dijo y lo que le contestamos.
+    expect(guardadas).toHaveLength(2);
+    expect(guardadas[0]).toMatchObject({ direction: 'inbound', summary: 'Hola, quiero reportar un bache' });
+    expect(guardadas[1]).toMatchObject({
+      direction: 'outbound',
+      summary: 'Claro, contame en qué te ayudo.',
+      handledBy: 'agente',
+    });
+    // Y salió de verdad por el canal.
+    expect(enviados).toEqual([{ contactId: 'nuevo', texto: 'Claro, contame en qué te ayudo.' }]);
+  });
+
+  it('el agente NO se mete en un hilo que ya tomó una persona', async () => {
+    // Dos voces contestando a la vez es peor que ninguna.
+    const { service, guardadas, enviados } = build({
+      operador: { c1: 'Jorge Murcia' },
+      respuestaAgente: 'Yo contesto',
+    });
+
+    await service.process(mensaje('Sí, es en la esquina'), 'gupshup');
+
+    expect(enviados).toHaveLength(0);
+    expect(guardadas).toHaveLength(1);
+    expect(guardadas[0]).toMatchObject({ contactId: 'c1', direction: 'inbound' });
+  });
+
+  it('si el agente no contesta, el mensaje igual queda para un humano', async () => {
+    const { service, guardadas, enviados, bitacora } = build({
+      operador: { c1: null },
+      respuestaAgente: '',
+    });
+
+    await service.process(mensaje('¿Hay alguien?'), 'gupshup');
+
+    // No se inventa una respuesta...
+    expect(enviados).toHaveLength(0);
+    // ...pero lo que dijo la persona no se pierde.
+    expect(guardadas).toHaveLength(1);
+    expect(guardadas[0]).toMatchObject({ direction: 'inbound', summary: '¿Hay alguien?' });
+    expect(bitacora[0]).toContain('queda para un humano');
   });
 
   it('no duplica cuando el proveedor reintenta el mismo mensaje', async () => {
