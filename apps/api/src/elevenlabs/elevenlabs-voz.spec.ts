@@ -108,6 +108,16 @@ describe('ElevenLabsVozService', () => {
     const sip = build({ provider: 'sip_trunk' });
     await sip.service.llamar('c1', 'Jorge');
     expect(sip.posts[0].url).toContain('/sip-trunk/outbound-call');
+
+    /*
+     * Exotel es el que provee el número de Honduras de la cuenta real. Esto
+     * era un booleano "¿es SIP?" que caía a Twilio para todo lo demás, así que
+     * la llamada salía por el endpoint equivocado y nunca timbraba — y nada en
+     * el código lo delataba.
+     */
+    const exotel = build({ provider: 'exotel' });
+    await exotel.service.llamar('c1', 'Jorge');
+    expect(exotel.posts[0].url).toContain('/exotel/outbound-call');
   });
 
   it('la transcripción entra turno por turno, con quién habló cada uno', async () => {

@@ -107,7 +107,7 @@ export class ElevenLabsVozService {
 
     // Twilio y SIP son endpoints distintos, y cuál toca lo dice el propio
     // número: así no hay que configurarlo aparte ni acertar de memoria.
-    const ruta = (await this.esSip()) ? 'sip-trunk' : 'twilio';
+    const ruta = await this.rutaDeSalida();
 
     try {
       const res = await firstValueFrom(
@@ -169,14 +169,26 @@ export class ElevenLabsVozService {
     }
   }
 
-  /** ¿El número configurado sale por SIP? Si no se puede saber, Twilio. */
-  private async esSip(): Promise<boolean> {
+  /**
+   * Por qué endpoint sale la llamada, según quién provee el número.
+   *
+   * Cada proveedor tiene el suyo y no son intercambiables: mandar un número de
+   * Exotel por la ruta de Twilio da error. Antes esto era un booleano
+   * "¿es SIP?" que caía a Twilio para todo lo demás — y el número real de la
+   * cuenta resultó ser de Exotel, así que la llamada nunca habría salido.
+   */
+  private async rutaDeSalida(): Promise<string> {
+    let provider = '';
     try {
       const n = (await this.numeros()).find((x) => x.phone_number_id === this.phoneNumberId);
-      return (n?.provider ?? '').toLowerCase().includes('sip');
+      provider = (n?.provider ?? '').toLowerCase();
     } catch {
-      return false;
+      // Sin poder consultarlo, Twilio: es el proveedor más común y el error
+      // de ElevenLabs dice cuál era el correcto.
     }
+    if (provider.includes('sip')) return 'sip-trunk';
+    if (provider.includes('exotel')) return 'exotel';
+    return 'twilio';
   }
 
   /**

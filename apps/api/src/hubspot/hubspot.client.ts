@@ -307,8 +307,24 @@ export class HubspotClient {
     const fresco = this.ownersCache && Date.now() - this.ownersCache.at < HubspotClient.ESQUEMA_TTL_MS;
     if (fresco) return this.ownersCache!.value;
 
-    const res = await this.pedir<{ results?: HubspotOwner[] }>('/crm/v3/owners?limit=200');
-    const value = res.results ?? [];
+    /*
+     * Un portal sin permiso de responsables devuelve 403, y eso NO puede
+     * tumbar la asignación entera: pasó en producción —el token tenía
+     * `tickets` y `crm.objects.contacts.read` pero no `crm.objects.owners.read`—
+     * y la herramienta moría acá, así que la tarea se quedaba sin dueño Y sin
+     * explicación. Sin la lista se asigna sin responsable, que es peor que con
+     * dueño pero muchísimo mejor que nada.
+     */
+    let value: HubspotOwner[] = [];
+    try {
+      const res = await this.pedir<{ results?: HubspotOwner[] }>('/crm/v3/owners?limit=200');
+      value = res.results ?? [];
+    } catch (err) {
+      this.logger.warn(
+        `No se pudieron leer los responsables (${(err as Error).message}). ` +
+          'Revisá los permisos del token en /api/hubspot/permisos.',
+      );
+    }
     this.ownersCache = { value, at: Date.now() };
     return value;
   }

@@ -13,7 +13,11 @@ import { AgenteToolsService } from './agente-tools.service';
  * ciudadano.
  */
 describe('AgenteToolsService', () => {
-  function build({ crmOk = true, crmFalla = false }: { crmOk?: boolean; crmFalla?: boolean } = {}) {
+  function build({
+    crmOk = true,
+    crmFalla = false,
+    sinResponsables = false,
+  }: { crmOk?: boolean; crmFalla?: boolean; sinResponsables?: boolean } = {}) {
     const anotadas: Array<Record<string, unknown>> = [];
     const enviados: Array<{ contactId: string; texto: string }> = [];
     const tareas: Array<Record<string, unknown>> = [];
@@ -37,10 +41,15 @@ describe('AgenteToolsService', () => {
         if (crmFalla) throw new Error('HubSpot rechazó el ticket');
         return { id: '4417', descartadas: [] };
       },
-      responsables: async () => [
-        { id: '77', email: 'obras@amdc.hn', firstName: 'Luis', lastName: 'Vallecillo' },
-        { id: '88', email: 'agua@amdc.hn', firstName: 'Rosa', lastName: 'Díaz' },
-      ],
+      // Vacía cuando el token no puede leerlos: el cliente devuelve [] en vez
+      // de lanzar, para que un permiso faltante no tumbe la herramienta.
+      responsables: async () =>
+        sinResponsables
+          ? []
+          : [
+              { id: '77', email: 'obras@amdc.hn', firstName: 'Luis', lastName: 'Vallecillo' },
+              { id: '88', email: 'agua@amdc.hn', firstName: 'Rosa', lastName: 'Díaz' },
+            ],
       contactosPorTelefono: async () => ['c-crm-1'],
       crearTarea: async (input: Record<string, unknown>) => {
         tareas.push(input);
@@ -280,6 +289,24 @@ describe('AgenteToolsService', () => {
     expect(r.ok).toBe(true);
     expect(tareas).toHaveLength(1); // la del reporte, no una nueva
     expect(asignadas).toEqual([{ tareaId: 'T-9', ownerId: '77', prioridad: 'HIGH' }]);
+  });
+
+  it('sin responsables en el portal, corta en vez de mandar al agente a un bucle', async () => {
+    /*
+     * Pasó en producción: al token le faltaba `crm.objects.owners.read`, la
+     * lectura devolvía 403 y la lista quedaba vacía. Los mensajes normales le
+     * dicen al agente "elegí uno de estos: " —con la lista vacía— y vuelve a
+     * llamar una y otra vez, gastando el turno del ciudadano.
+     */
+    const { service, anotadas } = build({ sinResponsables: true });
+
+    await service.ejecutar('c1', 'registrar_reporte', REPORTE);
+    const r = await service.ejecutar('c1', 'asignar_tarea', { titulo: 'Reparar el bache' });
+
+    expect(r.ok).toBe(false);
+    expect(r.mensaje).toContain('No lo intentes de nuevo');
+    // Y el operador ve por qué quedó sin dueño, en el hilo.
+    expect(anotadas.some((a) => String((a['accion'] as { detalle?: string })?.detalle ?? '').includes('sin responsable'))).toBe(true);
   });
 
   it('asignar sin responsable NO duplica la tarea: devuelve la lista para elegir', async () => {

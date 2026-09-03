@@ -312,6 +312,25 @@ export class AgenteToolsService {
     const lista = () =>
       gente.map((o) => AgenteToolsService.nombreDe(o)).filter(Boolean).slice(0, 12).join(', ');
 
+    /*
+     * Sin lista no hay a quién elegir —el portal no tiene responsables, o el
+     * token no puede leerlos—. Se corta acá y se dice que quedó sin dueño: los
+     * mensajes de abajo le pedirían al agente que "elija uno de estos: " con
+     * la lista vacía, y volvería a llamar en un bucle que gasta el turno del
+     * ciudadano.
+     */
+    if (!gente.length) {
+      const pendiente = await this.settings.get<string>(`tarea:${contactId}`);
+      if (!pendiente) return { ok: false, mensaje: 'La tarea quedó sin responsable: el CRM no devolvió ninguno.' };
+      await this.anotar(contactId, 'ticket', false, `${titulo} — sin responsable: el CRM no devolvió ninguno`);
+      return {
+        ok: false,
+        mensaje:
+          'La tarea está creada pero sin responsable, porque el CRM no devolvió ninguno. ' +
+          'No lo intentes de nuevo; el equipo la va a repartir. Seguí con el ciudadano.',
+      };
+    }
+
     if (responsable && !elegido) {
       // Se le devuelve la lista real en vez de asignarle a cualquiera: una
       // tarea en la bandeja equivocada es peor que una sin dueño.
