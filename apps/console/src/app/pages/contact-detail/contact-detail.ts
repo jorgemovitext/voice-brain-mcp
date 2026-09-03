@@ -51,6 +51,12 @@ interface ChatItem {
   abreGrupo: boolean;
   /** Último de la tanda: lleva el avatar y la hora. */
   cierraGrupo: boolean;
+  /**
+   * Lo que el agente HIZO en el turno que produjo este mensaje: el ticket que
+   * abrió, el aviso que mandó. Se dibujan pegadas debajo de la burbuja porque
+   * son consecuencia de ella, no hechos sueltos del hilo.
+   */
+  acciones: Interaction[];
 }
 
 type CallState = 'idle' | 'calling' | 'ended';
@@ -531,8 +537,13 @@ export class ContactDetailPage implements OnDestroy {
    */
   readonly pideHumano = computed(() => {
     if (this.tomada()) return null;
-    const escalamientos = this.mensajesDelCaso().filter((m) => m.interaction.accion?.tipo === 'escalamiento');
-    return escalamientos.length ? (escalamientos[escalamientos.length - 1].interaction.accion?.detalle ?? '') : null;
+    // Las acciones viven plegadas bajo la burbuja que las disparó, así que hay
+    // que mirar las dos ramas: la plegada y la que quedó suelta por no tener
+    // mensaje detrás.
+    const escalamientos = this.mensajesDelCaso()
+      .flatMap((m) => [m.interaction, ...m.acciones])
+      .filter((i) => i.accion?.tipo === 'escalamiento');
+    return escalamientos.length ? (escalamientos[escalamientos.length - 1].accion?.detalle ?? '') : null;
   });
 
   /**
@@ -847,10 +858,42 @@ export class ContactDetailPage implements OnDestroy {
         time: date.toLocaleTimeString('es-NI', { hour: '2-digit', minute: '2-digit' }),
         abreGrupo: true,
         cierraGrupo: true,
+        acciones: [],
       };
       lastDay = day;
       return item;
     });
+
+    /*
+     * Una acción no es un mensaje: es lo que el agente hizo mientras armaba la
+     * respuesta que manda a continuación. El tool call ocurre ANTES de que el
+     * agente hable, así que en orden cronológico la acción queda entre la
+     * pregunta del ciudadano y la respuesta —y como franja suelta se leía como
+     * si hubiera pasado sola.
+     *
+     * Se pliega debajo de la burbuja que la produjo. Solo si el siguiente
+     * mensaje es NUESTRO: colgarle un ticket a la burbuja del ciudadano diría
+     * que lo abrió él. Si no hay mensaje después —la acción es lo último del
+     * hilo, o el turno se cortó— se queda como item propio: perderla de vista
+     * es peor que la franja.
+     */
+    const plegados: ChatItem[] = [];
+    for (let i = 0; i < items.length; i++) {
+      const item = items[i];
+      const portador = item.interaction.accion
+        ? items.slice(i + 1).find((s) => !s.interaction.accion)
+        : undefined;
+      if (!portador || portador.side !== 'out') {
+        plegados.push(item);
+        continue;
+      }
+      portador.acciones.push(item.interaction);
+      // El separador de día vive en el primer item del día. Si era este, pasa
+      // al portador o el día desaparece del hilo.
+      portador.dayLabel ??= item.dayLabel;
+    }
+    items.length = 0;
+    items.push(...plegados);
 
     /*
      * Agrupa los mensajes seguidos del mismo lado, como cualquier chat: el

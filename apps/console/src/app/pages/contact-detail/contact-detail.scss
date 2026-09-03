@@ -1165,6 +1165,43 @@ $overlap: 44px;
    ocurrió en ese punto de la conversación, no como algo que alguien escribió.
    El verde es el mismo de "entregado"; el rojo aparece solo si la acción
    falló, y ahí importa MÁS que se vea, no menos. */
+/*
+ * La acción del agente, colgada de la burbuja que la produjo.
+ *
+ * Antes era una franja al ancho del hilo y se leía como un hecho suelto —"se
+ * abrió un ticket", sin decir a raíz de qué—. Pegada y más angosta que la
+ * burbuja, la lectura es la correcta: el agente dijo esto Y además hizo esto.
+ *
+ * El margen negativo come el gap del stack: entre burbuja y acción no debe
+ * haber aire, o vuelven a parecer dos cosas distintas.
+ */
+.accion {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  max-width: 100%;
+  margin-top: -0.1rem;
+  padding: 0.4rem 0.65rem;
+  border-radius: 12px;
+  background: #eef7e4;
+  border: 1px solid #cfe6b6;
+  color: #3f5c1c;
+
+  .accion__icono {
+    width: 22px;
+    height: 22px;
+    font-size: 12px;
+  }
+}
+
+.accion--falla {
+  background: #fdecee;
+  border-color: #f4c2c7;
+  color: #8f2530;
+}
+
+/* La misma acción cuando no tiene burbuja detrás de la cual colgarse: el turno
+   se cortó o es lo último del hilo. Ocupa el ancho, como antes. */
 .bubble--accion {
   display: flex;
   align-items: center;

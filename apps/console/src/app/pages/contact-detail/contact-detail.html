@@ -413,6 +413,25 @@
               } @else {
                 <div class="bubble">{{ m.interaction.summary }}</div>
               }
+
+              <!-- Lo que el agente HIZO mientras armaba ese mensaje: el ticket
+                   que abrió, el aviso que salió, la tarea que asignó. Va
+                   pegado debajo de la burbuja y más chico que ella, porque es
+                   la consecuencia del mensaje, no otro mensaje. -->
+              @for (a of m.acciones; track a.id) {
+                @if (a.accion; as acc) {
+                  <div class="accion" [class.accion--falla]="!acc.ok">
+                    <span class="accion__icono">
+                      <ui-icon [name]="accionIcono(acc.tipo, acc.ok)" />
+                    </span>
+                    <span class="accion__texto">
+                      <b>{{ accionTitulo(acc.tipo, acc.ok) }}</b>
+                      <i>{{ acc.detalle || a.summary }}</i>
+                    </span>
+                  </div>
+                }
+              }
+
               @if (m.cierraGrupo) {
               <span class="msg__time">
                 @if (m.interaction.channel !== 'note') {
