@@ -81,6 +81,13 @@ const HERRAMIENTAS = [
   },
   {
     name: 'actualizar_ficha',
+    /*
+     * La única que NO espera respuesta. El agente no usa lo que devuelve —es un
+     * panel interno del operador—, así que hacerlo esperar el viaje de ida y
+     * vuelta le sumaba ~700 ms a CADA turno para nada. La escritura se hace
+     * igual: el cliente espera las herramientas en vuelo antes de cerrar.
+     */
+    espera: false,
     description:
       'Anota en el panel interno del operador lo que vas entendiendo del caso. ' +
       'Llamala apenas sepas algo nuevo —no esperes a tener todo— y mandá SOLO ' +
@@ -182,7 +189,9 @@ function configDe(h) {
     name: h.name,
     description: h.description,
     parameters: { type: 'object', properties, required },
-    expects_response: true,
+    // Por defecto sí: el agente usa el folio y la lista de responsables que le
+    // devolvemos, y sin esperar seguiría hablando sin haberlos leído.
+    expects_response: h.espera !== false,
     response_timeout_secs: 30,
   };
 }

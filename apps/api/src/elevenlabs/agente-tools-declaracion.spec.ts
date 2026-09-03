@@ -85,14 +85,22 @@ describe('Declaración de herramientas en ElevenLabs', () => {
     expect([...AgenteToolsService.CAMPOS_FICHA].filter((c) => !declarados.has(c))).toEqual([]);
   });
 
-  it('espera la respuesta de todas: sin eso el agente pierde el folio', () => {
+  it('espera la respuesta de las que devuelven algo que el agente usa', () => {
     /*
      * `expects_response` es el "Esperar respuesta" del panel. Apagado, el
-     * agente dispara la herramienta y sigue hablando sin leer lo que devolvió
-     * —justo el número de seguimiento y la lista de responsables que tiene que
-     * decirle al ciudadano—.
+     * agente dispara la herramienta y sigue hablando sin leer lo que devolvió.
+     * Para registrar_reporte eso significa perder el folio, y para
+     * asignar_tarea la lista de responsables.
+     *
+     * La excepción es actualizar_ficha: alimenta un panel interno y el agente
+     * no usa la respuesta, así que esperarla le sumaba ~700 ms a cada turno
+     * sin ganar nada. Su escritura no se pierde — el cliente espera las
+     * herramientas en vuelo antes de cerrar el turno.
      */
-    expect(script).toContain('expects_response: true');
-    expect(script).not.toContain('expects_response: false');
+    const sinEspera = [...script.matchAll(/^ {4}name: '([a-z_]+)',\n(?: {4}\/\*[\s\S]*?\*\/\n)? {4}espera: false,/gm)].map(
+      (m) => m[1],
+    );
+
+    expect(sinEspera).toEqual(['actualizar_ficha']);
   });
 });

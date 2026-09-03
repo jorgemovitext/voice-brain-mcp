@@ -165,6 +165,14 @@ export class AgenteToolsService {
     const ctx = await this.brain.getContext({ contactId });
     const telefono = ctx.contact.phones?.[0];
 
+    /*
+     * El contacto del CRM se busca EN PARALELO con la apertura del ticket: la
+     * tarea lo necesita después y son dos viajes a HubSpot que no dependen uno
+     * del otro. En serie le sumaba medio segundo al turno, y el ciudadano está
+     * esperando la respuesta de todo esto.
+     */
+    const contactoCrm = this.contactoEnCrm(telefono);
+
     const { id } = await this.hubspot.crearTicket(
       {
         subject: `${tipo} · ${ubicacion}`,
@@ -193,7 +201,7 @@ export class AgenteToolsService {
      * Una tarea sin dueño se ve en el CRM y se puede repartir; una que no
      * existe, no.
      */
-    await this.tareaDelReporte(contactId, `Atender: ${tipo} en ${ubicacion}`, descripcion, telefono);
+    await this.tareaDelReporte(contactId, `Atender: ${tipo} en ${ubicacion}`, descripcion, contactoCrm);
 
     return { ok: true, mensaje: `Reporte registrado con el folio ${folio}. Decíselo al ciudadano.` };
   }
@@ -209,13 +217,14 @@ export class AgenteToolsService {
     contactId: string,
     titulo: string,
     detalle: string,
-    telefono?: string,
+    /** Se resuelve en paralelo con el ticket; acá solo se cobra. */
+    contactoCrm: Promise<string | undefined>,
   ): Promise<void> {
     try {
       const { id } = await this.hubspot.crearTarea({
         titulo,
         detalle,
-        contactoId: await this.contactoEnCrm(telefono),
+        contactoId: await contactoCrm,
       });
       // Para que `asignar_tarea` le ponga dueño a esta en vez de crear otra.
       await this.settings.set(`tarea:${contactId}`, id);

@@ -35,6 +35,15 @@ export class ElevenLabsClient {
   private readonly apiUrl: string;
   private readonly apiKey: string;
   private readonly agentId: string;
+  /**
+   * Cuánto se espera a una herramienta que quedó corriendo al cerrar el turno.
+   *
+   * Sale de la cuenta de la lambda: Vercel corta a los 30 s y el reloj del
+   * agente es de 20 s, así que 6 s es lo que sobra para terminar una escritura
+   * a HubSpot sin arriesgar que nos maten a mitad.
+   */
+  private static readonly ESPERA_HERRAMIENTAS_MS = 6_000;
+
   private readonly timeoutMs: number;
 
   constructor(
@@ -140,13 +149,52 @@ export class ElevenLabsClient {
           // Ya estaba cerrado: no hay nada que hacer ni que reportar.
         }
       };
+      /*
+       * Herramientas todavía ejecutándose.
+       *
+       * En serverless esto no es prolijidad, es la diferencia entre que el
+       * ticket exista o no: apenas se resuelve el turno, quien llama manda el
+       * WhatsApp y la lambda termina — y Vercel CONGELA la instancia con lo
+       * que quedó en vuelo. Una escritura a HubSpot a medio camino no se
+       * reanuda nunca y no deja rastro de por qué.
+       *
+       * Con `expects_response` el agente normalmente espera el resultado antes
+       * de contestar, pero eso es cortesía suya, no una garantía nuestra: si
+       * contesta antes, o si el reloj salta, acá es donde se pierde el trabajo.
+       */
+      const enVuelo = new Set<Promise<unknown>>();
+
+      /*
+       * La espera está acotada: una herramienta colgada no puede quedarse con
+       * lo que queda de la lambda. Si se agota, se pierde esa escritura igual
+       * —pero al menos queda dicho en el log, en vez de desaparecer.
+       */
+      const esperarHerramientas = async (): Promise<void> => {
+        if (!enVuelo.size) return;
+        const pendientes = Promise.allSettled([...enVuelo]);
+        const vencido = Symbol('vencido');
+        const corte = new Promise<symbol>((r) => setTimeout(() => r(vencido), ElevenLabsClient.ESPERA_HERRAMIENTAS_MS));
+        if ((await Promise.race([pendientes, corte])) === vencido) {
+          this.logger.warn(
+            `${enVuelo.size} herramienta(s) sin terminar al cerrar el turno: lo que hayan dejado a medias no se completa.`,
+          );
+        }
+      };
+
       const listo = (r: RespuestaAgente) => {
         cerrar();
-        resolve(r);
+        // Se cierra el socket primero —ya tenemos la respuesta— pero no se
+        // devuelve hasta que las escrituras terminen.
+        void esperarHerramientas().then(() => resolve(r));
       };
       const fallo = (motivo: string) => {
         cerrar();
-        reject(new Error(motivo));
+        /*
+         * También acá: que el agente no contestara a tiempo no significa que
+         * el ticket no se haya abierto. Se espera igual, si no el reintento
+         * del proveedor lo abriría dos veces.
+         */
+        void esperarHerramientas().then(() => reject(new Error(motivo)));
       };
 
       /*
@@ -242,24 +290,38 @@ export class ElevenLabsClient {
               tool_call_id?: string;
               parameters?: Record<string, unknown>;
             };
-            const responder = (ok: boolean, resultado: string) =>
-              ws.send(
-                JSON.stringify({
-                  type: 'client_tool_result',
-                  tool_call_id: call.tool_call_id,
-                  result: resultado,
-                  is_error: !ok,
-                }),
-              );
+            const responder = (ok: boolean, resultado: string) => {
+              try {
+                ws.send(
+                  JSON.stringify({
+                    type: 'client_tool_result',
+                    tool_call_id: call.tool_call_id,
+                    result: resultado,
+                    is_error: !ok,
+                  }),
+                );
+              } catch {
+                /*
+                 * El socket ya se cerró: la herramienta terminó después del
+                 * turno. El trabajo SÍ se hizo —el ticket existe— y eso es lo
+                 * que importa; contarle al agente ya no sirve de nada. Sin
+                 * este catch la excepción se volvía un rechazo sin dueño.
+                 */
+              }
+            };
 
             if (!input.ejecutarHerramienta) {
               responder(false, 'La herramienta no está disponible en este canal.');
               return;
             }
-            void input
+            // Se registra ANTES de arrancar: si el turno se resuelve mientras
+            // esto corre, `listo`/`fallo` lo esperan antes de devolver.
+            const trabajo = input
               .ejecutarHerramienta(String(call.tool_name ?? ''), call.parameters ?? {})
               .then((r) => responder(r.ok, r.mensaje))
-              .catch((err: Error) => responder(false, `Error ejecutando la herramienta: ${err.message}`));
+              .catch((err: Error) => responder(false, `Error ejecutando la herramienta: ${err.message}`))
+              .finally(() => enVuelo.delete(trabajo));
+            enVuelo.add(trabajo);
             return;
           }
           default:
