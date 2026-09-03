@@ -16,12 +16,32 @@ describe('EjecutarService.saludar', () => {
   /** Número emisor de Gupshup: es el dato que dice a qué chat responder. */
   const EMISOR = '50433030235';
 
-  function build(adaptador: Partial<ChannelPort> & Record<string, unknown>) {
+  /**
+   * @param entranteHaceMs Cuándo escribió el ciudadano por última vez. Es lo
+   *   que decide si la ventana de 24 h está abierta. undefined = nunca
+   *   escribió a NUESTRO número (el caso de NL Pearl).
+   */
+  function build(
+    adaptador: Partial<ChannelPort> & Record<string, unknown>,
+    entranteHaceMs?: number,
+  ) {
     const interacciones: Array<Record<string, unknown>> = [];
     const bitacora: Array<{ ok: boolean; texto: string }> = [];
 
+    const previas =
+      entranteHaceMs === undefined
+        ? []
+        : [
+            {
+              direction: 'inbound',
+              channel: 'whatsapp',
+              occurredAt: new Date(Date.now() - entranteHaceMs).toISOString(),
+            },
+          ];
+
     const brain = {
       getContext: async () => ({ contact: { phones: [TEL] } }),
+      listInteractions: async () => previas,
       appendInteraction: async (i: Record<string, unknown>) => {
         interacciones.push(i);
         return i;
@@ -106,5 +126,59 @@ describe('EjecutarService.saludar', () => {
 
     expect(r.aviso).toContain('no manda plantillas');
     expect(interacciones).toHaveLength(0);
+  });
+
+  /*
+   * El caso nuevo: desde que el agente atiende sobre NUESTRO número, el
+   * ciudadano acaba de escribirnos y la ventana de 24 h está abierta. Mandar
+   * una plantilla ahí se le cobra a la alcaldía y, peor, corta la
+   * conversación con un saludo enlatado a mitad de camino.
+   */
+  it('con la ventana abierta se presenta en texto libre, sin gastar plantilla', async () => {
+    const enviados: Array<{ to: string; id: string; params: string[] }> = [];
+    const libres: Array<{ contactId: string; texto: string }> = [];
+    const { service, interacciones, bitacora } = build(
+      {
+        templateSaludo: 'uuid-de-la-plantilla',
+        sendTemplate: async (to: string, id: string, params: string[]) => {
+          enviados.push({ to, id, params });
+        },
+        send: async (contactId: string, texto: string) => {
+          libres.push({ contactId, texto });
+          return { delivered: true, providerId: 'p1' };
+        },
+      },
+      2 * 60 * 60_000, // escribió hace 2 h → ventana abierta
+    );
+
+    const r = await service.saludar('c1', 'Jorge Murcia');
+
+    expect(r.aviso).toBeUndefined();
+    // La plantilla NO se usa: eso es lo que se está evitando.
+    expect(enviados).toHaveLength(0);
+    // Y la presentación dice quién toma, para que no parezca que el agente
+    // cambió de personalidad de golpe.
+    expect(libres).toHaveLength(1);
+    expect(libres[0].texto).toContain('Jorge Murcia');
+    expect(interacciones[0]).toMatchObject({ direction: 'outbound', handledBy: 'Jorge Murcia' });
+    expect(bitacora[0].texto).toContain('sin plantilla');
+  });
+
+  it('pasadas las 24 h vuelve a la plantilla: el texto libre ya no sale', async () => {
+    const enviados: Array<{ to: string; id: string; params: string[] }> = [];
+    const { service } = build(
+      {
+        templateSaludo: 'uuid-de-la-plantilla',
+        sendTemplate: async (to: string, id: string, params: string[]) => {
+          enviados.push({ to, id, params });
+        },
+        send: async () => ({ delivered: true }),
+      },
+      25 * 60 * 60_000, // escribió hace 25 h → ventana cerrada
+    );
+
+    await service.saludar('c1', 'Jorge Murcia');
+
+    expect(enviados).toHaveLength(1);
   });
 });

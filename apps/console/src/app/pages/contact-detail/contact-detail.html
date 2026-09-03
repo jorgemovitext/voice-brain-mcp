@@ -93,17 +93,23 @@
           </span>
         }
         <!--
-          Tomar el hilo solo se ofrece cuando la conversación YA CERRÓ.
+          Cuándo se puede tomar el hilo depende de QUÉ MOTOR lo atiende, y por
+          eso la condición mira los avances del flujo.
 
-          Mientras Pearl está conversando, nuestro "Tomar" no la silencia: la
-          API v2 no expone takeover ni forma de escribir dentro de una
-          conversación en curso (se probaron las 15 rutas plausibles, las 15
-          dan 404). Ofrecerlo ahí prometía algo que no ocurre y dejaba dos
-          voces contestándole al ciudadano. Queda pendiente el rodeo por
-          `forceHandoff` en la respuesta de /avance, que exige tocar el flujo.
+          Los hilos de la línea de voz (NL Pearl) no se pueden tomar en
+          caliente: su API no expone takeover ni forma de escribir dentro de
+          una conversación en curso — se probaron las 15 rutas plausibles y
+          las 15 dan 404. Ahí `casoEnCurso()` es true (hay avances del flujo)
+          y se muestra el aviso en vez del botón: ofrecerlo prometería algo
+          que no ocurre.
+
+          Los hilos que atiende el agente sobre NUESTRO WhatsApp sí se toman
+          cuando uno quiera: no tienen avances de flujo, así que
+          `casoEnCurso()` es false y el botón aparece. Tomarlos lo silencia de
+          verdad, porque el que decide si contesta somos nosotros.
         -->
         @if (casoEnCurso()) {
-          <span class="chat__pearl" title="No se puede tomar una conversación mientras el agente la está atendiendo">
+          <span class="chat__pearl" title="La línea de voz no permite tomar una conversación mientras está en curso">
             <i></i> El agente está atendiendo
           </span>
         } @else {

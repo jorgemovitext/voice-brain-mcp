@@ -66,18 +66,85 @@ export class EjecutarService {
     return {};
   }
 
+  /** Las 24 h de WhatsApp: dentro de la ventana se puede escribir libre. */
+  private static readonly VENTANA_MS = 24 * 60 * 60_000;
+
+  /**
+   * Presentación en texto libre, para cuando la ventana está abierta.
+   *
+   * Se anuncia el cambio de interlocutor sin romper el hilo: la persona venía
+   * hablando con el agente y de golpe le contesta alguien más. Decir quién es
+   * evita que parezca que el agente cambió de personalidad.
+   */
+  private async saludarLibre(contactId: string, operador: string): Promise<{ aviso?: string }> {
+    const mensaje = `Hola, soy ${operador} y sigo yo esta conversación. Ya leí lo que escribiste.`;
+    try {
+      const envio = await this.whatsapp.send(contactId, mensaje);
+      await this.brain.appendInteraction({
+        contactId,
+        channel: 'whatsapp',
+        direction: 'outbound',
+        occurredAt: new Date().toISOString(),
+        summary: mensaje,
+        source: 'own',
+        handledBy: operador,
+        collectedInfo: envio.providerId ? { providerId: envio.providerId } : undefined,
+      });
+      this.logger.log(`${operador} se presentó con ${contactId} en texto libre (ventana abierta)`);
+      this.webhookLog.push(
+        'saliente',
+        `${operador} tomó el hilo y se presentó sin plantilla (la ventana de 24 h estaba abierta)`,
+        true,
+      );
+      return {};
+    } catch (err) {
+      const motivo = `no se pudo enviar la presentación — ${(err as Error).message}`;
+      this.webhookLog.push('saliente', `Saludo al tomar el hilo: ${motivo}`, false);
+      return { aviso: motivo };
+    }
+  }
+
+  /**
+   * ¿Podemos escribirle libremente a este contacto?
+   *
+   * WhatsApp solo deja mandar texto libre dentro de las 24 h siguientes al
+   * último mensaje de la persona; fuera de esa ventana hay que usar una
+   * plantilla aprobada. La ventana la abre SU mensaje, así que la respuesta
+   * está en el hilo: basta mirar cuándo fue el último entrante.
+   */
+  private async ventanaAbierta(contactId: string): Promise<boolean> {
+    try {
+      const interacciones = await this.brain.listInteractions(contactId);
+      const ultimoEntrante = interacciones
+        .filter((i) => i.direction === 'inbound' && i.channel === 'whatsapp')
+        .reduce<string>((max, i) => (i.occurredAt > max ? i.occurredAt : max), '');
+      if (!ultimoEntrante) return false;
+      return Date.now() - new Date(ultimoEntrante).getTime() < EjecutarService.VENTANA_MS;
+    } catch {
+      // Ante la duda, plantilla: es la vía que funciona en los dos casos.
+      return false;
+    }
+  }
+
   /**
    * Se presenta con el ciudadano al tomar el hilo.
    *
-   * El ciudadano le escribió al número de NL Pearl, no al nuestro, así que la
-   * ventana de 24 h nunca se abrió con nosotros y el texto libre no sale. La
-   * plantilla aprobada es lo único que puede iniciar, y además su respuesta
-   * es la que abre la ventana para poder conversar de verdad.
+   * Por qué hay dos caminos: la plantilla es la única forma de INICIAR una
+   * conversación, pero cuesta y suena enlatada. Desde que el agente atiende
+   * sobre NUESTRO número, el ciudadano acaba de escribirnos y la ventana de
+   * 24 h está abierta — ahí la plantilla sobra: se le cobra a la alcaldía y,
+   * peor, corta la conversación con un saludo robótico a mitad de camino.
+   *
+   * Con NL Pearl esto no se podía elegir: el ciudadano escribía a SU número,
+   * la ventana con nosotros nunca se abría y la plantilla era la única vía.
+   * Ese caso sigue existiendo y por eso el camino de la plantilla se queda.
    *
    * No lanza: tomar el hilo no puede fallar porque el saludo no salga. El
    * motivo vuelve como `aviso` para mostrarlo en la consola.
    */
   async saludar(contactId: string, operador: string): Promise<{ aviso?: string }> {
+    if (await this.ventanaAbierta(contactId)) return this.saludarLibre(contactId, operador);
+
     const gupshup = this.whatsapp as Partial<{
       templateSaludo: string;
       sendTemplate: (to: string, id: string, params: string[]) => Promise<unknown>;
