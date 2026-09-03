@@ -1066,9 +1066,23 @@ export class ContactDetailPage implements OnDestroy {
 
   // ===== Llamada =====
 
-  /** Inicia la llamada mock y observa el Brain hasta que entre la interacción de voz. */
+  /**
+   * Motivo por el que la última llamada no salió. Se muestra en el panel en
+   * vez de dejar la pantalla como si nada hubiera pasado.
+   */
+  readonly avisoLlamada = signal<string | null>(null);
+
+  /**
+   * Llama al contacto con el agente de voz y espera a que la conversación
+   * aparezca en el hilo.
+   *
+   * La llamada es REAL: sale por el número de ElevenLabs con el contexto del
+   * hilo, y su transcripción vuelve a este mismo chat cuando termina — por
+   * eso la espera mira el Brain en vez de simular un final.
+   */
   async startCall(): Promise<void> {
     if (this.callState() === 'calling') return;
+    this.avisoLlamada.set(null);
     this.callState.set('calling');
     this.callSeconds.set(0);
     this.callStartedAt = Date.now();
@@ -1076,21 +1090,51 @@ export class ContactDetailPage implements OnDestroy {
     this.timerInterval = setInterval(() => this.callSeconds.update((s) => s + 1), 1000);
 
     try {
-      await this.api.triggerCall(this.id());
-    } catch {
+      const r = await this.api.llamarConAgente(this.id());
+      if (!r.ok) {
+        // No se finge una llamada que nunca salió: se dice por qué.
+        this.avisoLlamada.set(r.aviso ?? 'No se pudo iniciar la llamada.');
+        this.endCall();
+        return;
+      }
+    } catch (e) {
+      this.avisoLlamada.set((e as { error?: { message?: string } })?.error?.message ?? 'No se pudo iniciar la llamada.');
       this.endCall();
       return;
     }
 
     this.pollInterval = setInterval(async () => {
       this.context.reload();
-      // Solo cuenta la interacción de voz creada por ESTA llamada (2s de tolerancia de reloj).
-      const hasNewVoice = (valorDe(this.context)?.recentInteractions ?? []).some(
-        (i) => i.channel === 'voice' && new Date(i.occurredAt).getTime() >= this.callStartedAt - 2_000,
+      /*
+       * Se espera un turno de voz ENTRANTE: la persona hablando.
+       *
+       * No sirve mirar "cualquier interacción de voz nueva" porque la propia
+       * llamada deja una al arrancar ("Llamada iniciada por…"), y la espera
+       * terminaría en el primer sondeo. Los turnos entrantes solo aparecen
+       * cuando llega la transcripción, o sea cuando la llamada terminó de
+       * verdad.
+       */
+      const hayTranscripcion = (valorDe(this.context)?.recentInteractions ?? []).some(
+        (i) =>
+          i.channel === 'voice' &&
+          i.direction === 'inbound' &&
+          new Date(i.occurredAt).getTime() >= this.callStartedAt - 2_000,
       );
-      if (hasNewVoice || Date.now() - this.callStartedAt > 25_000) this.endCall();
-    }, 1200);
+      if (hayTranscripcion) {
+        this.endCall();
+        return;
+      }
+      // Una llamada real puede durar minutos; pasado el tope se deja de
+      // observar, pero no se dice que terminó: no lo sabemos.
+      if (Date.now() - this.callStartedAt > ContactDetailPage.ESPERA_LLAMADA_MS) {
+        this.avisoLlamada.set('La llamada sigue en curso. La transcripción va a entrar sola cuando termine.');
+        this.endCall();
+      }
+    }, 2000);
   }
+
+  /** Hasta cuándo se observa el hilo esperando la transcripción. */
+  private static readonly ESPERA_LLAMADA_MS = 4 * 60_000;
 
   endCall(): void {
     clearInterval(this.timerInterval);

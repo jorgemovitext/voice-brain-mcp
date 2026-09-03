@@ -123,6 +123,22 @@ export class BrainApiService {
   }
 
   /** Ejecuta una acción sugerida: crear el ticket, avisar a la cuadrilla. */
+  /**
+   * Llama al contacto con el agente de voz, de verdad.
+   *
+   * Distinto de `triggerCall`, que dispara la llamada simulada de la demo:
+   * esta sale por el número de ElevenLabs, con el contexto del hilo, y su
+   * transcripción vuelve al mismo chat cuando termina.
+   */
+  llamarConAgente(contactId: string): Promise<{ ok: boolean; conversationId?: string; aviso?: string }> {
+    return firstValueFrom(
+      this.http.post<{ ok: boolean; conversationId?: string; aviso?: string }>(
+        `/api/contacts/${contactId}/llamar`,
+        {},
+      ),
+    );
+  }
+
   ejecutarAccion(contactId: string, accion: string): Promise<{ id?: string; aviso?: string }> {
     return firstValueFrom(
       this.http.post<{ id?: string; aviso?: string }>(

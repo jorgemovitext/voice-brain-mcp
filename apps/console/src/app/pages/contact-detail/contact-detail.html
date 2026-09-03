@@ -499,11 +499,18 @@
       <div class="voice__top">
         <voice-nebula [size]="104" [active]="callState() === 'calling'" />
         <div class="voice__name">{{ ctx.contact.displayName || 'Contacto' }}</div>
+        <!-- El estado dice lo que SABEMOS. No se anuncia "finalizada" cuando
+             solo se dejó de observar: la transcripción llega por el webhook
+             de cierre y puede tardar más que nuestra espera. -->
         <div class="voice__status">
-          @switch (callState()) {
-            @case ('calling') { El agente de voz está conversando… }
-            @case ('ended') { Llamada finalizada — hilo actualizado. }
-            @default { Agente de voz disponible. }
+          @if (avisoLlamada(); as aviso) {
+            {{ aviso }}
+          } @else {
+            @switch (callState()) {
+              @case ('calling') { Llamando con el agente de voz… }
+              @case ('ended') { Llamada terminada — la transcripción está en el hilo. }
+              @default { Agente de voz disponible. }
+            }
           }
         </div>
         <div class="voice__controls">
@@ -511,11 +518,11 @@
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0"/><path d="M12 18v3"/></svg>
           </button>
           @if (callState() === 'calling') {
-            <button class="vbtn vbtn--hang" (click)="endCall()" title="Colgar">
+            <button class="vbtn vbtn--hang" (click)="endCall()" title="Dejar de observar (no corta la llamada)">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 15c6-5 12-5 18 0l-3 4c-4-3-8-3-12 0z"/></svg>
             </button>
           } @else {
-            <button class="vbtn vbtn--call" (click)="startCall()" title="Lanzar llamada (mock)">
+            <button class="vbtn vbtn--call" (click)="startCall()" title="Llamar con el agente de voz">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M5 4h4l2 5-2.5 1.5a12 12 0 0 0 5 5L15 13l5 2v4a2 2 0 0 1-2 2A16 16 0 0 1 3 6a2 2 0 0 1 2-2"/></svg>
             </button>
           }
