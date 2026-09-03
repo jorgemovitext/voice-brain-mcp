@@ -17,6 +17,19 @@ export class HubspotController {
     private readonly brain: BrainService,
   ) {}
 
+  /**
+   * Qué puede y qué no puede hacer nuestro token en el portal.
+   *
+   * "No se crean las tareas" puede ser cinco cosas —token ausente, permiso
+   * faltante, portal sin responsables, error de red— y desde afuera todas se
+   * ven igual: no pasa nada. Esto las separa, con la respuesta textual de
+   * HubSpot. Solo lecturas.
+   */
+  @Get('permisos')
+  async permisos() {
+    return this.hubspot.permisos();
+  }
+
   @Get('diagnostico')
   async diagnostico() {
     if (!this.hubspot.configured) {

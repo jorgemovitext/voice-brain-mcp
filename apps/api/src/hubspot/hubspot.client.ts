@@ -358,6 +358,69 @@ export class HubspotClient {
   }
 
   /**
+   * Por qué el CRM no hace lo que debería, con evidencia en vez de sospechas.
+   *
+   * Existe porque "no se crean las tareas" puede ser cinco cosas —token
+   * ausente, permiso faltante, portal sin responsables, error de red— y desde
+   * afuera todas se ven igual: no pasa nada. Acá cada capacidad se prueba por
+   * separado y se dice cuál falló y con qué respondió HubSpot.
+   *
+   * Solo lecturas: no escribe nada en el portal.
+   */
+  async permisos(): Promise<{
+    configurado: boolean;
+    permisos: string[] | null;
+    pruebas: Array<{ que: string; ok: boolean; detalle: string }>;
+  }> {
+    if (!this.token) {
+      return { configurado: false, permisos: null, pruebas: [] };
+    }
+
+    // Los permisos que el portal le dio al token, en sus propias palabras.
+    let permisos: string[] | null = null;
+    try {
+      const res = await fetch('https://api.hubapi.com/oauth/v2/private-apps/get/access-token-info', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ tokenKey: this.token }),
+      });
+      if (res.ok) permisos = ((await res.json()) as { scopes?: string[] }).scopes ?? [];
+    } catch {
+      // Es un extra: si no se puede leer, las pruebas de abajo igual dicen algo.
+    }
+
+    const probar = async (que: string, path: string) => {
+      try {
+        const res = await fetch(this.base + path, { headers: { Authorization: `Bearer ${this.token}` } });
+        const cuerpo = res.ok ? '' : (await res.text()).slice(0, 200);
+        return { que, ok: res.ok, detalle: res.ok ? 'ok' : `${res.status} ${cuerpo}` };
+      } catch (err) {
+        return { que, ok: false, detalle: (err as Error).message };
+      }
+    };
+
+    const pruebas = await Promise.all([
+      probar('Leer responsables (para asignar tareas)', '/crm/v3/owners?limit=1'),
+      probar('Leer tareas', '/crm/v3/objects/tasks?limit=1'),
+      probar('Leer tickets', '/crm/v3/objects/tickets?limit=1'),
+      probar('Leer contactos (para colgarles la tarea)', '/crm/v3/objects/contacts?limit=1'),
+    ]);
+
+    // Cuántos responsables hay de verdad: con cero, el agente no tiene a quién
+    // asignarle nada y la tarea queda huérfana aunque todo lo demás funcione.
+    if (pruebas[0].ok) {
+      const gente = await this.responsables().catch(() => []);
+      pruebas.push({
+        que: 'Responsables configurados en el portal',
+        ok: gente.length > 0,
+        detalle: gente.length ? `${gente.length} disponibles` : 'ninguno: no hay a quién asignarle la tarea',
+      });
+    }
+
+    return { configurado: true, permisos, pruebas };
+  }
+
+  /**
    * Le pone dueño a una tarea que ya existe.
    *
    * Registrar un reporte crea la tarea sin responsable —acá nadie sabe a quién
