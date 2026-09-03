@@ -519,6 +519,26 @@ export class ContactDetailPage implements OnDestroy {
   readonly channelIconName = channelIconName;
   readonly channelColor = channelColor;
 
+  /**
+   * Título de una acción del agente. Se lee como un hecho ("Ticket abierto en
+   * el CRM"), no como una etiqueta técnica: quien mira el hilo tiene que
+   * entender qué pasó sin saber cómo está construido.
+   */
+  accionTitulo(tipo: 'ticket' | 'aviso' | 'escalamiento', ok: boolean): string {
+    if (!ok) {
+      return tipo === 'ticket' ? 'No se pudo abrir el ticket' : 'No se pudo avisar';
+    }
+    if (tipo === 'ticket') return 'Ticket abierto en el CRM';
+    if (tipo === 'aviso') return 'Aviso enviado a la cuadrilla';
+    return 'Escalado';
+  }
+
+  accionIcono(tipo: 'ticket' | 'aviso' | 'escalamiento', ok: boolean): 'check' | 'alerta' | 'zap' | 'inbox' {
+    if (!ok) return 'alerta';
+    if (tipo === 'ticket') return 'inbox';
+    return 'zap';
+  }
+
   /** Ícono del adjunto: pin para ubicación, play para audio, imagen para el resto. */
   adjIcono(attachment: 'foto' | 'ubicacion' | 'audio' | 'adjunto'): 'pin' | 'play' | 'image' {
     if (attachment === 'ubicacion') return 'pin';

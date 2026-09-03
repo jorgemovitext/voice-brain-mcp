@@ -29,6 +29,12 @@ export interface Interaction {
   /** Agente (Pearl) que atendió esta interacción. */
   handledBy?: string;
   /**
+   * No es un mensaje: es algo que el sistema HIZO mientras conversaba (abrir
+   * un ticket, avisar a una autoridad). Va entre los mensajes porque el
+   * momento en que ocurrió es parte de la conversación.
+   */
+  accion?: { tipo: 'ticket' | 'aviso' | 'escalamiento'; ok: boolean; detalle?: string };
+  /**
    * La persona mandó un archivo en vez de texto (foto, audio, ubicación…).
    * Por NL Pearl no tenemos el archivo; por Gupshup a veces viene una URL.
    */

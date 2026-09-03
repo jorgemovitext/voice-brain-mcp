@@ -57,6 +57,7 @@ export function ensureSchema(pool: Pool): Promise<void> {
         -- Foto o ubicación que mandó la persona: el turno llega sin texto.
         ALTER TABLE interactions ADD COLUMN IF NOT EXISTS attachment text;
         ALTER TABLE interactions ADD COLUMN IF NOT EXISTS attachment_url text;
+        ALTER TABLE interactions ADD COLUMN IF NOT EXISTS accion jsonb;
 
         -- Configuración editable desde la app (p. ej. qué Pearl usa cada canal),
         -- para no depender de variables de entorno que exigen redeploy.

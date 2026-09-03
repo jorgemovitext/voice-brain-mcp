@@ -348,6 +348,20 @@
                 @if (expanded().has(m.interaction.id) && m.interaction.transcript) {
                   <pre class="bubble bubble--transcript">{{ m.interaction.transcript }}</pre>
                 }
+              } @else if (m.interaction.accion; as acc) {
+                <!-- Lo que el sistema HIZO, no lo que dijo: el ticket que se
+                     abrió, el aviso que salió. Va entre los mensajes porque
+                     lo que importa es EN QUÉ MOMENTO de la conversación pasó
+                     — que el derrumbe disparó el aviso, y cuándo. -->
+                <div class="bubble bubble--accion" [class.bubble--accion-falla]="!acc.ok">
+                  <span class="accion__icono">
+                    <ui-icon [name]="accionIcono(acc.tipo, acc.ok)" />
+                  </span>
+                  <span class="accion__texto">
+                    <b>{{ accionTitulo(acc.tipo, acc.ok) }}</b>
+                    <i>{{ acc.detalle || m.interaction.summary }}</i>
+                  </span>
+                </div>
               } @else if (m.interaction.channel === 'note') {
                 <!-- Apunte interno: post-it del equipo, el cliente nunca lo ve -->
                 <div class="bubble bubble--note">

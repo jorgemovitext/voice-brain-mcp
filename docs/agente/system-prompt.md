@@ -110,3 +110,60 @@ El prompt dice que recibe la conversación previa **porque se la mandamos
 nosotros** en cada turno, como contexto. No le pidas al agente que "recuerde":
 para él cada mensaje es una conversación nueva, y lo que lo hace parecer
 continuo es el historial que le inyecta la app.
+
+---
+
+## Herramientas (Client tools)
+
+El agente no solo conversa: puede **abrir el ticket en el CRM** y **avisarle a
+la cuadrilla**. En ElevenLabs se declaran como **Client tools** (no webhooks):
+la app las ejecuta y le devuelve el resultado por la misma conexión.
+
+En el panel: **Agent → Tools → Add tool → Client tool**.
+
+### `registrar_reporte`
+
+> Registra el reporte del ciudadano en el sistema municipal y devuelve el
+> número de seguimiento. Usala SOLO cuando ya tengas el tipo de problema, la
+> ubicación y la descripción.
+
+| Parámetro | Tipo | Req. | Descripción |
+|---|---|---|---|
+| `tipo_problema` | string | sí | Derrumbe, bache, fuga de agua, inundación… |
+| `ubicacion` | string | sí | Colonia o barrio, calle y una referencia |
+| `descripcion` | string | sí | Qué pasa, desde cuándo, a quién afecta |
+
+### `avisar_autoridad`
+
+> Avisa de inmediato a la cuadrilla de emergencia. Usala cuando haya riesgo
+> para la vida o la integridad de alguien, sin esperar a completar el reporte.
+
+| Parámetro | Tipo | Req. | Descripción |
+|---|---|---|---|
+| `motivo` | string | sí | Qué está pasando y por qué es urgente |
+| `ubicacion` | string | sí | Dónde es |
+| `detalle` | string | no | Personas en riesgo, accesos, lo que ayude |
+
+### Qué agregarle al prompt
+
+```
+HERRAMIENTAS
+Tenés dos y no son intercambiables:
+
+registrar_reporte — cuando ya tenés tipo de problema, ubicación y
+descripción. Te devuelve el número de seguimiento: decíselo al ciudadano tal
+cual, no lo inventes ni lo cambies.
+
+avisar_autoridad — cuando hay riesgo para la vida. No esperes a tener todo
+el reporte: avisá primero con lo que tengas.
+
+Si una herramienta te dice que falta un dato, preguntáselo al ciudadano y
+volvé a intentar. Si te dice que falló, decile la verdad: que quedó anotado
+pero no se pudo registrar, y que un compañero lo va a retomar. Nunca
+inventes un número de reporte.
+```
+
+> **Nota de diseño:** las acciones aparecen en el chat de la consola como una
+> franja verde entre los mensajes ("Ticket abierto en el CRM · folio
+> AMDC-4417"), en el punto exacto de la conversación en que ocurrieron. Si
+> algo falla se ve en rojo — el intento fallido importa más que el exitoso.

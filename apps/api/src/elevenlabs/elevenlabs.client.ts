@@ -73,6 +73,12 @@ export class ElevenLabsClient {
     contexto?: string;
     /** Variables que el prompt del agente puede interpolar ({{nombre}}). */
     variables?: Record<string, string>;
+    /**
+     * Qué hacer cuando el agente pide una herramienta. Si no se pasa, se le
+     * responde que no está disponible — nunca se lo deja esperando, porque
+     * un tool call sin respuesta cuelga la conversación hasta el timeout.
+     */
+    ejecutarHerramienta?: (nombre: string, args: Record<string, unknown>) => Promise<{ ok: boolean; mensaje: string }>;
   }): Promise<RespuestaAgente | null> {
     if (!this.configurado()) return null;
 
@@ -112,7 +118,12 @@ export class ElevenLabsClient {
   /** Abre, conversa un turno y cierra. */
   private turno(
     url: string,
-    input: { texto: string; contexto?: string; variables?: Record<string, string> },
+    input: {
+      texto: string;
+      contexto?: string;
+      variables?: Record<string, string>;
+      ejecutarHerramienta?: (nombre: string, args: Record<string, unknown>) => Promise<{ ok: boolean; mensaje: string }>;
+    },
   ): Promise<RespuestaAgente> {
     return new Promise<RespuestaAgente>((resolve, reject) => {
       const ws = new WebSocket(url);
@@ -200,8 +211,44 @@ export class ElevenLabsClient {
             if (texto) listo({ texto, conversationId });
             return;
           }
+          case 'client_tool_call': {
+            /*
+             * El agente decidió HACER algo: abrir un ticket, avisar a una
+             * autoridad. Se ejecuta y se le devuelve el resultado para que
+             * siga conversando — por eso acá NO se resuelve la promesa: la
+             * respuesta al ciudadano llega después, en un agent_response.
+             *
+             * Siempre se contesta, aunque sea para decir que no se pudo: un
+             * tool call sin respuesta deja al agente esperando hasta que
+             * salte el reloj, y el ciudadano se queda sin nada.
+             */
+            const call = (msg['client_tool_call'] ?? {}) as {
+              tool_name?: string;
+              tool_call_id?: string;
+              parameters?: Record<string, unknown>;
+            };
+            const responder = (ok: boolean, resultado: string) =>
+              ws.send(
+                JSON.stringify({
+                  type: 'client_tool_result',
+                  tool_call_id: call.tool_call_id,
+                  result: resultado,
+                  is_error: !ok,
+                }),
+              );
+
+            if (!input.ejecutarHerramienta) {
+              responder(false, 'La herramienta no está disponible en este canal.');
+              return;
+            }
+            void input
+              .ejecutarHerramienta(String(call.tool_name ?? ''), call.parameters ?? {})
+              .then((r) => responder(r.ok, r.mensaje))
+              .catch((err: Error) => responder(false, `Error ejecutando la herramienta: ${err.message}`));
+            return;
+          }
           default:
-            // El resto (audio, transcripciones, tool calls) no aplica a un
+            // El resto (audio, transcripciones, métricas) no aplica a un
             // turno de texto: se ignora en silencio a propósito.
             return;
         }

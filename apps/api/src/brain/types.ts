@@ -41,6 +41,23 @@ export interface Interaction {
    * ver `attachmentUrl`. En cualquier caso esto marca que el mensaje existió,
    * para que no se pierda del hilo como pasaba antes.
    */
+  /**
+   * Esta interacción no es un mensaje: es algo que el sistema HIZO mientras
+   * conversaba — abrir un ticket, avisarle a una autoridad.
+   *
+   * Va en el hilo, entre los mensajes, porque el momento en que ocurrió es
+   * parte de la conversación: quien lee después tiene que ver que el reporte
+   * del derrumbe disparó el aviso, y en qué punto. Guardarlo aparte lo
+   * convertiría en un registro que nadie mira.
+   */
+  accion?: {
+    /** Qué se hizo. `ticket` = CRM; `aviso` = se notificó a alguien. */
+    tipo: 'ticket' | 'aviso' | 'escalamiento';
+    /** `false` deja ver el intento fallido en vez de esconderlo. */
+    ok: boolean;
+    /** Lo que el operador necesita para actuar: folio, a quién se avisó, el error. */
+    detalle?: string;
+  };
   attachment?: 'foto' | 'ubicacion' | 'audio' | 'adjunto';
   /**
    * Enlace al archivo, cuando el proveedor lo entrega (Gupshup lo hace en su

@@ -1113,6 +1113,55 @@ $overlap: 44px;
   color: #5c4d13;
 }
 
+/* Lo que el sistema HIZO durante la conversación: el ticket que se abrió, el
+   aviso que salió hacia la cuadrilla.
+
+   No se pinta como burbuja de mensaje a propósito —nadie dijo esto— sino como
+   una franja al centro del hilo, del ancho completo: se lee como un hecho que
+   ocurrió en ese punto de la conversación, no como algo que alguien escribió.
+   El verde es el mismo de "entregado"; el rojo aparece solo si la acción
+   falló, y ahí importa MÁS que se vea, no menos. */
+.bubble--accion {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  width: 100%;
+  padding: 0.6rem 0.9rem;
+  border-radius: 14px;
+  background: #eef7e4;
+  border: 1px solid #cfe6b6;
+  color: #3f5c1c;
+}
+
+.bubble--accion-falla {
+  background: #fdecee;
+  border-color: #f4c2c7;
+  color: #8f2530;
+}
+
+.accion__icono {
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  width: 26px;
+  height: 26px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.75);
+  font-size: 13px;
+}
+
+.accion__texto {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+  min-width: 0;
+
+  b { font-size: 0.8rem; font-weight: 700; }
+  /* El detalle es el dato accionable —el folio, a quién se avisó—, así que
+     va legible y no como pie de página. */
+  i { font-size: 0.76rem; font-style: normal; opacity: 0.85; }
+}
+
 /* Adjunto: la foto o la ubicación que mandó la persona. El archivo NO lo
    tenemos —NL Pearl entrega el turno vacío y no expone ninguna ruta de
    media—, así que la burbuja deja constancia del hecho en su lugar del hilo

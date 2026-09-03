@@ -1,6 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { BrainService } from '../brain/brain.service';
 import { Interaction } from '../brain/types';
+import { AgenteToolsService } from './agente-tools.service';
 import { ElevenLabsClient } from './elevenlabs.client';
 
 /**
@@ -26,6 +27,7 @@ export class ElevenLabsService {
   constructor(
     private readonly brain: BrainService,
     private readonly client: ElevenLabsClient,
+    private readonly tools: AgenteToolsService,
   ) {}
 
   configurado(): boolean {
@@ -53,6 +55,13 @@ export class ElevenLabsService {
         nombre_ciudadano: nombre || 'sin nombre registrado',
         telefono: ctx?.contact.phones?.[0] ?? '',
       },
+      /*
+       * Lo que el agente puede HACER, no solo decir: abrir el ticket en el
+       * CRM y avisarle a la cuadrilla. Se ejecuta contra ESTE hilo, así que
+       * el contactId va cerrado en el closure y el agente no puede pedir
+       * acciones sobre la conversación de otra persona.
+       */
+      ejecutarHerramienta: (herramienta, args) => this.tools.ejecutar(contactId, herramienta, args),
     });
 
     if (!r) return null;
