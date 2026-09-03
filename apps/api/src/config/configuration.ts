@@ -123,6 +123,20 @@ export const configSchema = z.object({
    * cortar y responder nosotros que dejar morir la lambda a mitad.
    */
   ELEVENLABS_TIMEOUT_MS: z.coerce.number().int().positive().default(20_000),
+  /**
+   * Número desde el que sale la llamada (ElevenLabs → Phone numbers).
+   * Vacío = no se puede llamar, y la consola lo dice en vez de fallar.
+   *
+   * No hace falta decir si es Twilio o SIP: eso lo trae el propio número en
+   * su campo `provider`, y de ahí se elige el endpoint.
+   */
+  ELEVENLABS_PHONE_NUMBER_ID: z.string().default(''),
+  /**
+   * Secreto del webhook de post-llamada. Vacío = no se exige (mismo criterio
+   * fail-open que el resto de los webhooks: se activa cuando se configura en
+   * los dos lados).
+   */
+  ELEVENLABS_WEBHOOK_SECRET: z.string().default(''),
 
   // --- WhatsApp Cloud API (Meta directo) — alternativa a Gupshup ---
   WHATSAPP_API_VERSION: z.string().default('v21.0'),

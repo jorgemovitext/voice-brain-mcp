@@ -167,3 +167,38 @@ inventes un número de reporte.
 > franja verde entre los mensajes ("Ticket abierto en el CRM · folio
 > AMDC-4417"), en el punto exacto de la conversación en que ocurrieron. Si
 > algo falla se ve en rojo — el intento fallido importa más que el exitoso.
+
+---
+
+## Voz: llamar desde la app y traer la transcripción
+
+### Configuración
+
+```
+ELEVENLABS_PHONE_NUMBER_ID=...    # ElevenLabs → Phone numbers
+ELEVENLABS_WEBHOOK_SECRET=...     # opcional; vacío = no se exige
+```
+
+Para saber qué id poner: `POST /api/voz/numeros` (con sesión) devuelve los
+números disponibles con su `phone_number_id` y su `provider`.
+
+**No hace falta decir si es Twilio o SIP**: el propio número lo trae en
+`provider` y de ahí se elige el endpoint.
+
+### Webhook de cierre
+
+En ElevenLabs: **Agent → Webhooks → Post-call**, apuntando a
+
+```
+https://movihive.movitext.com/webhooks/elevenlabs
+```
+
+Al terminar la llamada llega la transcripción y entra al hilo turno por
+turno. Si el webhook no llega, se puede reintentar a mano con
+`POST /api/voz/transcripcion/{conversationId}`.
+
+### Por qué la transcripción cae en el hilo correcto
+
+Al disparar la llamada se guarda `llamada:{conversationId} → contactId` en la
+DB. El webhook trae el `conversation_id` pero no sabe nada de nuestro
+contacto: sin ese apunte previo, la transcripción no tendría dónde caer.

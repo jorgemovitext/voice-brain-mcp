@@ -4,6 +4,8 @@ import { BrainModule } from '../brain/brain.module';
 import { HubspotModule } from '../hubspot/hubspot.module';
 import { IntegrationsModule } from '../integrations/integrations.module';
 import { AgenteToolsService } from './agente-tools.service';
+import { ElevenLabsController } from './elevenlabs.controller';
+import { ElevenLabsVozService } from './elevenlabs-voz.service';
 import { ElevenLabsClient } from './elevenlabs.client';
 import { ElevenLabsService } from './elevenlabs.service';
 
@@ -13,7 +15,8 @@ import { ElevenLabsService } from './elevenlabs.service';
  */
 @Module({
   imports: [HttpModule, BrainModule, HubspotModule, IntegrationsModule],
-  providers: [ElevenLabsClient, ElevenLabsService, AgenteToolsService],
-  exports: [ElevenLabsClient, ElevenLabsService, AgenteToolsService],
+  controllers: [ElevenLabsController],
+  providers: [ElevenLabsClient, ElevenLabsService, AgenteToolsService, ElevenLabsVozService],
+  exports: [ElevenLabsClient, ElevenLabsService, AgenteToolsService, ElevenLabsVozService],
 })
 export class ElevenLabsModule {}
