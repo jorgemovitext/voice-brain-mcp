@@ -58,6 +58,19 @@ export interface Interaction {
     /** Lo que el operador necesita para actuar: folio, a quién se avisó, el error. */
     detalle?: string;
   };
+  /**
+   * Lo que el agente entendió del caso hasta este punto: el tipo de problema,
+   * dónde es, el riesgo. Lo llena él mismo con `actualizar_ficha`.
+   *
+   * Es un PARCIAL: cada llamada trae solo lo que cambió, y la ficha completa se
+   * arma acumulando en orden. Eso es lo que la deja crecer frente al operador
+   * —primero aparece el tipo, después la ubicación— en vez de saltar de vacía a
+   * completa al final.
+   *
+   * No se dibuja como burbuja: es estado, no un hecho de la conversación. Va al
+   * riel derecho, y el hilo lo salta.
+   */
+  ficha?: Record<string, string>;
   attachment?: 'foto' | 'ubicacion' | 'audio' | 'adjunto';
   /**
    * Enlace al archivo, cuando el proveedor lo entrega (Gupshup lo hace en su

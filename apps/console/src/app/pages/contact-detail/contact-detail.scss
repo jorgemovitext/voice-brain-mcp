@@ -1677,6 +1677,98 @@ $overlap: 44px;
   line-height: 1.45;
 }
 
+/* --- Ficha: pares dato/valor de los paneles del riel ---
+   Estaba usada en el HTML del resumen sin existir acá, así que caía al <dl>
+   por defecto del navegador: los valores colgaban indentados y sin jerarquía.
+   Rótulo chico arriba, valor legible abajo. */
+.ficha {
+  margin: 0.55rem 0 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+
+  > div {
+    display: flex;
+    flex-direction: column;
+    gap: 0.1rem;
+  }
+
+  dt {
+    font-size: 0.68rem;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+
+  dd {
+    margin: 0;
+    font-size: 0.82rem;
+    line-height: 1.35;
+    /* Una ubicación larga no puede ensanchar el riel ni cortarse a la mitad. */
+    overflow-wrap: anywhere;
+  }
+}
+
+/*
+ * La ficha que el agente escribe mientras conversa.
+ *
+ * El separador entre filas es lo que la hace leerse como una ficha y no como
+ * párrafos sueltos: son datos que se comparan de un vistazo.
+ */
+.ficha--viva > div + div {
+  padding-top: 0.5rem;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+/*
+ * Lo que cambió en la última actualización.
+ *
+ * El resaltado ARRANCA fuerte y se apaga solo: el operador no está mirando el
+ * panel cuando el dato llega —está leyendo el hilo—, así que el movimiento
+ * tiene que atraparlo de reojo y después desaparecer. Si quedara fijo, a los
+ * cinco minutos todo el panel estaría resaltado y no diría nada.
+ */
+.ficha--recien {
+  animation: ficha-llega 2.4s ease-out;
+
+  dd { font-weight: 600; }
+}
+
+@keyframes ficha-llega {
+  0% {
+    background: rgba(0, 186, 254, 0.26);
+    box-shadow: -0.5rem 0 0 rgba(0, 186, 254, 0.26), 0.5rem 0 0 rgba(0, 186, 254, 0.26);
+  }
+  100% {
+    background: transparent;
+    box-shadow: -0.5rem 0 0 transparent, 0.5rem 0 0 transparent;
+  }
+}
+
+/* Quien pidió menos movimiento no debería perderse el dato: se queda el
+   fondo tenue, sin la animación. */
+@media (prefers-reduced-motion: reduce) {
+  .ficha--recien {
+    animation: none;
+    background: rgba(0, 186, 254, 0.12);
+  }
+}
+
+/* El riesgo es lo único del panel que se lee por color: es la decisión de
+   "entro ahora o sigo leyendo". */
+.riesgo {
+  display: inline-block;
+  padding: 0.1rem 0.45rem;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: capitalize;
+}
+
+.riesgo--alto { background: rgba(248, 113, 113, 0.18); color: #fca5a5; }
+.riesgo--medio { background: rgba(245, 158, 11, 0.18); color: #fcd34d; }
+.riesgo--bajo { background: rgba(52, 211, 153, 0.16); color: #6ee7b7; }
+
 /* --- Avance del caso (panel de contexto) ---
    Hitos que el agente va reportando durante la conversación. NO son mensajes:
    NL Pearl no expone el texto de los turnos en vivo. Se pintan como línea de

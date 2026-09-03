@@ -75,10 +75,12 @@ describe('AgenteToolsService', () => {
     // El folio vuelve al agente para que se lo diga al ciudadano.
     expect(r.mensaje).toContain('AMDC-4417');
     // Y queda EN EL HILO marcado como acción, que es lo que la consola dibuja.
-    expect(anotadas).toHaveLength(1);
-    expect(anotadas[0]).toMatchObject({ contactId: 'c1', channel: 'note' });
-    expect(anotadas[0]['accion']).toMatchObject({ tipo: 'ticket', ok: true });
-    expect(String((anotadas[0]['accion'] as { detalle: string }).detalle)).toContain('AMDC-4417');
+    // Junto a la acción se anota la ficha del riel, así que se busca la acción
+    // en vez de dar por hecho que es la única anotación del turno.
+    const accion = anotadas.find((a) => a['accion']);
+    expect(accion).toMatchObject({ contactId: 'c1', channel: 'note' });
+    expect(accion!['accion']).toMatchObject({ tipo: 'ticket', ok: true });
+    expect(String((accion!['accion'] as { detalle: string }).detalle)).toContain('AMDC-4417');
   });
 
   it('avisa a la cuadrilla y lo deja marcado', async () => {
@@ -184,6 +186,87 @@ describe('AgenteToolsService', () => {
     // Y se le recuerda al agente que esto es un chat: pedirle a alguien que
     // "no cuelgue" en WhatsApp fue justo lo que pasó en producción.
     expect(r.mensaje).toContain('no una llamada');
+  });
+
+  it('la ficha guarda SOLO lo que vino en ese turno', async () => {
+    /*
+     * El parcial es lo que hace que el riel se vea crecer: si guardáramos la
+     * ficha entera en cada llamada, todos los campos figurarían como recién
+     * cambiados y el resaltado de la consola dejaría de significar algo.
+     */
+    const { service, anotadas } = build();
+
+    const r = await service.ejecutar('c1', 'actualizar_ficha', {
+      tipo_problema: 'Derrumbe',
+      riesgo: 'alto',
+    });
+
+    expect(r.ok).toBe(true);
+    expect(anotadas[0]['ficha']).toEqual({ tipo_problema: 'Derrumbe', riesgo: 'alto' });
+    // Y no se le cuenta al ciudadano: es un panel interno.
+    expect(r.mensaje).toContain('No se lo menciones');
+  });
+
+  it('la ficha descarta campos que el agente se inventó', async () => {
+    // Un panel donde el modelo puede agregar filas deja de leerse de un vistazo.
+    const { service, anotadas } = build();
+
+    await service.ejecutar('c1', 'actualizar_ficha', {
+      ubicacion: 'Colonia Mirador del Pinar',
+      color_del_cielo: 'gris',
+    });
+
+    expect(anotadas[0]['ficha']).toEqual({ ubicacion: 'Colonia Mirador del Pinar' });
+  });
+
+  it('una ficha sin datos no se anota', async () => {
+    const { service, anotadas } = build();
+
+    const r = await service.ejecutar('c1', 'actualizar_ficha', { ubicacion: '   ' });
+
+    expect(r.ok).toBe(false);
+    expect(anotadas).toHaveLength(0);
+  });
+
+  it('avisar a la cuadrilla sube el riesgo de la ficha sin que el agente lo pida', async () => {
+    /*
+     * Contra el agente real, ante "hay una señora atrapada" avisó a la cuadrilla
+     * pero NO tocó la ficha: el riesgo seguía en "medio" en la pantalla del
+     * operador que decide si entra. Nadie manda una cuadrilla por un bache, así
+     * que el riesgo alto se deduce del hecho.
+     */
+    const { service, anotadas } = build();
+
+    await service.ejecutar('c1', 'avisar_autoridad', {
+      motivo: 'Persona atrapada',
+      ubicacion: 'Colonia Mirador del Pinar',
+    });
+
+    const fichas = anotadas.filter((a) => a['ficha']);
+    expect(fichas).toHaveLength(1);
+    expect(fichas[0]['ficha']).toMatchObject({ riesgo: 'alto', estado: 'cuadrilla avisada' });
+  });
+
+  it('registrar el reporte deja la ficha en "registrado" con los datos del reporte', async () => {
+    const { service, anotadas } = build();
+
+    await service.ejecutar('c1', 'registrar_reporte', REPORTE);
+
+    const ficha = anotadas.find((a) => a['ficha'])?.['ficha'];
+    expect(ficha).toMatchObject({
+      tipo_problema: 'Derrumbe',
+      ubicacion: 'Colonia Mirador del Pinar',
+      estado: 'registrado',
+    });
+  });
+
+  it('si la acción falla, la ficha NO dice que se hizo', async () => {
+    // Un panel que anuncia un ticket que no existe es peor que uno vacío.
+    const { service, anotadas } = build({ crmFalla: true });
+
+    await service.ejecutar('c1', 'registrar_reporte', REPORTE);
+
+    expect(anotadas.filter((a) => a['ficha'])).toHaveLength(0);
   });
 
   it('una herramienta que no existe no rompe el turno', async () => {

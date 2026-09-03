@@ -844,9 +844,11 @@ export class ContactDetailPage implements OnDestroy {
   });
 
   readonly chat = computed<ChatItem[]>(() => {
-    const interactions = [...(valorDe(this.context)?.recentInteractions ?? [])].sort((a, b) =>
-      a.occurredAt.localeCompare(b.occurredAt),
-    );
+    const interactions = [...(valorDe(this.context)?.recentInteractions ?? [])]
+      // Las fichas son estado del caso, no conversación: viven en el riel
+      // derecho. Como burbuja serían una nota interna cada dos mensajes.
+      .filter((i) => !i.ficha)
+      .sort((a, b) => a.occurredAt.localeCompare(b.occurredAt));
     let lastDay = '';
     const items = interactions.map((interaction) => {
       const date = new Date(interaction.occurredAt);
@@ -1010,6 +1012,67 @@ export class ContactDetailPage implements OnDestroy {
 
   /** Caso real del CRM: etapa viva, no un rótulo fijo. */
   readonly caso = computed(() => valorDe(this.expediente)?.caso ?? null);
+
+  /** Rótulos del riel. La clave técnica no se le muestra a nadie. */
+  private static readonly ROTULOS_FICHA: Record<string, string> = {
+    tipo_problema: 'Problema',
+    ubicacion: 'Dónde',
+    descripcion: 'Qué pasa',
+    riesgo: 'Riesgo',
+    afectados: 'Afectados',
+    estado: 'Estado',
+    proximo_paso: 'Siguiente',
+  };
+
+  /** El orden de lectura del panel, no el orden en que el agente los mandó. */
+  private static readonly ORDEN_FICHA = Object.keys(ContactDetailPage.ROTULOS_FICHA);
+
+  /**
+   * Lo que el agente entendió del caso, armado en vivo.
+   *
+   * Cada llamada a `actualizar_ficha` trae solo lo que cambió, así que la ficha
+   * es el acumulado en orden cronológico: el último valor de cada campo gana.
+   * Con eso sabemos además CUÁNDO cambió cada uno, que es lo que permite
+   * resaltar lo recién llegado en vez de repintar el panel entero.
+   */
+  readonly fichaDelCaso = computed(() => {
+    /*
+     * Se leen del contexto crudo y no del hilo: `chat()` las descarta, porque
+     * la ficha es estado y no un mensaje que merezca burbuja.
+     */
+    const parciales = [...(valorDe(this.context)?.recentInteractions ?? [])]
+      .filter((i) => i.ficha && Object.keys(i.ficha).length)
+      .sort((a, b) => a.occurredAt.localeCompare(b.occurredAt));
+
+    const campos = new Map<string, { valor: string; cuando: string }>();
+    for (const i of parciales) {
+      for (const [clave, valor] of Object.entries(i.ficha ?? {})) {
+        campos.set(clave, { valor, cuando: i.occurredAt });
+      }
+    }
+    if (!campos.size) return null;
+
+    /*
+     * "Recién" es lo que cambió en la ÚLTIMA actualización, y solo si esa
+     * actualización es de hace poco. Sin el corte por tiempo, abrir una ficha
+     * de ayer resaltaría campos como si acabaran de pasar.
+     */
+    const ultima = [...campos.values()].map((c) => c.cuando).sort().pop()!;
+    const fresco = Date.now() - new Date(ultima).getTime() < ContactDetailPage.FRESCO_MS;
+
+    return {
+      actualizada: ultima,
+      campos: ContactDetailPage.ORDEN_FICHA.filter((c) => campos.has(c)).map((clave) => ({
+        clave,
+        rotulo: ContactDetailPage.ROTULOS_FICHA[clave],
+        valor: campos.get(clave)!.valor,
+        recien: fresco && campos.get(clave)!.cuando === ultima,
+      })),
+    };
+  });
+
+  /** Cuánto dura el resaltado de "recién cambiado". */
+  private static readonly FRESCO_MS = 90_000;
 
   /**
    * Refresco periódico: los mensajes entrantes llegan por webhook, así que sin

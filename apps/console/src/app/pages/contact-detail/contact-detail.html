@@ -617,18 +617,44 @@
           }
         </div>
 
+        <!-- La ficha que arma el agente mientras conversa. Cada campo aparece
+             cuando lo entiende, no al final: el operador decide si entra
+             mirando esto, no releyendo el hilo. Lo recién cambiado se resalta
+             solo unos segundos — si todo brillara, nada destacaría. -->
+        @if (fichaDelCaso(); as f) {
+          <div class="panel panel--ai">
+            <div class="panel__head">
+              <span class="panel__title panel__title--ai">
+                <ui-icon name="sparkle" /> Ficha del caso
+              </span>
+              <span class="panel__aside" [title]="'Última actualización: ' + horaCorta(f.actualizada)">
+                <span class="avance__pulso"></span> {{ horaCorta(f.actualizada) }}
+              </span>
+            </div>
+            <dl class="ficha ficha--viva">
+              @for (c of f.campos; track c.clave) {
+                <div [class.ficha--recien]="c.recien">
+                  <dt>{{ c.rotulo }}</dt>
+                  <dd [class]="c.clave === 'riesgo' ? 'riesgo riesgo--' + c.valor : ''">{{ c.valor }}</dd>
+                </div>
+              }
+            </dl>
+          </div>
+        }
+
         <!-- Estado del flujo, NO mensajes: NL Pearl no expone el texto de los
              turnos en vivo, solo lo que el agente va recopilando. Vive en el
              panel de contexto y no en el hilo, para no confundir un dato
-             estructurado con algo que alguien escribió. -->
-        <div class="panel">
-          <div class="panel__head">
-            <span class="panel__title">Avance del caso</span>
-            @if (hitos().length) {
+             estructurado con algo que alguien escribió.
+
+             Solo se dibuja si hay avances: con el agente de ElevenLabs no
+             llegan nunca, y un panel vacío permanente es ruido. -->
+        @if (hitos().length) {
+          <div class="panel">
+            <div class="panel__head">
+              <span class="panel__title">Avance del caso</span>
               <span class="panel__aside"><span class="avance__pulso"></span> en curso</span>
-            }
-          </div>
-          @if (hitos().length) {
+            </div>
             <ol class="avance">
               @for (a of hitos(); track a.paso + a.occurredAt) {
                 <li class="avance__paso">
@@ -644,10 +670,8 @@
                 </li>
               }
             </ol>
-          } @else {
-            <div class="panel__empty">El agente todavía no reporta avances</div>
-          }
-        </div>
+          </div>
+        }
 
         <!-- Resumen de la conversación: el corto que redactamos nosotros
              desde la transcripción; si no, el crudo de la Pearl o uno

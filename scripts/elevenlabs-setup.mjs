@@ -79,6 +79,29 @@ const HERRAMIENTAS = [
     },
   },
   {
+    name: 'actualizar_ficha',
+    description:
+      'Anota en el panel interno del operador lo que vas entendiendo del caso. ' +
+      'Llamala apenas sepas algo nuevo —no esperes a tener todo— y mandá SOLO ' +
+      'los campos que cambiaron en este turno. El ciudadano no ve esto: nunca ' +
+      'le menciones que lo estás anotando.',
+    props: {
+      tipo_problema: ['Derrumbe, bache, fuga de agua, inundación, alumbrado…', false],
+      ubicacion: ['Colonia o barrio, calle y una referencia', false],
+      descripcion: ['Qué pasa, en una línea', false],
+      riesgo: ['Riesgo para la gente', false, ['bajo', 'medio', 'alto']],
+      afectados: ['A cuántos afecta o quiénes están en riesgo', false],
+      estado: ['En qué punto va el caso', false, [
+        'recopilando',
+        'listo para registrar',
+        'registrado',
+        'cuadrilla avisada',
+        'escalado',
+      ]],
+      proximo_paso: ['Qué vas a hacer a continuación', false],
+    },
+  },
+  {
     name: 'escalar_a_humano',
     description:
       'Pide que una persona del equipo entre a esta conversación. Usala cuando el ' +
@@ -244,6 +267,14 @@ for (const t of cc.agent.prompt.tools ?? []) {
 delete cc.agent.prompt.tools;
 delete cc.agent.tools;
 cc.agent.prompt.tool_ids = idsHerramientas;
+
+/*
+ * En serie, el agente elige UNA herramienta por turno, y siempre gana la que
+ * hace algo visible para el ciudadano: contestaba el saludo o abría el ticket,
+ * pero nunca llenaba la ficha del riel. En paralelo puede anotar y actuar en el
+ * mismo turno, que es lo que hace que el panel se vea crecer mientras conversan.
+ */
+cc.agent.prompt.enable_parallel_tool_calls = true;
 
 if (!tiene('--sin-prompt')) {
   // El primer bloque de código del documento ES el prompt completo.

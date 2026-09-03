@@ -35,6 +35,12 @@ export interface Interaction {
    */
   accion?: { tipo: 'ticket' | 'aviso' | 'escalamiento'; ok: boolean; detalle?: string };
   /**
+   * Parcial de lo que el agente entendió del caso: solo los campos que cambiaron
+   * en ese turno. La ficha completa se arma acumulando en orden — ver
+   * `fichaDelCaso` en la ficha del contacto.
+   */
+  ficha?: Record<string, string>;
+  /**
    * La persona mandó un archivo en vez de texto (foto, audio, ubicación…).
    * Por NL Pearl no tenemos el archivo; por Gupshup a veces viene una URL.
    */

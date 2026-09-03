@@ -37,7 +37,10 @@ describe('Declaración de herramientas en ElevenLabs', () => {
   function leidosPorHerramienta(): Map<string, Set<string>> {
     const porNombre = new Map<string, Set<string>>();
     // El switch de `ejecutar` es lo que une el nombre público con el método.
-    const despacho = servicio.matchAll(/case '([a-z_]+)':\s*\n\s*return await this\.(\w+)\(/g);
+    // Unas devuelven directo y otras guardan el resultado para derivar la ficha.
+    const despacho = servicio.matchAll(
+      /case '([a-z_]+)':\s*\n\s*(?:return |resultado = )await this\.(\w+)\(/g,
+    );
     for (const [, nombre, metodo] of despacho) {
       const desde = servicio.indexOf(`private async ${metodo}(`);
       const resto = servicio.slice(desde);
@@ -69,6 +72,17 @@ describe('Declaración de herramientas en ElevenLabs', () => {
       }
     }
     expect(faltantes).toEqual([]);
+  });
+
+  it('declara en actualizar_ficha todos los campos del riel', () => {
+    /*
+     * Esta no lee `args['x']` uno por uno —recorre CAMPOS_FICHA—, así que la
+     * comparación de arriba la da por buena sin mirar nada. Un campo que el
+     * riel dibuja pero el agente no puede mandar queda vacío para siempre.
+     */
+    const declarados = declaradosPorHerramienta().get('actualizar_ficha') ?? new Set();
+
+    expect([...AgenteToolsService.CAMPOS_FICHA].filter((c) => !declarados.has(c))).toEqual([]);
   });
 
   it('espera la respuesta de todas: sin eso el agente pierde el folio', () => {

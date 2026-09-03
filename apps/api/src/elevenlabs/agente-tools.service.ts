@@ -49,6 +49,24 @@ export class AgenteToolsService {
     'avisar_autoridad',
     'asignar_tarea',
     'escalar_a_humano',
+    'actualizar_ficha',
+  ] as const;
+
+  /**
+   * Los campos del riel derecho, en el orden en que se dibujan.
+   *
+   * Es una lista cerrada a propósito: si el agente inventa un campo, se
+   * descarta. Un panel donde el modelo puede agregar filas se convierte en un
+   * volcado de lo que se le ocurrió esa vez, y deja de leerse de un vistazo.
+   */
+  static readonly CAMPOS_FICHA = [
+    'tipo_problema',
+    'ubicacion',
+    'descripcion',
+    'riesgo',
+    'afectados',
+    'estado',
+    'proximo_paso',
   ] as const;
 
   /**
@@ -64,19 +82,43 @@ export class AgenteToolsService {
     args: Record<string, unknown>,
   ): Promise<ResultadoHerramienta> {
     try {
+      let resultado: ResultadoHerramienta;
       switch (nombre) {
         case 'registrar_reporte':
-          return await this.registrarReporte(contactId, args);
+          resultado = await this.registrarReporte(contactId, args);
+          break;
         case 'avisar_autoridad':
-          return await this.avisarAutoridad(contactId, args);
+          resultado = await this.avisarAutoridad(contactId, args);
+          break;
         case 'asignar_tarea':
-          return await this.asignarTarea(contactId, args);
+          resultado = await this.asignarTarea(contactId, args);
+          break;
         case 'escalar_a_humano':
-          return await this.escalarAHumano(contactId, args);
+          resultado = await this.escalarAHumano(contactId, args);
+          break;
+        case 'actualizar_ficha':
+          return await this.actualizarFicha(contactId, args);
         default:
           this.logger.warn(`El agente pidió una herramienta que no existe: "${nombre}"`);
           return { ok: false, mensaje: `No existe la herramienta "${nombre}".` };
       }
+
+      /*
+       * La ficha del riel también se llena SOLA con lo que la herramienta acaba
+       * de hacer.
+       *
+       * Depender de que el agente llame `actualizar_ficha` funciona en la
+       * conversación tranquila y falla justo cuando importa: probado contra el
+       * agente real, ante "hay una señora atrapada" avisó a la cuadrilla —bien—
+       * pero no tocó la ficha, así que el riesgo seguía diciendo "medio" en la
+       * pantalla del operador que tiene que decidir si entra.
+       *
+       * Los datos siguen siendo del agente: salen de los argumentos con los que
+       * él mismo llamó la herramienta. Lo que ya no depende de él es acordarse
+       * de anotarlos.
+       */
+      if (resultado.ok) await this.fichaDesde(contactId, nombre, args);
+      return resultado;
     } catch (err) {
       const motivo = (err as Error).message;
       this.logger.warn(`Falló la herramienta "${nombre}": ${motivo}`);
@@ -265,6 +307,108 @@ export class AgenteToolsService {
         ? 'Ya avisé al equipo con prioridad alta. Decile que seguís con él mientras alguien entra a la conversación, y NO le pidas que espere en la línea: esto es un chat, no una llamada.'
         : 'Ya avisé al equipo. Decile que alguien va a entrar a esta misma conversación, y seguí ayudándolo mientras tanto.',
     };
+  }
+
+  /**
+   * Lo que el agente entendió, mientras lo va entendiendo.
+   *
+   * El riel derecho mostraba el avance que reportaba el flujo de NL Pearl, que
+   * con este agente no llega nunca: quedaba un panel muerto. Ahora lo llena el
+   * propio agente y el operador ve el caso armarse en vivo, sin leer el hilo
+   * entero — que es lo que hace cuando tiene que decidir si entra.
+   *
+   * Se guarda solo lo que viene: cada llamada es un parcial y la consola los
+   * acumula. Si el agente reenviara la ficha entera en cada turno, todos los
+   * campos parecerían recién cambiados y el resaltado dejaría de significar
+   * algo.
+   */
+  private async actualizarFicha(
+    contactId: string,
+    args: Record<string, unknown>,
+  ): Promise<ResultadoHerramienta> {
+    const ficha: Record<string, string> = {};
+    for (const campo of AgenteToolsService.CAMPOS_FICHA) {
+      const valor = String(args[campo] ?? '').trim();
+      if (valor) ficha[campo] = valor;
+    }
+
+    if (!Object.keys(ficha).length) {
+      return { ok: false, mensaje: 'No mandaste ningún dato para la ficha.' };
+    }
+
+    await this.brain
+      .appendInteraction({
+        contactId,
+        channel: 'note',
+        direction: 'outbound',
+        occurredAt: new Date().toISOString(),
+        summary: `Ficha actualizada: ${Object.keys(ficha).join(', ')}`,
+        source: 'own',
+        handledBy: 'agente',
+        ficha,
+      })
+      .catch((err) => {
+        this.logger.warn(`No se pudo guardar la ficha: ${(err as Error).message}`);
+      });
+
+    /*
+     * La respuesta es corta y no lo felicita: si le devolvemos algo con
+     * sustancia, el agente tiende a contárselo al ciudadano ("ya anoté la
+     * ubicación"), y esto es un panel interno que el vecino no ve.
+     */
+    return { ok: true, mensaje: 'Ficha actualizada. No se lo menciones al ciudadano; seguí la conversación.' };
+  }
+
+  /**
+   * Lo que una acción dice sobre el caso, sin preguntarle al agente.
+   *
+   * Avisar a la cuadrilla ES riesgo alto: nadie la manda por un bache. Abrir el
+   * ticket ES que el caso quedó registrado. Son deducciones del hecho, no
+   * interpretaciones, así que se pueden escribir sin consultar al modelo.
+   *
+   * Solo se escriben campos que la acción determina de verdad. `descripcion`
+   * sale del reporte porque ahí el agente ya la redactó; del aviso no, porque
+   * su `detalle` está escrito para la cuadrilla y no para el panel.
+   */
+  private async fichaDesde(
+    contactId: string,
+    herramienta: string,
+    args: Record<string, unknown>,
+  ): Promise<void> {
+    const texto = (clave: string) => String(args[clave] ?? '').trim() || undefined;
+    const ficha: Record<string, string | undefined> = {};
+
+    switch (herramienta) {
+      case 'registrar_reporte':
+        ficha.tipo_problema = texto('tipo_problema');
+        ficha.ubicacion = texto('ubicacion');
+        ficha.descripcion = texto('descripcion');
+        ficha.estado = 'registrado';
+        break;
+      case 'avisar_autoridad':
+        ficha.ubicacion = texto('ubicacion');
+        ficha.riesgo = 'alto';
+        ficha.afectados = texto('detalle');
+        ficha.estado = 'cuadrilla avisada';
+        break;
+      case 'asignar_tarea':
+        ficha.proximo_paso = texto('titulo');
+        break;
+      case 'escalar_a_humano':
+        ficha.riesgo = String(args['urgencia'] ?? '').toLowerCase().includes('alta') ? 'alto' : undefined;
+        ficha.estado = 'escalado';
+        ficha.proximo_paso = 'Espera que un operador entre a la conversación';
+        break;
+      default:
+        return;
+    }
+
+    const limpia = Object.fromEntries(
+      Object.entries(ficha).filter(([, v]) => v !== undefined),
+    ) as Record<string, string>;
+    if (!Object.keys(limpia).length) return;
+
+    await this.actualizarFicha(contactId, limpia);
   }
 
   /**
