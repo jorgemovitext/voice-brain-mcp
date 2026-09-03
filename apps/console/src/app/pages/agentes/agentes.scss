@@ -1,0 +1,91 @@
+.pagina {
+  padding: 1.4rem 1.6rem 2rem;
+  color: var(--ink);
+  overflow-y: auto;
+  height: 100%;
+}
+
+.cabecera {
+  margin-bottom: 1.2rem;
+
+  h1 { margin: 0; font-size: 1.5rem; font-weight: 800; }
+  p { margin: 0.2rem 0 0; color: var(--ink-soft); font-size: 0.86rem; }
+}
+
+/* Alta rápida: solo el nombre. Lo demás se decide en el editor, viendo. */
+.alta {
+  display: flex;
+  gap: 0.6rem;
+  margin-bottom: 1.2rem;
+}
+
+.alta__campo {
+  flex: 1;
+  max-width: 30rem;
+  padding: 0.6rem 0.9rem;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: var(--panel);
+  color: var(--ink);
+  font: inherit;
+  font-size: 0.88rem;
+
+  &::placeholder { color: var(--ink-soft); }
+  &:focus { outline: none; border-color: var(--secondary); }
+}
+
+.alta__error {
+  margin: -0.7rem 0 1rem;
+  color: var(--negative);
+  font-size: 0.83rem;
+}
+
+.rejilla {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(16rem, 1fr));
+  gap: 0.9rem;
+}
+
+.agente {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  padding: 1rem;
+  text-decoration: none;
+  color: inherit;
+  transition: border-color 0.15s ease, transform 0.15s ease;
+
+  &:hover {
+    border-color: var(--secondary);
+    transform: translateY(-2px);
+  }
+}
+
+.agente__cabecera {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.agente__nombre {
+  font-weight: 700;
+  font-size: 0.98rem;
+  /* Un nombre largo no puede empujar la píldora "en uso" fuera de la tarjeta. */
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.agente__datos {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+
+.agente__pie {
+  display: flex;
+  gap: 0.35rem;
+  color: var(--ink-soft);
+  font-size: 0.78rem;
+}

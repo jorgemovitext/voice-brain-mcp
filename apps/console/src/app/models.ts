@@ -336,3 +336,32 @@ export interface Integracion {
   missing: string[];
   details: Record<string, string>;
 }
+
+/** Un agente conversacional, como lo administra el módulo de Agentes. */
+export interface AgenteResumen {
+  id: string;
+  nombre: string;
+  idioma: string;
+  /** Con esto encendido no puede atender llamadas: solo texto. */
+  soloTexto: boolean;
+  /** Nombres, nunca ids: un hash del proveedor no le dice nada a nadie. */
+  herramientas: string[];
+  documentos: number;
+  /** Es el que atiende WhatsApp hoy: no se puede borrar. */
+  enUso: boolean;
+}
+
+export interface AgenteDetalle extends AgenteResumen {
+  instrucciones: string;
+  primerMensaje: string;
+  variables: string[];
+}
+
+export interface HerramientaDisponible {
+  id: string;
+  nombre: string;
+  descripcion: string;
+  tipo: string;
+  /** La usa el motor de la Línea 100: desengancharla rompe el flujo. */
+  esencial: boolean;
+}

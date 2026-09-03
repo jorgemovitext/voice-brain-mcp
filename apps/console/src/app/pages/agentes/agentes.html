@@ -1,0 +1,63 @@
+<div class="pagina">
+  <header class="cabecera">
+    <div>
+      <h1>Agentes</h1>
+      <p>Quién atiende, qué dice y qué puede hacer.</p>
+    </div>
+  </header>
+
+  @if (datos.isLoading()) {
+    <div class="state"><div class="spinner"></div>Cargando agentes…</div>
+  } @else if (!valorDe(datos)?.configurado) {
+    <!-- Sin credencial no hay nada que administrar, y decirlo claro evita que
+         alguien crea que la cuenta está vacía. -->
+    <div class="state state--error">
+      Falta la credencial del proveedor de agentes en el entorno.
+    </div>
+  } @else {
+    <div class="alta">
+      <input
+        class="alta__campo"
+        placeholder="Nombre del agente nuevo (ej. Línea 100 — campañas)"
+        [value]="nombreNuevo()"
+        (input)="escribirNombre($event)"
+        (keydown.enter)="crear()" />
+      <button class="btn btn--primary" [disabled]="!nombreNuevo().trim() || creando()" (click)="crear()">
+        {{ creando() ? 'Creando…' : 'Crear agente' }}
+      </button>
+    </div>
+    @if (error(); as e) { <div class="alta__error">⚠ {{ e }}</div> }
+
+    <div class="rejilla">
+      @for (a of valorDe(datos)?.agentes ?? []; track a.id) {
+        <a class="card agente" [routerLink]="['/agentes', a.id]">
+          <div class="agente__cabecera">
+            <span class="agente__nombre">{{ a.nombre }}</span>
+            @if (a.enUso) {
+              <!-- El que contesta ahora mismo: hay que poder distinguirlo de un
+                   borrador antes de tocarle el prompt. -->
+              <span class="pill pill--primary">en uso</span>
+            }
+          </div>
+
+          <div class="agente__datos">
+            <span class="pill pill--neutral">{{ a.idioma }}</span>
+            <span class="pill" [class.pill--secondary]="!a.soloTexto" [class.pill--neutral]="a.soloTexto">
+              {{ a.soloTexto ? 'solo texto' : 'texto y llamadas' }}
+            </span>
+          </div>
+
+          <div class="agente__pie">
+            <span>{{ propias(a) }} {{ propias(a) === 1 ? 'herramienta' : 'herramientas' }}</span>
+            <span>·</span>
+            <span>{{ a.documentos }} {{ a.documentos === 1 ? 'documento' : 'documentos' }}</span>
+          </div>
+        </a>
+      } @empty {
+        <div class="state">
+          Todavía no hay agentes. Creá el primero con el campo de arriba.
+        </div>
+      }
+    </div>
+  }
+</div>

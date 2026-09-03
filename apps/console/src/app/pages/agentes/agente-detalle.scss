@@ -1,0 +1,339 @@
+.editor {
+  padding: 1.2rem 1.4rem 2rem;
+  color: var(--ink);
+  height: 100%;
+  overflow-y: auto;
+}
+
+.cabecera {
+  display: flex;
+  align-items: center;
+  gap: 0.8rem;
+  margin-bottom: 1rem;
+}
+
+.volver {
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  flex-shrink: 0;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  color: var(--ink);
+  text-decoration: none;
+  font-size: 1.2rem;
+  line-height: 1;
+
+  &:hover { border-color: var(--secondary); }
+}
+
+.cabecera__titulo {
+  flex: 1;
+  min-width: 0;
+
+  h1 { margin: 0; font-size: 1.25rem; font-weight: 800; }
+  p { margin: 0.1rem 0 0; color: var(--ink-soft); font-size: 0.8rem; }
+}
+
+.cabecera__acciones {
+  display: flex;
+  gap: 0.5rem;
+  flex-shrink: 0;
+}
+
+.btn--peligro {
+  color: var(--negative);
+  border-color: rgba(248, 113, 113, 0.4);
+}
+
+.aviso {
+  margin-bottom: 0.9rem;
+  padding: 0.5rem 0.8rem;
+  border-radius: 10px;
+  background: rgba(0, 186, 254, 0.1);
+  border: 1px solid rgba(0, 186, 254, 0.25);
+  font-size: 0.83rem;
+}
+
+/* Dos columnas: editar a la izquierda, probar a la derecha. El ciclo de
+   configurar es cambiar-probar-cambiar, y con el chat en otra pestaña habría
+   que recordar qué se tocó entre una y otra. */
+.columnas {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 26rem);
+  gap: 1rem;
+  align-items: start;
+}
+
+@media (max-width: 60rem) {
+  .columnas { grid-template-columns: 1fr; }
+}
+
+.columna {
+  display: flex;
+  flex-direction: column;
+  gap: 0.9rem;
+  min-width: 0;
+}
+
+.columna--prueba {
+  /* El banco de pruebas acompaña el scroll: se escribe arriba en el prompt y
+     se prueba abajo sin perderlo de vista. */
+  position: sticky;
+  top: 0;
+}
+
+.bloque {
+  padding: 1rem;
+
+  h2 {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin: 0 0 0.3rem;
+    font-size: 0.95rem;
+    font-weight: 700;
+  }
+}
+
+.bloque__nota {
+  margin: 0 0 0.7rem;
+  color: var(--ink-soft);
+  font-size: 0.79rem;
+  line-height: 1.4;
+}
+
+.bloque__vacio {
+  color: var(--ink-soft);
+  font-size: 0.83rem;
+}
+
+.bloque__cuidado {
+  margin-bottom: 0.7rem;
+  padding: 0.45rem 0.7rem;
+  border-radius: 9px;
+  background: rgba(245, 158, 11, 0.12);
+  border: 1px solid rgba(245, 158, 11, 0.3);
+  color: #fcd34d;
+  font-size: 0.78rem;
+}
+
+.prompt {
+  width: 100%;
+  padding: 0.7rem 0.85rem;
+  border-radius: 12px;
+  border: 1px solid var(--border);
+  background: var(--bg);
+  color: var(--ink);
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.78rem;
+  line-height: 1.55;
+  resize: vertical;
+
+  &:focus { outline: none; border-color: var(--secondary); }
+}
+
+.prompt--corto { margin-bottom: 0.6rem; }
+
+/* Una herramienta: casilla + qué hace. La descripción es lo que el agente lee
+   para decidir cuándo usarla, así que se muestra completa. */
+.herramienta {
+  display: flex;
+  gap: 0.6rem;
+  padding: 0.55rem 0.65rem;
+  border-radius: 11px;
+  border: 1px solid transparent;
+  cursor: pointer;
+
+  &:hover { background: rgba(255, 255, 255, 0.03); }
+
+  input { margin-top: 0.2rem; flex-shrink: 0; accent-color: var(--secondary); }
+}
+
+.herramienta--on {
+  background: rgba(0, 186, 254, 0.07);
+  border-color: rgba(0, 186, 254, 0.22);
+}
+
+.herramienta__cuerpo {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  min-width: 0;
+
+  b {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    font-size: 0.83rem;
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  }
+  i { font-style: normal; font-size: 0.77rem; color: var(--ink-soft); line-height: 1.4; }
+}
+
+.ajuste {
+  display: flex;
+  gap: 0.6rem;
+  margin-bottom: 0.9rem;
+  cursor: pointer;
+
+  input { margin-top: 0.2rem; flex-shrink: 0; accent-color: var(--secondary); }
+}
+
+.ajuste__cuerpo {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+
+  b { font-size: 0.85rem; }
+  i { font-style: normal; font-size: 0.77rem; color: var(--ink-soft); line-height: 1.4; }
+}
+
+.campo {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  margin-bottom: 0.6rem;
+
+  span { font-size: 0.76rem; color: var(--ink-soft); text-transform: uppercase; letter-spacing: 0.04em; }
+
+  input {
+    padding: 0.5rem 0.75rem;
+    border-radius: 10px;
+    border: 1px solid var(--border);
+    background: var(--bg);
+    color: var(--ink);
+    font: inherit;
+    font-size: 0.84rem;
+
+    &:focus { outline: none; border-color: var(--secondary); }
+    &::placeholder { color: var(--ink-soft); }
+  }
+}
+
+.variables {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.77rem;
+  color: var(--ink-soft);
+
+  code {
+    padding: 0.1rem 0.4rem;
+    border-radius: 6px;
+    background: rgba(255, 255, 255, 0.06);
+    font-size: 0.75rem;
+  }
+}
+
+/* --- Banco de pruebas --- */
+
+.bloque--prueba {
+  display: flex;
+  flex-direction: column;
+  max-height: calc(100vh - 8rem);
+}
+
+.limpiar {
+  border: none;
+  background: none;
+  color: var(--ink-soft);
+  font: inherit;
+  font-size: 0.75rem;
+  cursor: pointer;
+  text-decoration: underline;
+
+  &:hover { color: var(--ink); }
+}
+
+.prueba {
+  flex: 1;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  padding: 0.6rem;
+  margin-bottom: 0.6rem;
+  border-radius: 12px;
+  background: var(--bg);
+  min-height: 12rem;
+}
+
+.prueba__vacio,
+.prueba__pensando {
+  color: var(--ink-soft);
+  font-size: 0.8rem;
+  text-align: center;
+  padding: 0.6rem;
+}
+
+.turno {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  align-items: flex-end;
+  max-width: 92%;
+  align-self: flex-end;
+}
+
+.turno--agente {
+  align-items: flex-start;
+  align-self: flex-start;
+}
+
+.turno__burbuja {
+  padding: 0.45rem 0.7rem;
+  border-radius: 12px;
+  background: rgba(0, 186, 254, 0.14);
+  font-size: 0.82rem;
+  line-height: 1.4;
+  white-space: pre-wrap;
+}
+
+.turno--agente .turno__burbuja {
+  background: rgba(255, 255, 255, 0.07);
+}
+
+/* La acción va pegada bajo la burbuja, igual que en el chat real: es la
+   consecuencia del mensaje, no otro mensaje. */
+.turno__accion {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+  padding: 0.35rem 0.6rem;
+  border-radius: 10px;
+  background: rgba(52, 211, 153, 0.1);
+  border: 1px solid rgba(52, 211, 153, 0.25);
+  max-width: 100%;
+
+  b { font-size: 0.75rem; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; color: #6ee7b7; }
+  i {
+    font-style: normal;
+    font-size: 0.72rem;
+    color: var(--ink-soft);
+    line-height: 1.35;
+    overflow-wrap: anywhere;
+  }
+}
+
+.prueba__entrada {
+  display: flex;
+  gap: 0.4rem;
+
+  input {
+    flex: 1;
+    min-width: 0;
+    padding: 0.5rem 0.8rem;
+    border-radius: 999px;
+    border: 1px solid var(--border);
+    background: var(--bg);
+    color: var(--ink);
+    font: inherit;
+    font-size: 0.83rem;
+
+    &:focus { outline: none; border-color: var(--secondary); }
+    &::placeholder { color: var(--ink-soft); }
+  }
+}

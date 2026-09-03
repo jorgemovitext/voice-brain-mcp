@@ -263,10 +263,25 @@ export class ElevenLabsVozService {
   /** El motivo que sirve para actuar, no el stack. */
   private motivo(err: unknown): string {
     const e = err as { response?: { status?: number; data?: unknown }; message?: string };
-    if (e.response?.status) {
-      const cuerpo = typeof e.response.data === 'string' ? e.response.data : JSON.stringify(e.response.data ?? {});
-      return `ElevenLabs respondió ${e.response.status}: ${cuerpo.slice(0, 200)}`;
+    if (!e.response?.status) return e.message ?? 'error desconocido';
+
+    const cuerpo = typeof e.response.data === 'string' ? e.response.data : JSON.stringify(e.response.data ?? {});
+
+    /*
+     * Un 424 no es un fallo de ElevenLabs: es la telefonía de abajo que
+     * rechazó la llamada, y el volcado crudo del error no le dice a nadie qué
+     * hacer. Quien lo lee está en la consola queriendo llamar a un vecino, no
+     * depurando una integración.
+     */
+    if (e.response.status === 424 || /upstream_service_error/.test(cuerpo)) {
+      const quien = /exotel/i.test(cuerpo) ? 'Exotel' : /twilio/i.test(cuerpo) ? 'Twilio' : 'la telefonía';
+      return (
+        `${quien} rechazó la llamada. Suele ser el número de destino: en cuentas ` +
+        `nuevas solo se puede llamar a números verificados, y el formato tiene que ` +
+        `ser internacional (+504…). Revisá eso en el panel de ${quien}.`
+      );
     }
-    return e.message ?? 'error desconocido';
+
+    return `ElevenLabs respondió ${e.response.status}: ${cuerpo.slice(0, 200)}`;
   }
 }

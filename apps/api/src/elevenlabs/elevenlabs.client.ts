@@ -88,12 +88,14 @@ export class ElevenLabsClient {
      * un tool call sin respuesta cuelga la conversación hasta el timeout.
      */
     ejecutarHerramienta?: (nombre: string, args: Record<string, unknown>) => Promise<{ ok: boolean; mensaje: string }>;
+    /** Probar OTRO agente (módulo de Agentes). Por defecto, el de producción. */
+    agente?: string;
   }): Promise<RespuestaAgente | null> {
     if (!this.configurado()) return null;
 
     let url: string;
     try {
-      url = await this.urlFirmada();
+      url = await this.urlFirmada(input.agente);
     } catch (err) {
       this.logger.warn(`No se pudo firmar la conexión con el agente: ${(err as Error).message}`);
       return null;
@@ -111,10 +113,14 @@ export class ElevenLabsClient {
    * URL de un solo uso para conectarse. La API key se queda acá, del lado
    * servidor: nunca viaja en la conexión ni sale de este proceso.
    */
-  private async urlFirmada(): Promise<string> {
+  /**
+   * @param agente Cuál agente. Por defecto el de producción; el módulo de
+   *   Agentes pasa otro para poder probar un borrador sin exponerlo a nadie.
+   */
+  private async urlFirmada(agente?: string): Promise<string> {
     const res = await firstValueFrom(
       this.http.get<{ signed_url: string }>(`${this.apiUrl}/v1/convai/conversation/get-signed-url`, {
-        params: { agent_id: this.agentId },
+        params: { agent_id: agente || this.agentId },
         headers: { 'xi-api-key': this.apiKey },
         timeout: 10_000,
       }),

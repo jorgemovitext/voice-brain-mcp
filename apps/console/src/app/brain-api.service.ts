@@ -147,4 +147,59 @@ export class BrainApiService {
       ),
     );
   }
+
+  /* --- Módulo de Agentes --- */
+
+  crearAgente(nombre: string): Promise<{ id: string }> {
+    return firstValueFrom(
+      this.http.post<{ id: string }>('/api/agentes', {
+        nombre,
+        // Un punto de partida, no una plantilla: se edita enseguida en el editor.
+        instrucciones: 'Sos un asistente. Contestá corto, claro y en español.',
+      }),
+    );
+  }
+
+  actualizarAgente(
+    id: string,
+    cambios: {
+      instrucciones?: string;
+      primerMensaje?: string;
+      soloTexto?: boolean;
+      herramientas?: string[];
+    },
+  ): Promise<{ ok: boolean }> {
+    return firstValueFrom(this.http.patch<{ ok: boolean }>(`/api/agentes/${id}`, cambios));
+  }
+
+  duplicarAgente(id: string, nombre: string): Promise<{ id: string }> {
+    return firstValueFrom(this.http.post<{ id: string }>(`/api/agentes/${id}/duplicar`, { nombre }));
+  }
+
+  eliminarAgente(id: string): Promise<{ ok: boolean }> {
+    return firstValueFrom(this.http.delete<{ ok: boolean }>(`/api/agentes/${id}`));
+  }
+
+  agregarContextoAgente(id: string, titulo: string, texto: string): Promise<{ ok: boolean }> {
+    return firstValueFrom(
+      this.http.post<{ ok: boolean }>(`/api/agentes/${id}/contexto`, { titulo, texto }),
+    );
+  }
+
+  /** Banco de pruebas: las herramientas se simulan, no se ejecutan. */
+  probarAgente(
+    id: string,
+    texto: string,
+    historial: Array<{ de: 'persona' | 'agente'; texto: string }>,
+  ): Promise<{
+    respuesta: string | null;
+    herramientas: Array<{ nombre: string; args: Record<string, unknown> }>;
+  }> {
+    return firstValueFrom(
+      this.http.post<{
+        respuesta: string | null;
+        herramientas: Array<{ nombre: string; args: Record<string, unknown> }>;
+      }>(`/api/agentes/${id}/probar`, { texto, historial }),
+    );
+  }
 }

@@ -5,6 +5,7 @@ import { AuthModule } from './auth/auth.module';
 import { BrainModule } from './brain/brain.module';
 import { HubspotModule } from './hubspot/hubspot.module';
 import { ChannelsModule } from './channels/channels.module';
+import { AgentesModule } from './agentes/agentes.module';
 import { ElevenLabsModule } from './elevenlabs/elevenlabs.module';
 import { DemoModule } from './demo/demo.module';
 import { IntegrationsModule } from './integrations/integrations.module';
@@ -32,6 +33,7 @@ import { SharedModule } from './shared/flow-log.service';
     HubspotModule,
     ChannelsModule,
     ElevenLabsModule,
+    AgentesModule,
     NlpearlModule,
     DemoModule,
   ],

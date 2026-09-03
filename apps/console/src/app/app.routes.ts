@@ -43,6 +43,21 @@ export const routes: Routes = [
     title: 'Conversaciones · Brain',
   },
   {
+    path: 'agentes',
+    pathMatch: 'full',
+    canActivate: [authGuard],
+    loadComponent: () => import('./pages/agentes/agentes').then((m) => m.AgentesPage),
+    title: 'Agentes · Brain',
+  },
+  {
+    path: 'agentes/:id',
+    canActivate: [authGuard],
+    loadComponent: () => import('./pages/agentes/agente-detalle').then((m) => m.AgenteDetallePage),
+    title: 'Agente · Brain',
+  },
+  /* Los Pearl de NL Pearl. Fuera del menú desde el cambio de motor, pero la
+     ruta sigue viva: hay enlaces guardados y el histórico se sigue mirando. */
+  {
     path: 'workers',
     canActivate: [authGuard],
     loadComponent: () => import('./pages/workers/workers').then((m) => m.WorkersPage),
