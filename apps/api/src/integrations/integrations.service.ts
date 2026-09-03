@@ -4,7 +4,7 @@ import { WebhookLogService } from '../shared/webhook-log.service';
 
 /** Estado de una integración, sin exponer nunca el valor de los secretos. */
 export interface IntegrationStatus {
-  id: 'nlpearl' | 'whatsapp' | 'sms' | 'almacenamiento';
+  id: 'nlpearl' | 'elevenlabs' | 'whatsapp' | 'sms' | 'almacenamiento';
   name: string;
   kind: 'voice' | 'messaging' | 'datos';
   /** true si tiene todo lo necesario para operar de verdad. */
@@ -81,10 +81,38 @@ export class IntegrationsService {
     const huboEntrantes = await this.huboEntrantesDeGupshup();
     const mock = this.config.get<boolean>('MOCK', true);
     const missingNlpearl = this.missingNlpearl();
+    const elevenKey = this.config.get<string>('ELEVENLABS_API_KEY', '');
+    const elevenAgent = this.config.get<string>('ELEVENLABS_AGENT_ID', '');
+    const elevenNumero = this.config.get<string>('ELEVENLABS_PHONE_NUMBER_ID', '');
     const provider = this.whatsappProvider();
     const whatsappOk = provider !== 'stub';
 
     return [
+      {
+        /*
+         * El motor conversacional. Va PRIMERO porque es el que atiende hoy:
+         * quien abre Actividad para saber por qué el agente no contesta tiene
+         * que encontrarlo arriba, no debajo del motor anterior.
+         */
+        id: 'elevenlabs',
+        name: 'Agente conversacional',
+        kind: 'voice',
+        connected: !!elevenKey && !!elevenAgent,
+        mode: elevenAgent ? 'real' : 'apagado',
+        missing: [!elevenKey && 'ELEVENLABS_API_KEY', !elevenAgent && 'ELEVENLABS_AGENT_ID'].filter(Boolean) as string[],
+        details: {
+          'Texto por WhatsApp': elevenAgent
+            ? 'encendido: contesta los entrantes sin hilo tomado'
+            : 'apagado: los entrantes solo quedan en la bitácora',
+          'Llamadas salientes': elevenNumero
+            ? 'listas'
+            : 'faltan: sin ELEVENLABS_PHONE_NUMBER_ID el botón de llamar avisa y no marca',
+          'Webhook de cierre de llamada': `${base}/webhooks/elevenlabs`,
+          'Transcripciones': elevenNumero
+            ? 'entran al hilo al terminar la llamada'
+            : 'sin llamadas todavía',
+        },
+      },
       {
         id: 'nlpearl',
         name: 'NL Pearl · Voz',

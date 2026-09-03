@@ -199,7 +199,7 @@ export interface NlpearlTestResult {
 }
 
 export interface IntegrationStatus {
-  id: 'nlpearl' | 'whatsapp' | 'sms' | 'almacenamiento';
+  id: 'nlpearl' | 'elevenlabs' | 'whatsapp' | 'sms' | 'almacenamiento';
   name: string;
   kind: 'voice' | 'messaging' | 'datos';
   connected: boolean;
