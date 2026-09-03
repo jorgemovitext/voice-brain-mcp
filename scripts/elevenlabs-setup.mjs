@@ -107,6 +107,13 @@ const HERRAMIENTAS = [
         'escalado',
       ]],
       proximo_paso: ['Qué vas a hacer a continuación', false],
+      resumen: [
+        'Qué está pasando, en una o dos líneas, para que un operador que abre ' +
+          'el chat ahora entienda el caso sin leerlo entero. Reescribilo cada ' +
+          'vez que cambie algo, no lo vayas alargando.',
+        false,
+      ],
+      animo: ['Cómo se siente la persona', false, ['tranquilo', 'preocupado', 'molesto', 'angustiado']],
     },
   },
   {

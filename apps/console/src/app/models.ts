@@ -304,7 +304,7 @@ export interface Expediente {
      * `propio` = lo redactamos nosotros desde la transcripción.
      * `agente` = el texto crudo de NL Pearl, solo recortado.
      */
-    fuente: 'flujo' | 'propio' | 'agente' | 'datos' | null;
+    fuente: 'flujo' | 'propio' | 'agente' | 'datos' | 'vivo' | null;
     capturado: Array<{ campo: string; valor: string }>;
   };
   caso: {

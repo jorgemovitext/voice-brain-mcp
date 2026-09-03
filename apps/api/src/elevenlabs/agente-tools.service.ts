@@ -74,7 +74,19 @@ export class AgenteToolsService {
     'afectados',
     'estado',
     'proximo_paso',
+    /*
+     * Estos dos no se dibujan en la lista de la ficha: alimentan los paneles
+     * de "Resumen" y "Estado emocional" del riel, que hasta ahora se llenaban
+     * con lo que reportaba el flujo de NL Pearl y con este agente no llega
+     * nunca. Viajan acá porque el agente los escribe en la misma llamada, y
+     * partirlo en dos herramientas sería un viaje de ida y vuelta más por turno.
+     */
+    'resumen',
+    'animo',
   ] as const;
+
+  /** Los que el riel dibuja aparte, no en la lista de datos del caso. */
+  static readonly CAMPOS_APARTE = ['resumen', 'animo'] as const;
 
   /**
    * Ejecuta la herramienta que pidió el agente.

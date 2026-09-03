@@ -574,7 +574,14 @@
         <div class="panel">
           <div class="panel__head">
             <span class="panel__title">Estado emocional</span>
-            @if (ctx.sentimentTrend) {
+            @if (animoEnVivo()) {
+              <!-- Lo lee el agente en cada turno. La tendencia de NL Pearl se
+                   calla acá: con las dos, el panel se contradecía solo
+                   ("Molesto" junto a "estable"). -->
+              <span class="panel__aside" title="El agente lo relee en cada turno">
+                <span class="avance__pulso"></span> en vivo
+              </span>
+            } @else if (ctx.sentimentTrend) {
               <span class="panel__aside" [class.positive]="ctx.sentimentTrend === 'mejorando'">{{ ctx.sentimentTrend }}</span>
             }
           </div>
@@ -683,7 +690,13 @@
                 <span class="panel__title panel__title--ai">
                   <ui-icon name="sparkle" /> Resumen de la conversación
                 </span>
-                @if (r.fuente === 'agente') {
+                @if (r.fuente === 'vivo') {
+                  <!-- El agente lo reescribe en cada turno: describe lo que
+                       está pasando ahora, no lo que pasó al cerrar. -->
+                  <span class="panel__aside" title="El agente lo reescribe en cada turno">
+                    <span class="avance__pulso"></span> en vivo
+                  </span>
+                } @else if (r.fuente === 'agente') {
                   <span class="panel__aside" title="Texto tal cual lo dejó el agente, sin resumir">sin resumir</span>
                 } @else if (r.fuente === 'datos') {
                   <span class="panel__aside" title="Compuesto con los datos del flujo">datos</span>

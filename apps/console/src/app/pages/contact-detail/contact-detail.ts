@@ -991,7 +991,35 @@ export class ContactDetailPage implements OnDestroy {
   // ===== Contexto en vivo (panel derecho) =====
 
   /** Último sentimiento conocido del hilo. */
+  /** Lo que el agente reporta del ánimo, en la escala de la barra. */
+  private static readonly ANIMO: Record<string, { label: string; cls: string; pct: number }> = {
+    tranquilo: { label: 'Tranquilo', cls: 'mood--positive', pct: 86 },
+    preocupado: { label: 'Preocupado', cls: 'mood--neutral', pct: 48 },
+    molesto: { label: 'Molesto', cls: 'mood--negative', pct: 28 },
+    angustiado: { label: 'Angustiado', cls: 'mood--negative', pct: 12 },
+  };
+
+  /**
+   * Cómo se siente la persona, según el agente.
+   *
+   * Antes salía del `sentiment` que marcaba el flujo de NL Pearl y con este
+   * agente no llega nunca: el panel decía "Sin lecturas todavía" para siempre.
+   * Ahora lo reporta el agente en cada turno; el `sentiment` viejo queda de
+   * respaldo para los hilos de NL Pearl, que siguen teniéndolo.
+   */
+  /**
+   * ¿El ánimo lo está reportando el agente?
+   *
+   * Decide si se muestra la tendencia de al lado, que viene del `sentiment`
+   * de NL Pearl. Con las dos fuentes a la vez el panel se contradecía solo:
+   * "Molesto" junto a "estable".
+   */
+  readonly animoEnVivo = computed(() => !!this.campoDeFicha('animo'));
+
   readonly mood = computed<{ label: string; cls: string; pct: number } | null>(() => {
+    const delAgente = this.campoDeFicha('animo');
+    if (delAgente) return ContactDetailPage.ANIMO[delAgente] ?? null;
+
     const last = (valorDe(this.context)?.recentInteractions ?? []).find((i) => i.sentiment);
     if (!last?.sentiment) return null;
     const map: Record<Sentiment, { label: string; cls: string; pct: number }> = {
@@ -1008,7 +1036,18 @@ export class ContactDetailPage implements OnDestroy {
    * (`post_call_summary`) o, si no hay, uno compuesto con lo que el flujo
    * recopiló. La ficha de datos capturados acompaña al texto.
    */
-  readonly resumenAgente = computed(() => valorDe(this.expediente)?.resumen ?? null);
+  readonly resumenAgente = computed(() => {
+    /*
+     * El del agente gana: se reescribe en cada turno y describe lo que está
+     * pasando AHORA. El del expediente es post-mortem —lo redacta NL Pearl al
+     * cerrar la llamada— y con este agente no llega nunca, así que el panel
+     * quedaba vacío durante toda la conversación, que es justo cuando sirve.
+     */
+    const vivo = this.campoDeFicha('resumen');
+    if (vivo) return { texto: vivo, fuente: 'vivo' as const, capturado: [] };
+
+    return valorDe(this.expediente)?.resumen ?? null;
+  });
 
   /** Caso real del CRM: etapa viva, no un rótulo fijo. */
   readonly caso = computed(() => valorDe(this.expediente)?.caso ?? null);
@@ -1024,7 +1063,13 @@ export class ContactDetailPage implements OnDestroy {
     proximo_paso: 'Siguiente',
   };
 
-  /** El orden de lectura del panel, no el orden en que el agente los mandó. */
+  /**
+   * El orden de lectura del panel, no el orden en que el agente los mandó.
+   *
+   * `resumen` y `animo` viajan en la misma ficha pero NO salen en esta lista:
+   * tienen panel propio arriba —son lo primero que mira el operador— y
+   * repetirlos abajo sería leer dos veces lo mismo.
+   */
   private static readonly ORDEN_FICHA = Object.keys(ContactDetailPage.ROTULOS_FICHA);
 
   /**
@@ -1035,7 +1080,7 @@ export class ContactDetailPage implements OnDestroy {
    * Con eso sabemos además CUÁNDO cambió cada uno, que es lo que permite
    * resaltar lo recién llegado en vez de repintar el panel entero.
    */
-  readonly fichaDelCaso = computed(() => {
+  private readonly fichaCruda = computed(() => {
     /*
      * Se leen del contexto crudo y no del hilo: `chat()` las descarta, porque
      * la ficha es estado y no un mensaje que merezca burbuja.
@@ -1050,6 +1095,16 @@ export class ContactDetailPage implements OnDestroy {
         campos.set(clave, { valor, cuando: i.occurredAt });
       }
     }
+    return campos;
+  });
+
+  /** Un campo suelto de la ficha, para los paneles que no son la lista. */
+  private campoDeFicha(clave: string): string | undefined {
+    return this.fichaCruda().get(clave)?.valor;
+  }
+
+  readonly fichaDelCaso = computed(() => {
+    const campos = this.fichaCruda();
     if (!campos.size) return null;
 
     /*
@@ -1060,9 +1115,14 @@ export class ContactDetailPage implements OnDestroy {
     const ultima = [...campos.values()].map((c) => c.cuando).sort().pop()!;
     const fresco = Date.now() - new Date(ultima).getTime() < ContactDetailPage.FRESCO_MS;
 
+    // Si lo único que llegó fue el resumen y el ánimo, esos ya tienen su propio
+    // panel arriba: acá quedaría un recuadro con título y nada adentro.
+    const claves = ContactDetailPage.ORDEN_FICHA.filter((c) => campos.has(c));
+    if (!claves.length) return null;
+
     return {
       actualizada: ultima,
-      campos: ContactDetailPage.ORDEN_FICHA.filter((c) => campos.has(c)).map((clave) => ({
+      campos: claves.map((clave) => ({
         clave,
         rotulo: ContactDetailPage.ROTULOS_FICHA[clave],
         valor: campos.get(clave)!.valor,
