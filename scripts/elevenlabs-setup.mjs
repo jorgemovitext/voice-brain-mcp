@@ -253,8 +253,30 @@ if (!tiene('--sin-prompt')) {
   cc.agent.prompt.prompt = bloque[1];
 }
 
-await api('PATCH', `/v1/convai/agents/${AGENT_ID}`, { conversation_config: cc });
+/*
+ * Permiso para que la app apague el audio POR CONVERSACIÓN.
+ *
+ * El agente queda en modo voz —si no, no levanta llamadas—, pero cada turno de
+ * WhatsApp abre la conexión pidiendo `text_only`. Sin audio que nadie escucha,
+ * eso pasa de facturar por minuto a facturar por mensaje.
+ *
+ * ElevenLabs trae estos permisos en deny-by-default y, si la app manda un
+ * override no habilitado, CORTA la conversación en vez de ignorarlo. Así que
+ * este bloque no es opcional: sin él, el chat deja de responder.
+ */
+const plataforma = agente.platform_settings ?? {};
+const overrides = plataforma.overrides ?? {};
+const cco = overrides.conversation_config_override ?? {};
+cco.conversation = { ...(cco.conversation ?? {}), text_only: true };
+overrides.conversation_config_override = cco;
+plataforma.overrides = overrides;
+
+await api('PATCH', `/v1/convai/agents/${AGENT_ID}`, {
+  conversation_config: cc,
+  platform_settings: plataforma,
+});
 console.log(`\nAgente (${agente.name ?? AGENT_ID})`);
+console.log('  · permiso de override de text_only: habilitado');
 console.log('  · idioma es · primer mensaje vacío');
 console.log('  · solo texto APAGADO: el mismo agente atiende chat y llamada');
 console.log(`  · variables declaradas: ${Object.keys(VARIABLES).join(', ')}`);

@@ -164,6 +164,21 @@ export class ElevenLabsClient {
             ...(input.variables && Object.keys(input.variables).length
               ? { dynamic_variables: input.variables }
               : {}),
+            /*
+             * Modo texto SOLO para este turno, no en el agente.
+             *
+             * El agente lo tiene apagado a propósito: con la opción encendida
+             * no puede levantar una llamada. Pero acá estamos en WhatsApp, y
+             * dejarlo en modo voz sintetiza audio que nadie escucha —se paga
+             * por minuto en vez de por mensaje— y mete acotaciones habladas
+             * ("[pausa breve]") en la respuesta escrita.
+             *
+             * Requiere que el agente tenga habilitado el override; lo deja
+             * puesto scripts/elevenlabs-setup.mjs. Si no lo estuviera,
+             * ElevenLabs corta la conversación en vez de ignorarlo, así que el
+             * fallo se ve enseguida y no en la factura.
+             */
+            conversation_config_override: { conversation: { text_only: true } },
           }),
         );
 
