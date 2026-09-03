@@ -1,6 +1,7 @@
 import { BrainService } from '../brain/brain.service';
 import { HubspotClient } from '../hubspot/hubspot.client';
 import { ChannelPort } from '../ports/channel.port';
+import { SettingsService } from '../shared/settings.service';
 import { AgenteToolsService } from './agente-tools.service';
 
 /**
@@ -16,6 +17,7 @@ describe('AgenteToolsService', () => {
     const anotadas: Array<Record<string, unknown>> = [];
     const enviados: Array<{ contactId: string; texto: string }> = [];
     const tareas: Array<Record<string, unknown>> = [];
+    const asignadas: Array<Record<string, unknown>> = [];
 
     const brain = {
       getContext: async () => ({
@@ -44,6 +46,9 @@ describe('AgenteToolsService', () => {
         tareas.push(input);
         return { id: 'T-9' };
       },
+      asignarTarea: async (tareaId: string, ownerId: string, prioridad?: string) => {
+        asignadas.push({ tareaId, ownerId, prioridad });
+      },
     };
     const canal = {
       send: async (contactId: string, texto: string) => {
@@ -52,12 +57,24 @@ describe('AgenteToolsService', () => {
       },
     };
 
+    // Guarda la tarea pendiente entre registrar y asignar: sin esto, asignar
+    // crearía una segunda tarea para el mismo reporte.
+    const guardado = new Map<string, unknown>();
+    const settings = {
+      get: async (k: string) => guardado.get(k),
+      set: async (k: string, v: unknown) => {
+        guardado.set(k, v);
+        return v;
+      },
+    };
+
     const service = new AgenteToolsService(
       brain as unknown as BrainService,
       hubspot as unknown as HubspotClient,
+      settings as unknown as SettingsService,
       canal as unknown as ChannelPort,
     );
-    return { service, anotadas, enviados, tareas };
+    return { service, anotadas, enviados, tareas, asignadas };
   }
 
   const REPORTE = {
@@ -226,6 +243,73 @@ describe('AgenteToolsService', () => {
 
     expect(r.ok).toBe(false);
     expect(anotadas).toHaveLength(0);
+  });
+
+  it('registrar el reporte CREA la tarea, sin esperar a que el agente la pida', async () => {
+    /*
+     * Esto es lo que estaba roto en producción: no se creaban tareas en
+     * HubSpot. Probado contra el agente real, registró el bache, le dijo al
+     * ciudadano "lo trasladamos a la cuadrilla de bacheo" y no llamó
+     * asignar_tarea — su propio plan decía asignarla. La misma promesa sin
+     * mecanismo que ya habíamos visto con el escalamiento.
+     */
+    const { service, tareas } = build();
+
+    await service.ejecutar('c1', 'registrar_reporte', REPORTE);
+
+    expect(tareas).toHaveLength(1);
+    expect(String(tareas[0]['titulo'])).toContain('Derrumbe');
+    expect(String(tareas[0]['titulo'])).toContain('Colonia Mirador del Pinar');
+    // Nace sin dueño: acá nadie sabe a quién le toca. Verla y repartirla es
+    // posible; que no exista, no.
+    expect(tareas[0]['ownerId']).toBeUndefined();
+  });
+
+  it('asignar responsable le pone dueño a ESA tarea, no crea una segunda', async () => {
+    // Dos tarjetas para el mismo bache, una sin nadie, es peor que la tarea
+    // original sin dueño.
+    const { service, tareas, asignadas } = build();
+
+    await service.ejecutar('c1', 'registrar_reporte', REPORTE);
+    const r = await service.ejecutar('c1', 'asignar_tarea', {
+      titulo: 'Inspeccionar talud',
+      responsable: 'Luis Vallecillo',
+      prioridad: 'HIGH',
+    });
+
+    expect(r.ok).toBe(true);
+    expect(tareas).toHaveLength(1); // la del reporte, no una nueva
+    expect(asignadas).toEqual([{ tareaId: 'T-9', ownerId: '77', prioridad: 'HIGH' }]);
+  });
+
+  it('asignar sin responsable NO duplica la tarea: devuelve la lista para elegir', async () => {
+    /*
+     * Probado contra el agente real: después de registrar llama asignar_tarea
+     * SIN responsable, porque no tiene de dónde sacar la lista hasta que se la
+     * damos. Sin este corte se creaba una segunda tarea para el mismo bache.
+     */
+    const { service, tareas } = build();
+
+    await service.ejecutar('c1', 'registrar_reporte', REPORTE);
+    const r = await service.ejecutar('c1', 'asignar_tarea', { titulo: 'Reparar el bache' });
+
+    expect(r.ok).toBe(false);
+    expect(tareas).toHaveLength(1);
+    expect(r.mensaje).toContain('Luis Vallecillo');
+    expect(r.mensaje).toContain('Rosa Díaz');
+  });
+
+  it('si la tarea del reporte falla, el ciudadano igual se queda con su folio', async () => {
+    // El ticket YA se abrió. Quedarse sin tarea es un problema del equipo;
+    // tirar el turno por eso sería un problema del vecino.
+    const { service, anotadas } = build();
+    const falla = { ...REPORTE };
+
+    const r = await service.ejecutar('c1', 'registrar_reporte', falla);
+
+    expect(r.ok).toBe(true);
+    expect(r.mensaje).toContain('AMDC-4417');
+    expect(anotadas.some((a) => a['ficha'])).toBe(true);
   });
 
   it('avisar a la cuadrilla sube el riesgo de la ficha sin que el agente lo pida', async () => {

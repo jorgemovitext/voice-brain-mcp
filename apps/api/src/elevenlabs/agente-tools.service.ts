@@ -2,6 +2,7 @@ import { Inject, Injectable, Logger } from '@nestjs/common';
 import { BrainService } from '../brain/brain.service';
 import { HubspotClient } from '../hubspot/hubspot.client';
 import { ChannelPort, WHATSAPP_CHANNEL } from '../ports/channel.port';
+import { SettingsService } from '../shared/settings.service';
 
 /** Lo que se le devuelve al agente para que siga la conversación. */
 export interface ResultadoHerramienta {
@@ -40,6 +41,7 @@ export class AgenteToolsService {
   constructor(
     private readonly brain: BrainService,
     private readonly hubspot: HubspotClient,
+    private readonly settings: SettingsService,
     @Inject(WHATSAPP_CHANNEL) private readonly whatsapp: ChannelPort,
   ) {}
 
@@ -51,6 +53,11 @@ export class AgenteToolsService {
     'escalar_a_humano',
     'actualizar_ficha',
   ] as const;
+
+  /** HubSpot solo acepta estas tres; el agente manda texto libre. */
+  private static prioridadValida(valor: string): 'LOW' | 'MEDIUM' | 'HIGH' {
+    return (['LOW', 'MEDIUM', 'HIGH'].includes(valor) ? valor : 'HIGH') as 'LOW' | 'MEDIUM' | 'HIGH';
+  }
 
   /**
    * Los campos del riel derecho, en el orden en que se dibujan.
@@ -172,7 +179,52 @@ export class AgenteToolsService {
     await this.anotar(contactId, 'ticket', true, `${tipo} en ${ubicacion} · folio ${folio}`);
     this.logger.log(`El agente abrió el ticket ${folio} para ${contactId}`);
 
+    /*
+     * El reporte se convierte en trabajo de alguien acá mismo.
+     *
+     * Depender de que el agente llame `asignar_tarea` no funciona: probado
+     * contra el agente real, registró el bache, le dijo al ciudadano "lo
+     * trasladamos a la cuadrilla de bacheo" y NO creó ninguna tarea — su
+     * propio plan decía asignarla. Es la misma promesa sin mecanismo que ya
+     * habíamos visto con el escalamiento.
+     *
+     * Nace sin dueño porque nadie acá sabe a quién le toca un bache en la
+     * Kennedy: eso lo pone `asignar_tarea` después, sobre ESTA misma tarea.
+     * Una tarea sin dueño se ve en el CRM y se puede repartir; una que no
+     * existe, no.
+     */
+    await this.tareaDelReporte(contactId, `Atender: ${tipo} en ${ubicacion}`, descripcion, telefono);
+
     return { ok: true, mensaje: `Reporte registrado con el folio ${folio}. Decíselo al ciudadano.` };
+  }
+
+  /**
+   * Crea la tarea del reporte y la deja anotada para poder asignarla después.
+   *
+   * No lanza: el ticket YA se abrió y el ciudadano ya tiene su folio. Quedarse
+   * sin tarea es un problema del equipo; tirar el turno por eso sería un
+   * problema del vecino.
+   */
+  private async tareaDelReporte(
+    contactId: string,
+    titulo: string,
+    detalle: string,
+    telefono?: string,
+  ): Promise<void> {
+    try {
+      const { id } = await this.hubspot.crearTarea({
+        titulo,
+        detalle,
+        contactoId: await this.contactoEnCrm(telefono),
+      });
+      // Para que `asignar_tarea` le ponga dueño a esta en vez de crear otra.
+      await this.settings.set(`tarea:${contactId}`, id);
+      await this.anotar(contactId, 'ticket', true, `${titulo} — tarea creada, sin responsable todavía`);
+    } catch (err) {
+      const motivo = (err as Error).message;
+      this.logger.warn(`No se pudo crear la tarea del reporte: ${motivo}`);
+      await this.anotar(contactId, 'ticket', false, `${titulo} — no se pudo crear la tarea: ${motivo}`);
+    }
   }
 
   /**
@@ -236,19 +288,48 @@ export class AgenteToolsService {
 
     const gente = await this.hubspot.responsables();
     const elegido = AgenteToolsService.buscarResponsable(gente, responsable);
+    const lista = () =>
+      gente.map((o) => AgenteToolsService.nombreDe(o)).filter(Boolean).slice(0, 12).join(', ');
+
     if (responsable && !elegido) {
       // Se le devuelve la lista real en vez de asignarle a cualquiera: una
       // tarea en la bandeja equivocada es peor que una sin dueño.
-      const nombres = gente.map((o) => AgenteToolsService.nombreDe(o)).filter(Boolean).slice(0, 12);
       return {
         ok: false,
-        mensaje: `No encontré a "${responsable}". Los responsables disponibles son: ${nombres.join(', ')}.`,
+        mensaje: `No encontré a "${responsable}". Los responsables disponibles son: ${lista()}.`,
       };
     }
 
     const ctx = await this.brain.getContext({ contactId });
     const tipo = String(args['tipo'] ?? 'TODO').toUpperCase();
     const prioridad = String(args['prioridad'] ?? 'HIGH').toUpperCase();
+
+    /*
+     * Registrar el reporte ya dejó una tarea sin dueño. Si esa sigue ahí, se le
+     * pone responsable en vez de crear una segunda: el equipo vería dos tarjetas
+     * para el mismo bache y una de ellas sin nadie, que es peor que el problema
+     * original.
+     */
+    const pendiente = await this.settings.get<string>(`tarea:${contactId}`);
+    if (pendiente && !elegido) {
+      /*
+       * Probado contra el agente real: llama esta herramienta SIN responsable,
+       * porque no tiene de dónde sacar la lista hasta que se la damos. Sin este
+       * corte caía a crear otra tarea y quedaban dos para el mismo bache.
+       */
+      return {
+        ok: false,
+        mensaje: `La tarea ya está creada; lo único que falta es el responsable. Volvé a llamarme con uno de estos: ${lista()}.`,
+      };
+    }
+    if (pendiente && elegido) {
+      await this.hubspot.asignarTarea(pendiente, elegido.id, AgenteToolsService.prioridadValida(prioridad));
+      await this.settings.set(`tarea:${contactId}`, '');
+      const aQuien = AgenteToolsService.nombreDe(elegido);
+      await this.anotar(contactId, 'ticket', true, `Tarea "${titulo}" → ${aQuien}`);
+      this.logger.log(`El agente asignó la tarea del reporte a ${aQuien}`);
+      return { ok: true, mensaje: `Tarea asignada a ${aQuien}. Decile al ciudadano que ya tiene responsable.` };
+    }
 
     const { id } = await this.hubspot.crearTarea({
       titulo,
@@ -259,10 +340,7 @@ export class AgenteToolsService {
         .filter(Boolean)
         .join('\n\n'),
       tipo: (['EMAIL', 'CALL', 'TODO'].includes(tipo) ? tipo : 'TODO') as 'EMAIL' | 'CALL' | 'TODO',
-      prioridad: (['LOW', 'MEDIUM', 'HIGH'].includes(prioridad) ? prioridad : 'HIGH') as
-        | 'LOW'
-        | 'MEDIUM'
-        | 'HIGH',
+      prioridad: AgenteToolsService.prioridadValida(prioridad),
       ownerId: elegido?.id,
       contactoId: await this.contactoEnCrm(ctx.contact.phones?.[0]),
     });

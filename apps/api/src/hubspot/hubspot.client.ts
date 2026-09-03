@@ -357,6 +357,26 @@ export class HubspotClient {
     });
   }
 
+  /**
+   * Le pone dueño a una tarea que ya existe.
+   *
+   * Registrar un reporte crea la tarea sin responsable —acá nadie sabe a quién
+   * le toca un bache en la Kennedy— y el agente se lo pone después. Modificar
+   * es lo correcto y no crear otra: dos tarjetas para el mismo bache, una sin
+   * nadie, es peor que la tarea original sin dueño.
+   */
+  async asignarTarea(
+    tareaId: string,
+    ownerId: string,
+    prioridad?: 'LOW' | 'MEDIUM' | 'HIGH',
+  ): Promise<void> {
+    await this.pedir(
+      `/crm/v3/objects/tasks/${tareaId}`,
+      { properties: { hubspot_owner_id: ownerId, ...(prioridad ? { hs_task_priority: prioridad } : {}) } },
+      'PATCH',
+    );
+  }
+
   async crearTicket(
     props: Record<string, string>,
     telefono?: string,

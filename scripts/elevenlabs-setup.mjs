@@ -67,9 +67,10 @@ const HERRAMIENTAS = [
   {
     name: 'asignar_tarea',
     description:
-      'Asigna el trabajo a un responsable del equipo municipal, en el CRM. Si no ' +
-      'sabés a quién, llamala sin responsable y te devuelve la lista de los que ' +
-      'existen. Nunca inventes un nombre.',
+      'Le pone responsable a la tarea del reporte, en el CRM. Usala SIEMPRE justo ' +
+      'después de registrar_reporte: esa tarea nace sin dueño y sin dueño no la ' +
+      'atiende nadie. Si no sabés a quién le toca, llamala sin responsable y te ' +
+      'devuelve la lista real del portal. Nunca inventes un nombre.',
     props: {
       titulo: ['Qué hay que hacer', true],
       responsable: ['Nombre o email; si no existe se devuelven los que sí', false],
