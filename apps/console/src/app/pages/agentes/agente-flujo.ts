@@ -248,12 +248,27 @@ export class AgenteFlujoPage {
   private arrastrando: { id: string; dx: number; dy: number } | null = null;
 
   empezarArrastre(e: PointerEvent, n: NodoFlujo): void {
+    /*
+     * Seleccionar va PRIMERO y sin depender de nada.
+     *
+     * Estaba al final, después de calcular el arrastre y de tomar el puntero:
+     * cualquier fallo ahí —un `ownerSVGElement` nulo, un `setPointerCapture`
+     * que el navegador rechaza— se llevaba también la selección, y tocar una
+     * caja no hacía absolutamente nada. Seleccionar es lo que el usuario
+     * siempre quiso; arrastrar es lo que quizás quiera después.
+     */
+    this.seleccionar(n.id);
+
     const svg = (e.currentTarget as SVGElement).ownerSVGElement;
     if (!svg) return;
     const p = this.aCoordenadas(e, svg);
     this.arrastrando = { id: n.id, dx: p.x - n.x, dy: p.y - n.y };
-    (e.currentTarget as Element).setPointerCapture(e.pointerId);
-    this.seleccionar(n.id);
+    try {
+      (e.currentTarget as Element).setPointerCapture(e.pointerId);
+    } catch {
+      // Sin captura el arrastre sigue andando mientras el puntero esté encima;
+      // solo se pierde si se sale del lienzo. No vale romper el turno por eso.
+    }
   }
 
   moverArrastre(e: PointerEvent): void {

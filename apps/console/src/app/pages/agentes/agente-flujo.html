@@ -1,33 +1,32 @@
 @if (datos.isLoading()) {
   <div class="state"><div class="spinner"></div>Cargando el flujo…</div>
 } @else {
-  <div class="flujo">
-    <header class="cabecera">
-      <a class="volver" [routerLink]="['/agentes', id()]">‹</a>
-      <div class="cabecera__titulo">
-        <h1>Flujo · {{ valorDe(agente)?.nombre ?? '' }}</h1>
-        <p>El orden de la conversación. Una fase no pasa a la siguiente hasta que se cumple su condición.</p>
-      </div>
-      <div class="cabecera__acciones">
-        <button class="btn btn--ghost" (click)="agregar('fase')">+ Fase</button>
-        <button class="btn btn--ghost" (click)="agregar('accion')">+ Acción</button>
-        <button class="btn btn--ghost" (click)="agregar('fin')">+ Fin</button>
-        <button class="btn btn--ghost" (click)="ordenar()" title="Acomoda las cajas sin tocar el contenido">
-          Ordenar
-        </button>
-        <button class="btn btn--primary" [disabled]="guardando()" (click)="guardar()">
+  <div class="editor">
+    <!-- ===== Panel claro: el lienzo ===== -->
+    <section class="obra">
+      <header class="obra__head">
+        <a class="obra__back" [routerLink]="['/agentes', id()]" title="Volver al agente">‹</a>
+        <div class="obra__who">
+          <div class="obra__name">{{ valorDe(agente)?.nombre ?? 'Flujo' }}</div>
+          <div class="obra__meta">
+            {{ nodos().length }} {{ nodos().length === 1 ? 'paso' : 'pasos' }} ·
+            {{ aristas().length }} {{ aristas().length === 1 ? 'conexión' : 'conexiones' }}
+          </div>
+        </div>
+        <button class="obra__guardar obra__guardar--on" [disabled]="guardando()" (click)="guardar()">
           {{ guardando() ? 'Guardando…' : 'Guardar flujo' }}
         </button>
+      </header>
+
+      <!-- Las piezas que se pueden soltar en el lienzo, como solapas. -->
+      <div class="vistatab" role="toolbar">
+        <button class="vistatab__op" (click)="agregar('fase')">+ Fase</button>
+        <button class="vistatab__op" (click)="agregar('accion')">+ Acción</button>
+        <button class="vistatab__op" (click)="agregar('fin')">+ Fin</button>
+        <button class="vistatab__op vistatab__op--suave" (click)="ordenar()"
+                title="Acomoda las cajas sin tocar el contenido">Ordenar</button>
       </div>
-    </header>
 
-    @if (aviso(); as m) { <div class="aviso">{{ m }}</div> }
-    @for (p of problemas(); track p) { <div class="problema">⚠ {{ p }}</div> }
-    @if (conectandoDesde()) {
-      <div class="aviso aviso--conectando">Elegí a dónde va la flecha. (Clic otra vez en el mismo paso para cancelar.)</div>
-    }
-
-    <div class="lienzo-y-panel">
       <div class="lienzo">
         <svg
           [attr.viewBox]="lienzo().vista"
@@ -37,7 +36,10 @@
           (pointerup)="terminarArrastre()">
           <defs>
             <marker id="punta" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto">
-              <path d="M0 0 L10 5 L0 10 z" fill="#4a5f85" />
+              <path d="M0 0 L10 5 L0 10 z" fill="#9db0c9" />
+            </marker>
+            <marker id="punta-on" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+              <path d="M0 0 L10 5 L0 10 z" fill="#00a3dd" />
             </marker>
           </defs>
 
@@ -47,7 +49,8 @@
               <!-- Trazo ancho e invisible: acertarle a una línea de 2px con el
                    mouse es incómodo, así que el blanco es más grande que el dibujo. -->
               <path class="arista__blanco" [attr.d]="camino(a)" />
-              <path class="arista__linea" [attr.d]="camino(a)" marker-end="url(#punta)" />
+              <path class="arista__linea" [attr.d]="camino(a)"
+                    [attr.marker-end]="seleccionArista() === a.id ? 'url(#punta-on)' : 'url(#punta)'" />
               @if (a.condicion && medio(a); as m) {
                 <text class="arista__texto" [attr.x]="m.x" [attr.y]="m.y" text-anchor="middle">
                   {{ recorte(a.condicion, 18) }}
@@ -58,15 +61,17 @@
 
           @for (n of nodos(); track n.id) {
             <g
-              class="nodo"
               [class]="'nodo nodo--' + n.tipo"
               [class.nodo--sel]="seleccion() === n.id"
               [class.nodo--origen]="conectandoDesde() === n.id"
               [attr.transform]="'translate(' + n.x + ',' + n.y + ')'"
               (pointerdown)="empezarArrastre($event, n)">
-              <rect class="nodo__caja" [attr.width]="ANCHO" [attr.height]="ALTO" rx="14" />
-              <text class="nodo__tipo" x="12" y="20">{{ n.tipo }}</text>
-              <text class="nodo__titulo" x="12" y="42">{{ recorte(titulo(n), 22) }}</text>
+              <rect class="nodo__sombra" [attr.width]="ANCHO" [attr.height]="ALTO" x="0" y="2" rx="16" />
+              <rect class="nodo__caja" [attr.width]="ANCHO" [attr.height]="ALTO" rx="16" />
+              <!-- Filo de color a la izquierda: identifica el tipo sin leer. -->
+              <rect class="nodo__filo" width="4" [attr.height]="ALTO - 20" x="0" y="10" rx="2" />
+              <text class="nodo__tipo" x="16" y="22">{{ n.tipo }}</text>
+              <text class="nodo__titulo" x="16" y="44">{{ recorte(titulo(n), 20) }}</text>
 
               <!-- Salida: el punto del que se tira la flecha. El nodo final no
                    tiene, porque después de terminar no sigue nada. -->
@@ -86,12 +91,22 @@
           }
         </svg>
       </div>
+    </section>
 
-      <!-- Panel de la derecha: lo que se puede cambiar de lo seleccionado -->
-      <aside class="panel">
-        @if (nodoSeleccionado(); as n) {
-          <h2>{{ titulo(n) }}</h2>
+    <!-- ===== Riel oscuro: qué es lo seleccionado ===== -->
+    <aside class="riel">
+      @if (conectandoDesde()) {
+        <div class="riel__cuidado">
+          Elegí a dónde va la flecha. Clic otra vez en el mismo paso para cancelar.
+        </div>
+      }
+      @for (p of problemas(); track p) { <div class="riel__cuidado">⚠ {{ p }}</div> }
+      @if (aviso(); as m) { <div class="riel__ok">{{ m }}</div> }
 
+      @if (nodoSeleccionado(); as n) {
+        <div class="riel__badge"><span class="riel__dot"></span> {{ titulo(n) }}</div>
+
+        <div class="riel__scroll">
           @if (n.tipo === 'fase') {
             <label class="campo">
               <span>Nombre</span>
@@ -100,13 +115,10 @@
 
             <label class="campo">
               <span>Instrucciones de esta fase</span>
-              <textarea
-                rows="7"
-                [value]="n.instrucciones ?? ''"
-                (input)="cambiarInstrucciones($event)"
-                placeholder="Pedí el problema, la ubicación y la descripción. Una cosa a la vez."></textarea>
+              <textarea rows="7" [value]="n.instrucciones ?? ''" (input)="cambiarInstrucciones($event)"
+                        placeholder="Pedí el problema, la ubicación y la descripción. Una cosa a la vez."></textarea>
             </label>
-            <p class="nota">
+            <p class="riel__nota">
               Se SUMA a las instrucciones generales del agente mientras está en esta fase;
               no las reemplaza.
             </p>
@@ -123,9 +135,9 @@
 
           @if (n.tipo === 'fase' || n.tipo === 'accion') {
             <div class="campo">
-              <span>Herramientas {{ n.tipo === 'accion' ? '(se ejecutan al llegar acá)' : '(disponibles en esta fase)' }}</span>
+              <span>{{ n.tipo === 'accion' ? 'Se ejecutan al llegar acá' : 'Disponibles en esta fase' }}</span>
               @for (h of herramientas(); track h.id) {
-                <label class="chk">
+                <label class="chk" [class.chk--on]="tiene(n, h.nombre)">
                   <input type="checkbox" [checked]="tiene(n, h.nombre)" (change)="alternarHerramienta(h.nombre)" />
                   <span>{{ h.nombre }}</span>
                 </label>
@@ -134,39 +146,41 @@
           }
 
           @if (n.tipo === 'inicio') {
-            <p class="nota">Por acá empieza toda conversación. No se puede borrar ni renombrar.</p>
+            <p class="riel__nota">Por acá empieza toda conversación. No se puede borrar ni renombrar.</p>
           }
           @if (n.tipo === 'fin') {
-            <p class="nota">Al llegar acá la conversación termina.</p>
+            <p class="riel__nota">Al llegar acá la conversación termina.</p>
           }
 
           @if (n.tipo !== 'inicio') {
-            <button class="btn btn--ghost btn--peligro" (click)="borrarNodo()">Borrar paso</button>
+            <button class="btn-riel btn-riel--mal" (click)="borrarNodo()">Borrar paso</button>
           }
-        } @else if (aristaSeleccionada(); as a) {
-          <h2>Conexión</h2>
+        </div>
+      } @else if (aristaSeleccionada(); as a) {
+        <div class="riel__badge"><span class="riel__dot"></span> Conexión</div>
+
+        <div class="riel__scroll">
           <label class="campo">
             <span>Condición para pasar</span>
-            <input
-              [value]="a.condicion ?? ''"
-              (input)="cambiarCondicion($event)"
-              placeholder="cuando ya tengas la ubicación" />
+            <input [value]="a.condicion ?? ''" (input)="cambiarCondicion($event)"
+                   placeholder="cuando ya tengas la ubicación" />
           </label>
-          <p class="nota">
-            En lenguaje natural: la evalúa el modelo en cada turno. Vacío significa
-            que se pasa siempre.
+          <p class="riel__nota">
+            En lenguaje natural: la evalúa el modelo en cada turno. Vacío significa que se
+            pasa siempre.
           </p>
-          <button class="btn btn--ghost btn--peligro" (click)="borrarArista()">Borrar conexión</button>
-        } @else {
-          <div class="panel__vacio">
-            <p>Elegí un paso o una flecha para editarlo.</p>
-            <p class="nota">
-              Para conectar dos pasos, hacé clic en el punto del borde derecho de uno
-              y después en el otro.
-            </p>
-          </div>
-        }
-      </aside>
-    </div>
+          <button class="btn-riel btn-riel--mal" (click)="borrarArista()">Borrar conexión</button>
+        </div>
+      } @else {
+        <div class="riel__badge"><span class="riel__dot riel__dot--gris"></span> Nada seleccionado</div>
+        <div class="riel__scroll">
+          <p class="riel__nota">Tocá un paso o una flecha del lienzo para editarlo.</p>
+          <p class="riel__nota">
+            Para conectar dos pasos: clic en el punto del borde derecho de uno, después en
+            el otro.
+          </p>
+        </div>
+      }
+    </aside>
   </div>
 }

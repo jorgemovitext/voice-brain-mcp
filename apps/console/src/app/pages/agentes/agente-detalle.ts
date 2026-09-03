@@ -46,6 +46,23 @@ export class AgenteDetallePage {
   readonly guardando = signal(false);
   readonly aviso = signal<string | null>(null);
 
+  /**
+   * Las cuatro caras del editor.
+   *
+   * Antes iban una debajo de otra y el prompt —que es lo que más se toca—
+   * quedaba enterrado bajo la lista de herramientas apenas crecía. Con solapas
+   * cada cara ocupa el alto completo y el banco de pruebas queda siempre a la
+   * vista al lado, que es el ciclo real: escribir, probar, corregir.
+   */
+  protected readonly SOLAPAS = [
+    { id: 'instrucciones', titulo: 'Instrucciones' },
+    { id: 'herramientas', titulo: 'Herramientas' },
+    { id: 'ajustes', titulo: 'Ajustes' },
+    { id: 'contexto', titulo: 'Contexto' },
+  ] as const;
+
+  readonly solapa = signal<string>('instrucciones');
+
   constructor() {
     /*
      * El borrador se siembra cuando llega el agente, una sola vez por carga.

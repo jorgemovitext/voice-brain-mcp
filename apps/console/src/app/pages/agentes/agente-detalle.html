@@ -2,180 +2,175 @@
   <div class="state"><div class="spinner"></div>Cargando agente…</div>
 } @else if (valorDe(agente); as a) {
   <div class="editor">
-    <header class="cabecera">
-      <a class="volver" routerLink="/agentes">‹</a>
-      <div class="cabecera__titulo">
-        <h1>{{ a.nombre }}</h1>
-        <p>
-          @if (a.enUso) { Atiende WhatsApp ahora mismo · }
-          {{ a.idioma }} · {{ a.documentos }} {{ a.documentos === 1 ? 'documento' : 'documentos' }}
-        </p>
-      </div>
-      <div class="cabecera__acciones">
-        <a class="btn btn--ghost" [routerLink]="['/agentes', id(), 'flujo']">Flujo</a>
-        <button class="btn btn--ghost" (click)="duplicar()">Duplicar</button>
-        @if (!a.enUso) {
-          <button class="btn btn--ghost btn--peligro" (click)="eliminar()">
-            {{ confirmandoBorrado() ? '¿Seguro? Borrar' : 'Borrar' }}
-          </button>
-        }
-        <button class="btn btn--primary" [disabled]="!hayCambios() || guardando()" (click)="guardar()">
+    <!-- ===== Panel claro: lo que se configura ===== -->
+    <section class="obra">
+      <header class="obra__head">
+        <a class="obra__back" routerLink="/agentes" title="Volver">‹</a>
+        <div class="obra__who">
+          <div class="obra__name">{{ a.nombre }}</div>
+          <div class="obra__meta">
+            @if (a.enUso) { Atiende WhatsApp ahora mismo · }
+            {{ a.idioma }} · {{ a.documentos }} {{ a.documentos === 1 ? 'documento' : 'documentos' }}
+          </div>
+        </div>
+        <a class="obra__flujo" [routerLink]="['/agentes', id(), 'flujo']" title="Ver el flujo de la conversación">
+          Flujo
+        </a>
+        <button class="obra__guardar" [class.obra__guardar--on]="hayCambios()"
+                [disabled]="!hayCambios() || guardando()" (click)="guardar()">
           {{ guardando() ? 'Guardando…' : 'Guardar' }}
         </button>
+      </header>
+
+      <!-- Solapas: el editor tiene cuatro caras y una sola cabe a la vez.
+           Mismo recurso que el hilo (Chat / Ruta / Flujo). -->
+      <div class="vistatab" role="tablist">
+        @for (s of SOLAPAS; track s.id) {
+          <button class="vistatab__op" role="tab"
+                  [class.vistatab__op--on]="solapa() === s.id"
+                  (click)="solapa.set(s.id)">
+            {{ s.titulo }}
+            @if (s.id === 'herramientas') { <span class="vistatab__num">{{ enganchadas().size }}</span> }
+          </button>
+        }
       </div>
-    </header>
 
-    @if (aviso(); as m) { <div class="aviso">{{ m }}</div> }
+      <div class="obra__scroll">
+        @switch (solapa()) {
+          @case ('instrucciones') {
+            <p class="pista">
+              Lo que el agente sabe de sí mismo: quién es, cómo habla, qué hace en cada
+              situación. Es lo que más cambia su comportamiento.
+            </p>
+            <textarea class="prompt" [value]="instrucciones()" (input)="escribirInstrucciones($event)"
+                      placeholder="Sos el asistente de…"></textarea>
+          }
 
-    <div class="columnas">
-      <!-- Izquierda: lo que el agente dice y puede hacer -->
-      <div class="columna">
-        <section class="card bloque">
-          <h2>Instrucciones</h2>
-          <p class="bloque__nota">
-            Lo que el agente sabe de sí mismo: quién es, cómo habla, qué hace en cada
-            situación. Es lo que más cambia su comportamiento.
-          </p>
-          <textarea
-            class="prompt"
-            rows="18"
-            [value]="instrucciones()"
-            (input)="escribirInstrucciones($event)"
-            placeholder="Sos el asistente de…"></textarea>
-        </section>
+          @case ('herramientas') {
+            <p class="pista">
+              Lo que puede HACER, no solo decir. Las marcadas las ejecuta esta app contra
+              el CRM y los canales.
+            </p>
+            @for (h of herramientas(); track h.id) {
+              <label class="herramienta" [class.herramienta--on]="enganchadas().has(h.nombre)">
+                <input type="checkbox" [checked]="enganchadas().has(h.nombre)"
+                       (change)="alternarHerramienta(h.nombre)" />
+                <span class="herramienta__cuerpo">
+                  <b>
+                    {{ h.nombre }}
+                    @if (h.esencial) { <span class="marca">motor Línea 100</span> }
+                  </b>
+                  <i>{{ h.descripcion }}</i>
+                </span>
+              </label>
+            } @empty {
+              <div class="vacio">No hay herramientas en la cuenta todavía.</div>
+            }
+          }
 
-        <section class="card bloque">
-          <h2>Herramientas</h2>
-          <p class="bloque__nota">
-            Lo que puede HACER, no solo decir. Las marcadas las ejecuta esta app
-            contra el CRM y los canales.
-          </p>
-          @for (h of herramientas(); track h.id) {
-            <label class="herramienta" [class.herramienta--on]="enganchadas().has(h.nombre)">
-              <input
-                type="checkbox"
-                [checked]="enganchadas().has(h.nombre)"
-                (change)="alternarHerramienta(h.nombre)" />
-              <span class="herramienta__cuerpo">
-                <b>
-                  {{ h.nombre }}
-                  @if (h.esencial) { <span class="pill pill--primary">motor Línea 100</span> }
-                </b>
-                <i>{{ h.descripcion }}</i>
+          @case ('ajustes') {
+            <label class="ajuste">
+              <input type="checkbox" [checked]="soloTexto()" (change)="alternarSoloTexto()" />
+              <span class="ajuste__cuerpo">
+                <b>Solo texto</b>
+                <!-- Es la trampa más cara de este panel: apaga el motor de voz y el
+                     agente deja de poder levantar llamadas, sin decir por qué. -->
+                <i>Apaga el motor de voz. Con esto encendido el agente NO puede atender llamadas.</i>
               </span>
             </label>
-          } @empty {
-            <div class="bloque__vacio">No hay herramientas en la cuenta todavía.</div>
-          }
-        </section>
 
-        <section class="card bloque">
-          <h2>Ajustes</h2>
-          <label class="ajuste">
-            <input type="checkbox" [checked]="soloTexto()" (change)="alternarSoloTexto()" />
-            <span class="ajuste__cuerpo">
-              <b>Solo texto</b>
-              <!-- Es la trampa más cara de este panel: apaga el motor de voz y
-                   el agente deja de poder levantar llamadas, sin decir por qué. -->
-              <i>Apaga el motor de voz. Con esto encendido el agente NO puede atender llamadas.</i>
-            </span>
-          </label>
+            <label class="campo">
+              <span>Primer mensaje</span>
+              <input [value]="primerMensaje()" (input)="escribirPrimerMensaje($event)"
+                     placeholder="Vacío: habla primero la persona" />
+            </label>
+            <p class="pista">
+              En WhatsApp conviene dejarlo vacío: un saludo automático llega antes de que
+              el vecino escriba.
+            </p>
 
-          <label class="campo">
-            <span>Primer mensaje</span>
-            <input
-              [value]="primerMensaje()"
-              (input)="escribirPrimerMensaje($event)"
-              placeholder="Vacío: habla primero la persona" />
-          </label>
-          <p class="bloque__nota">
-            En WhatsApp conviene dejarlo vacío: un saludo automático llega antes de
-            que el vecino escriba.
-          </p>
+            @if (a.variables.length) {
+              <div class="variables">
+                <span>Variables que recibe:</span>
+                @for (v of a.variables; track v) { <code>{{ v }}</code> }
+              </div>
+            }
 
-          @if (a.variables.length) {
-            <div class="variables">
-              <span>Variables que recibe:</span>
-              @for (v of a.variables; track v) { <code>{{ v }}</code> }
+            <div class="peligro">
+              <button class="btn-claro" (click)="duplicar()">Duplicar agente</button>
+              @if (!a.enUso) {
+                <button class="btn-claro btn-claro--mal" (click)="eliminar()">
+                  {{ confirmandoBorrado() ? '¿Seguro? Borrar' : 'Borrar agente' }}
+                </button>
+              }
             </div>
           }
-        </section>
 
-        <section class="card bloque">
-          <h2>Contexto</h2>
-          <p class="bloque__nota">
-            Información que el agente puede consultar mientras conversa: horarios,
-            zonas, procedimientos. No va en las instrucciones — se busca cuando hace falta.
-          </p>
-          <label class="campo">
-            <span>Título</span>
-            <input [value]="tituloContexto()" (input)="escribirTitulo($event)" placeholder="Horarios de atención" />
-          </label>
-          <textarea
-            class="prompt prompt--corto"
-            rows="5"
-            [value]="textoContexto()"
-            (input)="escribirTexto($event)"
-            placeholder="La Línea 100 atiende…"></textarea>
-          <button
-            class="btn btn--ghost"
-            [disabled]="!tituloContexto().trim() || !textoContexto().trim() || subiendo()"
-            (click)="agregarContexto()">
-            {{ subiendo() ? 'Subiendo…' : 'Agregar contexto' }}
-          </button>
-        </section>
-      </div>
-
-      <!-- Derecha: probarlo -->
-      <div class="columna columna--prueba">
-        <section class="card bloque bloque--prueba">
-          <h2>
-            Probarlo
-            @if (conversacion().length) {
-              <button class="limpiar" (click)="limpiarPrueba()">limpiar</button>
-            }
-          </h2>
-          <p class="bloque__nota">
-            Hablás con el agente <b>como está guardado</b>. Las herramientas se
-            simulan: no se abren tickets ni se manda nada a nadie.
-          </p>
-          @if (hayCambios()) {
-            <div class="bloque__cuidado">Tenés cambios sin guardar: la prueba usa la versión guardada.</div>
-          }
-
-          <div class="prueba">
-            @for (t of conversacion(); track $index) {
-              <div class="turno" [class.turno--agente]="t.de === 'agente'">
-                <div class="turno__burbuja">{{ t.texto }}</div>
-                @for (h of t.herramientas ?? []; track $index) {
-                  <!-- Lo que HARÍA en producción: es la mitad de lo que se prueba. -->
-                  <div class="turno__accion">
-                    <b>{{ h.nombre }}</b>
-                    <i>{{ argumentos(h.args) }}</i>
-                  </div>
-                }
-              </div>
-            } @empty {
-              <div class="prueba__vacio">
-                Escribí como si fueras un vecino y mirá qué contesta.
-              </div>
-            }
-            @if (probando()) { <div class="prueba__pensando">El agente está pensando…</div> }
-          </div>
-
-          <div class="prueba__entrada">
-            <input
-              [value]="mensaje()"
-              (input)="escribirMensaje($event)"
-              (keydown.enter)="enviar()"
-              placeholder="Hay un derrumbe en la colonia…" />
-            <button class="btn btn--secondary" [disabled]="!mensaje().trim() || probando()" (click)="enviar()">
-              Enviar
+          @case ('contexto') {
+            <p class="pista">
+              Información que el agente puede consultar mientras conversa: horarios, zonas,
+              procedimientos. No va en las instrucciones — se busca cuando hace falta.
+            </p>
+            <label class="campo">
+              <span>Título</span>
+              <input [value]="tituloContexto()" (input)="escribirTitulo($event)"
+                     placeholder="Horarios de atención" />
+            </label>
+            <textarea class="prompt prompt--corto" [value]="textoContexto()" (input)="escribirTexto($event)"
+                      placeholder="La Línea 100 atiende…"></textarea>
+            <button class="btn-claro"
+                    [disabled]="!tituloContexto().trim() || !textoContexto().trim() || subiendo()"
+                    (click)="agregarContexto()">
+              {{ subiendo() ? 'Subiendo…' : 'Agregar contexto' }}
             </button>
-          </div>
-        </section>
+          }
+        }
       </div>
-    </div>
+
+      @if (aviso(); as m) { <div class="obra__aviso">{{ m }}</div> }
+    </section>
+
+    <!-- ===== Riel oscuro: probarlo en vivo ===== -->
+    <aside class="riel">
+      <div class="riel__badge">
+        <span class="riel__dot"></span> Banco de pruebas
+        @if (conversacion().length) {
+          <button class="riel__limpiar" (click)="limpiarPrueba()">limpiar</button>
+        }
+      </div>
+
+      <p class="riel__nota">
+        Hablás con el agente <b>como está guardado</b>. Las herramientas se simulan: no se
+        abren tickets ni se manda nada a nadie.
+      </p>
+      @if (hayCambios()) {
+        <div class="riel__cuidado">Tenés cambios sin guardar: la prueba usa la versión guardada.</div>
+      }
+
+      <div class="prueba">
+        @for (t of conversacion(); track $index) {
+          <div class="turno" [class.turno--agente]="t.de === 'agente'">
+            <div class="turno__burbuja">{{ t.texto }}</div>
+            @for (h of t.herramientas ?? []; track $index) {
+              <!-- Lo que HARÍA en producción: es la mitad de lo que se prueba. -->
+              <div class="turno__accion">
+                <b>{{ h.nombre }}</b>
+                <i>{{ argumentos(h.args) }}</i>
+              </div>
+            }
+          </div>
+        } @empty {
+          <div class="prueba__vacio">Escribí como si fueras un vecino y mirá qué contesta.</div>
+        }
+        @if (probando()) { <div class="prueba__pensando">El agente está pensando…</div> }
+      </div>
+
+      <div class="prueba__entrada">
+        <input [value]="mensaje()" (input)="escribirMensaje($event)" (keydown.enter)="enviar()"
+               placeholder="Hay un derrumbe en la colonia…" />
+        <button [disabled]="!mensaje().trim() || probando()" (click)="enviar()" title="Enviar">→</button>
+      </div>
+    </aside>
   </div>
 } @else {
   <div class="state state--error">No se pudo cargar el agente.</div>

@@ -1,159 +1,260 @@
+/*
+ * Mismo lenguaje que el hilo (contact-detail): panel claro a la izquierda con
+ * lo que se edita, riel oscuro a la derecha con lo que pasa en vivo, y los dos
+ * montados uno sobre otro como solapas.
+ *
+ * Los valores de la superposición —margen negativo, borde claro arriba y dos
+ * sombras— salen de ahí a propósito: si se apartan, las dos pantallas dejan de
+ * leerse como la misma app.
+ */
 .editor {
-  padding: 1.2rem 1.4rem 2rem;
-  color: var(--ink);
+  display: grid;
+  grid-template-columns: minmax(320px, 1.05fr) minmax(300px, 360px);
+  gap: 0; /* pegados: cada panel se superpone al anterior */
   height: 100%;
-  overflow-y: auto;
+  min-height: 0;
 }
 
-.cabecera {
+@media (max-width: 900px) {
+  .editor { grid-template-columns: 1fr; }
+  .riel { display: none; }
+}
+
+/* ================= Panel claro: lo que se configura ================= */
+
+.obra {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  border-radius: 26px;
+  border: 1px solid var(--chat-border);
+  background: var(--chat-bg);
+  color: var(--chat-ink);
+  overflow: hidden;
+}
+
+.obra__head {
+  flex-shrink: 0;
   display: flex;
   align-items: center;
-  gap: 0.8rem;
-  margin-bottom: 1rem;
+  gap: 0.7rem;
+  /* El riel se monta 26px sobre este panel: sin este hueco a la derecha, el
+     botón Guardar queda debajo de él y no se puede tocar. */
+  padding: 0.9rem calc(1.1rem + 26px) 0.6rem 1.1rem;
 }
 
-.volver {
+.obra__back {
   display: grid;
   place-items: center;
-  width: 30px;
-  height: 30px;
+  width: 28px;
+  height: 28px;
   flex-shrink: 0;
   border-radius: 999px;
-  border: 1px solid var(--border);
-  color: var(--ink);
+  color: var(--chat-ink-soft);
   text-decoration: none;
   font-size: 1.2rem;
   line-height: 1;
 
-  &:hover { border-color: var(--secondary); }
+  &:hover { background: rgba(24, 35, 51, 0.06); color: var(--chat-ink); }
 }
 
-.cabecera__titulo {
+.obra__who {
   flex: 1;
   min-width: 0;
-
-  h1 { margin: 0; font-size: 1.25rem; font-weight: 800; }
-  p { margin: 0.1rem 0 0; color: var(--ink-soft); font-size: 0.8rem; }
 }
 
-.cabecera__acciones {
-  display: flex;
-  gap: 0.5rem;
+.obra__name {
+  font-weight: 800;
+  font-size: 1rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.obra__meta {
+  font-size: 0.76rem;
+  color: var(--chat-ink-soft);
+}
+
+.obra__flujo {
   flex-shrink: 0;
+  padding: 0.32rem 0.8rem;
+  border-radius: 999px;
+  border: 1.5px solid var(--chat-border);
+  color: var(--chat-ink);
+  text-decoration: none;
+  font-size: 0.78rem;
+  font-weight: 700;
+
+  &:hover { border-color: var(--secondary); color: #0284a8; }
 }
 
-.btn--peligro {
-  color: var(--negative);
-  border-color: rgba(248, 113, 113, 0.4);
+.obra__guardar {
+  flex-shrink: 0;
+  padding: 0.34rem 0.9rem;
+  border-radius: 999px;
+  border: 0;
+  background: rgba(24, 35, 51, 0.08);
+  color: var(--chat-ink-soft);
+  font: inherit;
+  font-size: 0.78rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 0.18s, color 0.18s;
+
+  /* Solo se enciende cuando hay algo que guardar: un botón naranja permanente
+     deja de significar "hay trabajo sin guardar". */
+  &--on:not(:disabled) {
+    background: var(--primary);
+    color: #fff;
+  }
+
+  &:disabled { cursor: default; }
 }
 
-.aviso {
-  margin-bottom: 0.9rem;
-  padding: 0.5rem 0.8rem;
-  border-radius: 10px;
-  background: rgba(0, 186, 254, 0.1);
-  border: 1px solid rgba(0, 186, 254, 0.25);
-  font-size: 0.83rem;
+/* --- Solapas: mismo recurso que Chat / Ruta / Flujo en el hilo --- */
+
+.vistatab {
+  flex-shrink: 0;
+  align-self: flex-start;
+  margin: 0.1rem 0 0 1rem;
+  display: inline-flex;
+  gap: 0.15rem;
 }
 
-/* Dos columnas: editar a la izquierda, probar a la derecha. El ciclo de
-   configurar es cambiar-probar-cambiar, y con el chat en otra pestaña habría
-   que recordar qué se tocó entre una y otra. */
-.columnas {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 26rem);
-  gap: 1rem;
-  align-items: start;
-}
+.vistatab__op {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  font: inherit;
+  font-size: 0.72rem;
+  font-weight: 800;
+  color: var(--chat-ink-soft);
+  background: transparent;
+  border: 0;
+  padding: 0.24rem 0.55rem 0.4rem;
+  cursor: pointer;
+  transition: color 0.18s;
 
-@media (max-width: 60rem) {
-  .columnas { grid-template-columns: 1fr; }
-}
+  /* El riel del subrayado existe siempre y crece al activarse: animar la
+     escala y no el ancho evita que el texto se recorra al cambiar de solapa. */
+  &::after {
+    content: '';
+    position: absolute;
+    left: 0.4rem;
+    right: 0.4rem;
+    bottom: 0;
+    height: 2px;
+    border-radius: 2px;
+    background: var(--secondary);
+    transform: scaleX(0);
+    transform-origin: center;
+    transition: transform 0.22s cubic-bezier(0.2, 0.8, 0.3, 1);
+  }
 
-.columna {
-  display: flex;
-  flex-direction: column;
-  gap: 0.9rem;
-  min-width: 0;
-}
+  &:hover:not(.vistatab__op--on) {
+    color: var(--chat-ink);
+    &::after { transform: scaleX(0.45); opacity: 0.45; }
+  }
 
-.columna--prueba {
-  /* El banco de pruebas acompaña el scroll: se escribe arriba en el prompt y
-     se prueba abajo sin perderlo de vista. */
-  position: sticky;
-  top: 0;
-}
-
-.bloque {
-  padding: 1rem;
-
-  h2 {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    margin: 0 0 0.3rem;
-    font-size: 0.95rem;
-    font-weight: 700;
+  &--on {
+    color: var(--chat-ink);
+    &::after { transform: scaleX(1); }
   }
 }
 
-.bloque__nota {
-  margin: 0 0 0.7rem;
-  color: var(--ink-soft);
-  font-size: 0.79rem;
-  line-height: 1.4;
+.vistatab__num {
+  display: inline-grid;
+  place-items: center;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 4px;
+  border-radius: 999px;
+  background: rgba(0, 186, 254, 0.18);
+  color: #0284a8;
+  font-size: 0.62rem;
 }
 
-.bloque__vacio {
-  color: var(--ink-soft);
+.obra__scroll {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 0.8rem calc(1.1rem + 26px) 1.2rem 1.1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+
+  scrollbar-width: thin;
+  scrollbar-color: transparent transparent;
+  &:hover { scrollbar-color: rgba(24, 35, 51, 0.22) transparent; }
+}
+
+.obra__aviso {
+  flex-shrink: 0;
+  margin: 0 calc(1.1rem + 26px) 0.9rem 1.1rem;
+  padding: 0.45rem 0.8rem;
+  border-radius: 12px;
+  background: rgba(0, 186, 254, 0.12);
+  color: #0b6b86;
+  font-size: 0.8rem;
+}
+
+.pista {
+  margin: 0;
+  color: var(--chat-ink-soft);
+  font-size: 0.79rem;
+  line-height: 1.45;
+}
+
+.vacio {
+  color: var(--chat-ink-soft);
   font-size: 0.83rem;
 }
 
-.bloque__cuidado {
-  margin-bottom: 0.7rem;
-  padding: 0.45rem 0.7rem;
-  border-radius: 9px;
-  background: rgba(245, 158, 11, 0.12);
-  border: 1px solid rgba(245, 158, 11, 0.3);
-  color: #fcd34d;
-  font-size: 0.78rem;
-}
-
+/* El prompt ocupa lo que queda: es la cara que más se edita y escribir en una
+   ventanita de seis líneas un texto de cien es la parte más incómoda del
+   trabajo. */
 .prompt {
+  flex: 1;
+  min-height: 16rem;
   width: 100%;
-  padding: 0.7rem 0.85rem;
-  border-radius: 12px;
-  border: 1px solid var(--border);
-  background: var(--bg);
-  color: var(--ink);
+  padding: 0.8rem 0.95rem;
+  border-radius: 16px;
+  border: 1px solid var(--chat-border);
+  background: #fff;
+  color: var(--chat-ink);
   font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
   font-size: 0.78rem;
-  line-height: 1.55;
-  resize: vertical;
+  line-height: 1.6;
+  resize: none;
 
   &:focus { outline: none; border-color: var(--secondary); }
 }
 
-.prompt--corto { margin-bottom: 0.6rem; }
+.prompt--corto {
+  flex: 0 0 auto;
+  min-height: 8rem;
+  resize: vertical;
+}
 
-/* Una herramienta: casilla + qué hace. La descripción es lo que el agente lee
-   para decidir cuándo usarla, así que se muestra completa. */
 .herramienta {
   display: flex;
   gap: 0.6rem;
-  padding: 0.55rem 0.65rem;
-  border-radius: 11px;
+  padding: 0.6rem 0.75rem;
+  border-radius: 14px;
   border: 1px solid transparent;
+  background: #fff;
   cursor: pointer;
-
-  &:hover { background: rgba(255, 255, 255, 0.03); }
+  transition: border-color 0.15s;
 
   input { margin-top: 0.2rem; flex-shrink: 0; accent-color: var(--secondary); }
+  &:hover { border-color: var(--chat-border); }
 }
 
 .herramienta--on {
-  background: rgba(0, 186, 254, 0.07);
-  border-color: rgba(0, 186, 254, 0.22);
+  border-color: rgba(0, 186, 254, 0.45);
+  background: rgba(0, 186, 254, 0.06);
 }
 
 .herramienta__cuerpo {
@@ -169,13 +270,25 @@
     font-size: 0.83rem;
     font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
   }
-  i { font-style: normal; font-size: 0.77rem; color: var(--ink-soft); line-height: 1.4; }
+  i { font-style: normal; font-size: 0.77rem; color: var(--chat-ink-soft); line-height: 1.45; }
+}
+
+.marca {
+  padding: 0.05rem 0.4rem;
+  border-radius: 999px;
+  background: rgba(243, 71, 0, 0.14);
+  color: #b93a08;
+  font-family: inherit;
+  font-size: 0.63rem;
+  font-weight: 700;
 }
 
 .ajuste {
   display: flex;
   gap: 0.6rem;
-  margin-bottom: 0.9rem;
+  padding: 0.6rem 0.75rem;
+  border-radius: 14px;
+  background: #fff;
   cursor: pointer;
 
   input { margin-top: 0.2rem; flex-shrink: 0; accent-color: var(--secondary); }
@@ -187,28 +300,32 @@
   gap: 0.15rem;
 
   b { font-size: 0.85rem; }
-  i { font-style: normal; font-size: 0.77rem; color: var(--ink-soft); line-height: 1.4; }
+  i { font-style: normal; font-size: 0.77rem; color: var(--chat-ink-soft); line-height: 1.45; }
 }
 
 .campo {
   display: flex;
   flex-direction: column;
   gap: 0.25rem;
-  margin-bottom: 0.6rem;
 
-  span { font-size: 0.76rem; color: var(--ink-soft); text-transform: uppercase; letter-spacing: 0.04em; }
+  > span {
+    font-size: 0.72rem;
+    color: var(--chat-ink-soft);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+  }
 
   input {
-    padding: 0.5rem 0.75rem;
-    border-radius: 10px;
-    border: 1px solid var(--border);
-    background: var(--bg);
-    color: var(--ink);
+    padding: 0.55rem 0.85rem;
+    border-radius: 12px;
+    border: 1px solid var(--chat-border);
+    background: #fff;
+    color: var(--chat-ink);
     font: inherit;
     font-size: 0.84rem;
 
     &:focus { outline: none; border-color: var(--secondary); }
-    &::placeholder { color: var(--ink-soft); }
+    &::placeholder { color: var(--chat-ink-soft); }
   }
 }
 
@@ -218,55 +335,140 @@
   align-items: center;
   gap: 0.35rem;
   font-size: 0.77rem;
-  color: var(--ink-soft);
+  color: var(--chat-ink-soft);
 
   code {
-    padding: 0.1rem 0.4rem;
+    padding: 0.1rem 0.45rem;
     border-radius: 6px;
-    background: rgba(255, 255, 255, 0.06);
+    background: rgba(24, 35, 51, 0.07);
     font-size: 0.75rem;
   }
 }
 
-/* --- Banco de pruebas --- */
-
-.bloque--prueba {
+/* Lo que no se deshace vive abajo y separado del resto de los ajustes. */
+.peligro {
   display: flex;
-  flex-direction: column;
-  max-height: calc(100vh - 8rem);
+  gap: 0.5rem;
+  margin-top: 0.6rem;
+  padding-top: 0.9rem;
+  border-top: 1px solid var(--chat-border);
 }
 
-.limpiar {
-  border: none;
+.btn-claro {
+  padding: 0.42rem 0.9rem;
+  border-radius: 999px;
+  border: 1.5px solid var(--chat-border);
+  background: #fff;
+  color: var(--chat-ink);
+  font: inherit;
+  font-size: 0.8rem;
+  font-weight: 700;
+  cursor: pointer;
+
+  &:hover:not(:disabled) { border-color: var(--secondary); }
+  &:disabled { opacity: 0.5; cursor: default; }
+}
+
+.btn-claro--mal {
+  color: #b3261e;
+  border-color: rgba(179, 38, 30, 0.3);
+
+  &:hover { border-color: #b3261e; }
+}
+
+/* ================= Riel oscuro: el banco de pruebas ================= */
+
+.riel {
+  position: relative;
+  z-index: 2; /* se superpone al borde derecho del panel claro */
+  margin-left: -26px;
+  /* Mismo tratamiento de solapa que el riel del hilo: un filo claro arriba y
+     dos sombras —una corta que define el canto, otra larga que da fondo—. */
+  box-shadow:
+    -1px 0 0 rgba(255, 255, 255, 0.12),
+    -8px 0 18px rgba(4, 9, 20, 0.46),
+    -28px 0 56px rgba(4, 9, 20, 0.42);
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  border-radius: 26px;
+  border: 1px solid var(--border);
+  background:
+    radial-gradient(500px 340px at 50% 0%, rgba(0, 186, 254, 0.1), transparent 70%),
+    radial-gradient(420px 300px at 60% 100%, rgba(243, 71, 0, 0.08), transparent 70%),
+    var(--panel);
+  color: var(--ink);
+  padding: 1.1rem 1rem 1.1rem 1.5rem; /* más aire a la izquierda: ahí monta */
+  gap: 0.6rem;
+}
+
+.riel__badge {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
+.riel__dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 999px;
+  background: var(--positive);
+  box-shadow: 0 0 0 3px rgba(52, 211, 153, 0.18);
+}
+
+.riel__limpiar {
+  margin-left: auto;
+  border: 0;
   background: none;
   color: var(--ink-soft);
   font: inherit;
-  font-size: 0.75rem;
-  cursor: pointer;
+  font-size: 0.73rem;
   text-decoration: underline;
+  cursor: pointer;
 
   &:hover { color: var(--ink); }
 }
 
+.riel__nota {
+  margin: 0;
+  color: var(--ink-soft);
+  font-size: 0.75rem;
+  line-height: 1.45;
+}
+
+.riel__cuidado {
+  padding: 0.4rem 0.65rem;
+  border-radius: 10px;
+  background: rgba(245, 158, 11, 0.12);
+  border: 1px solid rgba(245, 158, 11, 0.3);
+  color: #fcd34d;
+  font-size: 0.74rem;
+}
+
 .prueba {
   flex: 1;
+  min-height: 8rem;
   overflow-y: auto;
   display: flex;
   flex-direction: column;
   gap: 0.5rem;
-  padding: 0.6rem;
-  margin-bottom: 0.6rem;
-  border-radius: 12px;
-  background: var(--bg);
-  min-height: 12rem;
+  padding: 0.65rem;
+  border-radius: 16px;
+  background: rgba(4, 9, 20, 0.5);
+
+  scrollbar-width: thin;
+  scrollbar-color: transparent transparent;
+  &:hover { scrollbar-color: rgba(255, 255, 255, 0.18) transparent; }
 }
 
 .prueba__vacio,
 .prueba__pensando {
   color: var(--ink-soft);
-  font-size: 0.8rem;
+  font-size: 0.78rem;
   text-align: center;
-  padding: 0.6rem;
+  padding: 0.5rem;
 }
 
 .turno {
@@ -274,7 +476,7 @@
   flex-direction: column;
   gap: 0.25rem;
   align-items: flex-end;
-  max-width: 92%;
+  max-width: 94%;
   align-self: flex-end;
 }
 
@@ -285,14 +487,15 @@
 
 .turno__burbuja {
   padding: 0.45rem 0.7rem;
-  border-radius: 12px;
-  background: rgba(0, 186, 254, 0.14);
-  font-size: 0.82rem;
-  line-height: 1.4;
+  border-radius: 14px 14px 4px 14px;
+  background: rgba(0, 186, 254, 0.16);
+  font-size: 0.81rem;
+  line-height: 1.45;
   white-space: pre-wrap;
 }
 
 .turno--agente .turno__burbuja {
+  border-radius: 14px 14px 14px 4px;
   background: rgba(255, 255, 255, 0.07);
 }
 
@@ -302,18 +505,19 @@
   display: flex;
   flex-direction: column;
   gap: 0.1rem;
+  margin-top: -0.1rem;
   padding: 0.35rem 0.6rem;
-  border-radius: 10px;
+  border-radius: 11px;
   background: rgba(52, 211, 153, 0.1);
   border: 1px solid rgba(52, 211, 153, 0.25);
   max-width: 100%;
 
-  b { font-size: 0.75rem; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; color: #6ee7b7; }
+  b { font-size: 0.74rem; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; color: #6ee7b7; }
   i {
     font-style: normal;
-    font-size: 0.72rem;
+    font-size: 0.71rem;
     color: var(--ink-soft);
-    line-height: 1.35;
+    line-height: 1.4;
     overflow-wrap: anywhere;
   }
 }
@@ -325,15 +529,30 @@
   input {
     flex: 1;
     min-width: 0;
-    padding: 0.5rem 0.8rem;
+    padding: 0.55rem 0.85rem;
     border-radius: 999px;
     border: 1px solid var(--border);
-    background: var(--bg);
+    background: rgba(4, 9, 20, 0.5);
     color: var(--ink);
     font: inherit;
-    font-size: 0.83rem;
+    font-size: 0.82rem;
 
     &:focus { outline: none; border-color: var(--secondary); }
     &::placeholder { color: var(--ink-soft); }
+  }
+
+  button {
+    flex-shrink: 0;
+    width: 34px;
+    height: 34px;
+    border-radius: 999px;
+    border: 0;
+    background: var(--secondary);
+    color: #04283a;
+    font-size: 1rem;
+    font-weight: 800;
+    cursor: pointer;
+
+    &:disabled { opacity: 0.4; cursor: default; }
   }
 }
