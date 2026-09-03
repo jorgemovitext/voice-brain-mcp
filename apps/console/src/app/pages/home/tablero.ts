@@ -116,7 +116,7 @@ export class TableroPage {
      * que no es una consulta para pedir cada dos segundos. La firma corta al
      * ritmo lento cuando nada cambia.
      */
-    const detener = crearSondeo({
+    const sondeo = crearSondeo({
       base: 10_000,
       max: 60_000,
       firma: () => {
@@ -125,7 +125,7 @@ export class TableroPage {
       },
       alSondear: () => this.datos.reload(),
     });
-    this.destroyRef.onDestroy(detener);
+    this.destroyRef.onDestroy(sondeo.detener);
   }
 
   readonly a = computed(() => valorDe(this.datos));

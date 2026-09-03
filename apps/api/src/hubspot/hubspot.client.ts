@@ -2,13 +2,24 @@ import { Injectable, Logger, ServiceUnavailableException } from '@nestjs/common'
 import { ConfigService } from '@nestjs/config';
 
 /**
- * Lectura del CRM de HubSpot: tickets y sus etapas.
+ * El CRM de HubSpot: tickets, etapas, responsables y tareas.
  *
- * Solo lee. Los tickets los crea el flujo de NL Pearl con su propia
- * credencial; acá nos limitamos a mirarlos para el panel de casos. Sirve
- * igual con un Service Key (`pat-na1-…`, el mecanismo nuevo) que con el token
- * de una aplicación privada: los dos viajan como Bearer.
+ * Nació solo de lectura —los tickets los creaba el flujo de NL Pearl con su
+ * propia credencial y acá se miraban para el panel de casos—, pero al pasar
+ * el motor a un agente nuestro la escritura quedó de este lado: ahora abre
+ * los tickets y asigna las tareas.
+ *
+ * Sirve igual con un Service Key (`pat-na1-…`, el mecanismo nuevo) que con el
+ * token de una aplicación privada: los dos viajan como Bearer.
  */
+
+/** Alguien del portal a quien se le puede asignar una tarea. */
+export interface HubspotOwner {
+  id: string;
+  email?: string;
+  firstName?: string;
+  lastName?: string;
+}
 
 /** Ticket con lo mínimo para medir el ciclo de vida de un caso. */
 export interface HubspotTicket {
@@ -54,6 +65,8 @@ export class HubspotClient {
 
   /** El esquema del portal cambia casi nunca; se relee cada 10 minutos. */
   private esquemaCache: { value: Map<string, Set<string> | null>; at: number } | null = null;
+  /** Mismo criterio que el esquema: el equipo no cambia entre dos mensajes. */
+  private ownersCache: { value: HubspotOwner[]; at: number } | null = null;
   private static readonly ESQUEMA_TTL_MS = 10 * 60 * 1000;
 
   constructor(config: ConfigService) {
@@ -124,8 +137,11 @@ export class HubspotClient {
    * propiedades calculadas `hs_searchable_calculated_*`: las que no dicen
    * "international" guardan el número SIN código de país, así que se consulta
    * con las dos formas. Los grupos de filtro se combinan con OR.
+   *
+   * Es público porque la asignación de tareas necesita el id para colgarlas
+   * de la ficha del ciudadano.
    */
-  private async contactosPorTelefono(telefono: string): Promise<string[]> {
+  async contactosPorTelefono(telefono: string): Promise<string[]> {
     const digitos = telefono.replace(/\D/g, '');
     if (digitos.length < 7) return [];
     // Sin código de país: para Honduras (+504) el número nacional son 8 cifras.
@@ -281,6 +297,66 @@ export class HubspotClient {
    * que después aparezca en la tarjeta "Caso en el CRM" — el emparejamiento
    * es por asociación, no por una propiedad de teléfono en el ticket.
    */
+  /**
+   * La gente del portal a la que se le puede asignar trabajo.
+   *
+   * Se cachea diez minutos: el equipo de la alcaldía no cambia entre dos
+   * mensajes de una conversación, y esto se consulta en cada asignación.
+   */
+  async responsables(): Promise<HubspotOwner[]> {
+    const fresco = this.ownersCache && Date.now() - this.ownersCache.at < HubspotClient.ESQUEMA_TTL_MS;
+    if (fresco) return this.ownersCache!.value;
+
+    const res = await this.pedir<{ results?: HubspotOwner[] }>('/crm/v3/owners?limit=200');
+    const value = res.results ?? [];
+    this.ownersCache = { value, at: Date.now() };
+    return value;
+  }
+
+  /**
+   * Crea una tarea y se la asigna a alguien, colgada del contacto.
+   *
+   * `hs_timestamp` es lo ÚNICO obligatorio de la API y es el vencimiento: sin
+   * fecha la tarea no existe para HubSpot. Se usa "ahora" cuando no se indica
+   * otra cosa, que para un reporte ciudadano es lo correcto — se atiende hoy.
+   */
+  async crearTarea(input: {
+    titulo: string;
+    detalle?: string;
+    /** EMAIL | CALL | TODO — son los únicos que acepta HubSpot. */
+    tipo?: 'EMAIL' | 'CALL' | 'TODO';
+    prioridad?: 'LOW' | 'MEDIUM' | 'HIGH';
+    ownerId?: string;
+    /** Contacto al que se cuelga la tarea, para que aparezca en su ficha. */
+    contactoId?: string;
+    venceEn?: Date;
+  }): Promise<{ id: string }> {
+    const props: Record<string, string> = {
+      hs_timestamp: (input.venceEn ?? new Date()).toISOString(),
+      hs_task_subject: input.titulo,
+      hs_task_status: 'NOT_STARTED',
+      hs_task_type: input.tipo ?? 'TODO',
+      hs_task_priority: input.prioridad ?? 'HIGH',
+    };
+    if (input.detalle) props['hs_task_body'] = input.detalle;
+    if (input.ownerId) props['hubspot_owner_id'] = input.ownerId;
+
+    return this.pedir<{ id: string }>('/crm/v3/objects/tasks', {
+      properties: props,
+      // 204 = tarea → contacto, en el catálogo de asociaciones de HubSpot.
+      // Sin esto la tarea existe pero suelta, y nadie la encuentra desde la
+      // ficha del ciudadano.
+      associations: input.contactoId
+        ? [
+            {
+              to: { id: input.contactoId },
+              types: [{ associationCategory: 'HUBSPOT_DEFINED', associationTypeId: 204 }],
+            },
+          ]
+        : [],
+    });
+  }
+
   async crearTicket(
     props: Record<string, string>,
     telefono?: string,

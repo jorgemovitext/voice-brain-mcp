@@ -170,7 +170,7 @@ export class HomePage {
     let vuelta = 0;
     // Ritmo adaptativo: 5 s cuando la colmena se mueve, hasta 30 s si está
     // quieta. Con la pestaña de fondo no pide nada.
-    const detener = crearSondeo({
+    const sondeo = crearSondeo({
       base: 5_000,
       max: 30_000,
       firma: () => {
@@ -182,7 +182,7 @@ export class HomePage {
         if (++vuelta % 6 === 0) void this.api.syncNlpearl().catch(() => undefined);
       },
     });
-    this.destroyRef.onDestroy(detener);
+    this.destroyRef.onDestroy(sondeo.detener);
   }
 
   /** Botón "Sincronizar": trae ya mismo lo nuevo de NL Pearl. */

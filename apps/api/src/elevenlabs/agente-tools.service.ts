@@ -44,7 +44,12 @@ export class AgenteToolsService {
   ) {}
 
   /** Los nombres tal como hay que declararlos en el agente de ElevenLabs. */
-  static readonly NOMBRES = ['registrar_reporte', 'avisar_autoridad'] as const;
+  static readonly NOMBRES = [
+    'registrar_reporte',
+    'avisar_autoridad',
+    'asignar_tarea',
+    'escalar_a_humano',
+  ] as const;
 
   /**
    * Ejecuta la herramienta que pidió el agente.
@@ -64,6 +69,10 @@ export class AgenteToolsService {
           return await this.registrarReporte(contactId, args);
         case 'avisar_autoridad':
           return await this.avisarAutoridad(contactId, args);
+        case 'asignar_tarea':
+          return await this.asignarTarea(contactId, args);
+        case 'escalar_a_humano':
+          return await this.escalarAHumano(contactId, args);
         default:
           this.logger.warn(`El agente pidió una herramienta que no existe: "${nombre}"`);
           return { ok: false, mensaje: `No existe la herramienta "${nombre}".` };
@@ -160,6 +169,142 @@ export class AgenteToolsService {
     this.logger.log(`El agente avisó a la cuadrilla por ${contactId}: ${motivo}`);
 
     return { ok: true, mensaje: 'Ya se avisó a la cuadrilla. Decile al ciudadano que va en camino el aviso.' };
+  }
+
+  /**
+   * Le asigna la tarea a quien corresponde, en el CRM.
+   *
+   * Es lo que convierte un reporte en trabajo de alguien: el ticket dice qué
+   * pasó, la tarea dice quién lo atiende. El agente elige al responsable de
+   * la lista real del portal — no de una lista inventada acá— y si se
+   * equivoca con el nombre se le devuelven los que existen para que reintente.
+   */
+  private async asignarTarea(
+    contactId: string,
+    args: Record<string, unknown>,
+  ): Promise<ResultadoHerramienta> {
+    const titulo = String(args['titulo'] ?? '').trim();
+    const responsable = String(args['responsable'] ?? '').trim();
+    if (!titulo) return { ok: false, mensaje: 'La tarea necesita un título.' };
+
+    if (!this.hubspot.configured) {
+      await this.anotar(contactId, 'ticket', false, `${titulo} — el CRM no está conectado`);
+      return { ok: false, mensaje: 'El CRM no está conectado, así que no se pudo asignar la tarea.' };
+    }
+
+    const gente = await this.hubspot.responsables();
+    const elegido = AgenteToolsService.buscarResponsable(gente, responsable);
+    if (responsable && !elegido) {
+      // Se le devuelve la lista real en vez de asignarle a cualquiera: una
+      // tarea en la bandeja equivocada es peor que una sin dueño.
+      const nombres = gente.map((o) => AgenteToolsService.nombreDe(o)).filter(Boolean).slice(0, 12);
+      return {
+        ok: false,
+        mensaje: `No encontré a "${responsable}". Los responsables disponibles son: ${nombres.join(', ')}.`,
+      };
+    }
+
+    const ctx = await this.brain.getContext({ contactId });
+    const tipo = String(args['tipo'] ?? 'TODO').toUpperCase();
+    const prioridad = String(args['prioridad'] ?? 'HIGH').toUpperCase();
+
+    const { id } = await this.hubspot.crearTarea({
+      titulo,
+      detalle: [
+        String(args['detalle'] ?? '').trim(),
+        `Reporta: ${ctx.contact.displayName ?? 'ciudadano'} (${ctx.contact.phones?.[0] ?? 's/n'})`,
+      ]
+        .filter(Boolean)
+        .join('\n\n'),
+      tipo: (['EMAIL', 'CALL', 'TODO'].includes(tipo) ? tipo : 'TODO') as 'EMAIL' | 'CALL' | 'TODO',
+      prioridad: (['LOW', 'MEDIUM', 'HIGH'].includes(prioridad) ? prioridad : 'HIGH') as
+        | 'LOW'
+        | 'MEDIUM'
+        | 'HIGH',
+      ownerId: elegido?.id,
+      contactoId: await this.contactoEnCrm(ctx.contact.phones?.[0]),
+    });
+
+    const aQuien = elegido ? AgenteToolsService.nombreDe(elegido) : 'sin asignar';
+    await this.anotar(contactId, 'ticket', true, `Tarea "${titulo}" → ${aQuien} (#${id})`);
+    this.logger.log(`El agente asignó "${titulo}" a ${aQuien}`);
+
+    return {
+      ok: true,
+      mensaje: elegido
+        ? `Tarea asignada a ${aQuien}. Decile al ciudadano que ya tiene responsable.`
+        : 'Tarea creada, pero sin responsable asignado.',
+    };
+  }
+
+  /**
+   * Pide que una persona tome el hilo.
+   *
+   * Existe porque el agente estaba PROMETIENDO una transferencia que no
+   * ocurría: le decía al ciudadano "te paso con un operador" y ahí terminaba
+   * todo. Ahora la promesa tiene un mecanismo detrás — el hilo queda marcado,
+   * la consola lo muestra y suena — así que lo que dice se cumple.
+   *
+   * No corta la conversación: el agente sigue contestando hasta que alguien
+   * la tome de verdad. Dejar al ciudadano hablando solo mientras espera sería
+   * peor que no escalar.
+   */
+  private async escalarAHumano(
+    contactId: string,
+    args: Record<string, unknown>,
+  ): Promise<ResultadoHerramienta> {
+    const motivo = String(args['motivo'] ?? '').trim() || 'El ciudadano necesita hablar con una persona';
+    const urgente = String(args['urgencia'] ?? '').toLowerCase().includes('alta');
+
+    await this.anotar(contactId, 'escalamiento', true, motivo);
+    this.logger.warn(`Escalamiento a humano en ${contactId}: ${motivo}`);
+
+    return {
+      ok: true,
+      mensaje: urgente
+        ? 'Ya avisé al equipo con prioridad alta. Decile que seguís con él mientras alguien entra a la conversación, y NO le pidas que espere en la línea: esto es un chat, no una llamada.'
+        : 'Ya avisé al equipo. Decile que alguien va a entrar a esta misma conversación, y seguí ayudándolo mientras tanto.',
+    };
+  }
+
+  /**
+   * El id del contacto en HubSpot, para colgarle la tarea a su ficha.
+   *
+   * Si no está en el CRM la tarea se crea igual, suelta: perder la asociación
+   * es molesto, no tener la tarea es peor.
+   */
+  private async contactoEnCrm(telefono?: string): Promise<string | undefined> {
+    if (!telefono) return undefined;
+    try {
+      const [id] = await this.hubspot.contactosPorTelefono(telefono);
+      return id;
+    } catch {
+      return undefined;
+    }
+  }
+
+  /** Por email exacto o por nombre, sin distinguir mayúsculas ni acentos. */
+  private static buscarResponsable(
+    gente: Array<{ id: string; email?: string; firstName?: string; lastName?: string }>,
+    buscado: string,
+  ) {
+    if (!buscado) return undefined;
+    const norm = (s: string) =>
+      s
+        .toLowerCase()
+        .normalize('NFD')
+        .replace(/[̀-ͯ]/g, '')
+        .trim();
+    const q = norm(buscado);
+    return (
+      gente.find((o) => norm(o.email ?? '') === q) ??
+      gente.find((o) => norm(AgenteToolsService.nombreDe(o)).includes(q)) ??
+      gente.find((o) => q.includes(norm(o.firstName ?? '__')))
+    );
+  }
+
+  private static nombreDe(o: { email?: string; firstName?: string; lastName?: string }): string {
+    return [o.firstName, o.lastName].filter(Boolean).join(' ').trim() || (o.email ?? '');
   }
 
   /**

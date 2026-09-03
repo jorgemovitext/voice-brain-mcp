@@ -29,8 +29,22 @@ export interface SondeoOpts {
   activo?: () => boolean;
 }
 
-/** Arranca el sondeo y devuelve la función para detenerlo. */
-export function crearSondeo(opts: SondeoOpts): () => void {
+/** El sondeo en marcha: se detiene, y se le puede pedir que acelere. */
+export interface Sondeo {
+  detener: () => void;
+  /**
+   * Volver al ritmo rápido AHORA.
+   *
+   * La firma sube el ritmo cuando algo YA cambió, pero hay momentos en que
+   * sabemos que está por cambiar y todavía no: al mandar un mensaje, la
+   * respuesta llega en segundos y el sondeo podía estar estirado a 20 s. Sin
+   * esto, el operador escribía y veía la respuesta veinte segundos tarde.
+   */
+  reactivar: () => void;
+}
+
+/** Arranca el sondeo. */
+export function crearSondeo(opts: SondeoOpts): Sondeo {
   let espera = opts.base;
   let timer: ReturnType<typeof setTimeout>;
   let vivo = true;
@@ -86,9 +100,17 @@ export function crearSondeo(opts: SondeoOpts): () => void {
 
   programar();
 
-  return () => {
-    vivo = false;
-    clearTimeout(timer);
-    document.removeEventListener('visibilitychange', alVolver);
+  return {
+    detener: () => {
+      vivo = false;
+      clearTimeout(timer);
+      document.removeEventListener('visibilitychange', alVolver);
+    },
+    reactivar: () => {
+      if (!vivo) return;
+      espera = opts.base;
+      clearTimeout(timer);
+      programar();
+    },
   };
 }

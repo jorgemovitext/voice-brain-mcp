@@ -18,7 +18,7 @@ import { map } from 'rxjs';
 import { BrainApiService } from '../../brain-api.service';
 import { Icon } from '../../icon';
 import { VoiceNebula } from '../../nebula';
-import { crearSondeo } from '../../sondeo';
+import { crearSondeo, Sondeo } from '../../sondeo';
 import { Sonido } from '../../sonido';
 import {
   AvanceFlujo,
@@ -97,6 +97,8 @@ export class ContactDetailPage implements OnDestroy {
     { initialValue: !!this.route.snapshot.data['withThreads'] },
   );
 
+  /** El sondeo del hilo: se acelera al mandar un mensaje. */
+  private sondeo?: Sondeo;
   private timerInterval?: ReturnType<typeof setInterval>;
   private pollInterval?: ReturnType<typeof setInterval>;
   private callStartedAt = 0;
@@ -518,6 +520,20 @@ export class ContactDetailPage implements OnDestroy {
   readonly channelLabel = channelLabel;
   readonly channelIconName = channelIconName;
   readonly channelColor = channelColor;
+
+  /**
+   * El agente pidió que una persona entre, y todavía nadie entró.
+   *
+   * Se mira el ÚLTIMO escalamiento contra el estado de atención: si alguien
+   * ya tomó el hilo, el pedido está saldado y el aviso desaparece solo. Sin
+   * esa comparación el banner quedaría pegado para siempre y en dos días
+   * nadie lo miraría.
+   */
+  readonly pideHumano = computed(() => {
+    if (this.tomada()) return null;
+    const escalamientos = this.mensajesDelCaso().filter((m) => m.interaction.accion?.tipo === 'escalamiento');
+    return escalamientos.length ? (escalamientos[escalamientos.length - 1].interaction.accion?.detalle ?? '') : null;
+  });
 
   /**
    * Título de una acción del agente. Se lee como un hecho ("Ticket abierto en
@@ -966,7 +982,7 @@ export class ContactDetailPage implements OnDestroy {
     // además tiene su propio rate-limit, así que varias pestañas no duplican).
     void this.api.syncNlpearl().catch(() => undefined);
 
-    const detener = crearSondeo({
+    this.sondeo = crearSondeo({
       base: 2_000,
       max: 20_000,
       activo: () => !this.sending(),
@@ -1002,7 +1018,7 @@ export class ContactDetailPage implements OnDestroy {
       },
     });
 
-    this.destroyRef.onDestroy(detener);
+    this.destroyRef.onDestroy(() => this.sondeo?.detener());
   }
 
   activePromise(): BrainSignal | undefined {
@@ -1195,6 +1211,13 @@ export class ContactDetailPage implements OnDestroy {
       else await this.api.addNote(this.id(), text);
       this.draft.set('');
       this.context.reload();
+      /*
+       * Y se acelera el sondeo: acabás de escribirle a alguien, así que la
+       * respuesta viene en segundos. Sin esto el sondeo podía estar estirado
+       * a 20 s y la contestación aparecía tardísimo, que es exactamente lo
+       * que se sentía lento en el chat.
+       */
+      this.sondeo?.reactivar();
     } catch (err) {
       // El texto se conserva en el composer para poder reintentar.
       this.sendError.set(this.describeSendError(err));

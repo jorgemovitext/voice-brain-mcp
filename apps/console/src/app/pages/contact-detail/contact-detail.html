@@ -145,6 +145,23 @@
         </button>
       </div>
 
+      <!-- El agente pidió que entre una persona. Va arriba del hilo y no
+           entre los mensajes: es una tarea pendiente para quien mira la
+           consola, no un hecho más de la conversación. Desaparece solo
+           cuando alguien toma el hilo. -->
+      @if (pideHumano(); as motivo) {
+        <div class="pide-humano">
+          <ui-icon name="alerta" />
+          <span class="pide-humano__txt">
+            <b>El agente pidió que alguien tome esta conversación</b>
+            @if (motivo) { <i>{{ motivo }}</i> }
+          </span>
+          <button class="pide-humano__btn" (click)="alternarAtencion()" [disabled]="cambiandoAtencion()">
+            @if (cambiandoAtencion()) { … } @else { Tomar }
+          </button>
+        </div>
+      }
+
       @if (tomada()) {
         <div class="tomada">
           <i class="tomada__punto"></i>

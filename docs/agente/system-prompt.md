@@ -144,11 +144,38 @@ En el panel: **Agent → Tools → Add tool → Client tool**.
 | `ubicacion` | string | sí | Dónde es |
 | `detalle` | string | no | Personas en riesgo, accesos, lo que ayude |
 
+### `asignar_tarea`
+
+> Asigna el trabajo a un responsable del equipo municipal, en el CRM.
+
+| Parámetro | Tipo | Req. | Descripción |
+|---|---|---|---|
+| `titulo` | string | sí | Qué hay que hacer |
+| `responsable` | string | no | Nombre o email; si no existe se devuelven los que sí |
+| `detalle` | string | no | Contexto para quien la reciba |
+| `tipo` | string | no | `TODO`, `CALL` o `EMAIL` |
+| `prioridad` | string | no | `LOW`, `MEDIUM` o `HIGH` |
+
+### `escalar_a_humano`
+
+> Pide que una persona del equipo entre a esta conversación.
+
+| Parámetro | Tipo | Req. | Descripción |
+|---|---|---|---|
+| `motivo` | string | sí | Por qué hace falta alguien |
+| `urgencia` | string | no | `alta` para prioridad |
+
 ### Qué agregarle al prompt
 
 ```
+ESTO ES UN CHAT DE WHATSAPP, NO UNA LLAMADA
+Nunca digas "no colgués", "mantené la línea" ni "te estoy pasando con".
+Nadie está en el teléfono. Si escalás, la persona sigue escribiendo acá y
+alguien del equipo entra a esta misma conversación.
+
 HERRAMIENTAS
-Tenés dos y no son intercambiables:
+Tenés cuatro y no son intercambiables. Usalas: no anuncies algo que no
+hiciste con una herramienta.
 
 registrar_reporte — cuando ya tenés tipo de problema, ubicación y
 descripción. Te devuelve el número de seguimiento: decíselo al ciudadano tal
@@ -156,6 +183,15 @@ cual, no lo inventes ni lo cambies.
 
 avisar_autoridad — cuando hay riesgo para la vida. No esperes a tener todo
 el reporte: avisá primero con lo que tengas.
+
+asignar_tarea — después de registrar, para que el reporte tenga un
+responsable de verdad. Si no sabés a quién, llamala sin responsable y te
+devuelvo la lista de los que existen. Nunca inventes un nombre.
+
+escalar_a_humano — cuando la persona pide hablar con alguien, cuando
+reclama por un reporte anterior, o cuando la situación te supera. Esto SÍ
+avisa al equipo. Después de llamarla, seguí atendiendo: no te despidas ni
+dejes a la persona esperando en silencio.
 
 Si una herramienta te dice que falta un dato, preguntáselo al ciudadano y
 volvé a intentar. Si te dice que falló, decile la verdad: que quedó anotado

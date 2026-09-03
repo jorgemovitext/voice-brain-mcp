@@ -150,7 +150,7 @@ export class IntegrationsPage {
 
   constructor() {
     // Es una pantalla de "ahora mismo": se refresca sola y se calla si no pasa nada.
-    const parar = crearSondeo({
+    const sondeo = crearSondeo({
       base: 8000,
       max: 60000,
       alSondear: () => {
@@ -163,7 +163,7 @@ export class IntegrationsPage {
         return `${e?.at ?? ''}|${this.m()?.esperandoRespuesta ?? ''}|${v?.total ?? ''}`;
       },
     });
-    this.destroyRef.onDestroy(parar);
+    this.destroyRef.onDestroy(sondeo.detener);
   }
 
   refrescar(): void {

@@ -15,6 +15,7 @@ describe('AgenteToolsService', () => {
   function build({ crmOk = true, crmFalla = false }: { crmOk?: boolean; crmFalla?: boolean } = {}) {
     const anotadas: Array<Record<string, unknown>> = [];
     const enviados: Array<{ contactId: string; texto: string }> = [];
+    const tareas: Array<Record<string, unknown>> = [];
 
     const brain = {
       getContext: async () => ({
@@ -34,6 +35,15 @@ describe('AgenteToolsService', () => {
         if (crmFalla) throw new Error('HubSpot rechazó el ticket');
         return { id: '4417', descartadas: [] };
       },
+      responsables: async () => [
+        { id: '77', email: 'obras@amdc.hn', firstName: 'Luis', lastName: 'Vallecillo' },
+        { id: '88', email: 'agua@amdc.hn', firstName: 'Rosa', lastName: 'Díaz' },
+      ],
+      contactosPorTelefono: async () => ['c-crm-1'],
+      crearTarea: async (input: Record<string, unknown>) => {
+        tareas.push(input);
+        return { id: 'T-9' };
+      },
     };
     const canal = {
       send: async (contactId: string, texto: string) => {
@@ -47,7 +57,7 @@ describe('AgenteToolsService', () => {
       hubspot as unknown as HubspotClient,
       canal as unknown as ChannelPort,
     );
-    return { service, anotadas, enviados };
+    return { service, anotadas, enviados, tareas };
   }
 
   const REPORTE = {
@@ -122,6 +132,58 @@ describe('AgenteToolsService', () => {
     // Lo importante: NO se inventa un número de reporte que no existe.
     expect(r.mensaje).not.toContain('AMDC-');
     expect(anotadas[0]['accion']).toMatchObject({ ok: false });
+  });
+
+  it('asigna la tarea al responsable real del portal', async () => {
+    const { service, anotadas, tareas } = build();
+
+    const r = await service.ejecutar('c1', 'asignar_tarea', {
+      titulo: 'Inspeccionar talud',
+      responsable: 'Luis Vallecillo',
+      prioridad: 'HIGH',
+    });
+
+    expect(r.ok).toBe(true);
+    expect(tareas[0]).toMatchObject({ titulo: 'Inspeccionar talud', ownerId: '77', prioridad: 'HIGH' });
+    // Colgada de la ficha del ciudadano, o nadie la encuentra desde ahí.
+    expect(tareas[0]['contactoId']).toBe('c-crm-1');
+    expect(anotadas[0]['accion']).toMatchObject({ tipo: 'ticket', ok: true });
+  });
+
+  it('con un responsable que no existe, devuelve los que sí — no asigna a cualquiera', async () => {
+    // Una tarea en la bandeja equivocada es peor que una sin dueño: nadie la
+    // ve y todos creen que está atendida.
+    const { service, tareas } = build();
+
+    const r = await service.ejecutar('c1', 'asignar_tarea', {
+      titulo: 'Revisar fuga',
+      responsable: 'Pedro Inexistente',
+    });
+
+    expect(r.ok).toBe(false);
+    expect(r.mensaje).toContain('Luis Vallecillo');
+    expect(r.mensaje).toContain('Rosa Díaz');
+    expect(tareas).toHaveLength(0);
+  });
+
+  it('escalar a humano deja la marca que la consola convierte en aviso', async () => {
+    /*
+     * El agente venía PROMETIENDO una transferencia que no ocurría ("te paso
+     * con un operador", "no colgués"). Ahora la promesa tiene mecanismo: el
+     * hilo queda marcado y la consola muestra el pedido.
+     */
+    const { service, anotadas } = build();
+
+    const r = await service.ejecutar('c1', 'escalar_a_humano', {
+      motivo: 'Derrumbe con gente en riesgo',
+      urgencia: 'alta',
+    });
+
+    expect(r.ok).toBe(true);
+    expect(anotadas[0]['accion']).toMatchObject({ tipo: 'escalamiento', ok: true });
+    // Y se le recuerda al agente que esto es un chat: pedirle a alguien que
+    // "no cuelgue" en WhatsApp fue justo lo que pasó en producción.
+    expect(r.mensaje).toContain('no una llamada');
   });
 
   it('una herramienta que no existe no rompe el turno', async () => {

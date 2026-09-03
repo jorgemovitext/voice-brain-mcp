@@ -802,6 +802,50 @@ $overlap: 44px;
 
 /* Banda de estado: mientras el hilo esté tomado, que no haya duda de quién
    responde — el agente ya no lo hace. */
+/* El agente pidió que entre una persona y nadie entró todavía.
+
+   Ámbar y no rojo: es una tarea pendiente, no un error — el agente sigue
+   atendiendo mientras tanto. El botón va acá mismo porque quien lee esto ya
+   decidió; hacerlo buscar el botón de Tomar en la cabecera sería un paso de
+   más en el momento en que menos sobra. */
+.pide-humano {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.55rem 1.1rem;
+  font-size: 0.78rem;
+  color: #6b4b00;
+  background: color-mix(in srgb, #fcb700 20%, #fff);
+  border-bottom: 1px solid color-mix(in srgb, #fcb700 45%, #fff);
+}
+
+.pide-humano__txt {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+  min-width: 0;
+  flex: 1;
+
+  b { font-weight: 700; }
+  i { font-style: normal; opacity: 0.85; font-size: 0.74rem; }
+}
+
+.pide-humano__btn {
+  flex-shrink: 0;
+  border: 0;
+  cursor: pointer;
+  padding: 0.34rem 0.95rem;
+  border-radius: 999px;
+  font: inherit;
+  font-weight: 700;
+  font-size: 0.74rem;
+  color: #fff;
+  background: var(--primary);
+  box-shadow: 0 2px 8px rgba(243, 71, 0, 0.32);
+
+  &:disabled { opacity: 0.6; cursor: default; }
+}
+
 .tomada {
   display: flex;
   align-items: center;
