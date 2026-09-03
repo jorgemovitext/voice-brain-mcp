@@ -1,6 +1,6 @@
 import { Body, Controller, Delete, Get, Param, Patch, Post } from '@nestjs/common';
 import { ElevenLabsClient } from '../elevenlabs/elevenlabs.client';
-import { AgentesService } from './agentes.service';
+import { AgentesService, AristaFlujo, NodoFlujo } from './agentes.service';
 
 /**
  * Lo que se le contesta a una herramienta durante una prueba.
@@ -107,6 +107,22 @@ export class AgentesController {
   @Post(':id/duplicar')
   async duplicar(@Param('id') id: string, @Body() body: { nombre: string }) {
     return this.agentes.duplicar(id, body.nombre);
+  }
+
+  /* --- Flujo de la conversación --- */
+
+  @Get(':id/flujo')
+  async flujo(@Param('id') id: string) {
+    return this.agentes.flujo(id);
+  }
+
+  @Patch(':id/flujo')
+  async guardarFlujo(
+    @Param('id') id: string,
+    @Body() body: { nodos: NodoFlujo[]; aristas: AristaFlujo[] },
+  ) {
+    await this.agentes.guardarFlujo(id, body);
+    return { ok: true };
   }
 
   /** Contexto escrito a mano que el agente puede consultar. */

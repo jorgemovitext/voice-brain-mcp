@@ -365,3 +365,27 @@ export interface HerramientaDisponible {
   /** La usa el motor de la Línea 100: desengancharla rompe el flujo. */
   esencial: boolean;
 }
+
+/** Un paso del flujo: `inicio`, `fase`, `accion` o `fin`. */
+export interface NodoFlujo {
+  id: string;
+  tipo: string;
+  nombre: string;
+  x: number;
+  y: number;
+  /** Solo en `fase`: se SUMA al prompt base mientras está en ese paso. */
+  instrucciones?: string;
+  /** Nombres, nunca ids del proveedor. */
+  herramientas?: string[];
+  /** `auto` | `generate_immediately` | `wait_for_user`. */
+  alEntrar?: string;
+}
+
+/** Une dos pasos. Sin condición, se pasa siempre. */
+export interface AristaFlujo {
+  id: string;
+  desde: string;
+  hasta: string;
+  /** En lenguaje natural: la evalúa el modelo. */
+  condicion?: string;
+}

@@ -1,0 +1,172 @@
+@if (datos.isLoading()) {
+  <div class="state"><div class="spinner"></div>Cargando el flujo…</div>
+} @else {
+  <div class="flujo">
+    <header class="cabecera">
+      <a class="volver" [routerLink]="['/agentes', id()]">‹</a>
+      <div class="cabecera__titulo">
+        <h1>Flujo · {{ valorDe(agente)?.nombre ?? '' }}</h1>
+        <p>El orden de la conversación. Una fase no pasa a la siguiente hasta que se cumple su condición.</p>
+      </div>
+      <div class="cabecera__acciones">
+        <button class="btn btn--ghost" (click)="agregar('fase')">+ Fase</button>
+        <button class="btn btn--ghost" (click)="agregar('accion')">+ Acción</button>
+        <button class="btn btn--ghost" (click)="agregar('fin')">+ Fin</button>
+        <button class="btn btn--ghost" (click)="ordenar()" title="Acomoda las cajas sin tocar el contenido">
+          Ordenar
+        </button>
+        <button class="btn btn--primary" [disabled]="guardando()" (click)="guardar()">
+          {{ guardando() ? 'Guardando…' : 'Guardar flujo' }}
+        </button>
+      </div>
+    </header>
+
+    @if (aviso(); as m) { <div class="aviso">{{ m }}</div> }
+    @for (p of problemas(); track p) { <div class="problema">⚠ {{ p }}</div> }
+    @if (conectandoDesde()) {
+      <div class="aviso aviso--conectando">Elegí a dónde va la flecha. (Clic otra vez en el mismo paso para cancelar.)</div>
+    }
+
+    <div class="lienzo-y-panel">
+      <div class="lienzo">
+        <svg
+          [attr.viewBox]="lienzo().vista"
+          [style.width.px]="lienzo().ancho"
+          [style.height.px]="lienzo().alto"
+          (pointermove)="moverArrastre($event)"
+          (pointerup)="terminarArrastre()">
+          <defs>
+            <marker id="punta" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+              <path d="M0 0 L10 5 L0 10 z" fill="#4a5f85" />
+            </marker>
+          </defs>
+
+          <!-- Las flechas van primero: por debajo de las cajas. -->
+          @for (a of aristas(); track a.id) {
+            <g class="arista" [class.arista--sel]="seleccionArista() === a.id" (click)="seleccionarArista(a.id)">
+              <!-- Trazo ancho e invisible: acertarle a una línea de 2px con el
+                   mouse es incómodo, así que el blanco es más grande que el dibujo. -->
+              <path class="arista__blanco" [attr.d]="camino(a)" />
+              <path class="arista__linea" [attr.d]="camino(a)" marker-end="url(#punta)" />
+              @if (a.condicion && medio(a); as m) {
+                <text class="arista__texto" [attr.x]="m.x" [attr.y]="m.y" text-anchor="middle">
+                  {{ recorte(a.condicion, 18) }}
+                </text>
+              }
+            </g>
+          }
+
+          @for (n of nodos(); track n.id) {
+            <g
+              class="nodo"
+              [class]="'nodo nodo--' + n.tipo"
+              [class.nodo--sel]="seleccion() === n.id"
+              [class.nodo--origen]="conectandoDesde() === n.id"
+              [attr.transform]="'translate(' + n.x + ',' + n.y + ')'"
+              (pointerdown)="empezarArrastre($event, n)">
+              <rect class="nodo__caja" [attr.width]="ANCHO" [attr.height]="ALTO" rx="14" />
+              <text class="nodo__tipo" x="12" y="20">{{ n.tipo }}</text>
+              <text class="nodo__titulo" x="12" y="42">{{ recorte(titulo(n), 22) }}</text>
+
+              <!-- Salida: el punto del que se tira la flecha. El nodo final no
+                   tiene, porque después de terminar no sigue nada. -->
+              @if (n.tipo !== 'fin') {
+                <circle
+                  class="nodo__salida"
+                  [attr.cx]="ANCHO"
+                  [attr.cy]="ALTO / 2"
+                  r="7"
+                  (pointerdown)="$event.stopPropagation()"
+                  (click)="conectar(n.id)" />
+              }
+              @if (n.tipo !== 'inicio') {
+                <circle class="nodo__entrada" cx="0" [attr.cy]="ALTO / 2" r="5" (click)="conectar(n.id)" />
+              }
+            </g>
+          }
+        </svg>
+      </div>
+
+      <!-- Panel de la derecha: lo que se puede cambiar de lo seleccionado -->
+      <aside class="panel">
+        @if (nodoSeleccionado(); as n) {
+          <h2>{{ titulo(n) }}</h2>
+
+          @if (n.tipo === 'fase') {
+            <label class="campo">
+              <span>Nombre</span>
+              <input [value]="n.nombre" (input)="renombrar($event)" placeholder="Recopilar el reporte" />
+            </label>
+
+            <label class="campo">
+              <span>Instrucciones de esta fase</span>
+              <textarea
+                rows="7"
+                [value]="n.instrucciones ?? ''"
+                (input)="cambiarInstrucciones($event)"
+                placeholder="Pedí el problema, la ubicación y la descripción. Una cosa a la vez."></textarea>
+            </label>
+            <p class="nota">
+              Se SUMA a las instrucciones generales del agente mientras está en esta fase;
+              no las reemplaza.
+            </p>
+
+            <label class="campo">
+              <span>Al entrar</span>
+              <select [value]="n.alEntrar ?? 'auto'" (change)="cambiarEntrada($event)">
+                <option value="auto">Automático</option>
+                <option value="generate_immediately">Habla el agente</option>
+                <option value="wait_for_user">Espera a la persona</option>
+              </select>
+            </label>
+          }
+
+          @if (n.tipo === 'fase' || n.tipo === 'accion') {
+            <div class="campo">
+              <span>Herramientas {{ n.tipo === 'accion' ? '(se ejecutan al llegar acá)' : '(disponibles en esta fase)' }}</span>
+              @for (h of herramientas(); track h.id) {
+                <label class="chk">
+                  <input type="checkbox" [checked]="tiene(n, h.nombre)" (change)="alternarHerramienta(h.nombre)" />
+                  <span>{{ h.nombre }}</span>
+                </label>
+              }
+            </div>
+          }
+
+          @if (n.tipo === 'inicio') {
+            <p class="nota">Por acá empieza toda conversación. No se puede borrar ni renombrar.</p>
+          }
+          @if (n.tipo === 'fin') {
+            <p class="nota">Al llegar acá la conversación termina.</p>
+          }
+
+          @if (n.tipo !== 'inicio') {
+            <button class="btn btn--ghost btn--peligro" (click)="borrarNodo()">Borrar paso</button>
+          }
+        } @else if (aristaSeleccionada(); as a) {
+          <h2>Conexión</h2>
+          <label class="campo">
+            <span>Condición para pasar</span>
+            <input
+              [value]="a.condicion ?? ''"
+              (input)="cambiarCondicion($event)"
+              placeholder="cuando ya tengas la ubicación" />
+          </label>
+          <p class="nota">
+            En lenguaje natural: la evalúa el modelo en cada turno. Vacío significa
+            que se pasa siempre.
+          </p>
+          <button class="btn btn--ghost btn--peligro" (click)="borrarArista()">Borrar conexión</button>
+        } @else {
+          <div class="panel__vacio">
+            <p>Elegí un paso o una flecha para editarlo.</p>
+            <p class="nota">
+              Para conectar dos pasos, hacé clic en el punto del borde derecho de uno
+              y después en el otro.
+            </p>
+          </div>
+        }
+      </aside>
+    </div>
+  </div>
+}

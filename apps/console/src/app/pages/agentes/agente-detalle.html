@@ -12,6 +12,7 @@
         </p>
       </div>
       <div class="cabecera__acciones">
+        <a class="btn btn--ghost" [routerLink]="['/agentes', id(), 'flujo']">Flujo</a>
         <button class="btn btn--ghost" (click)="duplicar()">Duplicar</button>
         @if (!a.enUso) {
           <button class="btn btn--ghost btn--peligro" (click)="eliminar()">

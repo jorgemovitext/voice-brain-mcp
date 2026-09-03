@@ -1,7 +1,7 @@
 import { HttpClient } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
 import { firstValueFrom } from 'rxjs';
-import { Atencion, Contact, DemoStatus, FlowStep, NlpearlTestResult } from './models';
+import { AristaFlujo, Atencion, Contact, DemoStatus, FlowStep, NlpearlTestResult, NodoFlujo } from './models';
 
 /**
  * Acciones (POST) contra el backend. Las lecturas de las vistas usan
@@ -201,5 +201,12 @@ export class BrainApiService {
         herramientas: Array<{ nombre: string; args: Record<string, unknown> }>;
       }>(`/api/agentes/${id}/probar`, { texto, historial }),
     );
+  }
+
+  guardarFlujoAgente(
+    id: string,
+    flujo: { nodos: NodoFlujo[]; aristas: AristaFlujo[] },
+  ): Promise<{ ok: boolean }> {
+    return firstValueFrom(this.http.patch<{ ok: boolean }>(`/api/agentes/${id}/flujo`, flujo));
   }
 }

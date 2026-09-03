@@ -50,6 +50,12 @@ export const routes: Routes = [
     title: 'Agentes · Brain',
   },
   {
+    path: 'agentes/:id/flujo',
+    canActivate: [authGuard],
+    loadComponent: () => import('./pages/agentes/agente-flujo').then((m) => m.AgenteFlujoPage),
+    title: 'Flujo · Brain',
+  },
+  {
     path: 'agentes/:id',
     canActivate: [authGuard],
     loadComponent: () => import('./pages/agentes/agente-detalle').then((m) => m.AgenteDetallePage),

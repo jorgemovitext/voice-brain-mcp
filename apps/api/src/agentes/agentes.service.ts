@@ -33,6 +33,33 @@ export interface AgenteDetalle extends AgenteResumen {
   variables: string[];
 }
 
+/**
+ * Un paso del flujo: `inicio`, `fase` (habla con su propio prompt), `accion`
+ * (ejecuta herramientas) o `fin`.
+ */
+export interface NodoFlujo {
+  id: string;
+  tipo: string;
+  nombre: string;
+  x: number;
+  y: number;
+  /** Solo en `fase`: lo que se le suma al prompt base mientras está acá. */
+  instrucciones?: string;
+  /** Nombres, no ids: la consola nunca ve un id del proveedor. */
+  herramientas?: string[];
+  /** `auto` | `generate_immediately` | `wait_for_user`. */
+  alEntrar?: string;
+}
+
+/** Une dos pasos. Sin condición, se pasa siempre. */
+export interface AristaFlujo {
+  id: string;
+  desde: string;
+  hasta: string;
+  /** En lenguaje natural: la evalúa el modelo. Vacío = incondicional. */
+  condicion?: string;
+}
+
 /** Una herramienta del catálogo de la cuenta. */
 export interface HerramientaDisponible {
   id: string;
@@ -257,6 +284,114 @@ export class AgentesService {
     }
     await this.pedir(`/v1/convai/agents/${id}`, undefined, 'DELETE');
     this.logger.warn(`Agente eliminado: ${id}`);
+  }
+
+  /* --- Flujo de la conversación --------------------------------------------
+   *
+   * Un agente puede tener un GRAFO: fases con su propio prompt y herramientas,
+   * unidas por condiciones. Sirve para lo que un prompt largo hace mal —"hasta
+   * que no tengas la ubicación no registres"—, porque acá la regla es
+   * estructura y no una frase que el modelo puede saltarse.
+   *
+   * Se traduce al vocabulario de la consola: adentro `override_agent`, afuera
+   * "fase". Quien dibuja el flujo no tiene por qué saber cómo lo llama el
+   * proveedor, y si mañana cambiamos de proveedor el dibujo no cambia.
+   */
+
+  private static readonly TIPOS: Record<string, string> = {
+    start: 'inicio',
+    override_agent: 'fase',
+    tool: 'accion',
+    end: 'fin',
+  };
+  private static readonly TIPOS_INVERSO: Record<string, string> = Object.fromEntries(
+    Object.entries(AgentesService.TIPOS).map(([k, v]) => [v, k]),
+  );
+
+  async flujo(id: string): Promise<{ nodos: NodoFlujo[]; aristas: AristaFlujo[] }> {
+    const a = await this.pedir<Record<string, any>>(`/v1/convai/agents/${id}`);
+    const w = a['workflow'] ?? {};
+    const catalogo = await this.catalogo();
+    const porId = new Map(catalogo.map((h) => [h.id, h.nombre]));
+
+    const nodos: NodoFlujo[] = Object.entries(w['nodes'] ?? {}).map(([clave, n]: [string, any]) => ({
+      id: clave,
+      tipo: AgentesService.TIPOS[n['type']] ?? n['type'],
+      // El nodo de inicio y el de fin no llevan etiqueta propia: se nombran solos.
+      nombre: n['label'] ?? AgentesService.TIPOS[n['type']] ?? n['type'],
+      x: n['position']?.x ?? 0,
+      y: n['position']?.y ?? 0,
+      instrucciones: n['additional_prompt'] ?? '',
+      herramientas: [
+        ...(n['additional_tool_ids'] ?? []),
+        ...((n['tools'] ?? []) as Array<{ tool_id: string }>).map((t) => t.tool_id),
+      ].map((t: string) => porId.get(t) ?? t),
+      alEntrar: n['entry_behavior'] ?? 'auto',
+    }));
+
+    const aristas: AristaFlujo[] = Object.entries(w['edges'] ?? {}).map(([clave, e]: [string, any]) => ({
+      id: clave,
+      desde: e['source'],
+      hasta: e['target'],
+      // `unconditional` y `null` son lo mismo para quien mira el dibujo: se pasa
+      // siempre. Solo la condición en lenguaje natural merece texto.
+      condicion: e['forward_condition']?.type === 'llm' ? (e['forward_condition']['condition'] ?? '') : '',
+    }));
+
+    return { nodos, aristas };
+  }
+
+  async guardarFlujo(
+    id: string,
+    flujo: { nodos: NodoFlujo[]; aristas: AristaFlujo[] },
+  ): Promise<void> {
+    const catalogo = await this.catalogo();
+    const porNombre = new Map(catalogo.map((h) => [h.nombre, h.id]));
+
+    /*
+     * El nodo de entrada tiene que llamarse `start_node`, y no alcanza con que
+     * su `type` sea "start": la API rechaza el grafo entero con "Workflow must
+     * contain a start node". Se renombra acá —y se rehacen las aristas que lo
+     * tocaban— para que la consola no tenga que saberlo.
+     */
+    const ARRANQUE = 'start_node';
+    const renombrar = new Map<string, string>();
+    for (const n of flujo.nodos) {
+      renombrar.set(n.id, n.tipo === 'inicio' ? ARRANQUE : n.id);
+    }
+    const clave = (id: string) => renombrar.get(id) ?? id;
+
+    const nodes: Record<string, unknown> = {};
+    for (const n of flujo.nodos) {
+      const tipo = AgentesService.TIPOS_INVERSO[n.tipo] ?? n.tipo;
+      const base: Record<string, unknown> = { type: tipo, position: { x: n.x, y: n.y } };
+      const ids = (n.herramientas ?? []).map((h) => porNombre.get(h)).filter(Boolean) as string[];
+
+      if (tipo === 'override_agent') {
+        // `label` es obligatorio: sin él la API rechaza el grafo entero.
+        base['label'] = n.nombre || 'Fase';
+        base['additional_prompt'] = n.instrucciones ?? '';
+        base['additional_tool_ids'] = ids;
+        base['entry_behavior'] = n.alEntrar ?? 'auto';
+      } else if (tipo === 'tool') {
+        base['tools'] = ids.map((tool_id) => ({ tool_id }));
+      }
+      nodes[clave(n.id)] = base;
+    }
+
+    const edges: Record<string, unknown> = {};
+    for (const e of flujo.aristas) {
+      edges[e.id] = {
+        source: clave(e.desde),
+        target: clave(e.hasta),
+        forward_condition: e.condicion?.trim()
+          ? { type: 'llm', condition: e.condicion.trim() }
+          : { type: 'unconditional' },
+      };
+    }
+
+    await this.pedir(`/v1/convai/agents/${id}`, { workflow: { nodes, edges } }, 'PATCH');
+    this.logger.log(`Flujo guardado en ${id}: ${flujo.nodos.length} nodos, ${flujo.aristas.length} aristas`);
   }
 
   /** Contexto que el agente puede consultar, escrito a mano. */
