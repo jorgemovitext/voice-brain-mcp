@@ -121,6 +121,9 @@ export class ElevenLabsVozService {
               dynamic_variables: {
                 nombre_ciudadano: ctx.contact.displayName ?? 'sin nombre registrado',
                 telefono,
+                // El mismo agente atiende el chat. Acá SÍ hay alguien en la
+                // línea: el prompt cambia con esto y deja de dictar enlaces.
+                canal: 'llamada',
               },
             },
           },

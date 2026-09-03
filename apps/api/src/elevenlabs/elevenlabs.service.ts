@@ -54,6 +54,14 @@ export class ElevenLabsService {
       variables: {
         nombre_ciudadano: nombre || 'sin nombre registrado',
         telefono: ctx?.contact.phones?.[0] ?? '',
+        /*
+         * El MISMO agente atiende chat y llamada, y no se hablan igual: por
+         * teléfono no se dictan enlaces, y por WhatsApp pedirle a alguien que
+         * "no cuelgue" no tiene sentido —pasó en producción—. El prompt se
+         * ramifica con esto. Acá siempre es chat: la llamada la arma
+         * ElevenLabsVozService.
+         */
+        canal: 'WhatsApp',
       },
       /*
        * Lo que el agente puede HACER, no solo decir: abrir el ticket en el

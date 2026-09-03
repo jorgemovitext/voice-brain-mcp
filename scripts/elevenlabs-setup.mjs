@@ -7,14 +7,15 @@
  * llamó, le inventa un folio al ciudadano y nadie se entera. Acá los nombres
  * salen del mismo lugar que los valida el backend.
  *
- *   node scripts/elevenlabs-setup.mjs [--env <archivo>] [--voz] [--sin-prompt]
+ *   node scripts/elevenlabs-setup.mjs [--env <archivo>] [--sin-prompt]
  *
  * La llave sale del entorno (ELEVENLABS_API_KEY) o del archivo que le pases con
  * --env. Nunca se imprime.
  *
- *   --voz         además duplica el agente para llamadas (sin "solo texto") y
- *                 dice qué id poner en ELEVENLABS_VOICE_AGENT_ID
  *   --sin-prompt  no toca el system prompt del panel; solo herramientas y ajustes
+ *
+ * Es UN SOLO agente para chat y llamada: el prompt se adapta con {{canal}}, que
+ * la app manda en cada turno.
  *
  * Es idempotente: corrélo las veces que quieras. Las herramientas se emparejan
  * por nombre, así que no se duplican.
@@ -90,8 +91,18 @@ const HERRAMIENTAS = [
   },
 ];
 
-/** Las que la app manda en cada turno. Sin declararlas, la conexión las rechaza. */
-const VARIABLES = { nombre_ciudadano: 'María López', telefono: '+50497616546' };
+/**
+ * Las que la app manda en cada turno. Sin declararlas, la conexión las rechaza.
+ *
+ * `canal` es la que deja que un mismo agente sirva para las dos cosas: en el
+ * chat vale "WhatsApp" y en la llamada "llamada", y el prompt se ramifica. Sin
+ * ella el agente pide "no colgués" por WhatsApp y dicta URLs por teléfono.
+ */
+const VARIABLES = {
+  nombre_ciudadano: 'María López',
+  telefono: '+50497616546',
+  canal: 'WhatsApp',
+};
 
 // --- argumentos y credenciales -------------------------------------------------
 
@@ -196,11 +207,43 @@ cc.agent.prompt = cc.agent.prompt ?? {};
 
 cc.agent.language = 'es';
 // En WhatsApp habla primero el vecino: un saludo automático llegaría antes de
-// que escriba.
+// que escriba. En la llamada saluda igual, guiado por el prompt.
 cc.agent.first_message = '';
-cc.agent.prompt.tool_ids = idsHerramientas;
 cc.agent.dynamic_variables = { dynamic_variable_placeholders: VARIABLES };
-cc.conversation = { ...(cc.conversation ?? {}), text_only: true };
+
+/*
+ * UN SOLO AGENTE para chat y llamada, así que "solo texto" queda apagado: esa
+ * opción le apaga el motor de voz y con ella puesta la llamada no levanta. Las
+ * acotaciones que el modo voz mete en el texto (`[pausa breve]`) las quita el
+ * backend antes de mandar el WhatsApp — ver ElevenLabsService.sinEtiquetasDeVoz.
+ */
+cc.conversation = { ...(cc.conversation ?? {}), text_only: false };
+
+/*
+ * La API rechaza `tools` y `tool_ids` juntos, así que hay que borrar el arreglo
+ * viejo. Ahí adentro vienen las de sistema —end_call, language_detection—, que
+ * son las que dejan colgar la llamada, y NO existen en /v1/convai/tools: no se
+ * pueden convertir a id.
+ *
+ * Se pueden borrar igual porque `built_in_tools` las tiene por su cuenta:
+ * `tools` es un espejo en el formato viejo. Pero eso se verifica, no se asume —
+ * perder end_call dejaría al agente sin forma de terminar una llamada, y no lo
+ * notaríamos hasta tener a un vecino atrapado en la línea.
+ */
+const activasDeSistema = Object.entries(cc.agent.prompt.built_in_tools ?? {})
+  .filter(([, v]) => v)
+  .map(([k]) => k);
+for (const t of cc.agent.prompt.tools ?? []) {
+  if (t.type === 'system' && !activasDeSistema.includes(t.name)) {
+    throw new Error(
+      `"${t.name}" está en prompt.tools pero no activa en built_in_tools: ` +
+        'borrar el arreglo la perdería. Revisalo antes de seguir.',
+    );
+  }
+}
+delete cc.agent.prompt.tools;
+delete cc.agent.tools;
+cc.agent.prompt.tool_ids = idsHerramientas;
 
 if (!tiene('--sin-prompt')) {
   // El primer bloque de código del documento ES el prompt completo.
@@ -211,39 +254,11 @@ if (!tiene('--sin-prompt')) {
 }
 
 await api('PATCH', `/v1/convai/agents/${AGENT_ID}`, { conversation_config: cc });
-console.log(`\nAgente de texto (${agente.name ?? AGENT_ID})`);
-console.log('  · idioma es · solo texto activado · primer mensaje vacío');
+console.log(`\nAgente (${agente.name ?? AGENT_ID})`);
+console.log('  · idioma es · primer mensaje vacío');
+console.log('  · solo texto APAGADO: el mismo agente atiende chat y llamada');
 console.log(`  · variables declaradas: ${Object.keys(VARIABLES).join(', ')}`);
-console.log(`  · ${idsHerramientas.length} herramientas enganchadas`);
+console.log(`  · herramientas enganchadas: ${cc.agent.prompt.tool_ids.length} + de sistema: ${activasDeSistema.join(", ")}`);
 console.log(tiene('--sin-prompt') ? '  · prompt: sin tocar' : '  · prompt actualizado desde el documento');
-
-// --- 3. el gemelo de voz -------------------------------------------------------
-
-if (tiene('--voz')) {
-  /*
-   * "Solo texto" apaga el motor de voz: el agente que atiende WhatsApp bien no
-   * puede levantar una llamada. El gemelo es el mismo prompt y la misma base,
-   * con esa opción apagada y sin la regla de "esto es un chat".
-   */
-  const copia = await api('POST', `/v1/convai/agents/${AGENT_ID}/duplicate`, {
-    name: `${agente.name ?? 'Línea 100'} — voz`,
-  });
-  const vozCc = (await api('GET', `/v1/convai/agents/${copia.agent_id}`)).conversation_config;
-  vozCc.conversation = { ...(vozCc.conversation ?? {}), text_only: false };
-  vozCc.agent.prompt.prompt = vozCc.agent.prompt.prompt
-    .replace(/\nESTO ES UN CHAT DE WHATSAPP[\s\S]*?misma conversación\.\n/, '\n')
-    .concat(
-      '\n\nESTO ES UNA LLAMADA\n' +
-        'Te están escuchando, no leyendo. No dictes enlaces ni listas numeradas.\n' +
-        'Los números decilos dígito por dígito. Si escalás, avisá que alguien del\n' +
-        'equipo va a devolver la llamada: no dejes a la persona esperando en línea.\n',
-    );
-  await api('PATCH', `/v1/convai/agents/${copia.agent_id}`, { conversation_config: vozCc });
-
-  console.log('\nAgente de voz');
-  console.log('  · duplicado con las mismas herramientas y base');
-  console.log('  · solo texto DESACTIVADO · prompt adaptado a llamada');
-  console.log(`\n  Agregá esta variable de entorno en Vercel:\n  ELEVENLABS_VOICE_AGENT_ID=${copia.agent_id}`);
-}
 
 console.log('\nListo.');
