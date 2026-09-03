@@ -46,7 +46,17 @@ export class ElevenLabsVozService {
   ) {
     this.apiUrl = config.get<string>('ELEVENLABS_API_URL', 'https://api.elevenlabs.io');
     this.apiKey = config.get<string>('ELEVENLABS_API_KEY', '');
-    this.agentId = config.get<string>('ELEVENLABS_AGENT_ID', '');
+    /*
+     * El agente que atiende WhatsApp lleva "Solo texto" encendido, y esa
+     * opción le apaga el motor de voz: con él la llamada no levanta. Por eso
+     * la voz puede apuntar a OTRO agente —mismo prompt y misma base, sin esa
+     * opción—. Si no está configurado se usa el de texto: quien todavía no
+     * duplicó el agente sigue como estaba, y el fallo se ve al llamar y no en
+     * el arranque.
+     */
+    this.agentId =
+      config.get<string>('ELEVENLABS_VOICE_AGENT_ID', '') ||
+      config.get<string>('ELEVENLABS_AGENT_ID', '');
     this.phoneNumberId = config.get<string>('ELEVENLABS_PHONE_NUMBER_ID', '');
   }
 

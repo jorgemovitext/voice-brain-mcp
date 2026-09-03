@@ -93,10 +93,31 @@ Junto con este prompt, en el panel del agente:
 
 | Campo | Valor |
 |---|---|
-| **Language** | Español |
-| **Advanced → Text only** | Activado |
-| **First message** | Dejalo vacío. En WhatsApp habla primero el vecino; un saludo automático llegaría antes de que escriba. |
-| **Knowledge base** | Subí `base-de-conocimiento.md` |
+| **Idioma** (*Language*) | Español |
+| **Avanzado → Solo texto** (*Advanced → Text only*) | Activado — **solo en el agente de texto**, ver abajo |
+| **Primer mensaje** (*First message*) | Dejalo vacío. En WhatsApp habla primero el vecino; un saludo automático llegaría antes de que escriba. |
+| **Base de conocimiento** (*Knowledge base*) | Subí `base-de-conocimiento.md` |
+
+### Dos agentes, una base de conocimiento
+
+`Solo texto` no es un detalle de estilo: apaga el motor de voz del agente. Un
+agente con esa opción encendida **no puede atender una llamada**, y uno con
+ella apagada mete acotaciones de voz (`[pausa breve]`) y modismos de teléfono
+("no colgués") en los mensajes de WhatsApp.
+
+No hay forma de tenerlo bien de los dos lados con un solo agente. La salida es
+**dos agentes** que comparten la misma base de conocimiento y las mismas cuatro
+herramientas:
+
+| | Agente de texto | Agente de voz |
+|---|---|---|
+| Atiende | WhatsApp | llamadas |
+| `Solo texto` | encendido | **apagado** |
+| Variable de entorno | `ELEVENLABS_AGENT_ID` | `ELEVENLABS_VOICE_AGENT_ID` |
+| Final del prompt | "Esto es un chat, no una llamada" | "Esto es una llamada: no mandes enlaces ni listas" |
+
+Duplicar el agente en el panel copia prompt, base y herramientas: lo único que
+se cambia después es esa opción y el párrafo final.
 
 ### Sobre las variables
 
@@ -119,7 +140,29 @@ El agente no solo conversa: puede **abrir el ticket en el CRM** y **avisarle a
 la cuadrilla**. En ElevenLabs se declaran como **Client tools** (no webhooks):
 la app las ejecuta y le devuelve el resultado por la misma conexión.
 
-En el panel: **Agent → Tools → Add tool → Client tool**.
+### Cómo se declara cada una en el panel
+
+El panel puede estar en español o en inglés; abajo van las dos etiquetas. Es
+el **mismo diálogo** para las cuatro, se repite una vez por herramienta.
+
+1. Entrá al agente → pestaña **Herramientas** (*Tools*).
+2. **Agregar herramienta** (*Add Tool*). Se abre un diálogo, no un submenú:
+   el tipo se elige **adentro**.
+3. **Tipo de herramienta** (*Tool Type*) → **Cliente** (*Client*).
+   No *Servidor* ni *Webhook*: la ejecuta nuestra app, no ElevenLabs.
+4. **Nombre** (*Name*): copiado **exacto** de los títulos de abajo.
+   Distingue mayúsculas y guiones bajos — `asignar_tarea` funciona,
+   `Asignar_Tarea` no, y el fallo es silencioso: el agente cree que la llamó.
+5. **Descripción** (*Description*): el texto en cita de cada herramienta. Es lo
+   único que el agente lee para decidir cuándo usarla.
+6. **Parámetros** (*Parameters*) → uno por fila de la tabla:
+   **Tipo de dato** (*Data Type*) `string` · **Identificador** (*Identifier*)
+   el nombre del parámetro · **Obligatorio** (*Required*) según la columna Req.
+   · **Descripción** (*Description*).
+7. **Esperar respuesta** (*Wait for response*) → **encendido**. Sin esto el
+   agente dispara la herramienta y sigue hablando sin leer lo que devolvió:
+   perdería el número de seguimiento y la lista de responsables, que es
+   justamente lo que tiene que decirle al ciudadano.
 
 ### `registrar_reporte`
 
