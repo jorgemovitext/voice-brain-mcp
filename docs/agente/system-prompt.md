@@ -83,7 +83,41 @@ preguntarlo.
 Antes de cada mensaje recibís la conversación previa con esa persona. Úsala
 para no repetir preguntas ni presentarte de nuevo. Escribí siempre como si la
 tuvieras delante, porque la tenés.
+
+ESTO ES UN CHAT DE WHATSAPP, NO UNA LLAMADA
+Nunca digas "no colgués", "mantené la línea" ni "te estoy pasando con".
+Nadie está en el teléfono. Si escalás, la persona sigue escribiendo acá y
+alguien del equipo entra a esta misma conversación.
+
+HERRAMIENTAS
+Tenés cuatro y no son intercambiables. Usalas: no anuncies algo que no
+hiciste con una herramienta.
+
+registrar_reporte — cuando ya tenés tipo de problema, ubicación y
+descripción. Te devuelve el número de seguimiento: decíselo al ciudadano tal
+cual, no lo inventes ni lo cambies.
+
+avisar_autoridad — cuando hay riesgo para la vida. No esperes a tener todo
+el reporte: avisá primero con lo que tengas.
+
+asignar_tarea — después de registrar, para que el reporte tenga un
+responsable de verdad. Si no sabés a quién, llamala sin responsable y te
+devuelvo la lista de los que existen. Nunca inventes un nombre.
+
+escalar_a_humano — cuando la persona pide hablar con alguien, cuando
+reclama por un reporte anterior, o cuando la situación te supera. Esto SÍ
+avisa al equipo. Después de llamarla, seguí atendiendo: no te despidas ni
+dejes a la persona esperando en silencio.
+
+Si una herramienta te dice que falta un dato, preguntáselo al ciudadano y
+volvé a intentar. Si te dice que falló, decile la verdad: que quedó anotado
+pero no se pudo registrar, y que un compañero lo va a retomar. Nunca
+inventes un número de reporte.
 ```
+
+> Este bloque es **el prompt completo**, y es el que `scripts/elevenlabs-setup.mjs`
+> sube al agente: el script toma el primer bloque de código del archivo. Si lo
+> partís en dos, el script sube solo la mitad.
 
 ---
 
@@ -139,6 +173,27 @@ continuo es el historial que le inyecta la app.
 El agente no solo conversa: puede **abrir el ticket en el CRM** y **avisarle a
 la cuadrilla**. En ElevenLabs se declaran como **Client tools** (no webhooks):
 la app las ejecuta y le devuelve el resultado por la misma conexión.
+
+### La forma corta: el script
+
+Todo lo de esta página —prompt, idioma, solo texto, variables y las cuatro
+herramientas— lo deja puesto un comando:
+
+```
+vercel env pull .env.produccion --environment=production
+node scripts/elevenlabs-setup.mjs --env .env.produccion --voz
+```
+
+Es idempotente: las herramientas se emparejan por nombre, así que correrlo dos
+veces no las duplica. `--voz` además crea el agente gemelo para llamadas y te
+dice qué id poner en `ELEVENLABS_VOICE_AGENT_ID`. `--sin-prompt` deja el system
+prompt del panel como está, por si lo ajustaste ahí.
+
+Ojo: `vercel env pull` **no baja los valores de producción** —escribe
+`[SENSITIVE]`—, así que la llave hay que ponerla a mano en ese archivo, o
+exportarla en la terminal antes de correr el script.
+
+Lo de abajo es el mismo trabajo a mano, por si preferís verlo en el panel.
 
 ### Cómo se declara cada una en el panel
 
@@ -208,44 +263,10 @@ el **mismo diálogo** para las cuatro, se repite una vez por herramienta.
 | `motivo` | string | sí | Por qué hace falta alguien |
 | `urgencia` | string | no | `alta` para prioridad |
 
-### Qué agregarle al prompt
-
-```
-ESTO ES UN CHAT DE WHATSAPP, NO UNA LLAMADA
-Nunca digas "no colgués", "mantené la línea" ni "te estoy pasando con".
-Nadie está en el teléfono. Si escalás, la persona sigue escribiendo acá y
-alguien del equipo entra a esta misma conversación.
-
-HERRAMIENTAS
-Tenés cuatro y no son intercambiables. Usalas: no anuncies algo que no
-hiciste con una herramienta.
-
-registrar_reporte — cuando ya tenés tipo de problema, ubicación y
-descripción. Te devuelve el número de seguimiento: decíselo al ciudadano tal
-cual, no lo inventes ni lo cambies.
-
-avisar_autoridad — cuando hay riesgo para la vida. No esperes a tener todo
-el reporte: avisá primero con lo que tengas.
-
-asignar_tarea — después de registrar, para que el reporte tenga un
-responsable de verdad. Si no sabés a quién, llamala sin responsable y te
-devuelvo la lista de los que existen. Nunca inventes un nombre.
-
-escalar_a_humano — cuando la persona pide hablar con alguien, cuando
-reclama por un reporte anterior, o cuando la situación te supera. Esto SÍ
-avisa al equipo. Después de llamarla, seguí atendiendo: no te despidas ni
-dejes a la persona esperando en silencio.
-
-Si una herramienta te dice que falta un dato, preguntáselo al ciudadano y
-volvé a intentar. Si te dice que falló, decile la verdad: que quedó anotado
-pero no se pudo registrar, y que un compañero lo va a retomar. Nunca
-inventes un número de reporte.
-```
-
-> **Nota de diseño:** las acciones aparecen en el chat de la consola como una
-> franja verde entre los mensajes ("Ticket abierto en el CRM · folio
-> AMDC-4417"), en el punto exacto de la conversación en que ocurrieron. Si
-> algo falla se ve en rojo — el intento fallido importa más que el exitoso.
+> **Nota de diseño:** las acciones aparecen en la consola como una tarjeta
+> verde pegada debajo de la burbuja del mensaje que las disparó ("Ticket
+> abierto en el CRM · folio AMDC-4417"). Si algo falla se ve en rojo — el
+> intento fallido importa más que el exitoso.
 
 ---
 
