@@ -319,12 +319,39 @@ cco.conversation = { ...(cco.conversation ?? {}), text_only: true };
 overrides.conversation_config_override = cco;
 plataforma.overrides = overrides;
 
+/*
+ * El webhook de post-llamada, enganchado al agente.
+ *
+ * Tener el webhook creado en el workspace NO alcanza: el agente lo referencia
+ * por id en `workspace_overrides.webhooks.post_call_webhook_id`, y mientras eso
+ * estuvo en null ElevenLabs no mandó una sola llamada. Las llamadas ocurrían,
+ * el agente contestaba, y a la app no llegaba nada — sin error en ninguno de
+ * los dos lados, porque para el proveedor no había a quién avisarle.
+ */
+const webhooks = await api('GET', '/v1/workspace/webhooks');
+const nuestro = (webhooks.webhooks ?? []).find((w) => /\/webhooks\/elevenlabs$/.test(w.webhook_url ?? ''));
+if (nuestro) {
+  const wo = plataforma.workspace_overrides ?? {};
+  wo.webhooks = {
+    ...(wo.webhooks ?? {}),
+    post_call_webhook_id: nuestro.webhook_id,
+    events: ['transcript'],
+    transcript_format: 'json',
+  };
+  plataforma.workspace_overrides = wo;
+}
+
 await api('PATCH', `/v1/convai/agents/${AGENT_ID}`, {
   conversation_config: cc,
   platform_settings: plataforma,
 });
 console.log(`\nAgente (${agente.name ?? AGENT_ID})`);
 console.log('  · permiso de override de text_only: habilitado');
+console.log(
+  nuestro
+    ? '  · webhook de post-llamada: enganchado'
+    : '  · webhook de post-llamada: NO hay uno apuntando a /webhooks/elevenlabs',
+);
 console.log('  · idioma es · primer mensaje vacío');
 console.log('  · solo texto APAGADO: el mismo agente atiende chat y llamada');
 console.log(`  · variables declaradas: ${Object.keys(VARIABLES).join(', ')}`);
