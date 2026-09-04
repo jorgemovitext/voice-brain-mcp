@@ -725,7 +725,42 @@ export class ContactDetailPage implements OnDestroy {
           cuando: ultimoAvance > mensaje ? ultimoAvance : mensaje,
         };
       })
+      /*
+       * Un contacto SIN nada que haya pasado no es una conversación.
+       *
+       * La lista arrastraba una cola de fichas del directorio que nunca
+       * escribieron —ocho "Anónimo · Sin mensajes todavía" seguidos—, y esa
+       * repetición era la mitad de lo cargada que se veía. Quien los busque
+       * los tiene en el directorio, que está en el ícono de al lado.
+       */
+      .filter((c) => !!c.cuando)
       .sort((a, b) => b.cuando.localeCompare(a.cuando));
+  });
+
+  /**
+   * Los hilos partidos por antigüedad.
+   *
+   * Una lista larga de filas iguales se lee como un muro; en tramos se lee
+   * como "lo de hoy, y lo de antes". Los rótulos solo aparecen cuando hay más
+   * de un tramo: con todo del mismo día, un título suelto sobraría.
+   */
+  readonly hilosPorTramo = computed(() => {
+    const hoy = new Date().toDateString();
+    const ayer = new Date(Date.now() - 86_400_000).toDateString();
+    const tramoDe = (iso: string) => {
+      const d = new Date(iso).toDateString();
+      return d === hoy ? 'Hoy' : d === ayer ? 'Ayer' : 'Antes';
+    };
+
+    const lista = this.hilos();
+    const tramos: Array<{ titulo: string; hilos: typeof lista }> = [];
+    for (const h of lista) {
+      const titulo = tramoDe(h.cuando);
+      const ultimo = tramos[tramos.length - 1];
+      if (ultimo?.titulo === titulo) ultimo.hilos.push(h);
+      else tramos.push({ titulo, hilos: [h] });
+    }
+    return tramos;
   });
   readonly sentimentClass = sentimentClass;
   readonly sentimentLabel = sentimentLabel;
@@ -1321,7 +1356,18 @@ export class ContactDetailPage implements OnDestroy {
   }
 
   preview(c: ContactListItem): string {
-    return this.truncate(c.lastInteraction?.summary ?? 'Sin mensajes todavía', 46);
+    const texto = c.lastInteraction?.summary ?? '';
+    /*
+     * Un turno puede no tener palabras: la transcripción de una llamada donde
+     * el vecino no llegó a decir nada entra literalmente como "...", y esa fila
+     * quedaba con tres puntos de vista previa, que no es información, es un
+     * hueco. Se dice entonces QUÉ fue, que es lo poco que sí se sabe.
+     */
+    if (!/[\p{L}\p{N}]/u.test(texto)) {
+      if (!c.lastInteraction) return 'Sin mensajes todavía';
+      return c.lastInteraction.channel === 'voice' ? 'Llamada' : 'Mensaje sin texto';
+    }
+    return this.truncate(texto, 46);
   }
 
   shortTime(iso?: string): string {

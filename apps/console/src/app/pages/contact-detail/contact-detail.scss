@@ -118,7 +118,29 @@ $overlap: 44px;
   padding-right: calc(0.6rem + 14px);
   display: flex;
   flex-direction: column;
-  gap: 0.25rem;
+  /* Un pelo más de aire entre filas: con 0.25rem la lista se leía como un
+     bloque continuo en vez de como piezas sueltas. */
+  gap: 0.3rem;
+}
+
+/* Reusa `.panel__empty` para el color y el tamaño: acá solo el aire y el
+   enlace. */
+.threads__vacio {
+  margin: 1.2rem 0.9rem;
+  line-height: 1.5;
+
+  a { color: var(--secondary); }
+}
+
+/* Rótulo de tramo: lo más callado que puede ser y seguir separando. Sin
+   fondo ni línea — el aire de arriba ya hace de corte. */
+.threads__tramo {
+  padding: 0.55rem 0.9rem 0.15rem;
+  font-size: 0.63rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: color-mix(in srgb, var(--ink-soft) 65%, transparent);
 }
 
 .thread {
@@ -185,6 +207,15 @@ $overlap: 44px;
   .thread__preview { color: var(--ink); }
 }
 
+/*
+ * El avatar lleva el tono del contacto, pero TEÑIDO, no relleno.
+ *
+ * Era un pastel saturado a todo el disco, y con quince hilos en pantalla la
+ * columna se veía como un puñado de confeti: cada fila gritaba con un color
+ * distinto y ninguna decía nada. El tono ahora vive en un velo del 20% sobre
+ * el panel y en las iniciales; se sigue reconociendo a cada contacto por su
+ * temperatura, pero la lista entera baja a un solo volumen.
+ */
 .thread__avatar {
   position: relative;
   width: 38px;
@@ -196,12 +227,20 @@ $overlap: 44px;
      forma capsular deja dos radios peleando. */
   border-radius: 50%;
   font-size: 0.78rem;
-  font-weight: 800;
-  color: #22303c;
+  font-weight: 700;
+  background: color-mix(in srgb, var(--tono, #cdeffd) 20%, #131a29);
+  color: color-mix(in srgb, var(--tono, #cdeffd) 85%, #fff);
 }
 
-/* De dónde vino la última actividad del hilo, prendida como una insignia
-   sobre el avatar (el patrón de "canal" de WhatsApp/Messenger). */
+/*
+ * De dónde vino la última actividad del hilo, prendida como una insignia
+ * sobre el avatar (el patrón de "canal" de WhatsApp/Messenger).
+ *
+ * El color del canal va apagado a propósito. Casi todo entra por WhatsApp, así
+ * que en pleno verde eran catorce puntos idénticos encendidos que no
+ * distinguían nada — solo hacían ruido. Lo que informa es el ícono; el color
+ * queda de refuerzo.
+ */
 .thread__canal {
   position: absolute;
   right: -3px;
@@ -215,7 +254,8 @@ $overlap: 44px;
   place-items: center;
   border-radius: 50%;
   border: 2px solid var(--panel);
-  color: #fff;
+  background: color-mix(in srgb, var(--canal, #8a8f98) 42%, #131a29);
+  color: color-mix(in srgb, var(--canal, #8a8f98) 30%, #fff);
 }
 
 .thread__body {
@@ -233,8 +273,10 @@ $overlap: 44px;
   gap: 0.4rem;
 }
 
+/* 700 y no 800: con quince nombres seguidos, la negrita máxima hace que
+   ninguno destaque. El abierto sí sube a blanco pleno (en `--active`). */
 .thread__name {
-  font-weight: 800;
+  font-weight: 700;
   font-size: 0.85rem;
   white-space: nowrap;
   overflow: hidden;
