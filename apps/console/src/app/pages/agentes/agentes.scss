@@ -2,6 +2,7 @@
    acá se hereda ese 100% exacto en vez de recalcular con vh, que no sabe
    cuánto ocupa el header y por eso el lateral se pasaba de largo. */
 .pagina {
+  position: relative;
   height: 100%;
   box-sizing: border-box;
   display: flex;
@@ -11,10 +12,10 @@
 }
 
 .cabecera {
-  position: relative;
   flex-shrink: 0;
-  /* El hueco de arriba es donde vive la píldora de crear. */
-  padding-top: 2.6rem;
+  /* A la derecha, el hueco de la píldora de crear: sin esto el subtítulo le
+     pasa por debajo en pantallas angostas. */
+  padding-right: 10rem;
   margin-bottom: 1rem;
 
   h1 { margin: 0; font-size: 1.5rem; font-weight: 800; }
@@ -22,16 +23,18 @@
 }
 
 /*
- * Crear: flotando sobre el encabezado, arriba a la izquierda.
+ * Crear: arriba a la derecha, sobre el riel.
  *
- * Es LA acción de la pantalla. Colgada del título se encuentra sin buscarla, y
- * al ir por encima no le roba renglón al panal, que es lo que uno vino a
- * mirar.
+ * Es LA acción de la pantalla y va donde termina la lectura, no donde empieza:
+ * a la izquierda competía con el título por el primer golpe de vista. Sobre el
+ * riel —que es la columna desde donde se actúa— queda en la esquina que uno ya
+ * mira para hacer algo.
  */
 .crear {
   position: absolute;
-  top: -0.15rem;
-  left: 0;
+  top: 1.4rem;
+  right: 1.6rem;
+  z-index: 3;
   display: inline-flex;
   align-items: center;
   gap: 0.4rem;
