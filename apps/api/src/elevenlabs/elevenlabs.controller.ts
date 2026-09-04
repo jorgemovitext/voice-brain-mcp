@@ -1,4 +1,5 @@
-import { Body, Controller, HttpCode, Logger, Param, Post, Req } from '@nestjs/common';
+import { Body, Controller, Get, HttpCode, Logger, NotFoundException, Param, Post, Req, Res } from '@nestjs/common';
+import { FastifyReply } from 'fastify';
 import { ConfigService } from '@nestjs/config';
 import { FastifyRequest } from 'fastify';
 import { createHmac, timingSafeEqual } from 'crypto';
@@ -55,6 +56,32 @@ export class ElevenLabsController {
   @Post('api/voz/reprocesar')
   reprocesar() {
     return this.voz.reprocesar();
+  }
+
+  /**
+   * La grabación de una llamada, para escucharla en el hilo.
+   *
+   * Va por acá y no directo al proveedor por lo mismo que la media de
+   * WhatsApp: la apikey se queda del lado del servidor, el enlace es del mismo
+   * origen y pasa por la sesión —una llamada de un vecino es dato personal—, y
+   * si el proveedor deja de servirla el fallo se ve acá y no como un
+   * reproductor mudo.
+   */
+  @Get('api/voz/audio/:conversationId')
+  async audio(
+    @Param('conversationId') conversationId: string,
+    @Res() res: FastifyReply,
+  ): Promise<void> {
+    const audio = await this.voz.audioDeLlamada(conversationId);
+    if (!audio) throw new NotFoundException('Esa llamada no tiene grabación disponible');
+
+    res
+      .header('content-type', audio.tipo)
+      // Cacheable: la grabación de una llamada terminada no cambia nunca.
+      .header('cache-control', 'private, max-age=86400')
+      // Para que el navegador pueda saltar a un segundo sin bajar todo.
+      .header('accept-ranges', 'bytes')
+      .send(audio.datos);
   }
 
   /**

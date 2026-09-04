@@ -157,6 +157,34 @@ export class ElevenLabsVozService {
     return { revisadas: conversaciones.length, llamadas, nuevos, hilos: hilos.size, avisos: avisos.slice(0, 8) };
   }
 
+  /**
+   * La grabación de una llamada.
+   *
+   * Devuelve `null` en vez de lanzar cuando no existe: una llamada que no se
+   * grabó es un caso normal —las del widget web no tienen audio— y el hilo
+   * tiene que poder dibujarse igual, sin reproductor.
+   */
+  async audioDeLlamada(conversationId: string): Promise<{ datos: Buffer; tipo: string } | null> {
+    try {
+      const res = await firstValueFrom(
+        this.http.get<ArrayBuffer>(`${this.apiUrl}/v1/convai/conversations/${conversationId}/audio`, {
+          headers: this.headers,
+          responseType: 'arraybuffer',
+          // Una llamada larga son unos pocos MB; se acota igual.
+          maxContentLength: 40 * 1024 * 1024,
+          timeout: 20_000,
+        }),
+      );
+      return {
+        datos: Buffer.from(res.data),
+        tipo: (res.headers?.['content-type'] as string) ?? 'audio/mpeg',
+      };
+    } catch (err) {
+      this.logger.warn(`Sin grabación para ${conversationId}: ${(err as Error).message}`);
+      return null;
+    }
+  }
+
   /** Los números disponibles. Sirve para saber cuál poner en la config. */
   async numeros(): Promise<NumeroAgente[]> {
     const res = await firstValueFrom(
@@ -349,6 +377,13 @@ export class ElevenLabsVozService {
           summary: texto,
           source: 'own',
           handledBy: t.role === 'agent' ? 'agente' : undefined,
+          /*
+           * De qué llamada es y en qué segundo arranca: con eso el chat puede
+           * reproducir la grabación desde ESTE turno en vez de desde el
+           * principio, que en una llamada de tres minutos es la diferencia
+           * entre escuchar lo que te interesa o buscarlo a mano.
+           */
+          collectedInfo: { conversationId, desdeSegundo: t.time_in_call_secs ?? 0 },
         });
         if (guardada) nuevos++;
       }

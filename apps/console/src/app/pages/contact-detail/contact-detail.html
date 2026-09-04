@@ -345,14 +345,23 @@
             }
             <div class="msg__stack">
               @if (m.interaction.channel === 'voice') {
-                <div class="bubble bubble--voice" (click)="toggleTranscript(m.interaction.id)" title="Ver transcripción">
-                  <span class="bubble__play">▶</span>
-                  <span class="wave">
+                <!-- La onda es decorativa, pero el ▶ suena de verdad: la
+                     grabación de la llamada, desde el segundo de ESTE turno. -->
+                <div class="bubble bubble--voice" [class.bubble--sonando]="sonando() === m.interaction.id">
+                  @if (tieneAudio(m.interaction)) {
+                    <button class="bubble__play" (click)="reproducir(m.interaction)"
+                            [title]="sonando() === m.interaction.id ? 'Pausar' : 'Escuchar desde acá'">
+                      {{ sonando() === m.interaction.id ? '❙❙' : '▶' }}
+                    </button>
+                  } @else {
+                    <span class="bubble__play bubble__play--mudo" title="Esta llamada no tiene grabación">▶</span>
+                  }
+                  <span class="wave" (click)="toggleTranscript(m.interaction.id)" title="Ver transcripción">
                     @for (h of [7, 12, 9, 15, 11, 6, 13, 9, 14, 7, 11, 15, 8, 12, 6, 10, 13, 7]; track $index) {
                       <i [style.height.px]="h"></i>
                     }
                   </span>
-                  <span class="bubble__dur">📞 Llamada</span>
+                  <span class="bubble__dur" (click)="toggleTranscript(m.interaction.id)">📞 Llamada</span>
                 </div>
                 @if (m.interaction.summary) {
                   <div class="bubble bubble--caption">

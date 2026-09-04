@@ -31,6 +31,8 @@ describe('ElevenLabsVozService', () => {
     numeros = undefined as Array<Record<string, unknown>> | undefined,
     /** Fue una llamada de teléfono pero el proveedor no mandó el número. */
     llamadaSinNumero = false,
+    /** La conversación no tiene grabación disponible del lado del proveedor. */
+    sinGrabacion = false,
   } = {}) {
     const identificados: Array<Record<string, unknown>> = [];
     const guardadas: Array<Record<string, unknown>> = [];
@@ -41,6 +43,13 @@ describe('ElevenLabsVozService', () => {
 
     const http = {
       get: (url: string) => {
+        if (url.endsWith('/audio')) {
+          if (sinGrabacion) return throwError(() => ({ response: { status: 404, data: 'not found' } }));
+          return of({
+            data: Uint8Array.from([0x49, 0x44, 0x33]).buffer,
+            headers: { 'content-type': 'audio/mpeg' },
+          });
+        }
         if (url.includes('/phone-numbers')) {
           return of({
             data: numeros ?? [
@@ -158,6 +167,47 @@ describe('ElevenLabsVozService', () => {
     expect(guardadas[1]).toMatchObject({ direction: 'inbound', summary: 'Se cayó un talud en el Mirador' });
     // El resumen del análisis queda como nota, no como un mensaje más.
     expect(guardadas[2]).toMatchObject({ channel: 'note' });
+  });
+
+  it('cada turno se acuerda de qué llamada es y en qué segundo va', async () => {
+    /*
+     * Es lo único que hace reproducible el audio desde el chat: la burbuja no
+     * tiene un archivo propio —hay UNA grabación por llamada— así que cada
+     * turno guarda a qué conversación pertenece y a qué segundo saltar. Sin
+     * esto el ▶ existiría igual, pero arrancaría siempre desde el principio.
+     */
+    const { service, guardadas, settings } = build({
+      transcript: [
+        { role: 'agent', message: '¿En qué le puedo ayudar?', time_in_call_secs: 1 },
+        { role: 'user', message: 'Se cayó un talud en el Mirador', time_in_call_secs: 6 },
+      ],
+    });
+    settings.set('llamada:conv_9', 'c1');
+
+    await service.traerTranscripcion('conv_9');
+
+    const voz = guardadas.filter((g) => g['channel'] === 'voice');
+    expect(voz[0]['collectedInfo']).toEqual({ conversationId: 'conv_9', desdeSegundo: 1 });
+    // El segundo, no el mismo: el salto es por turno, no por llamada.
+    expect(voz[1]['collectedInfo']).toEqual({ conversationId: 'conv_9', desdeSegundo: 6 });
+  });
+
+  it('la grabación vuelve con su tipo, para servirla tal cual', async () => {
+    const { service } = build();
+
+    const audio = await service.audioDeLlamada('conv_9');
+
+    expect(audio?.tipo).toBe('audio/mpeg');
+    expect(Buffer.isBuffer(audio?.datos)).toBe(true);
+    expect(audio?.datos).toHaveLength(3);
+  });
+
+  it('una llamada sin grabación devuelve nada, no revienta el hilo', async () => {
+    // Las llamadas viejas, y las que el proveedor no grabó, no tienen audio.
+    // El hilo tiene que abrir igual: el botón queda mudo, no roto.
+    const { service } = build({ sinGrabacion: true });
+
+    expect(await service.audioDeLlamada('conv_vieja')).toBeNull();
   });
 
   it('traerla dos veces no duplica el chat', async () => {

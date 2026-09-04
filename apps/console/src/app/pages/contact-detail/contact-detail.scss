@@ -1300,8 +1300,13 @@ $overlap: 44px;
 }
 
 /* Navy de la marca, no el azul genérico que traía: es el mismo degradado del
-   shell de la app, para que la llamada se sienta parte del sistema. */
-.bubble--voice {
+   shell de la app, para que la llamada se sienta parte del sistema.
+
+   El `.msg--out` va explícito porque el degradado claro del lado saliente
+   (dos clases) le ganaba a este por especificidad: el turno del agente salía
+   con burbuja blanca y el ▶ blanco encima, invisible. */
+.bubble--voice,
+.msg--out .bubble--voice {
   display: inline-flex;
   align-items: center;
   gap: 0.6rem;
@@ -1313,15 +1318,35 @@ $overlap: 44px;
   &:hover { filter: brightness(1.18); }
 }
 
-.bubble__play {
+/* El ▶ es un botón de verdad: antes era un span decorativo y el audio no
+   sonaba, que era justo lo que la burbuja prometía. Va claro sobre oscuro
+   porque la burbuja de voz SIEMPRE es oscura. */
+.bubble--voice .bubble__play {
   width: 26px;
   height: 26px;
   flex-shrink: 0;
   display: grid;
   place-items: center;
-  border-radius: 50%;
-  background: rgba(255, 255, 255, 0.22);
-  font-size: 0.7rem;
+  border: 0;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.14);
+  color: #fff;
+  font: inherit;
+  font-size: 0.68rem;
+  line-height: 1;
+  cursor: pointer;
+  transition: background 0.15s;
+
+  &:hover { background: var(--secondary); color: #04283a; }
+}
+
+/* Sin grabación: se ve que existió la llamada, pero no se ofrece un botón que
+   no va a hacer nada. */
+.bubble--voice .bubble__play--mudo {
+  opacity: 0.3;
+  cursor: default;
+
+  &:hover { background: rgba(255, 255, 255, 0.14); color: #fff; }
 }
 
 .wave {
@@ -2085,4 +2110,20 @@ $overlap: 44px;
   color: #f5a623;
   vertical-align: -0.1em;
   cursor: help;
+}
+
+/* Mientras suena, la onda late: es la única señal de que ese turno —y no otro—
+   es el que se está escuchando. */
+.bubble--sonando .wave i {
+  animation: onda-late 0.9s ease-in-out infinite;
+  background: var(--secondary);
+}
+
+@keyframes onda-late {
+  0%, 100% { transform: scaleY(0.6); }
+  50% { transform: scaleY(1.25); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .bubble--sonando .wave i { animation: none; }
 }

@@ -1052,6 +1052,111 @@ export class ContactDetailPage implements OnDestroy {
   /** Caso real del CRM: etapa viva, no un rótulo fijo. */
   readonly caso = computed(() => valorDe(this.expediente)?.caso ?? null);
 
+  /* --- Grabación de la llamada ---------------------------------------------
+   *
+   * La burbuja de voz mostraba una onda dibujada y un ▶ que solo abría la
+   * transcripción: parecía un audio y no sonaba. Ahora suena de verdad, y cada
+   * turno arranca en SU segundo — en una llamada de tres minutos, eso es la
+   * diferencia entre escuchar lo que te interesa o buscarlo a mano.
+   */
+
+  /** El turno que se está reproduciendo, para marcarlo en el hilo. */
+  readonly sonando = signal<string | null>(null);
+
+  /** De qué llamada es un turno, si lo sabemos. */
+  private llamadaDe(i: Interaction): { conversationId: string; desdeSegundo: number } | null {
+    const info = i.collectedInfo as { conversationId?: string; desdeSegundo?: number } | undefined;
+    if (info?.conversationId) {
+      return { conversationId: info.conversationId, desdeSegundo: info.desdeSegundo ?? 0 };
+    }
+    /*
+     * Las llamadas que entraron antes de guardar `collectedInfo` igual se
+     * pueden reproducir: su id es `eleven:<conversación>:<turno>`. Sin esto,
+     * todo lo ingerido hasta hoy quedaría mudo para siempre.
+     */
+    const m = /^eleven:([^:]+):/.exec(i.id);
+    return m ? { conversationId: m[1], desdeSegundo: 0 } : null;
+  }
+
+  /** ¿Este turno tiene grabación que ofrecer? */
+  tieneAudio(i: Interaction): boolean {
+    return i.channel === 'voice' && !!this.llamadaDe(i);
+  }
+
+  /**
+   * Reproduce la llamada desde el segundo de este turno.
+   *
+   * Un solo elemento de audio para todo el hilo: con uno por burbuja, tocar
+   * dos turnos los hacía sonar encima.
+   */
+  private audio?: HTMLAudioElement;
+
+  /**
+   * Estamos saltando a otro turno.
+   *
+   * Cambiar de turno reinicia el reproductor y eso dispara un `pause` propio,
+   * un tick después de haber marcado el turno nuevo: sin esta bandera el turno
+   * recién arrancado se apagaba solo y había que apretar ▶ dos veces.
+   */
+  private cambiandoDeTurno = false;
+
+  reproducir(i: Interaction): void {
+    const llamada = this.llamadaDe(i);
+    if (!llamada) return;
+
+    if (!this.audio) {
+      this.audio = new Audio();
+      this.audio.addEventListener('ended', () => this.sonando.set(null));
+      this.audio.addEventListener('pause', () => {
+        if (!this.cambiandoDeTurno) this.sonando.set(null);
+      });
+      this.audio.addEventListener('playing', () => (this.cambiandoDeTurno = false));
+      this.audio.addEventListener('error', () => {
+        this.cambiandoDeTurno = false;
+        this.sonando.set(null);
+        this.sendError.set('No se pudo cargar la grabación de esa llamada.');
+      });
+    }
+
+    // Ya sonando este mismo turno: se para, como cualquier reproductor.
+    if (this.sonando() === i.id) {
+      this.audio.pause();
+      return;
+    }
+
+    this.cambiandoDeTurno = true;
+    const src = `/api/voz/audio/${llamada.conversationId}`;
+    if (!this.audio.src.endsWith(src)) this.audio.src = src;
+
+    const arrancar = () => {
+      this.audio!.currentTime = this.segundoDentroDe(this.audio!, llamada.desdeSegundo);
+      void this.audio!.play().catch(() => {
+        this.cambiandoDeTurno = false;
+        this.sonando.set(null);
+      });
+    };
+    // `currentTime` antes de tener metadata se ignora: hay que esperarla.
+    if (this.audio.readyState >= 1) arrancar();
+    else this.audio.addEventListener('loadedmetadata', arrancar, { once: true });
+
+    this.sonando.set(i.id);
+  }
+
+  /**
+   * El segundo al que saltar, siempre dentro de la grabación.
+   *
+   * El turno puede quedar fuera: hay llamadas cuya grabación dura menos que la
+   * transcripción. Saltar más allá del final deja el reproductor pegado en el
+   * último instante —se aprieta ▶ y no suena nada—, así que en ese caso se
+   * escucha desde el principio, que es peor que el salto exacto pero mucho
+   * mejor que el silencio.
+   */
+  private segundoDentroDe(audio: HTMLAudioElement, desde: number): number {
+    const duracion = audio.duration;
+    if (!Number.isFinite(duracion)) return desde;
+    return desde < duracion - 0.5 ? desde : 0;
+  }
+
   /** Rótulos del riel. La clave técnica no se le muestra a nadie. */
   private static readonly ROTULOS_FICHA: Record<string, string> = {
     tipo_problema: 'Problema',
