@@ -24,62 +24,7 @@
   <div class="convo" [class.convo--threads]="withThreads()">
     <!-- ===== Sidebar de conversaciones (solo en /conversations) ===== -->
     @if (withThreads()) {
-      <aside class="threads">
-        <div class="threads__head">
-          <span class="threads__title">Conversaciones</span>
-          <a routerLink="/contacts" class="threads__all" title="Ver directorio"><ui-icon name="users" /></a>
-        </div>
-        <div class="threads__list">
-          @for (tramo of hilosPorTramo(); track tramo.titulo) {
-            <!-- El rótulo solo cuando hay más de un tramo: con todo del mismo
-                 día, un título suelto sería una línea de más. -->
-            @if (hilosPorTramo().length > 1) {
-              <span class="threads__tramo">{{ tramo.titulo }}</span>
-            }
-            @for (c of tramo.hilos; track c.id) {
-              <a class="thread" [class.thread--active]="c.id === id()" [routerLink]="[threadBase(), c.id]">
-                <span class="thread__avatar" [style.--tono]="tileColor(c.id)">
-                  {{ initialsOf(c.displayName) }}
-                  <!-- De dónde vino la última actividad de este hilo. -->
-                  @if (c.lastInteraction?.channel; as canal) {
-                    <span class="thread__canal" [style.--canal]="channelColor(canal)" [title]="channelLabel(canal)">
-                      <ui-icon [name]="channelIconName(canal)" />
-                    </span>
-                  }
-                </span>
-                <span class="thread__body">
-                  <span class="thread__top">
-                    <span class="thread__name">
-                      {{ c.displayName || 'Anónimo' }}
-                      <!-- El agente se quedó esperando una respuesta que nunca
-                           llegó y el caso nunca se cerró. -->
-                      @if (c.inconclusa) {
-                        <ui-icon class="thread__warn" name="alerta"
-                                 title="Conversación inconclusa: el ciudadano dejó de responder y el caso quedó sin registrar. Abrila y tomala para terminarla vos." />
-                      }
-                    </span>
-                    <span class="thread__time">{{ shortTime(c.enCurso ? c.cuando : c.lastInteraction?.occurredAt) }}</span>
-                  </span>
-                  <!-- Conversación abriéndose: todavía no hay mensajes que
-                       previsualizar, pero es lo más urgente de la lista. -->
-                  @if (c.enCurso) {
-                    <span class="thread__vivo"><i></i> Conversando ahora</span>
-                  } @else {
-                    <span class="thread__preview">{{ preview(c) }}</span>
-                  }
-                </span>
-              </a>
-            }
-          } @empty {
-            <!-- Sin esto, filtrar los contactos sin actividad dejaría una
-                 columna en blanco que se lee como un error de carga. -->
-            <p class="panel__empty threads__vacio">
-              Todavía no hay conversaciones. Las fichas sin actividad viven en el
-              <a routerLink="/contacts">directorio</a>.
-            </p>
-          }
-        </div>
-      </aside>
+      <hilos-sidebar [hilos]="hilos()" [activo]="id()" [base]="threadBase()" />
     }
 
     <!-- ===== Panel de chat ===== -->
@@ -550,194 +495,20 @@
     </section>
 
     <!-- ===== Contexto en vivo (avatar de voz + info) ===== -->
-    <aside class="voice" [class.voice--live]="callState() === 'calling'">
-      @if (callState() === 'calling') {
-        <span class="voice__timer">{{ timerLabel() }} ●</span>
-      }
-
-      <div class="voice__top">
-        <voice-nebula [size]="104" [active]="callState() === 'calling'" />
-        <div class="voice__name">{{ ctx.contact.displayName || 'Contacto' }}</div>
-        <!-- El estado dice lo que SABEMOS. No se anuncia "finalizada" cuando
-             solo se dejó de observar: la transcripción llega por el webhook
-             de cierre y puede tardar más que nuestra espera. -->
-        <div class="voice__status">
-          @if (avisoLlamada(); as aviso) {
-            {{ aviso }}
-          } @else {
-            @switch (callState()) {
-              @case ('calling') { Llamando con el agente de voz… }
-              @case ('ended') { Llamada terminada — la transcripción está en el hilo. }
-              @default { Agente de voz disponible. }
-            }
-          }
-        </div>
-        <div class="voice__controls">
-          <button class="vbtn vbtn--muted" title="Silenciar (decorativo)" disabled>
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0"/><path d="M12 18v3"/></svg>
-          </button>
-          @if (callState() === 'calling') {
-            <button class="vbtn vbtn--hang" (click)="endCall()" title="Dejar de observar (no corta la llamada)">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 15c6-5 12-5 18 0l-3 4c-4-3-8-3-12 0z"/></svg>
-            </button>
-          } @else {
-            <button class="vbtn vbtn--call" (click)="startCall()" title="Llamar con el agente de voz">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M5 4h4l2 5-2.5 1.5a12 12 0 0 0 5 5L15 13l5 2v4a2 2 0 0 1-2 2A16 16 0 0 1 3 6a2 2 0 0 1 2-2"/></svg>
-            </button>
-          }
-        </div>
-      </div>
-
-      <div class="live">
-        <div class="live__badge">
-          <span class="live__dot"></span> Contexto en vivo <span class="live__api">API</span>
-        </div>
-
-        <!-- Estado emocional -->
-        <div class="panel">
-          <div class="panel__head">
-            <span class="panel__title">Estado emocional</span>
-            @if (animoEnVivo()) {
-              <!-- Lo lee el agente en cada turno. La tendencia de NL Pearl se
-                   calla acá: con las dos, el panel se contradecía solo
-                   ("Molesto" junto a "estable"). -->
-              <span class="panel__aside" title="El agente lo relee en cada turno">
-                <span class="avance__pulso"></span> en vivo
-              </span>
-            } @else if (ctx.sentimentTrend) {
-              <span class="panel__aside" [class.positive]="ctx.sentimentTrend === 'mejorando'">{{ ctx.sentimentTrend }}</span>
-            }
-          </div>
-          @if (mood(); as m) {
-            <div class="mood" [class]="'mood ' + m.cls">
-              <span class="mood__label">{{ m.label }}</span>
-              <span class="mood__bar"><i [style.width.%]="m.pct"></i></span>
-            </div>
-          } @else {
-            <div class="panel__empty">Sin lecturas todavía</div>
-          }
-        </div>
-
-        <!-- Caso del CRM: etapa viva. Antes decía "Seguimiento general /
-             Abierto" fijo, que no cambiaba nunca porque no consultaba nada. -->
-        <div class="panel">
-          <div class="panel__head">
-            <span class="panel__title">Caso en el CRM</span>
-            <!-- El número de ticket sí es una referencia que el operador usa
-                 para buscarlo en HubSpot; un hash no se muestra nunca. -->
-            @if (numeroDeTicket(); as n) { <span class="panel__aside">Ticket {{ n }}</span> }
-          </div>
-          @if (caso(); as c) {
-            @if (c.hay) {
-              <div class="case">
-                <span class="case__name">{{ c.asunto || 'Reporte ciudadano' }}</span>
-                <span class="pill" [class.pill--positive]="c.cerrado" [class.pill--primary]="!c.cerrado">
-                  {{ c.etapa }}
-                </span>
-              </div>
-              <div class="case__detail">
-                Abierto {{ fechaCorta(c.creado) }}
-                @if (c.actualizado) { · movido {{ fechaCorta(c.actualizado) }} }
-              </div>
-            } @else {
-              <div class="panel__empty">{{ c.motivo }}</div>
-            }
-          } @else {
-            <div class="panel__empty">Consultando el CRM…</div>
-          }
-        </div>
-
-        <!-- La ficha que arma el agente mientras conversa. Cada campo aparece
-             cuando lo entiende, no al final: el operador decide si entra
-             mirando esto, no releyendo el hilo. Lo recién cambiado se resalta
-             solo unos segundos — si todo brillara, nada destacaría. -->
-        @if (fichaDelCaso(); as f) {
-          <div class="panel panel--ai">
-            <div class="panel__head">
-              <span class="panel__title panel__title--ai">
-                <ui-icon name="sparkle" /> Ficha del caso
-              </span>
-              <span class="panel__aside" [title]="'Última actualización: ' + horaCorta(f.actualizada)">
-                <span class="avance__pulso"></span> {{ horaCorta(f.actualizada) }}
-              </span>
-            </div>
-            <dl class="ficha ficha--viva">
-              @for (c of f.campos; track c.clave) {
-                <div [class.ficha--recien]="c.recien">
-                  <dt>{{ c.rotulo }}</dt>
-                  <dd [class]="c.clave === 'riesgo' ? 'riesgo riesgo--' + c.valor : ''">{{ c.valor }}</dd>
-                </div>
-              }
-            </dl>
-          </div>
-        }
-
-        <!-- Estado del flujo, NO mensajes: NL Pearl no expone el texto de los
-             turnos en vivo, solo lo que el agente va recopilando. Vive en el
-             panel de contexto y no en el hilo, para no confundir un dato
-             estructurado con algo que alguien escribió.
-
-             Solo se dibuja si hay avances: con el agente de ElevenLabs no
-             llegan nunca, y un panel vacío permanente es ruido. -->
-        @if (hitos().length) {
-          <div class="panel">
-            <div class="panel__head">
-              <span class="panel__title">Avance del caso</span>
-              <span class="panel__aside"><span class="avance__pulso"></span> en curso</span>
-            </div>
-            <ol class="avance">
-              @for (a of hitos(); track a.paso + a.occurredAt) {
-                <li class="avance__paso">
-                  <div class="avance__cuerpo">
-                    <span class="avance__hito">{{ etiquetaPaso(a.paso) }}</span>
-                    <!-- Solo lo que ese paso aporta: el flujo manda el
-                         acumulado completo en cada avance. -->
-                    @for (d of a.nuevos; track d.clave) {
-                      <span class="avance__dato" [title]="d.valor">{{ recorte(d.valor) }}</span>
-                    }
-                  </div>
-                  <span class="avance__hora">{{ horaCorta(a.occurredAt) }}</span>
-                </li>
-              }
-            </ol>
-          </div>
-        }
-
-        <!-- Resumen de la conversación: el corto que redactamos nosotros
-             desde la transcripción; si no, el crudo de la Pearl o uno
-             compuesto con lo que el flujo recopiló. -->
-        @if (resumenAgente(); as r) {
-          @if (r.texto || r.capturado.length) {
-            <div class="panel panel--ai">
-              <div class="panel__head">
-                <span class="panel__title panel__title--ai">
-                  <ui-icon name="sparkle" /> Resumen de la conversación
-                </span>
-                @if (r.fuente === 'vivo') {
-                  <!-- El agente lo reescribe en cada turno: describe lo que
-                       está pasando ahora, no lo que pasó al cerrar. -->
-                  <span class="panel__aside" title="El agente lo reescribe en cada turno">
-                    <span class="avance__pulso"></span> en vivo
-                  </span>
-                } @else if (r.fuente === 'agente') {
-                  <span class="panel__aside" title="Texto tal cual lo dejó el agente, sin resumir">sin resumir</span>
-                } @else if (r.fuente === 'datos') {
-                  <span class="panel__aside" title="Compuesto con los datos del flujo">datos</span>
-                }
-              </div>
-              @if (r.texto) { <p class="ai__text">{{ r.texto }}</p> }
-              @if (r.capturado.length) {
-                <dl class="ficha">
-                  @for (d of r.capturado; track d.campo) {
-                    <div><dt>{{ d.campo }}</dt><dd>{{ d.valor }}</dd></div>
-                  }
-                </dl>
-              }
-            </div>
-          }
-        }
-
-      </div>
-    </aside>
+    <contexto-vivo
+      [nombre]="ctx.contact.displayName || 'Contacto'"
+      [estado]="callState()"
+      [cronometro]="timerLabel()"
+      [aviso]="avisoLlamada()"
+      [tendencia]="ctx.sentimentTrend"
+      [animoEnVivo]="animoEnVivo()"
+      [animo]="mood()"
+      [caso]="caso()"
+      [ticket]="numeroDeTicket()"
+      [ficha]="fichaDelCaso()"
+      [hitos]="hitos()"
+      [resumen]="resumenAgente()"
+      (llamar)="startCall()"
+      (colgar)="endCall()" />
   </div>
 }

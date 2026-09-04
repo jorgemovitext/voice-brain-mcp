@@ -6,9 +6,7 @@
 /* Barras finas y discretas: las nativas de escritorio son anchas y opacas, y
    en tres paneles contiguos se comían el aire entre columnas. Aparecen al
    pasar el mouse por la zona que scrollea. */
-.threads__list,
 .chat__scroll,
-.voice,
 .wf {
   scrollbar-width: thin;
   scrollbar-color: transparent transparent;
@@ -62,9 +60,11 @@
 }
 
 @media (max-width: 1100px) {
-  /* Sin espacio para la lista: el módulo de Conversaciones cae a 2 columnas */
+  /* Sin espacio para la lista: el módulo de Conversaciones cae a 2 columnas.
+     Se oculta el HOST del componente y no `.threads`, que ahora vive dentro de
+     su propia encapsulación y desde acá no se alcanza. */
   .convo--threads { grid-template-columns: minmax(320px, 1.05fr) minmax(280px, 1fr); }
-  .threads { display: none; }
+  hilos-sidebar { display: none; }
 }
 
 @media (max-width: 900px) {
@@ -79,223 +79,6 @@
    se compensa con padding extra para que texto y botones no queden tapados. */
 $overlap: 44px;
 
-/* ================= Sidebar de conversaciones ================= */
-.threads {
-  display: flex;
-  flex-direction: column;
-  min-height: 0;
-  background: var(--panel);
-  border: 1px solid var(--border);
-  border-radius: 26px;
-  overflow: hidden;
-}
-
-.threads__head {
-  flex-shrink: 0;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 1rem 1.1rem 0.7rem;
-}
-
-.threads__title {
-  font-weight: 800;
-  font-size: 0.95rem;
-}
-
-.threads__all {
-  color: var(--ink-soft);
-  font-size: 1.05rem;
-
-  &:hover { color: var(--secondary); }
-}
-
-.threads__list {
-  flex: 1;
-  overflow-y: auto;
-  padding: 0 0.6rem 0.8rem;
-  /* el chat se monta sobre el borde derecho */
-  padding-right: calc(0.6rem + 14px);
-  display: flex;
-  flex-direction: column;
-  /* Un pelo más de aire entre filas: con 0.25rem la lista se leía como un
-     bloque continuo en vez de como piezas sueltas. */
-  gap: 0.3rem;
-}
-
-/* Reusa `.panel__empty` para el color y el tamaño: acá solo el aire y el
-   enlace. */
-.threads__vacio {
-  margin: 1.2rem 0.9rem;
-  line-height: 1.5;
-
-  a { color: var(--secondary); }
-}
-
-/* Rótulo de tramo: lo más callado que puede ser y seguir separando. Sin
-   fondo ni línea — el aire de arriba ya hace de corte. */
-.threads__tramo {
-  padding: 0.55rem 0.9rem 0.15rem;
-  font-size: 0.63rem;
-  font-weight: 700;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-  color: color-mix(in srgb, var(--ink-soft) 65%, transparent);
-}
-
-.thread {
-  position: relative;
-  overflow: hidden;
-  display: flex;
-  gap: 0.6rem;
-  align-items: center;
-  padding: 0.5rem 0.75rem 0.5rem 0.5rem;
-  /* Pill: la fila es una pieza, como el resto de la app. */
-  border-radius: 999px;
-  color: var(--ink);
-  /*
-   * Lo que impedía que la lista scrolleara. Los hijos de un flex column se
-   * encogen por defecto, así que al crecer la lista cada fila se achataba en
-   * vez de desbordar: el nombre y la vista previa quedaban cortados y el
-   * scroll no aparecía nunca. Con esto la fila conserva su alto y el
-   * `overflow-y: auto` del contenedor por fin hace su trabajo.
-   */
-  flex-shrink: 0;
-  /* Borde transparente de base: el seleccionado lo pinta, y sin esto la fila
-     se movería 1px al cambiar de selección. */
-  border: 1px solid transparent;
-  /* El desplazamiento es lo que da la sensación de "se puede tocar"; sin él
-     el hover solo cambiaba de color y se sentía inerte. */
-  transition: background 0.15s, transform 0.15s;
-
-  &:hover {
-    background: var(--panel-2);
-    transform: translateX(2px);
-  }
-
-  /* Navegación con teclado: el anillo va por dentro para no desbordar la
-     columna, que tiene overflow oculto. */
-  &:focus-visible {
-    outline: none;
-    box-shadow: inset 0 0 0 2px var(--secondary);
-  }
-}
-
-/*
- * Vidrio esmerilado sobre el panel oscuro. Antes tenía EXACTAMENTE el mismo
- * fondo que el hover, así que al pasar el mouse por la lista se perdía cuál
- * estaba abierta; el vidrio y el borde ya la distinguen solos.
- *
- * Llevaba además una barra de acento pegada al borde izquierdo. Se quitó: con
- * la pill capsular, una barra recta contra un borde curvo se leía como una
- * astilla de color, no como un indicador.
- *
- * El vidrio acá sí funciona (y en los sidebares completos no): esto es una
- * fila chica sobre un panel opaco propio, no un panel que se monta sobre el
- * chat claro — que era lo que dejaba la banda gris sucia en el borde.
- */
-.thread--active {
-  background: rgba(255, 255, 255, 0.1);
-  backdrop-filter: blur(14px) saturate(180%);
-  -webkit-backdrop-filter: blur(14px) saturate(180%);
-  border: 1px solid rgba(255, 255, 255, 0.18);
-  box-shadow:
-    0 4px 18px rgba(4, 9, 20, 0.4),
-    inset 0 1px 0 rgba(255, 255, 255, 0.14);
-
-  .thread__name { color: #fff; }
-  .thread__preview { color: var(--ink); }
-}
-
-/*
- * El avatar lleva el tono del contacto, pero TEÑIDO, no relleno.
- *
- * Era un pastel saturado a todo el disco, y con quince hilos en pantalla la
- * columna se veía como un puñado de confeti: cada fila gritaba con un color
- * distinto y ninguna decía nada. El tono ahora vive en un velo del 20% sobre
- * el panel y en las iniciales; se sigue reconociendo a cada contacto por su
- * temperatura, pero la lista entera baja a un solo volumen.
- */
-.thread__avatar {
-  position: relative;
-  width: 38px;
-  height: 38px;
-  flex-shrink: 0;
-  display: grid;
-  place-items: center;
-  /* Redondo, para acompañar la pill: un cuadrado redondeado dentro de una
-     forma capsular deja dos radios peleando. */
-  border-radius: 50%;
-  font-size: 0.78rem;
-  font-weight: 700;
-  background: color-mix(in srgb, var(--tono, #cdeffd) 20%, #131a29);
-  color: color-mix(in srgb, var(--tono, #cdeffd) 85%, #fff);
-}
-
-/*
- * De dónde vino la última actividad del hilo, prendida como una insignia
- * sobre el avatar (el patrón de "canal" de WhatsApp/Messenger).
- *
- * El color del canal va apagado a propósito. Casi todo entra por WhatsApp, así
- * que en pleno verde eran catorce puntos idénticos encendidos que no
- * distinguían nada — solo hacían ruido. Lo que informa es el ícono; el color
- * queda de refuerzo.
- */
-.thread__canal {
-  position: absolute;
-  right: -3px;
-  bottom: -3px;
-  width: 17px;
-  height: 17px;
-  /* `ui-icon` mide 1em: fijar la fuente acá es lo que en verdad achica el
-     ícono (sus width/height van en el <svg>, no en el host). */
-  font-size: 9px;
-  display: grid;
-  place-items: center;
-  border-radius: 50%;
-  border: 2px solid var(--panel);
-  background: color-mix(in srgb, var(--canal, #8a8f98) 42%, #131a29);
-  color: color-mix(in srgb, var(--canal, #8a8f98) 30%, #fff);
-}
-
-.thread__body {
-  flex: 1;
-  min-width: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 0.05rem;
-}
-
-.thread__top {
-  display: flex;
-  justify-content: space-between;
-  align-items: baseline;
-  gap: 0.4rem;
-}
-
-/* 700 y no 800: con quince nombres seguidos, la negrita máxima hace que
-   ninguno destaque. El abierto sí sube a blanco pleno (en `--active`). */
-.thread__name {
-  font-weight: 700;
-  font-size: 0.85rem;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.thread__time {
-  color: var(--ink-soft);
-  font-size: 0.68rem;
-  flex-shrink: 0;
-}
-
-.thread__preview {
-  color: var(--ink-soft);
-  font-size: 0.75rem;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
 
 /* ================= Chat (panel claro) ================= */
 /* Se monta sobre la lista (izq) y el panel de contexto se monta sobre él (der). */
@@ -498,8 +281,26 @@ $overlap: 44px;
     &::after { transform: scaleX(1); opacity: 0.6; }
   }
 
+  /*
+   * La abierta es una SOLAPA, no un texto subrayado.
+   *
+   * Es el mismo recurso con el que el chat se monta sobre la lista de hilos y
+   * el panel de contexto sobre el chat: una superficie propia, el filo claro
+   * de 1px arriba y una sombra corta que define el canto. Acá esa superficie
+   * es el blanco de la cabecera, así que la pestaña se lee como una lengüeta
+   * de la cabecera bajando sobre el chat — que es lo que una solapa es.
+   *
+   * El subrayado sigue existiendo, ahora dentro de la solapa: es lo que ata el
+   * cian de la marca a la pestaña abierta.
+   */
   &--on {
     color: var(--chat-ink);
+    background: #fff;
+    border-radius: 11px 11px 4px 4px;
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.9),
+      0 1px 2px rgba(15, 23, 42, 0.06),
+      0 6px 16px -6px rgba(24, 58, 110, 0.28);
 
     &::after { transform: scaleX(1); }
   }
@@ -517,6 +318,15 @@ $overlap: 44px;
 .chat--flujo .vistatab__op { color: var(--ink-soft); }
 .chat--flujo .vistatab__op:hover:not(.vistatab__op--on),
 .chat--flujo .vistatab__op--on { color: #fff; }
+
+/* Sobre el navy la solapa no puede ser blanca: es el vidrio del riel de
+   contexto, la misma receta (blanco al 8%, filo al 16%). */
+.chat--flujo .vistatab__op--on {
+  background: rgba(255, 255, 255, 0.09);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.16),
+    0 6px 18px -8px rgba(4, 9, 20, 0.7);
+}
 
 @media (prefers-reduced-motion: reduce) {
   .vistatab__op::after { transition: none; }
@@ -1510,417 +1320,6 @@ $overlap: 44px;
   border-color: #e3aa1f;
 }
 
-/* ================= Contexto en vivo (panel oscuro) ================= */
-.voice {
-  position: relative;
-  z-index: 2; /* se superpone al borde derecho del chat */
-  margin-left: -26px;
-  /* Mismo tratamiento de solapa que el chat, un escalón más marcado: es la
-     capa de más arriba de las tres. */
-  box-shadow:
-    -1px 0 0 rgba(255, 255, 255, 0.12),
-    -8px 0 18px rgba(4, 9, 20, 0.46),
-    -28px 0 56px rgba(4, 9, 20, 0.42);
-  display: flex;
-  flex-direction: column;
-  min-height: 0;
-  overflow-y: auto;
-  border-radius: 26px;
-  border: 1px solid var(--border);
-  background:
-    radial-gradient(500px 340px at 50% 0%, rgba(0, 186, 254, 0.1), transparent 70%),
-    radial-gradient(420px 300px at 60% 100%, rgba(243, 71, 0, 0.08), transparent 70%),
-    var(--panel);
-  padding: 1.2rem 1.1rem 1.4rem;
-  gap: 0.9rem;
-}
-
-@media (max-width: 900px) {
-  .voice {
-    margin-left: 0;
-    margin-top: -26px; /* en apilado se monta sobre el borde inferior del chat */
-    box-shadow: 0 -20px 44px rgba(4, 9, 20, 0.5);
-  }
-}
-
-.voice--live {
-  border-color: rgba(0, 186, 254, 0.45);
-}
-
-.voice__timer {
-  position: absolute;
-  top: 0.9rem;
-  right: 1rem;
-  background: rgba(0, 0, 0, 0.45);
-  border: 1px solid var(--border);
-  color: #fff;
-  font-weight: 800;
-  font-size: 0.78rem;
-  padding: 0.22rem 0.7rem;
-  border-radius: 999px;
-  z-index: 3;
-}
-
-.voice__top {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  text-align: center;
-  gap: 0.35rem;
-}
-
-.voice__name {
-  font-weight: 800;
-  font-size: 1.05rem;
-}
-
-.voice__status {
-  color: var(--ink-soft);
-  font-size: 0.78rem;
-}
-
-.voice__controls {
-  display: flex;
-  gap: 0.7rem;
-  margin-top: 0.3rem;
-}
-
-.vbtn {
-  width: 44px;
-  height: 44px;
-  display: grid;
-  place-items: center;
-  border: none;
-  border-radius: 50%;
-  cursor: pointer;
-  transition: filter 0.15s, transform 0.05s;
-
-  svg { width: 19px; height: 19px; }
-
-  &:hover:not(:disabled) { filter: brightness(1.15); }
-  &:active:not(:disabled) { transform: scale(0.95); }
-  &:disabled { opacity: 0.35; cursor: not-allowed; }
-}
-
-.vbtn--muted { background: var(--panel-2); color: var(--ink); border: 1px solid var(--border); }
-.vbtn--call { background: var(--call); color: #04240f; box-shadow: 0 6px 22px rgba(34, 197, 94, 0.4); }
-.vbtn--hang { background: #e11d48; color: #fff; box-shadow: 0 6px 22px rgba(225, 29, 72, 0.4); }
-
-/* ===== Bloque "Contexto en vivo" ===== */
-.live {
-  display: flex;
-  flex-direction: column;
-  gap: 0.7rem;
-}
-
-.live__badge {
-  display: flex;
-  align-items: center;
-  gap: 0.45rem;
-  font-weight: 800;
-  font-size: 0.82rem;
-}
-
-.live__dot {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  background: var(--positive);
-  box-shadow: 0 0 8px rgba(52, 211, 153, 0.8);
-}
-
-.live__api {
-  background: rgba(0, 186, 254, 0.14);
-  color: #5ed4ff;
-  font-size: 0.66rem;
-  font-weight: 800;
-  padding: 0.1rem 0.5rem;
-  border-radius: 999px;
-}
-
-.panel {
-  background: var(--panel-2);
-  border: 1px solid var(--border);
-  border-radius: 16px;
-  padding: 0.85rem 0.95rem;
-}
-
-.panel__head {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 0.45rem;
-}
-
-.panel__title {
-  font-size: 0.68rem;
-  font-weight: 800;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: var(--ink-soft);
-}
-
-.panel__aside {
-  font-size: 0.75rem;
-  font-weight: 800;
-  color: var(--ink-soft);
-
-  &.positive { color: var(--positive); }
-}
-
-.panel__empty {
-  color: var(--ink-soft);
-  font-size: 0.8rem;
-}
-
-/* Estado emocional */
-.mood {
-  display: flex;
-  flex-direction: column;
-  gap: 0.4rem;
-}
-
-.mood__label {
-  font-weight: 800;
-  font-size: 1rem;
-}
-
-.mood__bar {
-  height: 7px;
-  border-radius: 999px;
-  background: rgba(143, 160, 186, 0.18);
-  overflow: hidden;
-
-  i {
-    display: block;
-    height: 100%;
-    border-radius: 999px;
-    transition: width 0.4s ease;
-  }
-}
-
-.mood--positive .mood__label { color: var(--positive); }
-.mood--positive .mood__bar i { background: var(--positive); }
-.mood--neutral .mood__label { color: var(--ink-soft); }
-.mood--neutral .mood__bar i { background: var(--ink-soft); }
-.mood--negative .mood__label { color: var(--negative); }
-.mood--negative .mood__bar i { background: var(--negative); }
-
-/* Caso actual */
-.case {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 0.5rem;
-}
-
-.case__name {
-  font-weight: 800;
-  font-size: 0.95rem;
-}
-
-.case__detail {
-  color: var(--ink-soft);
-  font-size: 0.8rem;
-  margin-top: 0.3rem;
-}
-
-/* Resumen de IA */
-.panel--ai {
-  background: rgba(0, 186, 254, 0.08);
-  border-color: rgba(0, 186, 254, 0.25);
-}
-
-.panel__title--ai {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.35rem;
-  color: #5ed4ff;
-}
-
-.ai__text {
-  margin: 0;
-  font-size: 0.83rem;
-  line-height: 1.45;
-}
-
-/* --- Ficha: pares dato/valor de los paneles del riel ---
-   Estaba usada en el HTML del resumen sin existir acá, así que caía al <dl>
-   por defecto del navegador: los valores colgaban indentados y sin jerarquía.
-   Rótulo chico arriba, valor legible abajo. */
-.ficha {
-  margin: 0.55rem 0 0;
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
-
-  > div {
-    display: flex;
-    flex-direction: column;
-    gap: 0.1rem;
-  }
-
-  dt {
-    font-size: 0.68rem;
-    letter-spacing: 0.04em;
-    text-transform: uppercase;
-    color: var(--muted);
-  }
-
-  dd {
-    margin: 0;
-    font-size: 0.82rem;
-    line-height: 1.35;
-    /* Una ubicación larga no puede ensanchar el riel ni cortarse a la mitad. */
-    overflow-wrap: anywhere;
-  }
-}
-
-/*
- * La ficha que el agente escribe mientras conversa.
- *
- * El separador entre filas es lo que la hace leerse como una ficha y no como
- * párrafos sueltos: son datos que se comparan de un vistazo.
- */
-.ficha--viva > div + div {
-  padding-top: 0.5rem;
-  border-top: 1px solid rgba(255, 255, 255, 0.06);
-}
-
-/*
- * Lo que cambió en la última actualización.
- *
- * El resaltado ARRANCA fuerte y se apaga solo: el operador no está mirando el
- * panel cuando el dato llega —está leyendo el hilo—, así que el movimiento
- * tiene que atraparlo de reojo y después desaparecer. Si quedara fijo, a los
- * cinco minutos todo el panel estaría resaltado y no diría nada.
- */
-.ficha--recien {
-  animation: ficha-llega 2.4s ease-out;
-
-  dd { font-weight: 600; }
-}
-
-@keyframes ficha-llega {
-  0% {
-    background: rgba(0, 186, 254, 0.26);
-    box-shadow: -0.5rem 0 0 rgba(0, 186, 254, 0.26), 0.5rem 0 0 rgba(0, 186, 254, 0.26);
-  }
-  100% {
-    background: transparent;
-    box-shadow: -0.5rem 0 0 transparent, 0.5rem 0 0 transparent;
-  }
-}
-
-/* Quien pidió menos movimiento no debería perderse el dato: se queda el
-   fondo tenue, sin la animación. */
-@media (prefers-reduced-motion: reduce) {
-  .ficha--recien {
-    animation: none;
-    background: rgba(0, 186, 254, 0.12);
-  }
-}
-
-/* El riesgo es lo único del panel que se lee por color: es la decisión de
-   "entro ahora o sigo leyendo". */
-.riesgo {
-  display: inline-block;
-  padding: 0.1rem 0.45rem;
-  border-radius: 999px;
-  font-size: 0.75rem;
-  font-weight: 600;
-  text-transform: capitalize;
-}
-
-.riesgo--alto { background: rgba(248, 113, 113, 0.18); color: #fca5a5; }
-.riesgo--medio { background: rgba(245, 158, 11, 0.18); color: #fcd34d; }
-.riesgo--bajo { background: rgba(52, 211, 153, 0.16); color: #6ee7b7; }
-
-/* --- Avance del caso (panel de contexto) ---
-   Hitos que el agente va reportando durante la conversación. NO son mensajes:
-   NL Pearl no expone el texto de los turnos en vivo. Se pintan como línea de
-   tiempo vertical, con el riel a la izquierda uniendo los puntos. */
-.avance {
-  list-style: none;
-  margin: 0;
-  padding: 0 0 0 0.9rem;
-  display: flex;
-  flex-direction: column;
-  gap: 0.7rem;
-  /* El riel: un borde continuo del que cuelgan los puntos. */
-  border-left: 1px solid var(--border);
-}
-
-.avance__paso {
-  position: relative;
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 0.5rem;
-
-  /* Punto sobre el riel. */
-  &::before {
-    content: '';
-    position: absolute;
-    left: calc(-0.9rem - 4px);
-    top: 0.35rem;
-    width: 7px;
-    height: 7px;
-    border-radius: 50%;
-    background: var(--border);
-    box-shadow: 0 0 0 3px var(--panel-2);
-  }
-
-  /* El último hito es el estado actual: se resalta. */
-  &:last-child::before {
-    background: var(--primary);
-    box-shadow: 0 0 0 3px var(--panel-2), 0 0 8px rgba(243, 71, 0, 0.7);
-  }
-}
-
-.avance__cuerpo {
-  display: flex;
-  flex-direction: column;
-  gap: 0.1rem;
-  min-width: 0;
-}
-
-.avance__hito {
-  font-size: 0.82rem;
-  font-weight: 600;
-  color: var(--ink);
-  line-height: 1.25;
-}
-
-.avance__dato {
-  font-size: 0.76rem;
-  color: var(--ink-soft);
-  overflow-wrap: anywhere;
-}
-
-.avance__hora {
-  flex-shrink: 0;
-  font-size: 0.68rem;
-  color: var(--ink-soft);
-  font-variant-numeric: tabular-nums;
-}
-
-/* Punto latiendo junto al título: el caso está avanzando ahora. */
-.avance__pulso {
-  display: inline-block;
-  width: 6px;
-  height: 6px;
-  margin-right: 0.3rem;
-  border-radius: 50%;
-  background: var(--primary);
-  animation: avance-late 1.8s ease-in-out infinite;
-}
-
-@keyframes avance-late {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.3; }
-}
-
 /* ===== Vista Flujo: el árbol de decisiones =====
    Cada nodo y cada bifurcación existen en el flujo real de la Pearl. Se
    dibuja la columna vertebral con sus cuatro decisiones: el árbol completo
@@ -2090,28 +1489,6 @@ $overlap: 44px;
   }
 }
 
-/* Un hilo que está abriéndose: sin mensajes que previsualizar, pero es lo que
-   hay que mirar. Ocupa el renglón de la vista previa. */
-.thread__vivo {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.35rem;
-  font-size: 0.72rem;
-  font-weight: 800;
-  color: var(--secondary);
-
-  i {
-    width: 6px;
-    height: 6px;
-    border-radius: 50%;
-    background: var(--secondary);
-    animation: wf-beat 1.8s ease-out infinite;
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .thread__vivo i { animation: none; }
-}
 
 /* Pearl está conversando: se dice quién atiende, no se ofrece un botón que
    no puede cumplir. El takeover real vive en el panel de NL Pearl — su API
@@ -2144,15 +1521,6 @@ $overlap: 44px;
 }
 
 /* Conversación que se quedó sin respuesta y sin cerrar. El ámbar es el color
-   de "esto necesita a alguien", distinto del rojo de error: nada falló, hay
-   trabajo pendiente. */
-.thread__warn {
-  margin-left: 0.3rem;
-  font-size: 0.82rem;
-  color: #f5a623;
-  vertical-align: -0.1em;
-  cursor: help;
-}
 
 /* Mientras suena, la onda late: es la única señal de que ese turno —y no otro—
    es el que se está escuchando. */

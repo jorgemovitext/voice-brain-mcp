@@ -19,6 +19,8 @@ import { BrainApiService } from '../../brain-api.service';
 import { Icon } from '../../icon';
 import { VoiceNebula } from '../../nebula';
 import { crearSondeo, Sondeo } from '../../sondeo';
+import { HiloListado, HilosSidebar } from './hilos-sidebar';
+import { ContextoVivo } from './contexto-vivo';
 import { Sonido } from '../../sonido';
 import {
   AvanceFlujo,
@@ -35,7 +37,12 @@ import {
   channelColor,
   channelIconName,
   channelLabel,
+  etiquetaPaso,
+  fechaCorta,
+  horaCorta,
+  inicialesDe,
   kycmLabel,
+  recorte,
   sentimentClass,
   sentimentLabel,
 } from '../../ui';
@@ -61,9 +68,6 @@ interface ChatItem {
 
 type CallState = 'idle' | 'calling' | 'ended';
 
-/** Paleta pastel para tiles (misma que en el directorio). */
-const TILE_COLORS = ['#ffd9c8', '#cdeffd', '#ffe9a8', '#f3d1ff', '#c8f7d0', '#d7dbff', '#ffd6e7', '#d2f4ee'];
-
 /**
  * Chat del contacto + panel "Contexto en vivo" (avatar de voz, estado
  * emocional, caso, resumen de IA, momentos clave y acciones).
@@ -75,7 +79,7 @@ const TILE_COLORS = ['#ffd9c8', '#cdeffd', '#ffe9a8', '#f3d1ff', '#c8f7d0', '#d7
  */
 @Component({
   selector: 'app-contact-detail',
-  imports: [RouterLink, VoiceNebula, Icon],
+  imports: [RouterLink, VoiceNebula, Icon, HilosSidebar, ContextoVivo],
   templateUrl: './contact-detail.html',
   styleUrl: './contact-detail.scss',
 })
@@ -692,7 +696,7 @@ export class ContactDetailPage implements OnDestroy {
   /** Lo que separa "conversando ahora" de "esto pasó hace rato". */
   private static readonly VIVA_MS = 15 * 60_000;
 
-  readonly hilos = computed(() => {
+  readonly hilos = computed<HiloListado[]>(() => {
     const flujo = this.enCurso();
     return [...(valorDe(this.conversations) ?? [])]
       .map((c) => {
@@ -737,31 +741,6 @@ export class ContactDetailPage implements OnDestroy {
       .sort((a, b) => b.cuando.localeCompare(a.cuando));
   });
 
-  /**
-   * Los hilos partidos por antigüedad.
-   *
-   * Una lista larga de filas iguales se lee como un muro; en tramos se lee
-   * como "lo de hoy, y lo de antes". Los rótulos solo aparecen cuando hay más
-   * de un tramo: con todo del mismo día, un título suelto sobraría.
-   */
-  readonly hilosPorTramo = computed(() => {
-    const hoy = new Date().toDateString();
-    const ayer = new Date(Date.now() - 86_400_000).toDateString();
-    const tramoDe = (iso: string) => {
-      const d = new Date(iso).toDateString();
-      return d === hoy ? 'Hoy' : d === ayer ? 'Ayer' : 'Antes';
-    };
-
-    const lista = this.hilos();
-    const tramos: Array<{ titulo: string; hilos: typeof lista }> = [];
-    for (const h of lista) {
-      const titulo = tramoDe(h.cuando);
-      const ultimo = tramos[tramos.length - 1];
-      if (ultimo?.titulo === titulo) ultimo.hilos.push(h);
-      else tramos.push({ titulo, hilos: [h] });
-    }
-    return tramos;
-  });
   readonly sentimentClass = sentimentClass;
   readonly sentimentLabel = sentimentLabel;
   readonly kycmLabel = kycmLabel;
@@ -956,42 +935,8 @@ export class ContactDetailPage implements OnDestroy {
     return items;
   });
 
-  /** Nombres técnicos de los nodos → algo legible en la línea de tiempo. */
-  private static readonly PASOS: Record<string, string> = {
-    opening: 'Abrió la conversación',
-    closing: 'Cerró la conversación',
-    emergency: 'Detectó una emergencia',
-    identifyNeed: 'Identificó la necesidad',
-    escalamiento: 'Escalado al despacho',
-    geocodeLocation: 'Ubicación verificada',
-    collectDetails: 'Detalles adicionales',
-    offerPhoto: 'Solicitud de evidencia',
-    safetyCheck: 'Verificación de seguridad',
-    collectProblem: 'Recopiló el tipo de problema',
-    collectLocation: 'Recopiló la ubicación',
-    collectDesc: 'Recopiló la descripción',
-    collectContact: 'Recopiló los datos de contacto',
-    confirmInfo: 'Confirmó la información',
-    registered: 'Registró el reporte',
-    consultaTramite: 'Orientó sobre el trámite',
-  };
-
-  etiquetaPaso(paso: string): string {
-    return ContactDetailPage.PASOS[paso] ?? paso;
-  }
-
-  /**
-   * Un vistazo, no el texto completo. La descripción del ciudadano puede
-   * ocupar un párrafo entero; en la línea de tiempo se corta y el resto queda
-   * en el `title`. El texto íntegro vive en la conversación y en la ficha.
-   */
-  recorte(valor: string, tope = 80): string {
-    const limpio = valor.replace(/\s+/g, ' ').trim();
-    if (limpio.length <= tope) return limpio;
-    // Se corta en el último espacio para no partir una palabra por la mitad.
-    const corte = limpio.slice(0, tope);
-    return `${corte.slice(0, corte.lastIndexOf(' ') || tope)}…`;
-  }
+  readonly etiquetaPaso = etiquetaPaso;
+  readonly recorte = recorte;
 
   /**
    * Número de ticket, solo si es un número. HubSpot los numera, así que sirve
@@ -1003,18 +948,10 @@ export class ContactDetailPage implements OnDestroy {
     return id && /^\d{1,12}$/.test(id) ? `#${id}` : null;
   });
 
-  /** "24 ago" — para fechas de apertura/movimiento del caso. */
-  fechaCorta(iso?: string): string {
-    if (!iso) return '—';
-    return new Date(iso).toLocaleDateString('es-NI', { day: 'numeric', month: 'short' });
-  }
+  readonly fechaCorta = fechaCorta;
+  readonly horaCorta = horaCorta;
 
-  horaCorta(iso?: string): string {
-    if (!iso) return '';
-    return new Date(iso).toLocaleTimeString('es-NI', { hour: '2-digit', minute: '2-digit' });
-  }
-
-  readonly initials = computed(() => this.initialsOf(valorDe(this.context)?.contact.displayName));
+  readonly initials = computed(() => inicialesDe(valorDe(this.context)?.contact.displayName));
 
   readonly timerLabel = computed(() => {
     const s = this.callSeconds();
@@ -1337,46 +1274,6 @@ export class ContactDetailPage implements OnDestroy {
     let hash = 0;
     for (const ch of id) hash = (hash * 31 + ch.charCodeAt(0)) >>> 0;
     return `CAS-${String(hash % 100000).padStart(5, '0')}`;
-  }
-
-  // ===== Sidebar de conversaciones =====
-
-  initialsOf(name?: string): string {
-    return (name || 'Anónimo')
-      .split(/\s+/)
-      .slice(0, 2)
-      .map((w) => w[0]?.toUpperCase() ?? '')
-      .join('');
-  }
-
-  tileColor(id: string): string {
-    let hash = 0;
-    for (const ch of id) hash = (hash * 31 + ch.charCodeAt(0)) >>> 0;
-    return TILE_COLORS[hash % TILE_COLORS.length];
-  }
-
-  preview(c: ContactListItem): string {
-    const texto = c.lastInteraction?.summary ?? '';
-    /*
-     * Un turno puede no tener palabras: la transcripción de una llamada donde
-     * el vecino no llegó a decir nada entra literalmente como "...", y esa fila
-     * quedaba con tres puntos de vista previa, que no es información, es un
-     * hueco. Se dice entonces QUÉ fue, que es lo poco que sí se sabe.
-     */
-    if (!/[\p{L}\p{N}]/u.test(texto)) {
-      if (!c.lastInteraction) return 'Sin mensajes todavía';
-      return c.lastInteraction.channel === 'voice' ? 'Llamada' : 'Mensaje sin texto';
-    }
-    return this.truncate(texto, 46);
-  }
-
-  shortTime(iso?: string): string {
-    if (!iso) return '';
-    const date = new Date(iso);
-    const today = new Date().toDateString() === date.toDateString();
-    return today
-      ? date.toLocaleTimeString('es-NI', { hour: '2-digit', minute: '2-digit' })
-      : date.toLocaleDateString('es-NI', { day: '2-digit', month: 'short' });
   }
 
   truncate(text: string, max: number): string {

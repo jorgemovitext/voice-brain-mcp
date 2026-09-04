@@ -63,6 +63,71 @@ export function kycmLabel(status?: string): string {
   }
 }
 
+/**
+ * Nombre legible de un paso del flujo. Vive acá porque lo leen la vista del
+ * caso y el panel de contexto, que desde que se partieron son componentes
+ * distintos; con una copia en cada uno, agregar un paso arreglaría solo una.
+ */
+const PASOS: Record<string, string> = {
+  opening: 'Abrió la conversación',
+  closing: 'Cerró la conversación',
+  emergency: 'Detectó una emergencia',
+  identifyNeed: 'Identificó la necesidad',
+  escalamiento: 'Escalado al despacho',
+  geocodeLocation: 'Ubicación verificada',
+  collectDetails: 'Detalles adicionales',
+  offerPhoto: 'Solicitud de evidencia',
+  safetyCheck: 'Verificación de seguridad',
+  collectProblem: 'Recopiló el tipo de problema',
+  collectLocation: 'Recopiló la ubicación',
+  collectDesc: 'Recopiló la descripción',
+  collectContact: 'Recopiló los datos de contacto',
+  confirmInfo: 'Confirmó la información',
+  registered: 'Registró el reporte',
+  consultaTramite: 'Orientó sobre el trámite',
+};
+
+export function etiquetaPaso(paso: string): string {
+  return PASOS[paso] ?? paso;
+}
+
+/** Solo la hora, sin fecha: dentro de un día ya sabido, el resto sobra. */
+export function horaCorta(iso?: string): string {
+  if (!iso) return '';
+  return new Date(iso).toLocaleTimeString('es-NI', { hour: '2-digit', minute: '2-digit' });
+}
+
+/** Día y mes, sin año: lo que cabe en una ficha. */
+export function fechaCorta(iso?: string): string {
+  if (!iso) return '—';
+  return new Date(iso).toLocaleDateString('es-NI', { day: 'numeric', month: 'short' });
+}
+
+/**
+ * Un vistazo, no el texto completo. La descripción del ciudadano puede ocupar
+ * un párrafo entero; en una línea de tiempo se corta y el resto queda en el
+ * `title`. El texto íntegro vive en la conversación y en la ficha.
+ */
+export function recorte(valor: string, tope = 80): string {
+  const limpio = valor.replace(/\s+/g, ' ').trim();
+  if (limpio.length <= tope) return limpio;
+  // Se corta en el último espacio para no partir una palabra por la mitad.
+  const corte = limpio.slice(0, tope);
+  return `${corte.slice(0, corte.lastIndexOf(' ') || tope)}…`;
+}
+
+/**
+ * Las dos letras de un avatar. Vive acá porque la usan la columna de hilos y
+ * el chat, que desde que se partieron son componentes distintos.
+ */
+export function inicialesDe(name?: string): string {
+  return (name || 'Anónimo')
+    .split(/\s+/)
+    .slice(0, 2)
+    .map((w) => w[0]?.toUpperCase() ?? '')
+    .join('');
+}
+
 export function formatDate(iso?: string): string {
   if (!iso) return '—';
   return new Date(iso).toLocaleString('es-NI', {

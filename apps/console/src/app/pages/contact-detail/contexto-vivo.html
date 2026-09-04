@@ -1,0 +1,189 @@
+<aside class="voice" [class.voice--live]="estado() === 'calling'">
+  @if (estado() === 'calling') {
+    <span class="voice__timer">{{ cronometro() }} ●</span>
+  }
+
+  <div class="voice__top">
+    <voice-nebula [size]="104" [active]="estado() === 'calling'" />
+    <div class="voice__name">{{ nombre() }}</div>
+    <!-- El estado dice lo que SABEMOS. No se anuncia "finalizada" cuando solo
+         se dejó de observar: la transcripción llega por el webhook de cierre y
+         puede tardar más que nuestra espera. -->
+    <div class="voice__status">
+      @if (aviso(); as a) {
+        {{ a }}
+      } @else {
+        @switch (estado()) {
+          @case ('calling') { Llamando con el agente de voz… }
+          @case ('ended') { Llamada terminada — la transcripción está en el hilo. }
+          @default { Agente de voz disponible. }
+        }
+      }
+    </div>
+    <div class="voice__controls">
+      <button class="vbtn vbtn--muted" title="Silenciar (decorativo)" disabled>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0"/><path d="M12 18v3"/></svg>
+      </button>
+      @if (estado() === 'calling') {
+        <button class="vbtn vbtn--hang" (click)="colgar.emit()" title="Dejar de observar (no corta la llamada)">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 15c6-5 12-5 18 0l-3 4c-4-3-8-3-12 0z"/></svg>
+        </button>
+      } @else {
+        <button class="vbtn vbtn--call" (click)="llamar.emit()" title="Llamar con el agente de voz">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M5 4h4l2 5-2.5 1.5a12 12 0 0 0 5 5L15 13l5 2v4a2 2 0 0 1-2 2A16 16 0 0 1 3 6a2 2 0 0 1 2-2"/></svg>
+        </button>
+      }
+    </div>
+  </div>
+
+  <div class="live">
+    <div class="live__badge">
+      <span class="live__dot"></span> Contexto en vivo <span class="live__api">API</span>
+    </div>
+
+    <!-- Estado emocional -->
+    <div class="panel">
+      <div class="panel__head">
+        <span class="panel__title">Estado emocional</span>
+        @if (animoEnVivo()) {
+          <!-- Lo lee el agente en cada turno. La tendencia de NL Pearl se calla
+               acá: con las dos, el panel se contradecía solo ("Molesto" junto a
+               "estable"). -->
+          <span class="panel__aside" title="El agente lo relee en cada turno">
+            <span class="avance__pulso"></span> en vivo
+          </span>
+        } @else if (tendencia(); as t) {
+          <span class="panel__aside" [class.positive]="t === 'mejorando'">{{ t }}</span>
+        }
+      </div>
+      @if (animo(); as m) {
+        <div class="mood" [class]="'mood ' + m.cls">
+          <span class="mood__label">{{ m.label }}</span>
+          <span class="mood__bar"><i [style.width.%]="m.pct"></i></span>
+        </div>
+      } @else {
+        <div class="panel__empty">Sin lecturas todavía</div>
+      }
+    </div>
+
+    <!-- Caso del CRM: etapa viva. Antes decía "Seguimiento general / Abierto"
+         fijo, que no cambiaba nunca porque no consultaba nada. -->
+    <div class="panel">
+      <div class="panel__head">
+        <span class="panel__title">Caso en el CRM</span>
+        <!-- El número de ticket sí es una referencia que el operador usa para
+             buscarlo en HubSpot; un hash no se muestra nunca. -->
+        @if (ticket(); as n) { <span class="panel__aside">Ticket {{ n }}</span> }
+      </div>
+      @if (caso(); as c) {
+        @if (c.hay) {
+          <div class="case">
+            <span class="case__name">{{ c.asunto || 'Reporte ciudadano' }}</span>
+            <span class="pill" [class.pill--positive]="c.cerrado" [class.pill--primary]="!c.cerrado">
+              {{ c.etapa }}
+            </span>
+          </div>
+          <div class="case__detail">
+            Abierto {{ fechaCorta(c.creado) }}
+            @if (c.actualizado) { · movido {{ fechaCorta(c.actualizado) }} }
+          </div>
+        } @else {
+          <div class="panel__empty">{{ c.motivo }}</div>
+        }
+      } @else {
+        <div class="panel__empty">Consultando el CRM…</div>
+      }
+    </div>
+
+    <!-- La ficha que arma el agente mientras conversa. Cada campo aparece
+         cuando lo entiende, no al final: el operador decide si entra mirando
+         esto, no releyendo el hilo. Lo recién cambiado se resalta solo unos
+         segundos — si todo brillara, nada destacaría. -->
+    @if (ficha(); as f) {
+      <div class="panel panel--ai">
+        <div class="panel__head">
+          <span class="panel__title panel__title--ai">
+            <ui-icon name="sparkle" /> Ficha del caso
+          </span>
+          <span class="panel__aside" [title]="'Última actualización: ' + horaCorta(f.actualizada)">
+            <span class="avance__pulso"></span> {{ horaCorta(f.actualizada) }}
+          </span>
+        </div>
+        <dl class="ficha ficha--viva">
+          @for (c of f.campos; track c.clave) {
+            <div [class.ficha--recien]="c.recien">
+              <dt>{{ c.rotulo }}</dt>
+              <dd [class]="c.clave === 'riesgo' ? 'riesgo riesgo--' + c.valor : ''">{{ c.valor }}</dd>
+            </div>
+          }
+        </dl>
+      </div>
+    }
+
+    <!-- Estado del flujo, NO mensajes: NL Pearl no expone el texto de los
+         turnos en vivo, solo lo que el agente va recopilando. Vive en el panel
+         de contexto y no en el hilo, para no confundir un dato estructurado
+         con algo que alguien escribió.
+
+         Solo se dibuja si hay avances: con el agente de ElevenLabs no llegan
+         nunca, y un panel vacío permanente es ruido. -->
+    @if (hitos().length) {
+      <div class="panel">
+        <div class="panel__head">
+          <span class="panel__title">Avance del caso</span>
+          <span class="panel__aside"><span class="avance__pulso"></span> en curso</span>
+        </div>
+        <ol class="avance">
+          @for (a of hitos(); track a.paso + a.occurredAt) {
+            <li class="avance__paso">
+              <div class="avance__cuerpo">
+                <span class="avance__hito">{{ etiquetaPaso(a.paso) }}</span>
+                <!-- Solo lo que ese paso aporta: el flujo manda el acumulado
+                     completo en cada avance. -->
+                @for (d of a.nuevos; track d.clave) {
+                  <span class="avance__dato" [title]="d.valor">{{ recorte(d.valor) }}</span>
+                }
+              </div>
+              <span class="avance__hora">{{ horaCorta(a.occurredAt) }}</span>
+            </li>
+          }
+        </ol>
+      </div>
+    }
+
+    <!-- Resumen de la conversación: el corto que redactamos nosotros desde la
+         transcripción; si no, el crudo de la Pearl o uno compuesto con lo que
+         el flujo recopiló. -->
+    @if (resumen(); as r) {
+      @if (r.texto || r.capturado.length) {
+        <div class="panel panel--ai">
+          <div class="panel__head">
+            <span class="panel__title panel__title--ai">
+              <ui-icon name="sparkle" /> Resumen de la conversación
+            </span>
+            @if (r.fuente === 'vivo') {
+              <!-- El agente lo reescribe en cada turno: describe lo que está
+                   pasando ahora, no lo que pasó al cerrar. -->
+              <span class="panel__aside" title="El agente lo reescribe en cada turno">
+                <span class="avance__pulso"></span> en vivo
+              </span>
+            } @else if (r.fuente === 'agente') {
+              <span class="panel__aside" title="Texto tal cual lo dejó el agente, sin resumir">sin resumir</span>
+            } @else if (r.fuente === 'datos') {
+              <span class="panel__aside" title="Compuesto con los datos del flujo">datos</span>
+            }
+          </div>
+          @if (r.texto) { <p class="ai__text">{{ r.texto }}</p> }
+          @if (r.capturado.length) {
+            <dl class="ficha">
+              @for (d of r.capturado; track d.campo) {
+                <div><dt>{{ d.campo }}</dt><dd>{{ d.valor }}</dd></div>
+              }
+            </dl>
+          }
+        </div>
+      }
+    }
+
+  </div>
+</aside>
