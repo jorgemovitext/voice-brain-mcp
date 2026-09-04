@@ -29,6 +29,8 @@ describe('ElevenLabsVozService', () => {
     externo = undefined as string | undefined,
     /** Números de la cuenta, para probar el id viejo que ya no existe. */
     numeros = undefined as Array<Record<string, unknown>> | undefined,
+    /** Fue una llamada de teléfono pero el proveedor no mandó el número. */
+    llamadaSinNumero = false,
   } = {}) {
     const identificados: Array<Record<string, unknown>> = [];
     const guardadas: Array<Record<string, unknown>> = [];
@@ -52,7 +54,11 @@ describe('ElevenLabsVozService', () => {
             transcript,
             metadata: {
               start_time_unix_secs: 1_700_000_000,
-              ...(externo ? { phone_call: { direction: 'inbound', external_number: externo } } : {}),
+              ...(externo
+                ? { phone_call: { direction: 'inbound', external_number: externo } }
+                : llamadaSinNumero
+                  ? { phone_call: { direction: 'inbound' } }
+                  : {}),
             },
             analysis: { transcript_summary: 'El vecino reportó un derrumbe.' },
           },
@@ -191,13 +197,15 @@ describe('ElevenLabsVozService', () => {
     expect(settings.get('llamada:conv_entrante')).toBe('c-por-telefono');
   });
 
-  it('sin hilo conocido y sin número, lo dice en vez de inventar', async () => {
-    const { service } = build();
+  it('una llamada sin número al que asociarla lo dice, no la inventa', async () => {
+    // Fue una llamada de verdad, pero sin el número no hay hilo posible: se
+    // avisa en vez de colgarla del contacto equivocado.
+    const { service } = build({ llamadaSinNumero: true });
 
-    const r = await service.traerTranscripcion('conv_desconocida');
+    const r = await service.traerTranscripcion('conv_sin_numero');
 
     expect(r.nuevos).toBe(0);
-    expect(r.aviso).toContain('no trae número ni hilo conocido');
+    expect(r.aviso).toContain('no trae número');
   });
 
   it('si el número configurado ya no existe, usa el del agente', async () => {
@@ -216,6 +224,22 @@ describe('ElevenLabsVozService', () => {
 
     expect(posts[0].url).toContain('/sip-trunk/outbound-call');
     expect(posts[0].body['agent_phone_number_id']).toBe('otro_id');
+  });
+
+  it('una conversación del widget web no cuenta como llamada fallida', async () => {
+    /*
+     * Las pruebas desde el navegador no tienen `phone_call` en la metadata: no
+     * hay teléfono al que colgarlas, y no es un fallo. Reportarlas como error
+     * llenaba el reproceso de rojos por conversaciones que nunca debieron
+     * entrar a un hilo — de 30 revisadas, 8 salían como falladas.
+     */
+    const { service } = build();
+
+    const r = await service.traerTranscripcion('conv_del_widget');
+
+    expect(r.nuevos).toBe(0);
+    expect(r.aviso).toBeUndefined();
+    expect(r.noEraLlamada).toBe(true);
   });
 
   it('si ElevenLabs rechaza la llamada, el motivo vuelve accionable', async () => {

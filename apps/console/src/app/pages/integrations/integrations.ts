@@ -110,6 +110,35 @@ export class IntegrationsPage {
     }
   }
 
+  /* --- Recuperar llamadas que el webhook no trajo --- */
+  readonly reprocesando = signal(false);
+  readonly resultadoLlamadas = signal<string | null>(null);
+  readonly avisosLlamadas = signal<string[]>([]);
+
+  async reprocesarLlamadas(): Promise<void> {
+    if (this.reprocesando()) return;
+    this.reprocesando.set(true);
+    this.resultadoLlamadas.set(null);
+    this.avisosLlamadas.set([]);
+    try {
+      const r = await this.api.reprocesarLlamadas();
+      // Se distingue conversación de llamada: las del widget web no tienen
+      // teléfono y no van a ningún hilo, así que contarlas confundiría.
+      this.resultadoLlamadas.set(
+        r.nuevos
+          ? `${r.llamadas} llamadas de ${r.revisadas} conversaciones · ${r.nuevos} turnos nuevos en ${r.hilos} hilo(s).`
+          : `${r.llamadas} llamadas de ${r.revisadas} conversaciones · ya estaban todas en sus hilos.`,
+      );
+      this.avisosLlamadas.set(r.avisos ?? []);
+    } catch (e) {
+      this.resultadoLlamadas.set((e as Error).message);
+    } finally {
+      this.reprocesando.set(false);
+      this.activity.reload();
+      this.hive.reload();
+    }
+  }
+
   escribirNumero(event: Event): void {
     this.numeroPrueba.set((event.target as HTMLInputElement).value);
   }

@@ -139,6 +139,28 @@
           }
         </div>
 
+        <!-- Las llamadas entran por webhook, y cualquier hueco ahí deja
+             conversaciones que ocurrieron y la app no tiene. Esto las vuelve
+             a pedir; es idempotente, así que apretarlo de más no duplica. -->
+        <div class="prueba">
+          <span class="prueba__tit">Recuperar llamadas</span>
+          <div class="prueba__fila">
+            <button class="ctrl ctrl--btn" (click)="reprocesarLlamadas()" [disabled]="reprocesando()">
+              {{ reprocesando() ? 'Recuperando…' : 'Traer las últimas llamadas' }}
+            </button>
+          </div>
+          <span class="prueba__pie">
+            Vuelve a pedirle al proveedor las últimas 30 llamadas del agente y las mete
+            en su hilo. No duplica lo que ya está.
+          </span>
+          @if (resultadoLlamadas(); as r) {
+            <span class="prueba__res">{{ r }}</span>
+          }
+          @for (a of avisosLlamadas(); track a) {
+            <span class="prueba__paso prueba__paso--mal">✕ {{ a }}</span>
+          }
+        </div>
+
         <!-- Escribir en el CRM no se puede comprobar leyendo: abrir un ticket
              además consulta el esquema y el pipeline, cada uno con su permiso.
              Un diagnóstico de lecturas daba todo verde mientras no se creaba

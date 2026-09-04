@@ -46,6 +46,18 @@ export class ElevenLabsController {
   }
 
   /**
+   * Reingesta las últimas llamadas del agente.
+   *
+   * Para llenar huecos: llamadas que ocurrieron mientras el webhook fallaba, o
+   * las que se descartaban por no salir de nuestro botón. Es idempotente, así
+   * que apretarlo de más no duplica nada.
+   */
+  @Post('api/voz/reprocesar')
+  reprocesar() {
+    return this.voz.reprocesar();
+  }
+
+  /**
    * Webhook de post-llamada de ElevenLabs.
    *
    * Trae la transcripción al terminar. Se responde 200 siempre para que no

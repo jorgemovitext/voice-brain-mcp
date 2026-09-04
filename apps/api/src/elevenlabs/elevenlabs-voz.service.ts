@@ -104,6 +104,59 @@ export class ElevenLabsVozService {
     return { 'xi-api-key': this.apiKey };
   }
 
+  /**
+   * Vuelve a traer las últimas llamadas del agente y las mete al hilo.
+   *
+   * Existe porque el webhook es la única vía por la que una llamada entra, y
+   * cualquier hueco ahí —un despliegue en curso, un secreto mal puesto, o el
+   * bug que descartaba todo lo que no saliera de nuestro botón— deja
+   * conversaciones que ocurrieron de verdad y que la app no tiene.
+   *
+   * Es idempotente: cada turno se guarda con un id derivado de la conversación,
+   * así que reprocesar lo ya ingerido no duplica nada.
+   */
+  async reprocesar(
+    limite = 30,
+  ): Promise<{ revisadas: number; llamadas: number; nuevos: number; hilos: number; avisos: string[] }> {
+    const res = await firstValueFrom(
+      this.http.get<{ conversations?: Array<{ conversation_id: string }> }>(
+        `${this.apiUrl}/v1/convai/conversations`,
+        {
+          headers: this.headers,
+          params: { agent_id: this.agentId, page_size: Math.min(100, limite) },
+          timeout: 15_000,
+        },
+      ),
+    );
+
+    const conversaciones = (res.data?.conversations ?? []).slice(0, limite);
+    const avisos: string[] = [];
+    const hilos = new Set<string>();
+    let nuevos = 0;
+    let llamadas = 0;
+
+    for (const c of conversaciones) {
+      // En serie y no en paralelo: son escrituras al mismo hilo y el proveedor
+      // limita el ritmo. Treinta llamadas tardan, pero esto se aprieta a mano.
+      const r = await this.traerTranscripcion(c.conversation_id).catch((err) => ({
+        nuevos: 0,
+        aviso: (err as Error).message,
+      }));
+      if (!('noEraLlamada' in r) || !r.noEraLlamada) llamadas++;
+      nuevos += r.nuevos;
+      if (r.nuevos) {
+        const hilo = await this.settings.get<string>(`llamada:${c.conversation_id}`);
+        if (hilo) hilos.add(hilo);
+      }
+      if (r.aviso) avisos.push(`${c.conversation_id}: ${r.aviso}`);
+    }
+
+    this.logger.log(
+      `Reproceso: ${conversaciones.length} conversaciones (${llamadas} llamadas), ${nuevos} turnos nuevos`,
+    );
+    return { revisadas: conversaciones.length, llamadas, nuevos, hilos: hilos.size, avisos: avisos.slice(0, 8) };
+  }
+
   /** Los números disponibles. Sirve para saber cuál poner en la config. */
   async numeros(): Promise<NumeroAgente[]> {
     const res = await firstValueFrom(
@@ -224,7 +277,9 @@ export class ElevenLabsVozService {
    * conversación y su posición, así que traerla dos veces —el webhook y un
    * reintento manual— no duplica el chat.
    */
-  async traerTranscripcion(conversationId: string): Promise<{ nuevos: number; aviso?: string }> {
+  async traerTranscripcion(
+    conversationId: string,
+  ): Promise<{ nuevos: number; aviso?: string; noEraLlamada?: boolean }> {
     try {
       const res = await firstValueFrom(
         this.http.get<{
@@ -266,7 +321,14 @@ export class ElevenLabsVozService {
         this.logger.log(`Llamada ${conversationId} vinculada por número a ${contactId}`);
       }
       if (!contactId) {
-        return { nuevos: 0, aviso: 'La llamada no trae número ni hilo conocido.' };
+        /*
+         * Sin `phone_call` en la metadata no era una llamada: es una prueba
+         * desde el widget web o desde el panel, y no hay teléfono al que
+         * colgarla. No es un fallo — reportarlo como tal llenaba el reproceso
+         * de errores rojos por conversaciones que nunca debieron entrar.
+         */
+        if (!res.data?.metadata?.phone_call) return { nuevos: 0, noEraLlamada: true };
+        return { nuevos: 0, aviso: 'La llamada no trae número al que asociarla.' };
       }
 
       const turnos = res.data?.transcript ?? [];

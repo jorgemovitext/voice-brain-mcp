@@ -224,4 +224,20 @@ export class BrainApiService {
       }>('/api/hubspot/probar-escritura', {}),
     );
   }
+
+  /** Reingesta las últimas llamadas del agente. Idempotente. */
+  reprocesarLlamadas(): Promise<{
+    revisadas: number;
+    llamadas: number;
+    nuevos: number;
+    hilos: number;
+    avisos: string[];
+  }> {
+    return firstValueFrom(
+      this.http.post<{ revisadas: number; llamadas: number; nuevos: number; hilos: number; avisos: string[] }>(
+        '/api/voz/reprocesar',
+        {},
+      ),
+    );
+  }
 }
