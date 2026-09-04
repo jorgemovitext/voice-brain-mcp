@@ -59,6 +59,11 @@ export function ensureSchema(pool: Pool): Promise<void> {
         ALTER TABLE interactions ADD COLUMN IF NOT EXISTS attachment_url text;
         ALTER TABLE interactions ADD COLUMN IF NOT EXISTS accion jsonb;
 
+        -- Lo que el agente entendió del caso: alimenta la ficha, el resumen y
+        -- el estado emocional del riel derecho. Sin esta columna el INSERT la
+        -- descartaba en silencio y el riel se quedaba con el dato viejo.
+        ALTER TABLE interactions ADD COLUMN IF NOT EXISTS ficha jsonb;
+
         -- Configuración editable desde la app (p. ej. qué Pearl usa cada canal),
         -- para no depender de variables de entorno que exigen redeploy.
         CREATE TABLE IF NOT EXISTS app_settings (
