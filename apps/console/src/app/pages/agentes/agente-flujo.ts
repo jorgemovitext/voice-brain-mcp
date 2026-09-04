@@ -6,8 +6,8 @@ import { AristaFlujo, HerramientaDisponible, NodoFlujo } from '../../models';
 import { valorDe } from '../../recurso';
 
 /** Ancho y alto de una caja, para el dibujo y para el enganche de las flechas. */
-const ANCHO = 168;
-const ALTO = 64;
+const ANCHO = 208;
+const ALTO = 96;
 
 /**
  * El flujo de la conversación, dibujado.
@@ -324,7 +324,10 @@ export class AgenteFlujoPage {
     const ns = this.nodos();
     const ancho = Math.max(900, ...ns.map((n) => n.x + ANCHO + 80));
     const alto = Math.max(420, ...ns.map((n) => n.y + ALTO + 80));
-    return { ancho, alto, vista: `0 0 ${ancho} ${alto}` };
+    const z = this.zoom();
+    // El viewBox no cambia: se escala el tamaño dibujado, así las coordenadas
+    // del arrastre siguen siendo las del modelo y no hay que convertirlas.
+    return { ancho: ancho * z, alto: alto * z, vista: `0 0 ${ancho} ${alto}` };
   });
 
   /**
@@ -332,6 +335,77 @@ export class AgenteFlujoPage {
    * angosto y una condición larga se monta encima. Completa se lee en el panel
    * de la derecha al seleccionarla.
    */
+  /**
+   * Las salidas de un nodo, en el orden en que se evalúan.
+   *
+   * La primera condición que se cumple gana: si "quiere reportar un problema"
+   * se evalúa antes que "hay alguien en peligro", una emergencia entra por la
+   * rama tranquila. Por eso el orden se edita, no se deja al azar del dibujo.
+   */
+  readonly salidas = computed(() => {
+    const n = this.nodoSeleccionado();
+    if (!n) return [];
+    const suyas = this.aristas().filter((a) => a.desde === n.id);
+    const orden = n.orden ?? [];
+    return [...suyas].sort((a, b) => {
+      const ia = orden.indexOf(a.id);
+      const ib = orden.indexOf(b.id);
+      // Las que no están en el orden guardado van al final, en su orden natural.
+      return (ia === -1 ? 999 : ia) - (ib === -1 ? 999 : ib);
+    });
+  });
+
+  /** Sube o baja una salida en la evaluación. */
+  moverSalida(id: string, delta: number): void {
+    const n = this.nodoSeleccionado();
+    if (!n) return;
+    const ids = this.salidas().map((a) => a.id);
+    const i = ids.indexOf(id);
+    const j = i + delta;
+    if (i === -1 || j < 0 || j >= ids.length) return;
+    [ids[i], ids[j]] = [ids[j], ids[i]];
+    this.cambiarNodo(n.id, { orden: ids });
+  }
+
+  /** A dónde lleva una salida, para nombrarla en la lista. */
+  destino(a: AristaFlujo): string {
+    const n = this.nodos().find((x) => x.id === a.hasta);
+    return n ? this.titulo(n) : '?';
+  }
+
+  /** Las primeras líneas de las instrucciones, para la tarjeta del lienzo. */
+  vistaPrevia(n: NodoFlujo): string {
+    if (n.tipo === 'accion') return (n.herramientas ?? []).join(', ') || 'Sin herramientas';
+    if (n.tipo === 'inicio') return 'Punto de entrada de toda conversación';
+    if (n.tipo === 'fin') return 'Termina la conversación';
+    return (n.instrucciones ?? '').replace(/\s+/g, ' ').trim() || 'Sin instrucciones propias';
+  }
+
+  /** Cuántas salidas tiene: con más de una, el orden de evaluación importa. */
+  salidasDe(n: NodoFlujo): number {
+    return this.aristas().filter((a) => a.desde === n.id).length;
+  }
+
+  /** Cuántas herramientas tiene: el chip del pie de la tarjeta. */
+  cuantasHerramientas(n: NodoFlujo): number {
+    return (n.herramientas ?? []).length;
+  }
+
+  /* --- Zoom --- */
+
+  readonly zoom = signal(1);
+
+  acercar(paso: number): void {
+    // Topes anchos pero finitos: con menos de 0.4 no se lee y con más de 2 se
+    // pierde de vista el resto del flujo, que es justo lo que se viene a ver.
+    this.zoom.update((z) => Math.min(2, Math.max(0.4, +(z + paso).toFixed(2))));
+  }
+
+  ajustar(): void {
+    this.zoom.set(1);
+    this.ordenar();
+  }
+
   recorte(t: string, n = 34): string {
     return t.length > n ? t.slice(0, n - 1) + '…' : t;
   }

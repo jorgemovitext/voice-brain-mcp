@@ -25,8 +25,8 @@ const id = env.ELEVENLABS_AGENT_ID;
 
 writeFileSync(process.argv[2], JSON.stringify(await s.flujo(id), null, 2));
 
-const F = (id, nombre, x, y, instrucciones, herramientas = [], alEntrar = 'auto') =>
-  ({ id, tipo: 'fase', nombre, x, y, instrucciones, herramientas, alEntrar });
+const F = (id, nombre, x, y, instrucciones, herramientas = [], alEntrar = 'auto', orden = undefined) =>
+  ({ id, tipo: 'fase', nombre, x, y, instrucciones, herramientas, alEntrar, orden });
 
 const nodos = [
   { id: 'inicio', tipo: 'inicio', nombre: 'Inicio', x: 40, y: 300 },
@@ -53,7 +53,15 @@ Ojo con la diferencia: "no alumbra el poste de la calle" es nuestro; "se fue
 la luz en mi casa o en toda la cuadra" es de la ENEE.
 
 Si no te queda claro, preguntá una sola cosa para aclararlo.`,
-    ['actualizar_ficha']),
+    ['actualizar_ficha'],
+    'auto',
+    /*
+     * El orden en que se evalúan las salidas, y no es cosmético: gana la
+     * PRIMERA condición que se cumple. La emergencia va antes que todo — si
+     * "quiere reportar un problema" se evaluara primero, un derrumbe con gente
+     * atrapada entraría por la rama tranquila y nadie avisaría a la cuadrilla.
+     */
+    ['e1', 'e4', 'e3', 'e2']),
 
   F('emergencia', 'Emergencia', 560, 60,
 `Alguien está en peligro. Esto va antes que el reporte.

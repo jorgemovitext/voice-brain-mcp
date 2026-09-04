@@ -49,6 +49,14 @@ export interface NodoFlujo {
   herramientas?: string[];
   /** `auto` | `generate_immediately` | `wait_for_user`. */
   alEntrar?: string;
+  /**
+   * Los ids de las salidas, en el orden en que se evalúan sus condiciones.
+   *
+   * Con varias ramas esto NO es cosmético: la primera que se cumple gana, así
+   * que "hay alguien en peligro" tiene que evaluarse antes que "quiere
+   * reportar un problema" o una emergencia entra por la rama tranquila.
+   */
+  orden?: string[];
 }
 
 /** Une dos pasos. Sin condición, se pasa siempre. */
@@ -327,6 +335,7 @@ export class AgentesService {
         ...((n['tools'] ?? []) as Array<{ tool_id: string }>).map((t) => t.tool_id),
       ].map((t: string) => porId.get(t) ?? t),
       alEntrar: n['entry_behavior'] ?? 'auto',
+      orden: n['edge_order'] ?? [],
     }));
 
     const aristas: AristaFlujo[] = Object.entries(w['edges'] ?? {}).map(([clave, e]: [string, any]) => ({
@@ -365,6 +374,12 @@ export class AgentesService {
     for (const n of flujo.nodos) {
       const tipo = AgentesService.TIPOS_INVERSO[n.tipo] ?? n.tipo;
       const base: Record<string, unknown> = { type: tipo, position: { x: n.x, y: n.y } };
+      // Solo las salidas que existen de verdad: una arista borrada que quedó
+      // en el orden hace que el proveedor rechace el grafo entero.
+      const salidas = flujo.aristas.filter((a) => a.desde === n.id).map((a) => a.id);
+      const ordenadas = [...(n.orden ?? []).filter((id) => salidas.includes(id))];
+      for (const id of salidas) if (!ordenadas.includes(id)) ordenadas.push(id);
+      if (ordenadas.length) base['edge_order'] = ordenadas;
       const ids = (n.herramientas ?? []).map((h) => porNombre.get(h)).filter(Boolean) as string[];
 
       if (tipo === 'override_agent') {

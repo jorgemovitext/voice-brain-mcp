@@ -25,6 +25,11 @@
         <button class="vistatab__op" (click)="agregar('fin')">+ Fin</button>
         <button class="vistatab__op vistatab__op--suave" (click)="ordenar()"
                 title="Acomoda las cajas sin tocar el contenido">Ordenar</button>
+        <span class="zoom">
+          <button (click)="acercar(-0.15)" title="Alejar">−</button>
+          <b (click)="ajustar()" title="Volver al 100% y acomodar">{{ (zoom() * 100).toFixed(0) }}%</b>
+          <button (click)="acercar(0.15)" title="Acercar">+</button>
+        </span>
       </div>
 
       <div class="lienzo">
@@ -52,9 +57,13 @@
               <path class="arista__linea" [attr.d]="camino(a)"
                     [attr.marker-end]="seleccionArista() === a.id ? 'url(#punta-on)' : 'url(#punta)'" />
               @if (a.condicion && medio(a); as m) {
-                <text class="arista__texto" [attr.x]="m.x" [attr.y]="m.y" text-anchor="middle">
-                  {{ recorte(a.condicion, 18) }}
-                </text>
+                <!-- Píldora y no texto suelto: la etiqueta cruza la línea y
+                     sobre el fondo claro se confundía con ella. -->
+                <g class="arista__pildora">
+                  <rect [attr.x]="m.x - (recorte(a.condicion, 22).length * 3.1) - 8" [attr.y]="m.y - 11"
+                        [attr.width]="recorte(a.condicion, 22).length * 6.2 + 16" height="18" rx="9" />
+                  <text [attr.x]="m.x" [attr.y]="m.y + 2" text-anchor="middle">{{ recorte(a.condicion, 22) }}</text>
+                </g>
               }
             </g>
           }
@@ -66,12 +75,33 @@
               [class.nodo--origen]="conectandoDesde() === n.id"
               [attr.transform]="'translate(' + n.x + ',' + n.y + ')'"
               (pointerdown)="empezarArrastre($event, n)">
-              <rect class="nodo__sombra" [attr.width]="ANCHO" [attr.height]="ALTO" x="0" y="2" rx="16" />
+              <rect class="nodo__sombra" [attr.width]="ANCHO" [attr.height]="ALTO" x="0" y="3" rx="16" />
               <rect class="nodo__caja" [attr.width]="ANCHO" [attr.height]="ALTO" rx="16" />
               <!-- Filo de color a la izquierda: identifica el tipo sin leer. -->
-              <rect class="nodo__filo" width="4" [attr.height]="ALTO - 20" x="0" y="10" rx="2" />
-              <text class="nodo__tipo" x="16" y="22">{{ n.tipo }}</text>
-              <text class="nodo__titulo" x="16" y="44">{{ recorte(titulo(n), 20) }}</text>
+              <rect class="nodo__filo" width="4" [attr.height]="ALTO - 24" x="0" y="12" rx="2" />
+
+              <circle class="nodo__punto" cx="22" cy="22" r="6" />
+              <text class="nodo__titulo" x="36" y="26">{{ recorte(titulo(n), 20) }}</text>
+
+              <!-- Vista previa de lo que hace: sin esto hay que abrir cada caja
+                   para saber cuál es cuál, y el dibujo deja de servir. -->
+              <text class="nodo__cuerpo" x="16" y="48">{{ recorte(vistaPrevia(n), 30) }}</text>
+              <text class="nodo__cuerpo" x="16" y="62">{{ recorte(vistaPrevia(n).slice(30), 30) }}</text>
+
+              @if (cuantasHerramientas(n)) {
+                <g class="nodo__chip">
+                  <rect x="14" [attr.y]="ALTO - 26" width="52" height="18" rx="9" />
+                  <text x="24" [attr.y]="ALTO - 13">⚙ {{ cuantasHerramientas(n) }}</text>
+                </g>
+              }
+              @if (salidasDe(n) > 1) {
+                <!-- Un nodo con varias salidas tiene un orden de evaluación que
+                     decide por dónde sale un caso: se avisa en el dibujo. -->
+                <g class="nodo__chip nodo__chip--ramas">
+                  <rect [attr.x]="cuantasHerramientas(n) ? 72 : 14" [attr.y]="ALTO - 26" width="70" height="18" rx="9" />
+                  <text [attr.x]="cuantasHerramientas(n) ? 82 : 24" [attr.y]="ALTO - 13">{{ salidasDe(n) }} ramas</text>
+                </g>
+              }
 
               <!-- Salida: el punto del que se tira la flecha. El nodo final no
                    tiene, porque después de terminar no sigue nada. -->
@@ -142,6 +172,30 @@
                   <span>{{ h.nombre }}</span>
                 </label>
               }
+            </div>
+          }
+
+          @if (salidas().length > 1) {
+            <div class="campo">
+              <span>Orden de evaluación</span>
+              <!-- La primera condición que se cumple gana. Si "quiere reportar
+                   un problema" se evalúa antes que "hay alguien en peligro",
+                   una emergencia entra por la rama tranquila. -->
+              @for (a of salidas(); track a.id; let i = $index) {
+                <div class="salida">
+                  <b>{{ i + 1 }}</b>
+                  <span class="salida__txt">
+                    {{ a.condicion || 'siempre' }}
+                    <i>→ {{ destino(a) }}</i>
+                  </span>
+                  <button [disabled]="i === 0" (click)="moverSalida(a.id, -1)" title="Evaluar antes">↑</button>
+                  <button [disabled]="i === salidas().length - 1" (click)="moverSalida(a.id, 1)" title="Evaluar después">↓</button>
+                </div>
+              }
+              <p class="riel__nota">
+                Se evalúan de arriba abajo y gana la primera que se cumple. Poné lo
+                más urgente primero.
+              </p>
             </div>
           }
 

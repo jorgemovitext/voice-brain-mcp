@@ -379,6 +379,11 @@ export interface NodoFlujo {
   herramientas?: string[];
   /** `auto` | `generate_immediately` | `wait_for_user`. */
   alEntrar?: string;
+  /**
+   * Ids de las salidas en el orden en que se evalúan. La primera condición que
+   * se cumple gana, así que el orden decide por dónde sale una emergencia.
+   */
+  orden?: string[];
 }
 
 /** Une dos pasos. Sin condición, se pasa siempre. */
