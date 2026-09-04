@@ -1,6 +1,7 @@
-import { Injectable, Logger } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
-import { BlobNotFoundError, get, put } from '@vercel/blob';
+import { Inject, Injectable, Logger, Optional } from '@nestjs/common';
+import { Pool } from 'pg';
+import { ensureSchema, PG_POOL } from './database.module';
+import { SettingsService } from './settings.service';
 
 export interface WebhookEvent {
   at: string;
@@ -11,36 +12,49 @@ export interface WebhookEvent {
   detail?: unknown;
 }
 
+/** La clave donde vive la bitácora. */
+const CLAVE = 'bitacora:webhooks';
+
+/** Encabezado del evento que avisa que la bitácora no se está guardando. */
+const AVISO = 'La bitácora no se está guardando';
+
 /**
  * Bitácora de lo que entra y sale por las integraciones.
  *
- * Se persiste en Blob (si hay store) porque en serverless cada instancia tiene
- * su propia memoria: sin esto es imposible responder "¿el proveedor nos pegó
- * alguna vez?", que es justo lo que hace falta cuando un webhook no llega.
+ * Vive en Postgres —donde vive todo lo demás— porque en serverless cada
+ * instancia tiene su propia memoria: sin persistirla es imposible responder
+ * "¿el proveedor nos pegó alguna vez?", que es justo lo que hace falta cuando
+ * un webhook no llega.
+ *
+ * Antes se guardaba en Vercel Blob. Al mudar el almacenamiento a Neon, el
+ * store de Blob quedó desconectado y su token vacío, así que la bitácora pasó
+ * a ser solo memoria: Actividad mostraba "sin actividad registrada todavía"
+ * por más llamadas y WhatsApps que entraran. El síntoma y el diagnóstico
+ * fallaban a la vez, que es lo peor que puede hacer una herramienta de
+ * diagnóstico.
+ *
+ * Sin Postgres cae al archivo de ajustes (desarrollo).
  */
 @Injectable()
 export class WebhookLogService {
   private static readonly MAX = 60;
   private readonly logger = new Logger(WebhookLogService.name);
-  private readonly token: string;
-  private readonly pathname: string;
 
+  /** Lo de esta instancia: se muestra aunque el guardado todavía no cierre. */
   private events: WebhookEvent[] = [];
-  private loadedAt = 0;
 
   /**
    * Los guardados en vuelo, encadenados.
    *
-   * Se encadenan y no se disparan en paralelo porque cada uno escribe el
-   * arreglo COMPLETO: dos `put` simultáneos se pisan y el que llega segundo
-   * puede ser el que leyó el estado más viejo.
+   * Se encadenan y no se disparan en paralelo porque comparten la misma fila:
+   * dos escrituras simultáneas de la misma instancia se pisarían entre sí.
    */
   private pendiente: Promise<void> = Promise.resolve();
 
-  constructor(config: ConfigService) {
-    this.token = config.get<string>('BLOB_READ_WRITE_TOKEN', '');
-    this.pathname = config.get<string>('WEBHOOK_LOG_BLOB_PATH', 'brain/webhook-log.json');
-  }
+  constructor(
+    @Optional() @Inject(PG_POOL) private readonly pool: Pool | null,
+    private readonly settings: SettingsService,
+  ) {}
 
   /**
    * Registra el evento. La escritura no bloquea a quien llama, pero queda
@@ -50,7 +64,7 @@ export class WebhookLogService {
     const evento: WebhookEvent = { at: new Date().toISOString(), source, summary, ok, detail };
     this.events.unshift(evento);
     if (this.events.length > WebhookLogService.MAX) this.events.length = WebhookLogService.MAX;
-    if (this.token) this.pendiente = this.pendiente.then(() => this.persist());
+    this.pendiente = this.pendiente.then(() => this.persist(evento));
   }
 
   /**
@@ -59,9 +73,7 @@ export class WebhookLogService {
    * Sin esto la bitácora miente en producción. En serverless la instancia se
    * congela apenas se devuelve la respuesta, así que un guardado disparado y
    * no esperado se pierde a medio camino — y como la copia en memoria muere
-   * con la instancia, el evento no queda en ningún lado. El resultado es que
-   * "¿el proveedor nos pegó alguna vez?" siempre respondía que no, que es
-   * justo la pregunta que hay que contestar cuando un webhook no llega.
+   * con la instancia, el evento no queda en ningún lado.
    *
    * Lo llaman los controladores de webhook antes de su `return`.
    */
@@ -70,75 +82,92 @@ export class WebhookLogService {
   }
 
   async list(): Promise<WebhookEvent[]> {
-    if (!this.token) return [...this.events];
-    await this.load();
-    return [...this.events];
+    const guardados = (await this.leer()) ?? [];
+    // Une lo guardado con lo de esta instancia: un evento recién registrado se
+    // ve aunque su escritura todavía no haya cerrado.
+    const vistos = new Set<string>();
+    return [...this.events, ...guardados]
+      .filter((e) => {
+        const clave = `${e.at}|${e.summary}`;
+        if (vistos.has(clave)) return false;
+        vistos.add(clave);
+        return true;
+      })
+      .sort((a, b) => b.at.localeCompare(a.at))
+      .slice(0, WebhookLogService.MAX);
+  }
+
+  private async leer(): Promise<WebhookEvent[] | undefined> {
+    try {
+      return await this.settings.get<WebhookEvent[]>(CLAVE);
+    } catch (err) {
+      this.logger.warn(`No se pudo leer la bitácora: ${(err as Error).message}`);
+      return undefined;
+    }
   }
 
   /**
-   * `true` si la última lectura remota falló.
+   * Agrega UN evento al principio y recorta, en una sola sentencia.
    *
-   * Importa porque `persist()` escribe el arreglo ENTERO: si no se pudo leer
-   * lo que ya había, guardar significaría reemplazar la bitácora de todas las
-   * instancias por lo poco que tiene ésta en memoria. Una lectura fallida
-   * borraría historial en vez de agregarle.
+   * No es leer-modificar-escribir a propósito: dos webhooks que caen en
+   * instancias distintas al mismo tiempo leerían la misma lista y el segundo
+   * en escribir borraría el evento del primero — y perder eventos es
+   * exactamente lo que esta bitácora no puede hacer. Postgres concatena y
+   * recorta del lado del servidor, así que los dos entran.
    */
-  private lecturaFallida = false;
-
-  private async load(): Promise<void> {
-    // Copia local válida por un rato: la bitácora no necesita ser exacta.
-    if (Date.now() - this.loadedAt < 1000) return;
-    this.lecturaFallida = false;
+  private async persist(evento: WebhookEvent): Promise<void> {
     try {
-      const res = await get(this.pathname, { access: 'private', token: this.token, useCache: false });
-      if (res?.stream) {
-        const remotos = JSON.parse(await new Response(res.stream).text()) as WebhookEvent[];
-        // Une por marca de tiempo + resumen y deja los más recientes primero.
-        const vistos = new Set<string>();
-        this.events = [...this.events, ...remotos]
-          .filter((e) => {
-            const clave = `${e.at}|${e.summary}`;
-            if (vistos.has(clave)) return false;
-            vistos.add(clave);
-            return true;
-          })
-          .sort((a, b) => b.at.localeCompare(a.at))
-          .slice(0, WebhookLogService.MAX);
-      }
-    } catch (err) {
-      /*
-       * Que el blob todavía no exista es lo normal la primera vez y no es un
-       * fallo: se queda lo local y se escribe. Cualquier otro error —red,
-       * token, servicio caído— sí lo es, y marcarlo evita que el guardado de
-       * abajo pise con estos pocos eventos lo que ya había.
-       */
-      const noExiste = err instanceof BlobNotFoundError;
-      this.lecturaFallida = !noExiste;
-      if (!noExiste) this.logger.warn(`No se pudo leer la bitácora: ${(err as Error).message}`);
-    }
-    this.loadedAt = Date.now();
-  }
-
-  private async persist(): Promise<void> {
-    try {
-      await this.load();
-      if (this.lecturaFallida) {
-        // Escribir acá reemplazaría la bitácora entera por lo que tenga esta
-        // instancia en memoria — que en serverless suele ser un solo evento.
-        this.logger.warn('Bitácora NO guardada: no se pudo leer la anterior y escribirla borraría historial');
+      if (!this.pool) {
+        const previos = (await this.leer()) ?? [];
+        await this.settings.set(CLAVE, [evento, ...previos].slice(0, WebhookLogService.MAX));
         return;
       }
-      await put(this.pathname, JSON.stringify(this.events), {
-        access: 'private',
-        token: this.token,
-        addRandomSuffix: false,
-        allowOverwrite: true,
-        contentType: 'application/json',
-        cacheControlMaxAge: 0,
-      });
-      this.loadedAt = Date.now();
+
+      await ensureSchema(this.pool);
+      /*
+       * `WITH ORDINALITY` y no `LIMIT`: sin una posición explícita, el orden en
+       * que salen los elementos de un `jsonb_array_elements` no está
+       * garantizado por el estándar, y recortar sin orden podría tirar el
+       * evento nuevo en vez del más viejo. Verificado contra Postgres: siete
+       * inserciones con tope de cinco dejan los cinco últimos, el nuevo
+       * primero.
+       */
+      await this.pool.query(
+        `INSERT INTO app_settings (key, value, updated_at)
+         VALUES ($1, $2::jsonb, now())
+         ON CONFLICT (key) DO UPDATE SET
+           value = (
+             SELECT COALESCE(jsonb_agg(e ORDER BY ord), '[]'::jsonb)
+             FROM jsonb_array_elements(EXCLUDED.value || app_settings.value)
+                  WITH ORDINALITY AS t(e, ord)
+             WHERE ord <= $3
+           ),
+           updated_at = now()`,
+        [CLAVE, JSON.stringify([evento]), WebhookLogService.MAX],
+      );
     } catch (err) {
-      this.logger.warn(`No se pudo persistir la bitácora: ${(err as Error).message}`);
+      this.avisarQueNoSeGuarda((err as Error).message);
     }
+  }
+
+  /**
+   * Deja constancia EN LA PROPIA BITÁCORA de que no se pudo guardar.
+   *
+   * Un `logger.warn` no lo ve nadie: hay que ir a los registros de Vercel a
+   * buscarlo, y para eso primero habría que sospechar. Justamente lo que pasó
+   * con el store de Blob desconectado — la lista se veía vacía y no había nada
+   * que dijera por qué, así que parecía que los proveedores no estaban
+   * pegando. Este evento vive solo en memoria (no se intenta persistir, que es
+   * lo que está fallando) y se ve en la misma vista donde se nota el hueco.
+   */
+  private avisarQueNoSeGuarda(motivo: string): void {
+    this.logger.warn(`No se pudo persistir la bitácora: ${motivo}`);
+    if (this.events.some((e) => e.summary.startsWith(AVISO))) return;
+    this.events.unshift({
+      at: new Date().toISOString(),
+      source: 'desconocido',
+      summary: `${AVISO}: ${motivo}`,
+      ok: false,
+    });
   }
 }
