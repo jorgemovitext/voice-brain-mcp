@@ -64,7 +64,8 @@ export class HubspotClient {
   private readonly base = 'https://api.hubapi.com';
 
   /** El esquema del portal cambia casi nunca; se relee cada 10 minutos. */
-  private esquemaCache: { value: Map<string, Set<string> | null>; at: number } | null = null;
+  /** `value: null` = el token no puede leer el esquema; se crea sin filtrar. */
+  private esquemaCache: { value: Map<string, Set<string> | null> | null; at: number } | null = null;
   /** Mismo criterio que el esquema: el equipo no cambia entre dos mensajes. */
   private ownersCache: { value: HubspotOwner[]; at: number } | null = null;
   private static readonly ESQUEMA_TTL_MS = 10 * 60 * 1000;
@@ -242,19 +243,39 @@ export class HubspotClient {
    * `Whatsapp`). En vez de acertar de memoria, se lee el esquema y se sanea
    * contra él.
    */
-  private async propiedadesDeTicket(): Promise<Map<string, Set<string> | null>> {
+  private async propiedadesDeTicket(): Promise<Map<string, Set<string> | null> | null> {
     if (this.esquemaCache && Date.now() - this.esquemaCache.at < HubspotClient.ESQUEMA_TTL_MS) {
       return this.esquemaCache.value;
     }
 
-    const res = await this.pedir<{
-      results?: Array<{ name: string; options?: Array<{ value: string }> }>;
-    }>('/crm/v3/properties/tickets');
-
-    const mapa = new Map<string, Set<string> | null>();
-    for (const p of res.results ?? []) {
-      // null = campo libre; Set = enumerado con opciones cerradas.
-      mapa.set(p.name, p.options?.length ? new Set(p.options.map((o) => o.value)) : null);
+    /*
+     * Leer el esquema es un LUJO, no un requisito.
+     *
+     * Sirve para descartar propiedades que el portal no tiene, pero vive en
+     * `/crm/v3/properties/…`, que pide un permiso distinto al de tickets. Con
+     * un token que puede crear tickets pero no leer el esquema, esto lanzaba y
+     * se llevaba puesta la creación entera: ni un solo ticket, y en el hilo un
+     * error que hablaba de "properties" y no de lo que realmente pasó.
+     *
+     * Sin esquema se manda lo que haya: `subject` y `content` existen en todos
+     * los portales. Que HubSpot rechace una propiedad rara es un problema
+     * mucho menor que no abrir el ticket.
+     */
+    let mapa: Map<string, Set<string> | null> | null = new Map();
+    try {
+      const res = await this.pedir<{
+        results?: Array<{ name: string; options?: Array<{ value: string }> }>;
+      }>('/crm/v3/properties/tickets');
+      for (const p of res.results ?? []) {
+        // null = campo libre; Set = enumerado con opciones cerradas.
+        mapa.set(p.name, p.options?.length ? new Set(p.options.map((o) => o.value)) : null);
+      }
+    } catch (err) {
+      this.logger.warn(
+        `No se pudo leer el esquema de tickets (${(err as Error).message}). ` +
+          'Se crearán igual, sin filtrar propiedades. Revisá /api/hubspot/permisos.',
+      );
+      mapa = null;
     }
     this.esquemaCache = { value: mapa, at: Date.now() };
     return mapa;
@@ -274,6 +295,11 @@ export class HubspotClient {
 
     for (const [nombre, valor] of Object.entries(props)) {
       if (!valor?.trim()) continue;
+      // Sin esquema no hay con qué filtrar: pasa todo y que decida HubSpot.
+      if (!esquema) {
+        limpias[nombre] = valor;
+        continue;
+      }
       if (!esquema.has(nombre)) {
         descartadas.push(`${nombre} (no existe en el portal)`);
         continue;
@@ -415,11 +441,21 @@ export class HubspotClient {
       }
     };
 
+    /*
+     * Se prueba cada cosa que la creación de un ticket necesita, por separado.
+     *
+     * La primera versión solo miraba `/crm/v3/objects/tickets` y daba verde
+     * mientras NINGÚN ticket se creaba: abrir uno además lee el esquema y el
+     * pipeline, que viven en rutas distintas y piden permisos distintos. Un
+     * diagnóstico que no prueba lo que falla es peor que ninguno.
+     */
     const pruebas = await Promise.all([
       probar('Leer responsables (para asignar tareas)', '/crm/v3/owners?limit=1'),
       probar('Leer tareas', '/crm/v3/objects/tasks?limit=1'),
       probar('Leer tickets', '/crm/v3/objects/tickets?limit=1'),
       probar('Leer contactos (para colgarles la tarea)', '/crm/v3/objects/contacts?limit=1'),
+      probar('Leer el ESQUEMA de tickets (al crear uno)', '/crm/v3/properties/tickets'),
+      probar('Leer el PIPELINE de tickets (la etapa inicial)', '/crm/v3/pipelines/tickets'),
     ]);
 
     // Cuántos responsables hay de verdad: con cero, el agente no tiene a quién
@@ -465,6 +501,20 @@ export class HubspotClient {
       this.logger.warn(`Ticket creado sin: ${descartadas.join(', ')}`);
     }
 
+    /*
+     * HubSpot exige la etapa del pipeline al crear un ticket: sin
+     * `hs_pipeline_stage` responde 400 y no se abre nada. Mandábamos solo
+     * asunto y contenido.
+     *
+     * La etapa se toma del portal —la primera que no sea de cierre— en vez de
+     * fijar un id: los ids de etapa son distintos en cada cuenta, y uno
+     * hardcodeado funciona en el portal donde se probó y en ningún otro.
+     */
+    if (!limpias['hs_pipeline_stage']) {
+      const inicial = await this.etapaInicial();
+      if (inicial) limpias['hs_pipeline_stage'] = inicial;
+    }
+
     const creado = await this.pedir<{ id: string }>('/crm/v3/objects/tickets', {
       properties: limpias,
     });
@@ -476,6 +526,25 @@ export class HubspotClient {
       });
     }
     return { id: creado.id, descartadas };
+  }
+
+  /**
+   * La primera etapa abierta del portal: donde nace un caso nuevo.
+   *
+   * Si no se puede leer el pipeline se devuelve `undefined` y se manda el
+   * ticket sin etapa: en portales donde HubSpot pone una por defecto igual se
+   * crea, y si lo rechaza el error dice exactamente eso en vez de un silencio.
+   */
+  private async etapaInicial(): Promise<string | undefined> {
+    try {
+      const etapas = [...(await this.etapas()).values()]
+        .filter((e) => !e.isClosed)
+        .sort((a, b) => a.order - b.order);
+      return etapas[0]?.id;
+    } catch (err) {
+      this.logger.warn(`No se pudo leer el pipeline de tickets: ${(err as Error).message}`);
+      return undefined;
+    }
   }
 
   /** Asocia el ticket al contacto dueño de ese teléfono, si existe. */
