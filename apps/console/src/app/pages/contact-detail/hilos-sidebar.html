@@ -12,14 +12,14 @@
       }
       @for (c of tramo.hilos; track c.id) {
         <a class="thread" [class.thread--active]="c.id === activo()" [routerLink]="[base(), c.id]">
-          <span class="thread__avatar" [style.--tono]="tono(c.id)">
+          <!-- El bloque ES el canal: no lleva insignia encima porque el color
+               ya lo dice, y el ícono va arriba junto a la hora. -->
+          <!-- Sin último mensaje el bloque va en gris: pintarlo del verde de
+               WhatsApp por defecto sería afirmar un canal que no sabemos. -->
+          <span class="thread__avatar"
+                [style.--canal]="channelColor(c.lastInteraction?.channel ?? 'note')"
+                [title]="c.lastInteraction ? channelLabel(c.lastInteraction.channel) : ''">
             {{ inicialesDe(c.displayName) }}
-            <!-- De dónde vino la última actividad de este hilo. -->
-            @if (c.lastInteraction?.channel; as canal) {
-              <span class="thread__canal" [style.--canal]="channelColor(canal)" [title]="channelLabel(canal)">
-                <ui-icon [name]="channelIconName(canal)" />
-              </span>
-            }
           </span>
           <span class="thread__body">
             <span class="thread__top">
@@ -32,7 +32,15 @@
                            title="Conversación inconclusa: el ciudadano dejó de responder y el caso quedó sin registrar. Abrila y tomala para terminarla vos." />
                 }
               </span>
-              <span class="thread__time">{{ cuandoCorto(c.enCurso ? c.cuando : c.lastInteraction?.occurredAt) }}</span>
+              <span class="thread__cuando">
+                <!-- El canal también en forma, no solo en color: un glifo de
+                     ocho píxeles junto a la hora, donde se lee como dato y no
+                     como adorno pegado al avatar. -->
+                @if (c.lastInteraction?.channel; as canal) {
+                  <ui-icon class="thread__canal" [name]="channelIconName(canal)" [title]="channelLabel(canal)" />
+                }
+                <span class="thread__time">{{ cuandoCorto(c.enCurso ? c.cuando : c.lastInteraction?.occurredAt) }}</span>
+              </span>
             </span>
             <!-- Conversación abriéndose: todavía no hay mensajes que
                  previsualizar, pero es lo más urgente de la lista. -->

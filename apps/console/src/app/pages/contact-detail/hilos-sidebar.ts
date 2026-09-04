@@ -14,9 +14,6 @@ export interface HiloListado extends ContactListItem {
   cuando: string;
 }
 
-/** Paleta pastel para el tono de cada contacto (misma que en el directorio). */
-const TONOS = ['#ffd9c8', '#cdeffd', '#ffe9a8', '#f3d1ff', '#c8f7d0', '#d7dbff', '#ffd6e7', '#d2f4ee'];
-
 /**
  * La columna de conversaciones de /conversations.
  *
@@ -72,13 +69,6 @@ export class HilosSidebar {
   });
 
   readonly inicialesDe = inicialesDe;
-
-  /** El tono del contacto: estable, derivado de su id. */
-  tono(id: string): string {
-    let hash = 0;
-    for (const ch of id) hash = (hash * 31 + ch.charCodeAt(0)) >>> 0;
-    return TONOS[hash % TONOS.length];
-  }
 
   preview(c: HiloListado): string {
     const texto = c.lastInteraction?.summary ?? '';

@@ -108,11 +108,10 @@
 /*
  * Tarjeta, no píldora — la misma pieza del directorio.
  *
- * La píldora obligaba a un avatar redondo flotando adentro, y quince círculos
- * de colores sueltos era justo lo que hacía ver la columna como confeti. Con
- * la tarjeta el tono va en un BLOQUE a ras del borde izquierdo: los quince
- * quedan alineados en una sola columna, que se lee como un ritmo y no como
- * quince manchas repartidas.
+ * El fondo es apenas un velo sobre el panel y el borde nace transparente. Con
+ * cada fila delineada, quince tarjetas eran quince recuadros compitiendo; así
+ * la lista se lee como una columna de piezas y el contorno queda para decir
+ * dónde está el mouse y cuál está abierta, que es cuando de verdad importa.
  */
 .thread {
   position: relative;
@@ -121,7 +120,7 @@
   gap: 0;
   align-items: stretch;
   border-radius: 16px;
-  background: var(--panel-2);
+  background: rgba(255, 255, 255, 0.035);
   color: var(--ink);
   /*
    * Lo que impedía que la lista scrolleara. Los hijos de un flex column se
@@ -133,13 +132,13 @@
   flex-shrink: 0;
   /* Borde transparente de base: el seleccionado lo pinta, y sin esto la fila
      se movería 1px al cambiar de selección. */
-  border: 1px solid var(--border);
+  border: 1px solid transparent;
   /* El desplazamiento es lo que da la sensación de "se puede tocar"; sin él
      el hover solo cambiaba de color y se sentía inerte. */
-  transition: border-color 0.15s, transform 0.15s;
+  transition: border-color 0.15s, background 0.15s, transform 0.15s;
 
   &:hover {
-    border-color: var(--secondary);
+    border-color: rgba(255, 255, 255, 0.16);
     transform: translateX(2px);
   }
 
@@ -156,37 +155,50 @@
  * El borde cian solo no alcanzaba —es el mismo que el hover—, así que el
  * vidrio es lo que dice "esta es la que estás leyendo".
  */
+/*
+ * El hilo abierto: COLOR propio, no vidrio.
+ *
+ * El esmerilado dependía de lo que hubiera detrás —que acá es siempre el mismo
+ * panel plano—, así que su único efecto real era aclarar un poco la fila: se
+ * confundía con el hover y costaba encontrar cuál estabas leyendo. Un tinte
+ * cian sólido no depende del fondo y se distingue de una.
+ */
 .thread--active {
+  background: color-mix(in srgb, var(--secondary) 16%, #16233a);
   border-color: var(--secondary);
-  /* El vidrio va en la TARJETA y no en el cuerpo: puesto solo en el cuerpo, el
-     bloque de tono quedaba de un tono y el resto de otro, y la fila se leía
-     partida en dos. */
-  background: rgba(255, 255, 255, 0.1);
-  box-shadow:
-    0 4px 18px rgba(4, 9, 20, 0.4),
-    inset 0 1px 0 rgba(255, 255, 255, 0.14);
 
   .thread__name { color: #fff; }
   .thread__preview { color: var(--ink); }
+  .thread__time,
+  .thread__canal { color: color-mix(in srgb, var(--secondary) 70%, #fff); }
 }
 
 /*
- * El tono del contacto, en un bloque a ras del borde — el del directorio.
+ * El bloque a ras del borde ES el canal.
  *
- * A todo el alto y pegado al canto: alineados en columna, quince bloques se
- * leen como una guarda, no como quince manchas sueltas. Es lo que permite
- * usar el pastel entero sin que la lista vuelva a sentirse cargada.
+ * Antes llevaba un tono sacado del id del contacto —decorativo, ocho pasteles
+ * repartidos al azar— y encima una insignia con el ícono del canal. Dos capas
+ * de color donde solo una decía algo: el tono no significaba nada y la
+ * insignia era un adorno pegado al avatar.
+ *
+ * Ahora el color del bloque es el del canal, y la insignia desaparece. La
+ * paleta baja de ocho colores azarosos a tres que significan; y como casi todo
+ * entra por WhatsApp, la columna queda casi de un solo tono y la llamada suelta
+ * salta sola — que es justo lo que uno busca en esa lista.
  */
 .thread__avatar {
   position: relative;
-  width: 46px;
+  width: 44px;
   flex-shrink: 0;
   display: grid;
   place-items: center;
-  font-size: 0.92rem;
+  font-size: 0.88rem;
   font-weight: 800;
-  background: var(--tono, #cdeffd);
-  color: #22303c;
+  /* 34% y no más: los colores de canal ya son apagados de por sí (#729B26,
+     #2196CC, #D9532C), así que por debajo de eso el bloque se vuelve barro y
+     por encima vuelve a gritar. */
+  background: color-mix(in srgb, var(--canal, #8a8f98) 34%, #131a29);
+  color: color-mix(in srgb, var(--canal, #8a8f98) 40%, #fff);
 }
 
 /*
@@ -198,23 +210,26 @@
  * distinguían nada — solo hacían ruido. Lo que informa es el ícono; el color
  * queda de refuerzo.
  */
+.thread__cuando {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.28rem;
+  flex-shrink: 0;
+}
+
+/*
+ * El canal también en FORMA, no solo en color: sin el glifo, quien no
+ * distingue el verde del cian se queda sin saber de dónde vino.
+ *
+ * Va desaturado junto a la hora, no encima del avatar: ahí era una insignia
+ * con anillo —una pieza más por fila— y con casi todo entrando por WhatsApp,
+ * quince insignias idénticas encendidas no distinguían nada.
+ */
 .thread__canal {
-  position: absolute;
-  right: 5px;
-  bottom: 5px;
-  width: 15px;
-  height: 15px;
   /* `ui-icon` mide 1em: fijar la fuente acá es lo que en verdad achica el
      ícono (sus width/height van en el <svg>, no en el host). */
-  font-size: 8px;
-  display: grid;
-  place-items: center;
-  border-radius: 50%;
-  /* El filo es claro porque ahora se recorta contra el bloque pastel, no
-     contra el panel oscuro. */
-  border: 2px solid rgba(255, 255, 255, 0.75);
-  background: color-mix(in srgb, var(--canal, #8a8f98) 62%, #22303c);
-  color: #fff;
+  font-size: 10px;
+  color: color-mix(in srgb, var(--ink-soft) 70%, transparent);
 }
 
 .thread__body {
