@@ -188,7 +188,7 @@ export interface HiveStatus {
 /** Actividad reciente de webhooks (entrantes y pruebas salientes). */
 export interface WebhookEvent {
   at: string;
-  source: 'nlpearl' | 'gupshup' | 'whatsapp-cloud' | 'precall' | 'saliente';
+  source: 'nlpearl' | 'gupshup' | 'whatsapp-cloud' | 'precall' | 'saliente' | 'agente';
   summary: string;
   ok: boolean;
   detail?: unknown;

@@ -473,6 +473,73 @@ export class HubspotClient {
   }
 
   /**
+   * Abre un ticket y una tarea DE VERDAD, contando cada paso.
+   *
+   * Existe porque el diagnóstico de permisos daba todo verde mientras no se
+   * creaba nada: probaba rutas de lectura, y lo que falla es la escritura. Tres
+   * rondas de hipótesis después, la única forma de saber es hacerlo.
+   *
+   * Escribe en el portal a propósito. Los objetos van marcados PRUEBA en el
+   * asunto para que se reconozcan y se puedan borrar.
+   */
+  async probarEscritura(): Promise<Array<{ paso: string; ok: boolean; detalle: string }>> {
+    const pasos: Array<{ paso: string; ok: boolean; detalle: string }> = [];
+    const correr = async (paso: string, fn: () => Promise<string>) => {
+      try {
+        pasos.push({ paso, ok: true, detalle: await fn() });
+        return true;
+      } catch (err) {
+        pasos.push({ paso, ok: false, detalle: (err as Error).message.slice(0, 260) });
+        return false;
+      }
+    };
+
+    let etapa: string | undefined;
+    await correr('1. Leer el esquema de tickets', async () => {
+      const e = await this.propiedadesDeTicket();
+      return e ? `${e.size} propiedades` : 'sin permiso — se crea igual, sin filtrar';
+    });
+    await correr('2. Leer el pipeline y sacar la etapa inicial', async () => {
+      etapa = await this.etapaInicial();
+      return etapa ? `etapa ${etapa}` : 'no se pudo: el ticket irá sin etapa';
+    });
+
+    let ticketId: string | undefined;
+    const abrio = await correr('3. CREAR el ticket', async () => {
+      const { id } = await this.crearTicket({
+        subject: 'PRUEBA — borrar (diagnóstico de la Línea 100)',
+        content: 'Ticket de prueba creado desde el diagnóstico. Se puede borrar.',
+      });
+      ticketId = id;
+      return `creado con id ${id}`;
+    });
+
+    if (abrio) {
+      await correr('4. CREAR la tarea', async () => {
+        const { id } = await this.crearTarea({
+          titulo: 'PRUEBA — borrar (diagnóstico de la Línea 100)',
+          detalle: 'Tarea de prueba. Se puede borrar.',
+        });
+        return `creada con id ${id}`;
+      });
+      await correr('5. Leer responsables (para poder asignarla)', async () => {
+        const g = await this.responsables();
+        return g.length ? `${g.length} disponibles` : 'ninguno: la tarea quedaría sin dueño';
+      });
+    }
+
+    if (ticketId) {
+      // Se limpia solo: dejar basura en el CRM del cliente no es aceptable.
+      await correr('6. Borrar el ticket de prueba', async () => {
+        await this.pedir(`/crm/v3/objects/tickets/${ticketId}`, undefined, 'DELETE');
+        return 'borrado';
+      });
+    }
+
+    return pasos;
+  }
+
+  /**
    * Le pone dueño a una tarea que ya existe.
    *
    * Registrar un reporte crea la tarea sin responsable —acá nadie sabe a quién

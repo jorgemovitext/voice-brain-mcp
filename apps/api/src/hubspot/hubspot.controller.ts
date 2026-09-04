@@ -1,4 +1,4 @@
-import { Controller, Get } from '@nestjs/common';
+import { Controller, Get, Post } from '@nestjs/common';
 import { BrainService } from '../brain/brain.service';
 import { HubspotClient } from './hubspot.client';
 
@@ -28,6 +28,21 @@ export class HubspotController {
   @Get('permisos')
   async permisos() {
     return this.hubspot.permisos();
+  }
+
+  /**
+   * Prueba de escritura real: abre un ticket y una tarea, y los borra.
+   *
+   * `POST` y no `GET` porque escribe en el portal del cliente. El diagnóstico
+   * de permisos daba todo verde mientras no se creaba nada —probaba lecturas, y
+   * lo que falla es la escritura—, así que la única forma de saber es hacerlo.
+   */
+  @Post('probar-escritura')
+  async probarEscritura() {
+    if (!this.hubspot.configured) {
+      return { configurado: false, motivo: 'Falta HUBSPOT_TOKEN en el entorno' };
+    }
+    return { configurado: true, pasos: await this.hubspot.probarEscritura() };
   }
 
   @Get('diagnostico')

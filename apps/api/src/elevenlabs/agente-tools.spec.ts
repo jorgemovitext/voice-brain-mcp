@@ -2,6 +2,7 @@ import { BrainService } from '../brain/brain.service';
 import { HubspotClient } from '../hubspot/hubspot.client';
 import { ChannelPort } from '../ports/channel.port';
 import { SettingsService } from '../shared/settings.service';
+import { WebhookLogService } from '../shared/webhook-log.service';
 import { AgenteToolsService } from './agente-tools.service';
 
 /**
@@ -80,13 +81,17 @@ describe('AgenteToolsService', () => {
       },
     };
 
+    /** Lo que se escribe en Actividad: distingue "falló" de "nunca se llamó". */
+    const bitacora: Array<{ resumen: string; ok: boolean }> = [];
+
     const service = new AgenteToolsService(
       brain as unknown as BrainService,
       hubspot as unknown as HubspotClient,
       settings as unknown as SettingsService,
+      { push: (_f: string, resumen: string, ok: boolean) => bitacora.push({ resumen, ok }) } as unknown as WebhookLogService,
       canal as unknown as ChannelPort,
     );
-    return { service, anotadas, enviados, tareas, asignadas, tickets };
+    return { service, anotadas, enviados, tareas, asignadas, tickets, bitacora };
   }
 
   const REPORTE = {
@@ -340,6 +345,25 @@ describe('AgenteToolsService', () => {
     expect(r.ok).toBe(true);
     expect(r.mensaje).toContain('AMDC-4417');
     expect(anotadas.some((a) => a['ficha'])).toBe(true);
+  });
+
+  it('toda llamada de herramienta queda en Actividad, falle o no', async () => {
+    /*
+     * "No aparece ningún ticket" puede ser que la herramienta falle o que el
+     * agente nunca la llame, y desde afuera las dos se ven igual: nada. La
+     * tarjeta del hilo solo existe si la herramienta llegó a correr; la
+     * bitácora se escribe siempre, y es lo que distingue una cosa de la otra.
+     */
+    const ok = build();
+    await ok.service.ejecutar('c1', 'registrar_reporte', REPORTE);
+    expect(ok.bitacora).toEqual([{ resumen: expect.stringContaining('registrar_reporte'), ok: true }]);
+
+    const mal = build({ crmFalla: true });
+    await mal.service.ejecutar('c1', 'registrar_reporte', REPORTE);
+    expect(mal.bitacora).toHaveLength(1);
+    expect(mal.bitacora[0].ok).toBe(false);
+    // Con el motivo textual de HubSpot, no un "falló" genérico.
+    expect(mal.bitacora[0].resumen).toContain('HubSpot rechazó el ticket');
   });
 
   it('registrar el MISMO reporte dos veces abre UN solo ticket', async () => {

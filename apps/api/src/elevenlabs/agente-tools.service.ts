@@ -3,6 +3,7 @@ import { BrainService } from '../brain/brain.service';
 import { HubspotClient } from '../hubspot/hubspot.client';
 import { ChannelPort, WHATSAPP_CHANNEL } from '../ports/channel.port';
 import { SettingsService } from '../shared/settings.service';
+import { WebhookLogService } from '../shared/webhook-log.service';
 
 /** Lo que se le devuelve al agente para que siga la conversación. */
 export interface ResultadoHerramienta {
@@ -42,6 +43,7 @@ export class AgenteToolsService {
     private readonly brain: BrainService,
     private readonly hubspot: HubspotClient,
     private readonly settings: SettingsService,
+    private readonly bitacora: WebhookLogService,
     @Inject(WHATSAPP_CHANNEL) private readonly whatsapp: ChannelPort,
   ) {}
 
@@ -145,10 +147,26 @@ export class AgenteToolsService {
        * de anotarlos.
        */
       if (resultado.ok) await this.fichaDesde(contactId, nombre, args);
+      /*
+       * Queda en Actividad, no solo en el hilo.
+       *
+       * "No aparece ningún ticket" puede ser que la herramienta falle o que el
+       * agente nunca la llame, y las dos se ven igual desde afuera: nada. La
+       * tarjeta del hilo solo aparece si la herramienta LLEGÓ a ejecutarse;
+       * esto se escribe siempre, así que distingue una cosa de la otra sin
+       * tener que adivinar.
+       */
+      this.bitacora.push(
+        'agente',
+        `${nombre}: ${resultado.ok ? 'ok' : resultado.mensaje.slice(0, 120)}`,
+        resultado.ok,
+        args,
+      );
       return resultado;
     } catch (err) {
       const motivo = (err as Error).message;
       this.logger.warn(`Falló la herramienta "${nombre}": ${motivo}`);
+      this.bitacora.push('agente', `${nombre} falló: ${motivo.slice(0, 160)}`, false, args);
       await this.anotar(contactId, 'ticket', false, `No se pudo ejecutar "${nombre}": ${motivo}`);
       return { ok: false, mensaje: `No se pudo completar la acción: ${motivo}` };
     }

@@ -5,7 +5,7 @@ import { BlobNotFoundError, get, put } from '@vercel/blob';
 export interface WebhookEvent {
   at: string;
   /** Quién lo envió. */
-  source: 'nlpearl' | 'gupshup' | 'whatsapp-cloud' | 'precall' | 'saliente' | 'desconocido';
+  source: 'nlpearl' | 'gupshup' | 'whatsapp-cloud' | 'precall' | 'saliente' | 'agente' | 'desconocido';
   summary: string;
   ok: boolean;
   detail?: unknown;
