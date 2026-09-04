@@ -22,6 +22,8 @@ describe('AgenteToolsService', () => {
     const enviados: Array<{ contactId: string; texto: string }> = [];
     const tareas: Array<Record<string, unknown>> = [];
     const asignadas: Array<Record<string, unknown>> = [];
+    /** Tickets realmente abiertos: lo que cuenta al verificar la idempotencia. */
+    const tickets: Array<Record<string, unknown>> = [];
 
     const brain = {
       getContext: async () => ({
@@ -39,6 +41,7 @@ describe('AgenteToolsService', () => {
       },
       crearTicket: async () => {
         if (crmFalla) throw new Error('HubSpot rechazó el ticket');
+        tickets.push({});
         return { id: '4417', descartadas: [] };
       },
       // Vacía cuando el token no puede leerlos: el cliente devuelve [] en vez
@@ -83,7 +86,7 @@ describe('AgenteToolsService', () => {
       settings as unknown as SettingsService,
       canal as unknown as ChannelPort,
     );
-    return { service, anotadas, enviados, tareas, asignadas };
+    return { service, anotadas, enviados, tareas, asignadas, tickets };
   }
 
   const REPORTE = {
@@ -337,6 +340,40 @@ describe('AgenteToolsService', () => {
     expect(r.ok).toBe(true);
     expect(r.mensaje).toContain('AMDC-4417');
     expect(anotadas.some((a) => a['ficha'])).toBe(true);
+  });
+
+  it('registrar el MISMO reporte dos veces abre UN solo ticket', async () => {
+    /*
+     * El agente llama registrar_reporte dos veces en el mismo turno. Se
+     * reprodujo desde el banco de pruebas con un único mensaje del ciudadano:
+     * la respuesta traía la herramienta repetida. Sin esto son dos tickets para
+     * el mismo bache, con dos folios, y el vecino se queda con uno mientras la
+     * cuadrilla ve dos.
+     */
+    const { service, tickets } = build();
+
+    const primera = await service.ejecutar('c1', 'registrar_reporte', REPORTE);
+    const segunda = await service.ejecutar('c1', 'registrar_reporte', REPORTE);
+
+    expect(tickets).toHaveLength(1);
+    // Y al agente se le devuelve el MISMO folio, para que no diga dos números.
+    expect(primera.mensaje).toContain('AMDC-4417');
+    expect(segunda.mensaje).toContain('AMDC-4417');
+    expect(segunda.mensaje).toContain('no lo registres de nuevo');
+  });
+
+  it('un reporte DISTINTO del mismo vecino sí abre otro ticket', async () => {
+    // La huella es tipo+ubicación: dos problemas de verdad no se pisan.
+    const { service, tickets } = build();
+
+    await service.ejecutar('c1', 'registrar_reporte', REPORTE);
+    await service.ejecutar('c1', 'registrar_reporte', {
+      ...REPORTE,
+      tipo_problema: 'Bache',
+      ubicacion: 'Colonia Kennedy',
+    });
+
+    expect(tickets).toHaveLength(2);
   });
 
   it('avisar a la cuadrilla sube el riesgo de la ficha sin que el agente lo pida', async () => {

@@ -54,6 +54,14 @@ export class AgenteToolsService {
     'actualizar_ficha',
   ] as const;
 
+  /**
+   * Cuánto dura la huella de un reporte para considerarlo repetido.
+   *
+   * Cinco minutos cubre de sobra la repetición dentro de un turno y sigue
+   * dejando que el mismo vecino reporte otra cosa más tarde.
+   */
+  private static readonly REPETIDO_MS = 5 * 60_000;
+
   /** HubSpot solo acepta estas tres; el agente manda texto libre. */
   private static prioridadValida(valor: string): 'LOW' | 'MEDIUM' | 'HIGH' {
     return (['LOW', 'MEDIUM', 'HIGH'].includes(valor) ? valor : 'HIGH') as 'LOW' | 'MEDIUM' | 'HIGH';
@@ -174,6 +182,31 @@ export class AgenteToolsService {
       };
     }
 
+    /*
+     * El agente llama esta herramienta DOS VECES en el mismo turno.
+     *
+     * Reproducido desde el banco de pruebas con un solo mensaje del ciudadano:
+     * la respuesta trae `registrar_reporte` repetido. En producción eso son dos
+     * tickets para el mismo bache, con dos folios, y el vecino se queda con uno
+     * mientras la cuadrilla ve dos.
+     *
+     * No se puede arreglar pidiéndole al modelo que no lo haga —ya sabemos cómo
+     * termina eso—, así que el segundo intento devuelve el folio del primero.
+     * La huella es tipo+ubicación: un reporte distinto del mismo vecino sí abre
+     * ticket nuevo, y uno idéntico a los pocos minutos es la repetición.
+     */
+    const huella = `${tipo}|${ubicacion}`.toLowerCase().replace(/\s+/g, ' ');
+    const previo = await this.settings.get<{ huella: string; folio: string; at: number }>(
+      `reporte:${contactId}`,
+    );
+    if (previo?.huella === huella && Date.now() - previo.at < AgenteToolsService.REPETIDO_MS) {
+      this.logger.warn(`registrar_reporte repetido para ${contactId}: se devuelve ${previo.folio}`);
+      return {
+        ok: true,
+        mensaje: `Ese reporte ya quedó registrado con el folio ${previo.folio}. Decíselo al ciudadano; no lo registres de nuevo.`,
+      };
+    }
+
     const ctx = await this.brain.getContext({ contactId });
     const telefono = ctx.contact.phones?.[0];
 
@@ -196,6 +229,7 @@ export class AgenteToolsService {
     );
 
     const folio = `AMDC-${id}`;
+    await this.settings.set(`reporte:${contactId}`, { huella, folio, at: Date.now() });
     await this.anotar(contactId, 'ticket', true, `${tipo} en ${ubicacion} · folio ${folio}`);
     this.logger.log(`El agente abrió el ticket ${folio} para ${contactId}`);
 

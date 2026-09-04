@@ -11,7 +11,15 @@ import { AgentesService, AristaFlujo, NodoFlujo } from './agentes.service';
  * reporta qué se llamó, que es lo que se está evaluando.
  */
 const SIMULADO: Record<string, string> = {
-  registrar_reporte: 'Reporte registrado con el folio AMDC-0000 (simulado).',
+  /*
+   * El folio dice PRUEBA y no un número plausible.
+   *
+   * Con "AMDC-0000" el agente lo repetía tal cual y la transcripción quedaba
+   * indistinguible de una real: quien la lee después no tiene cómo saber que
+   * no se abrió ningún ticket. Que el propio texto lo delate es más barato que
+   * explicarlo cada vez.
+   */
+  registrar_reporte: 'Reporte registrado con el folio AMDC-PRUEBA.',
   avisar_autoridad: 'Aviso enviado a la cuadrilla (simulado).',
   asignar_tarea: 'Tarea asignada (simulado).',
   escalar_a_humano: 'Ya se avisó al equipo (simulado).',
