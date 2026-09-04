@@ -25,7 +25,12 @@ describe('ElevenLabsVozService', () => {
     provider = 'twilio',
     transcript = [] as Array<{ role: string; message: string; time_in_call_secs: number }>,
     fallaLlamada = false,
+    /** El número del otro lado, como lo manda el proveedor: sin "+". */
+    externo = undefined as string | undefined,
+    /** Números de la cuenta, para probar el id viejo que ya no existe. */
+    numeros = undefined as Array<Record<string, unknown>> | undefined,
   } = {}) {
+    const identificados: Array<Record<string, unknown>> = [];
     const guardadas: Array<Record<string, unknown>> = [];
     const settings = new Map<string, unknown>();
     const posts: Array<{ url: string; body: Record<string, unknown> }> = [];
@@ -35,13 +40,20 @@ describe('ElevenLabsVozService', () => {
     const http = {
       get: (url: string) => {
         if (url.includes('/phone-numbers')) {
-          return of({ data: [{ phone_number_id: 'num_1', provider }] });
+          return of({
+            data: numeros ?? [
+              { phone_number_id: 'num_1', provider, supports_outbound: true },
+            ],
+          });
         }
         return of({
           data: {
             status: 'done',
             transcript,
-            metadata: { start_time_unix_secs: 1_700_000_000 },
+            metadata: {
+              start_time_unix_secs: 1_700_000_000,
+              ...(externo ? { phone_call: { direction: 'inbound', external_number: externo } } : {}),
+            },
             analysis: { transcript_summary: 'El vecino reportó un derrumbe.' },
           },
         });
@@ -54,6 +66,10 @@ describe('ElevenLabsVozService', () => {
     };
     const brain = {
       getContext: async () => ({ contact: { displayName: 'María López', phones: ['+50497616546'] } }),
+      resolveIdentity: async (i: Record<string, unknown>) => {
+        identificados.push(i);
+        return { contactId: 'c-por-telefono', created: false };
+      },
       appendInteraction: async (i: Record<string, unknown>) => {
         const id = i['id'] as string | undefined;
         if (id) {
@@ -78,7 +94,7 @@ describe('ElevenLabsVozService', () => {
       set as unknown as SettingsService,
       { get: (k: string, def?: unknown) => CONFIG[k] ?? def } as unknown as ConfigService,
     );
-    return { service, guardadas, settings, posts };
+    return { service, guardadas, settings, posts, identificados };
   }
 
   it('llama con el contexto del hilo y recuerda de quién es la conversación', async () => {
@@ -153,13 +169,53 @@ describe('ElevenLabsVozService', () => {
     expect(guardadas.filter((g) => g['channel'] === 'voice')).toHaveLength(1);
   });
 
-  it('sin saber de qué hilo es, lo dice en vez de inventar', async () => {
+  it('una llamada que NO iniciamos entra al hilo del número que llamó', async () => {
+    /*
+     * Antes se cortaba con "no sabemos de qué hilo es", así que toda llamada
+     * que no saliera de nuestro botón —las entrantes, y las que se hacen desde
+     * el panel del proveedor— se descartaba: no aparecía en Conversaciones ni
+     * contaba en el tablero, aunque hubiera ocurrido de verdad.
+     */
+    const { service, guardadas, identificados, settings } = build({
+      externo: '50497616546',
+      transcript: [{ role: 'user', message: 'Hay un bache', time_in_call_secs: 1 }],
+    });
+
+    const r = await service.traerTranscripcion('conv_entrante');
+
+    expect(r.nuevos).toBe(1);
+    // Se resuelve por teléfono, en E.164 aunque el proveedor lo mande sin "+".
+    expect(identificados[0]).toMatchObject({ phone: '+50497616546' });
+    expect(guardadas[0]).toMatchObject({ channel: 'voice', contactId: 'c-por-telefono' });
+    // Y queda apuntado, para que el siguiente webhook no lo rebusque.
+    expect(settings.get('llamada:conv_entrante')).toBe('c-por-telefono');
+  });
+
+  it('sin hilo conocido y sin número, lo dice en vez de inventar', async () => {
     const { service } = build();
 
     const r = await service.traerTranscripcion('conv_desconocida');
 
     expect(r.nuevos).toBe(0);
-    expect(r.aviso).toContain('No sabemos de qué hilo');
+    expect(r.aviso).toContain('no trae número ni hilo conocido');
+  });
+
+  it('si el número configurado ya no existe, usa el del agente', async () => {
+    /*
+     * Pasó en producción: se recreó el número y llamar empezó a dar
+     * "Document with id phnum_… not found". El id de la variable de entorno
+     * quedó viejo y nada más había cambiado.
+     */
+    const { service, posts } = build({
+      numeros: [
+        { phone_number_id: 'otro_id', provider: 'sip_trunk', supports_outbound: true, assigned_agent: { agent_id: 'a1' } },
+      ],
+    });
+
+    await service.llamar('c1', 'Jorge Murcia');
+
+    expect(posts[0].url).toContain('/sip-trunk/outbound-call');
+    expect(posts[0].body['agent_phone_number_id']).toBe('otro_id');
   });
 
   it('si ElevenLabs rechaza la llamada, el motivo vuelve accionable', async () => {

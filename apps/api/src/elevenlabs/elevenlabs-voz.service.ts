@@ -10,6 +10,8 @@ export interface NumeroAgente {
   phone_number_id: string;
   phone_number?: string;
   label?: string;
+  supports_outbound?: boolean;
+  assigned_agent?: { agent_id?: string; agent_name?: string };
   /** `twilio`, `exotel` o `sip_trunk`: decide por qué endpoint sale la llamada. */
   provider?: string;
 }
@@ -60,17 +62,42 @@ export class ElevenLabsVozService {
     this.phoneNumberId = config.get<string>('ELEVENLABS_PHONE_NUMBER_ID', '');
   }
 
+  /**
+   * El número desde el cual sale la llamada, resuelto contra el proveedor.
+   *
+   * NO se usa el id de la variable de entorno a ciegas: los números se borran
+   * y se vuelven a crear con otro id, y entonces llamar daba
+   * "Document with id phnum_… not found" sin que nada más cambiara. Se prefiere
+   * el configurado si todavía existe, y si no, el que esté asignado a nuestro
+   * agente y sirva para salir.
+   */
+  private async numeroDeSalida(): Promise<NumeroAgente | undefined> {
+    const todos = await this.numeros().catch(() => [] as NumeroAgente[]);
+    if (!todos.length) return undefined;
+
+    const configurado = todos.find((n) => n.phone_number_id === this.phoneNumberId);
+    if (configurado) return configurado;
+
+    if (this.phoneNumberId) {
+      this.logger.warn(
+        `ELEVENLABS_PHONE_NUMBER_ID apunta a un número que ya no existe; se usa el del agente.`,
+      );
+    }
+    const delAgente = todos.find((n) => n.assigned_agent?.agent_id === this.agentId && n.supports_outbound);
+    return delAgente ?? todos.find((n) => n.supports_outbound);
+  }
+
   /** Para llamar hace falta, además del agente, un número desde el cual salir. */
   puedeLlamar(): boolean {
-    return !!this.apiKey && !!this.agentId && !!this.phoneNumberId;
+    // El número ya no se exige acá: se resuelve al llamar, así que la cuenta
+    // puede tener uno aunque la variable de entorno esté vieja o vacía.
+    return !!this.apiKey && !!this.agentId;
   }
 
   faltantes(): string[] {
-    return [
-      !this.apiKey && 'ELEVENLABS_API_KEY',
-      !this.agentId && 'ELEVENLABS_AGENT_ID',
-      !this.phoneNumberId && 'ELEVENLABS_PHONE_NUMBER_ID',
-    ].filter(Boolean) as string[];
+    return [!this.apiKey && 'ELEVENLABS_API_KEY', !this.agentId && 'ELEVENLABS_AGENT_ID'].filter(
+      Boolean,
+    ) as string[];
   }
 
   private get headers() {
@@ -105,9 +132,14 @@ export class ElevenLabsVozService {
     const telefono = ctx.contact.phones?.[0];
     if (!telefono) return { ok: false, aviso: 'El contacto no tiene teléfono.' };
 
-    // Twilio y SIP son endpoints distintos, y cuál toca lo dice el propio
-    // número: así no hay que configurarlo aparte ni acertar de memoria.
-    const ruta = await this.rutaDeSalida();
+    const numero = await this.numeroDeSalida();
+    if (!numero) {
+      return { ok: false, aviso: 'La cuenta no tiene ningún número para llamar. Agregá uno en el proveedor.' };
+    }
+
+    // Twilio, Exotel y SIP son endpoints distintos, y cuál toca lo dice el
+    // propio número: así no hay que configurarlo aparte ni acertar de memoria.
+    const ruta = ElevenLabsVozService.rutaDe(numero.provider);
 
     try {
       const res = await firstValueFrom(
@@ -115,7 +147,7 @@ export class ElevenLabsVozService {
           `${this.apiUrl}/v1/convai/${ruta}/outbound-call`,
           {
             agent_id: this.agentId,
-            agent_phone_number_id: this.phoneNumberId,
+            agent_phone_number_id: numero.phone_number_id,
             to_number: telefono,
             conversation_initiation_client_data: {
               dynamic_variables: {
@@ -177,17 +209,11 @@ export class ElevenLabsVozService {
    * "¿es SIP?" que caía a Twilio para todo lo demás — y el número real de la
    * cuenta resultó ser de Exotel, así que la llamada nunca habría salido.
    */
-  private async rutaDeSalida(): Promise<string> {
-    let provider = '';
-    try {
-      const n = (await this.numeros()).find((x) => x.phone_number_id === this.phoneNumberId);
-      provider = (n?.provider ?? '').toLowerCase();
-    } catch {
-      // Sin poder consultarlo, Twilio: es el proveedor más común y el error
-      // de ElevenLabs dice cuál era el correcto.
-    }
-    if (provider.includes('sip')) return 'sip-trunk';
-    if (provider.includes('exotel')) return 'exotel';
+  private static rutaDe(provider?: string): string {
+    const p = (provider ?? '').toLowerCase();
+    if (p.includes('sip')) return 'sip-trunk';
+    if (p.includes('exotel')) return 'exotel';
+    // Twilio es el más común, y si no era, el error de ElevenLabs lo dice.
     return 'twilio';
   }
 
@@ -199,23 +225,49 @@ export class ElevenLabsVozService {
    * reintento manual— no duplica el chat.
    */
   async traerTranscripcion(conversationId: string): Promise<{ nuevos: number; aviso?: string }> {
-    const contactId = await this.settings.get<string>(`llamada:${conversationId}`);
-    if (!contactId) {
-      return { nuevos: 0, aviso: 'No sabemos de qué hilo es esa conversación.' };
-    }
-
     try {
       const res = await firstValueFrom(
         this.http.get<{
           status?: string;
           transcript?: TurnoTranscripcion[];
-          metadata?: { call_duration_secs?: number; start_time_unix_secs?: number };
+          metadata?: {
+            call_duration_secs?: number;
+            start_time_unix_secs?: number;
+            phone_call?: { direction?: string; external_number?: string };
+          };
           analysis?: { transcript_summary?: string };
         }>(`${this.apiUrl}/v1/convai/conversations/${conversationId}`, {
           headers: this.headers,
           timeout: 15_000,
         }),
       );
+
+      /*
+       * De qué hilo es esta llamada.
+       *
+       * Si la iniciamos nosotros hay un mapeo guardado. Si no —una llamada
+       * entrante, o una saliente hecha desde el panel del proveedor— se resuelve
+       * por el número del otro lado, que viene en la metadata.
+       *
+       * Antes se cortaba acá con "no sabemos de qué hilo es", así que TODA
+       * llamada que no saliera de nuestro botón se descartaba: no aparecía en
+       * Conversaciones ni contaba en el tablero, aunque hubiera ocurrido.
+       */
+      const telefono = res.data?.metadata?.phone_call?.external_number;
+      let contactId = await this.settings.get<string>(`llamada:${conversationId}`);
+      if (!contactId && telefono) {
+        const { contactId: id } = await this.brain.resolveIdentity({
+          // Llega sin "+": es un teléfono real y el Brain normaliza a E.164.
+          phone: telefono.startsWith('+') ? telefono : `+${telefono}`,
+        });
+        contactId = id;
+        // Para que los webhooks siguientes de esta misma llamada no lo rebusquen.
+        await this.settings.set(`llamada:${conversationId}`, contactId);
+        this.logger.log(`Llamada ${conversationId} vinculada por número a ${contactId}`);
+      }
+      if (!contactId) {
+        return { nuevos: 0, aviso: 'La llamada no trae número ni hilo conocido.' };
+      }
 
       const turnos = res.data?.transcript ?? [];
       const inicio = (res.data?.metadata?.start_time_unix_secs ?? 0) * 1000 || Date.now();
