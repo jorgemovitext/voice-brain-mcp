@@ -999,12 +999,15 @@ $overlap: 44px;
 
 .msg--in.msg--cierra .bubble { border-bottom-left-radius: 5px; }
 
-/* El lado del agente: el mismo navy pero un escalón más claro, con un aliento
-   cian de la marca. Es quien contesta, así que se lee "encendido". */
-.msg--out .bubble {
-  background: linear-gradient(135deg, #274b74, #1b3455);
-  color: #f2f8ff;
-}
+/*
+ * Los dos lados van del MISMO navy.
+ *
+ * Se había probado con el lado del agente un escalón más claro, y de lejos
+ * parecían dos hilos distintos conviviendo. Quién dijo qué ya lo dicen tres
+ * cosas —el lado al que se alinea, el avatar y la esquina marcada—, así que el
+ * color no tiene que repetirlo: repetido, lo único que hacía era partir el
+ * hilo en dos.
+ */
 .msg--out.msg--cierra .bubble { border-bottom-right-radius: 5px; }
 
 /* Se levanta apenas al pasar por encima: confirma que la burbuja es una

@@ -60,9 +60,9 @@
                 <!-- Píldora y no texto suelto: la etiqueta cruza la línea y
                      sobre el fondo claro se confundía con ella. -->
                 <g class="arista__pildora">
-                  <rect [attr.x]="m.x - (recorte(a.condicion, 22).length * 3.1) - 8" [attr.y]="m.y - 11"
-                        [attr.width]="recorte(a.condicion, 22).length * 6.2 + 16" height="18" rx="9" />
-                  <text [attr.x]="m.x" [attr.y]="m.y + 2" text-anchor="middle">{{ recorte(a.condicion, 22) }}</text>
+                  <rect [attr.x]="m.x - (etiquetaCond(a.condicion).length * 3.1) - 9" [attr.y]="m.y - 11"
+                        [attr.width]="etiquetaCond(a.condicion).length * 6.2 + 18" height="22" rx="11" />
+                  <text [attr.x]="m.x" [attr.y]="m.y + 3" text-anchor="middle">{{ etiquetaCond(a.condicion) }}</text>
                 </g>
               }
             </g>
@@ -80,13 +80,20 @@
               <!-- Filo de color a la izquierda: identifica el tipo sin leer. -->
               <rect class="nodo__filo" width="4" [attr.height]="ALTO - 24" x="0" y="12" rx="2" />
 
-              <circle class="nodo__punto" cx="22" cy="22" r="6" />
-              <text class="nodo__titulo" x="36" y="26">{{ recorte(titulo(n), 20) }}</text>
+              <!-- Azulejo del ícono: la pieza que hace que la caja se lea como
+                   una tarjeta con identidad y no como un rótulo enmarcado. -->
+              <rect class="nodo__azulejo" x="14" y="12" width="28" height="28" rx="9" />
+              <text class="nodo__glifo" x="28" y="31" text-anchor="middle">{{ glifo(n) }}</text>
+
+              <text class="nodo__titulo" x="50" y="26">{{ recorte(titulo(n), 17) }}</text>
+              <!-- Debajo del nombre, QUÉ es esta fase: en la referencia es lo
+                   que distingue dos tarjetas del mismo alto de un vistazo. -->
+              <text class="nodo__rol" x="50" y="38">{{ recorte(rol(n), 24) }}</text>
 
               <!-- Vista previa de lo que hace: sin esto hay que abrir cada caja
                    para saber cuál es cuál, y el dibujo deja de servir. -->
-              <text class="nodo__cuerpo" x="16" y="48">{{ recorte(vistaPrevia(n), 30) }}</text>
-              <text class="nodo__cuerpo" x="16" y="62">{{ recorte(vistaPrevia(n).slice(30), 30) }}</text>
+              <text class="nodo__cuerpo" x="16" y="58">{{ recorte(vistaPrevia(n), 30) }}</text>
+              <text class="nodo__cuerpo" x="16" y="71">{{ recorte(vistaPrevia(n).slice(30), 30) }}</text>
 
               @if (cuantasHerramientas(n)) {
                 <g class="nodo__chip">

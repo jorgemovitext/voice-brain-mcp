@@ -7,7 +7,7 @@ import { valorDe } from '../../recurso';
 
 /** Ancho y alto de una caja, para el dibujo y para el enganche de las flechas. */
 const ANCHO = 208;
-const ALTO = 96;
+const ALTO = 112;
 
 /**
  * El flujo de la conversación, dibujado.
@@ -75,6 +75,27 @@ export class AgenteFlujoPage {
     if (n.tipo === 'fin') return 'Fin';
     if (n.tipo === 'accion') return n.herramientas?.length ? n.herramientas.join(' + ') : 'Sin herramientas';
     return n.nombre || 'Fase sin nombre';
+  }
+
+  /** El glifo del azulejo. Dice el tipo sin leer, como el ícono de una app. */
+  glifo(n: NodoFlujo): string {
+    if (n.tipo === 'inicio') return '▷';
+    if (n.tipo === 'fin') return '□';
+    if (n.tipo === 'accion') return '⚙';
+    return '◈';
+  }
+
+  /**
+   * Qué ES esta caja, bajo el nombre.
+   *
+   * En una fase, sus herramientas: es lo que de verdad la distingue de otra
+   * fase del mismo alto. Sin herramientas, el tipo a secas.
+   */
+  rol(n: NodoFlujo): string {
+    if (n.tipo === 'inicio') return 'Entrada';
+    if (n.tipo === 'fin') return 'Cierre';
+    if (n.tipo === 'accion') return 'Acción';
+    return n.herramientas?.length ? n.herramientas.join(' · ') : 'Fase de la conversación';
   }
 
   /* --- Selección y edición --- */
@@ -305,10 +326,43 @@ export class AgenteFlujoPage {
     const y1 = d.y + ALTO / 2;
     const x2 = h.x;
     const y2 = h.y + ALTO / 2;
-    // Curva con tirantes horizontales: dos cajas en la misma línea se unen con
-    // una recta, y una que quedó arriba o abajo no cruza por encima del texto.
-    const tiron = Math.max(40, Math.abs(x2 - x1) / 2);
-    return `M ${x1} ${y1} C ${x1 + tiron} ${y1}, ${x2 - tiron} ${y2}, ${x2} ${y2}`;
+
+    /*
+     * En ÁNGULO RECTO, no en curva.
+     *
+     * Con curvas, cuatro salidas de una misma fase salen del mismo punto en
+     * abanico y a mitad de camino ya no se sabe cuál va a dónde — que es
+     * exactamente el caso del flujo real, donde el saludo se bifurca en
+     * cuatro. Las rectas se separan enseguida y cada codo dice dónde dobla.
+     */
+    if (Math.abs(y1 - y2) < 2) return `M ${x1} ${y1} H ${x2}`;
+
+    const m = (x1 + x2) / 2;
+    const r = 12;
+    const baja = y2 > y1 ? 1 : -1;
+    // El radio nunca puede pasarse de la mitad del tramo, o el codo se dobla
+    // sobre sí mismo cuando dos cajas quedan casi pegadas.
+    const rx = Math.min(r, Math.abs(m - x1), Math.abs(x2 - m));
+    const ry = Math.min(r, Math.abs(y2 - y1) / 2);
+    return [
+      `M ${x1} ${y1}`,
+      `H ${m - rx}`,
+      `Q ${m} ${y1} ${m} ${y1 + baja * ry}`,
+      `V ${y2 - baja * ry}`,
+      `Q ${m} ${y2} ${m + rx} ${y2}`,
+      `H ${x2}`,
+    ].join(' ');
+  }
+
+  /**
+   * La condición, con la flecha adelante.
+   *
+   * El glifo no es adorno: la píldora flota sobre la línea y sin él se lee
+   * como el rótulo de una caja. Con la flecha se lee como lo que es — por
+   * dónde se sale de acá.
+   */
+  etiquetaCond(condicion: string): string {
+    return `↗ ${this.recorte(condicion, 22)}`;
   }
 
   /** Punto medio de la flecha, donde va la etiqueta de la condición. */

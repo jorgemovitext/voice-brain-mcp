@@ -452,11 +452,27 @@
 
 /* Punto de color junto al título: el mismo código que el filo, para
    reconocer el tipo aunque la caja esté a medio tapar por otra. */
-.nodo__punto { fill: #9db0c9; }
-.nodo--inicio .nodo__punto { fill: #16a34a; }
-.nodo--fase .nodo__punto { fill: var(--secondary); }
-.nodo--accion .nodo__punto { fill: var(--primary); }
-.nodo--fin .nodo__punto { fill: #b3261e; }
+/* El azulejo del ícono, teñido según el tipo: es lo que la referencia usa
+   para que dos tarjetas del mismo alto se distingan antes de leerlas. */
+.nodo__azulejo { fill: #eef0f4; }
+.nodo__glifo { fill: #8b93a3; font-size: 13px; pointer-events: none; }
+
+.nodo--inicio .nodo__azulejo { fill: rgba(22, 163, 74, 0.14); }
+.nodo--inicio .nodo__glifo { fill: #16a34a; }
+.nodo--fase .nodo__azulejo { fill: rgba(0, 186, 254, 0.14); }
+.nodo--fase .nodo__glifo { fill: #0f7fa8; }
+.nodo--accion .nodo__azulejo { fill: rgba(243, 71, 0, 0.14); }
+.nodo--accion .nodo__glifo { fill: #c23a05; }
+.nodo--fin .nodo__azulejo { fill: rgba(179, 38, 30, 0.14); }
+.nodo--fin .nodo__glifo { fill: #b3261e; }
+
+/* El rol, bajo el nombre. Gris y chico: acompaña al título, no compite. */
+.nodo__rol {
+  fill: #8b93a3;
+  font-size: 9.5px;
+  font-weight: 600;
+  pointer-events: none;
+}
 
 /* Las dos líneas del prompt. Es lo que convierte el dibujo en algo que se
    lee: sin esto hay que abrir cada caja para saber cuál es cuál. */
@@ -479,18 +495,28 @@
 }
 
 /* --- La condición, como píldora --- */
+/*
+ * La condición, en píldora CLARA sobre el lienzo claro.
+ *
+ * Era navy oscuro, y con doce condiciones el tablero quedaba salpicado de
+ * manchas negras que pesaban más que las propias tarjetas: lo que hay que ver
+ * primero son las fases, y la condición es la letra chica de la línea.
+ */
 .arista__pildora {
   pointer-events: none;
 
   rect {
-    fill: #22314a;
-    stroke: rgba(255, 255, 255, 0.15);
+    fill: #eef0f4;
+    stroke: #dfe3ea;
     stroke-width: 1;
   }
-  text { fill: #e8edf6; font-size: 10.5px; font-weight: 600; }
+  text { fill: #55607a; font-size: 10.5px; font-weight: 700; }
 }
 
-.arista--sel .arista__pildora rect { fill: #00a3dd; stroke: #fff; }
+.arista--sel .arista__pildora {
+  rect { fill: #00a3dd; stroke: #fff; }
+  text { fill: #fff; }
+}
 
 /* --- Orden de evaluación, en el riel --- */
 .salida {
