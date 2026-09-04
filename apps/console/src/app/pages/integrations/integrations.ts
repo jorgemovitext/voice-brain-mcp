@@ -122,12 +122,17 @@ export class IntegrationsPage {
     this.avisosLlamadas.set([]);
     try {
       const r = await this.api.reprocesarLlamadas();
-      // Se distingue conversación de llamada: las del widget web no tienen
-      // teléfono y no van a ningún hilo, así que contarlas confundiría.
+      /*
+       * Se distingue llamada de conversación de texto: el mismo agente atiende
+       * WhatsApp, y esos turnos ya están en su hilo por otra vía. Decir "2
+       * llamadas de 80 conversaciones" a secas hacía pensar que se perdieron
+       * 78.
+       */
+      const desglose = `${r.llamadas} llamadas de ${r.revisadas} conversaciones (${r.deTexto} eran de texto)`;
       this.resultadoLlamadas.set(
         r.nuevos
-          ? `${r.llamadas} llamadas de ${r.revisadas} conversaciones · ${r.nuevos} turnos nuevos en ${r.hilos} hilo(s).`
-          : `${r.llamadas} llamadas de ${r.revisadas} conversaciones · ya estaban todas en sus hilos.`,
+          ? `${desglose} · ${r.nuevos} turnos nuevos en ${r.hilos} hilo(s).`
+          : `${desglose} · ya estaban todas en sus hilos.`,
       );
       this.avisosLlamadas.set(r.avisos ?? []);
     } catch (e) {

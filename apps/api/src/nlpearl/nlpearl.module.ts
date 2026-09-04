@@ -32,7 +32,6 @@ import { PrecallController } from './precall.controller';
 import { TurnCredentialGuard } from './turn-credential.guard';
 import { WebhookSignatureGuard } from './webhook-signature.guard';
 import { NlpearlWebhookController } from './webhook.controller';
-import { WorkersController } from './workers.controller';
 
 /**
  * Adaptador de voz. El binding mock/real del puerto vive ACÁ,
@@ -43,7 +42,6 @@ import { WorkersController } from './workers.controller';
   controllers: [
     PrecallController,
     NlpearlWebhookController,
-    WorkersController,
     NlpearlDiagnosticsController,
     PearlSyncController,
     HiveController,

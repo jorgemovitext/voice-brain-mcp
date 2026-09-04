@@ -91,46 +91,6 @@ export interface DemoStatus {
   steps: FlowStep[];
 }
 
-/** Un "obrero": Pearl (agente de voz) de la cuenta NL Pearl. */
-export interface Worker {
-  id: string;
-  name: string;
-  status?: string;
-  type?: string;
-  raw: Record<string, string | number | boolean>;
-  /** Canal por el que conversa: voice | whatsapp | sms. */
-  channel?: string;
-  /** Número/canal de texto asignado en NL Pearl. */
-  channelLabel?: string;
-  /** ¿Puede recibir una prueba ahora mismo? */
-  ready?: boolean;
-  /** Motivo por el que no puede recibir, cuando aplica. */
-  blocker?: string;
-  /** Conversaciones ya espejadas en nuestra DB. */
-  synced?: number;
-  lastActivityAt?: string;
-}
-
-/** Qué Pearl atiende cada canal. */
-export type PearlRouting = Partial<Record<'voice' | 'whatsapp' | 'sms', string>>;
-
-export interface WorkersResponse {
-  workers: Worker[];
-  /** Pearl asignada al canal de voz (se resalta en la vista). */
-  inUseId: string;
-  /** Asignación completa canal → Pearl. */
-  routing: PearlRouting;
-}
-
-export interface WorkerFlow {
-  available: boolean;
-  flow?: {
-    nodes?: Array<{ id: string; type?: string; label?: string; name?: string }>;
-    edges?: Array<{ from: string; to: string }>;
-  } & Record<string, unknown>;
-  message?: string;
-}
-
 /** Estado de la colmena (primera pantalla): GET /api/hive. */
 export interface HiveStatus {
   obreros: {

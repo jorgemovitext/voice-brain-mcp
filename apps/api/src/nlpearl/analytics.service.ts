@@ -222,17 +222,35 @@ export class AnalyticsService {
       }
     }
 
-    // --- Aristas del mapa de flujo: canal → problema → resultado ---
+    /*
+     * --- Aristas del mapa de flujo: canal → problema → resultado ---
+     *
+     * La unidad es (contacto, canal) y no el contacto.
+     *
+     * Se tomaba UN canal por contacto —el del primer mensaje entrante—, así
+     * que un vecino que escribió por WhatsApp y además llamó contaba entero
+     * como WhatsApp. Con "Todos los canales" el mapa mostraba una sola columna
+     * y la voz no aparecía nunca, por más llamadas que hubiera: el canal que
+     * llegó segundo desaparecía dentro del primero.
+     */
     const aristas = new Map<string, Analytics['flujo'][number]>();
     for (const [contactId, lista] of porContacto) {
-      const canal = lista.find((i) => i.direction === 'inbound')?.channel ?? lista[0].channel;
-      const resultado = lista[lista.length - 1].direction === 'inbound' ? ('esperando' as const) : ('atendida' as const);
       const tel = digitos(contactos.find((c) => c.id === contactId)?.phones?.[0]);
       const problema = problemaPorTel.get(tel) ?? 'Sin clasificar';
-      const clave = `${canal}|${problema}|${resultado}`;
-      const e = aristas.get(clave) ?? { canal, problema, resultado, total: 0 };
-      e.total++;
-      aristas.set(clave, e);
+
+      const porCanal = new Map<Channel, Interaction[]>();
+      for (const i of lista) porCanal.set(i.channel, [...(porCanal.get(i.channel) ?? []), i]);
+
+      for (const [canal, turnos] of porCanal) {
+        // "En espera" es del canal, no del contacto: se le puede haber
+        // contestado el WhatsApp y tener la llamada sin devolver.
+        const resultado =
+          turnos[turnos.length - 1].direction === 'inbound' ? ('esperando' as const) : ('atendida' as const);
+        const clave = `${canal}|${problema}|${resultado}`;
+        const e = aristas.get(clave) ?? { canal, problema, resultado, total: 0 };
+        e.total++;
+        aristas.set(clave, e);
+      }
     }
 
     return {

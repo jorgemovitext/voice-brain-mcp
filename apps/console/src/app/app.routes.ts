@@ -61,14 +61,11 @@ export const routes: Routes = [
     loadComponent: () => import('./pages/agentes/agente-detalle').then((m) => m.AgenteDetallePage),
     title: 'Agente · Brain',
   },
-  /* Los Pearl de NL Pearl. Fuera del menú desde el cambio de motor, pero la
-     ruta sigue viva: hay enlaces guardados y el histórico se sigue mirando. */
-  {
-    path: 'workers',
-    canActivate: [authGuard],
-    loadComponent: () => import('./pages/workers/workers').then((m) => m.WorkersPage),
-    title: 'Agentes · Brain',
-  },
+  /* El panal de NL Pearl vivía acá. Tras el cambio de motor leía de una API
+     que ya no responde —era una pantalla de error con forma de panal—, así
+     que el panal se mudó a /agentes con los agentes de verdad. Se redirige y
+     no se borra a secas: hay enlaces guardados. */
+  { path: 'workers', redirectTo: 'agentes', pathMatch: 'full' },
   {
     path: 'actividad',
     canActivate: [authGuard],

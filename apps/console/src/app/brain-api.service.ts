@@ -94,14 +94,6 @@ export class BrainApiService {
   }
 
   /**
-   * Asigna qué Pearl atiende un canal. Reemplaza al viejo NLPEARL_PEARL_ID:
-   * se cambia con un clic, sin redeploy.
-   */
-  setPearlRouting(channel: 'voice' | 'whatsapp' | 'sms', pearlId: string | null): Promise<unknown> {
-    return firstValueFrom(this.http.put('/api/workers/routing', { channel, pearlId }));
-  }
-
-  /**
    * Tomar la conversación (o devolvérsela al agente). Quién la toma lo
    * resuelve el backend desde la sesión, no se manda desde acá. Al tomarla se
    * le manda el saludo al ciudadano: `aviso` dice si eso no salió.
@@ -225,19 +217,35 @@ export class BrainApiService {
     );
   }
 
-  /** Reingesta las últimas llamadas del agente. Idempotente. */
+  /** Reingesta TODAS las llamadas del agente. Idempotente. */
   reprocesarLlamadas(): Promise<{
     revisadas: number;
     llamadas: number;
     nuevos: number;
     hilos: number;
+    deTexto: number;
     avisos: string[];
   }> {
     return firstValueFrom(
-      this.http.post<{ revisadas: number; llamadas: number; nuevos: number; hilos: number; avisos: string[] }>(
-        '/api/voz/reprocesar',
-        {},
-      ),
+      this.http.post<{
+        revisadas: number;
+        llamadas: number;
+        nuevos: number;
+        hilos: number;
+        deTexto: number;
+        avisos: string[];
+      }>('/api/voz/reprocesar', {}),
     );
+  }
+
+  /**
+   * Le pide al servidor que revise si falta alguna llamada.
+   *
+   * Se cuelga del sondeo de la bandeja. El freno es del servidor —una revisión
+   * cada cuarto de hora como mucho—, así que pedirlo en cada vuelta no le
+   * cuesta nada al proveedor.
+   */
+  reconciliarLlamadas(): Promise<unknown> {
+    return firstValueFrom(this.http.post('/api/voz/reconciliar', {}));
   }
 }

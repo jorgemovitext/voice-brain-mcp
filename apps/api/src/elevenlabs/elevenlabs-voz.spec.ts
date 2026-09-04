@@ -33,16 +33,37 @@ describe('ElevenLabsVozService', () => {
     llamadaSinNumero = false,
     /** La conversación no tiene grabación disponible del lado del proveedor. */
     sinGrabacion = false,
+    /** Páginas del listado de conversaciones del agente, en orden. */
+    paginas = [] as Array<Array<Record<string, unknown>>>,
   } = {}) {
     const identificados: Array<Record<string, unknown>> = [];
     const guardadas: Array<Record<string, unknown>> = [];
     const settings = new Map<string, unknown>();
     const posts: Array<{ url: string; body: Record<string, unknown> }> = [];
+    /** Detalles pedidos: sirve para ver de cuáles NO se pidió. */
+    const detalles: string[] = [];
+    /** Cursores con los que se pidió cada página del listado. */
+    const cursores: Array<string | undefined> = [];
     /** Ids ya guardados: emula la idempotencia real del Brain. */
     const vistos = new Set<string>();
 
     const http = {
-      get: (url: string) => {
+      get: (url: string, cfg?: { params?: Record<string, unknown> }) => {
+        if (url.endsWith('/v1/convai/conversations')) {
+          const cursor = cfg?.params?.['cursor'] as string | undefined;
+          cursores.push(cursor);
+          const i = cursor ? Number(cursor) : 0;
+          return of({
+            data: {
+              conversations: paginas[i] ?? [],
+              has_more: i + 1 < paginas.length,
+              next_cursor: String(i + 1),
+            },
+          });
+        }
+        if (url.includes('/v1/convai/conversations/') && !url.endsWith('/audio')) {
+          detalles.push(url.split('/').pop() as string);
+        }
         if (url.endsWith('/audio')) {
           if (sinGrabacion) return throwError(() => ({ response: { status: 404, data: 'not found' } }));
           return of({
@@ -109,7 +130,7 @@ describe('ElevenLabsVozService', () => {
       set as unknown as SettingsService,
       { get: (k: string, def?: unknown) => CONFIG[k] ?? def } as unknown as ConfigService,
     );
-    return { service, guardadas, settings, posts, identificados };
+    return { service, guardadas, settings, posts, identificados, detalles, cursores };
   }
 
   it('llama con el contexto del hilo y recuerda de quién es la conversación', async () => {
@@ -290,6 +311,72 @@ describe('ElevenLabsVozService', () => {
     expect(r.nuevos).toBe(0);
     expect(r.aviso).toBeUndefined();
     expect(r.noEraLlamada).toBe(true);
+  });
+
+  it('el reproceso solo pide el detalle de las que son llamadas', async () => {
+    /*
+     * El mismo agente atiende WhatsApp: de 80 conversaciones, 68 eran turnos
+     * de texto que YA están en su hilo. Pedir el detalle de todas es lo que
+     * obligaba a cortar en las 30 más recientes, y el corte dejaba afuera
+     * llamadas viejas de verdad.
+     */
+    const { service, detalles } = build({
+      externo: '50497616546',
+      transcript: [{ role: 'user', message: 'Hay un bache', time_in_call_secs: 1 }],
+      paginas: [
+        [
+          { conversation_id: 'conv_llamada', direction: 'inbound', message_count: 3 },
+          { conversation_id: 'conv_texto', message_count: 6 },
+          { conversation_id: 'conv_texto_2', direction: null, message_count: 2 },
+          // Un intento de llamada que nunca timbró: es telefónica, pero no hay
+          // nada que meter al hilo.
+          { conversation_id: 'conv_sin_timbrar', direction: 'outbound', message_count: 0 },
+        ],
+      ],
+    });
+
+    const r = await service.reprocesar();
+
+    expect(detalles).toEqual(['conv_llamada']);
+    expect(r.revisadas).toBe(4);
+    expect(r.deTexto).toBe(3);
+    expect(r.nuevos).toBe(1);
+  });
+
+  it('el reproceso pagina: no se queda con las últimas cien', async () => {
+    const { service, detalles, cursores } = build({
+      externo: '50497616546',
+      transcript: [{ role: 'user', message: 'Se inundó la calle', time_in_call_secs: 2 }],
+      paginas: [
+        [{ conversation_id: 'conv_nueva', direction: 'inbound', message_count: 2 }],
+        [{ conversation_id: 'conv_vieja', direction: 'inbound', message_count: 2 }],
+      ],
+    });
+
+    await service.reprocesar();
+
+    // La segunda página se pide con el cursor que devolvió la primera: sin eso
+    // lo viejo queda tapado para siempre a medida que entra tráfico nuevo.
+    expect(cursores).toEqual([undefined, '1']);
+    expect(detalles).toContain('conv_vieja');
+  });
+
+  it('la reconciliación se frena sola y no barre en cada vuelta del sondeo', async () => {
+    /*
+     * La consola la pide desde cualquier pantalla cada pocos minutos: el freno
+     * vive acá, no en el navegador, porque con dos pestañas abiertas el freno
+     * del navegador no frena nada.
+     */
+    const { service, cursores } = build({
+      paginas: [[{ conversation_id: 'conv_texto', message_count: 4 }]],
+    });
+
+    await service.reconciliar();
+    expect(cursores).toHaveLength(1);
+
+    await service.reconciliar();
+    await service.reconciliar();
+    expect(cursores).toHaveLength(1);
   });
 
   it('si ElevenLabs rechaza la llamada, el motivo vuelve accionable', async () => {

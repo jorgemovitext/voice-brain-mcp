@@ -23,6 +23,20 @@ interface TurnoTranscripcion {
   time_in_call_secs?: number;
 }
 
+/** Una conversación en el listado del agente, sin pedir el detalle. */
+interface ConversacionListada {
+  conversation_id: string;
+  /** Solo las telefónicas la traen: es lo que distingue llamada de texto. */
+  direction?: string | null;
+  message_count?: number;
+}
+
+/** Cuándo se revisó por última vez que no faltara ninguna llamada. */
+const CLAVE_RECONCILIACION = 'voz:ultima-reconciliacion';
+
+/** Cada cuánto, como mucho, se vuelve a revisar. */
+const MINUTOS_ENTRE_RECONCILIACIONES = 15;
+
 /**
  * La llamada de voz, iniciada desde nuestra app.
  *
@@ -39,6 +53,8 @@ export class ElevenLabsVozService {
   private readonly apiKey: string;
   private readonly agentId: string;
   private readonly phoneNumberId: string;
+  /** Candado en memoria: dos pestañas abiertas no disparan dos barridos. */
+  private reconciliando = false;
 
   constructor(
     private readonly http: HttpService,
@@ -116,28 +132,38 @@ export class ElevenLabsVozService {
    * así que reprocesar lo ya ingerido no duplica nada.
    */
   async reprocesar(
-    limite = 30,
-  ): Promise<{ revisadas: number; llamadas: number; nuevos: number; hilos: number; avisos: string[] }> {
-    const res = await firstValueFrom(
-      this.http.get<{ conversations?: Array<{ conversation_id: string }> }>(
-        `${this.apiUrl}/v1/convai/conversations`,
-        {
-          headers: this.headers,
-          params: { agent_id: this.agentId, page_size: Math.min(100, limite) },
-          timeout: 15_000,
-        },
-      ),
-    );
+    paginas = 5,
+  ): Promise<{
+    revisadas: number;
+    llamadas: number;
+    nuevos: number;
+    hilos: number;
+    deTexto: number;
+    avisos: string[];
+  }> {
+    const listadas = await this.listarConversaciones(paginas);
 
-    const conversaciones = (res.data?.conversations ?? []).slice(0, limite);
+    /*
+     * Solo las que son llamadas.
+     *
+     * El agente atiende también WhatsApp, y ahí cada conversación es un turno
+     * de texto que YA está en el hilo por su propia vía: de 80 conversaciones,
+     * 68 eran de texto. Pedir el detalle de todas era lo que obligaba a cortar
+     * en 30 —y el corte dejaba afuera llamadas viejas de verdad—. El listado
+     * ya trae `direction`, que solo tienen las telefónicas, así que filtrando
+     * acá se puede barrer TODO por el costo de mirar las pocas que importan.
+     */
+    const llamadasPosibles = listadas.filter((c) => !!c.direction && (c.message_count ?? 1) > 0);
+    const deTexto = listadas.length - llamadasPosibles.length;
+
     const avisos: string[] = [];
     const hilos = new Set<string>();
     let nuevos = 0;
     let llamadas = 0;
 
-    for (const c of conversaciones) {
+    for (const c of llamadasPosibles) {
       // En serie y no en paralelo: son escrituras al mismo hilo y el proveedor
-      // limita el ritmo. Treinta llamadas tardan, pero esto se aprieta a mano.
+      // limita el ritmo.
       const r = await this.traerTranscripcion(c.conversation_id).catch((err) => ({
         nuevos: 0,
         aviso: (err as Error).message,
@@ -152,9 +178,85 @@ export class ElevenLabsVozService {
     }
 
     this.logger.log(
-      `Reproceso: ${conversaciones.length} conversaciones (${llamadas} llamadas), ${nuevos} turnos nuevos`,
+      `Reproceso: ${listadas.length} conversaciones (${llamadas} llamadas, ${deTexto} de texto), ${nuevos} turnos nuevos`,
     );
-    return { revisadas: conversaciones.length, llamadas, nuevos, hilos: hilos.size, avisos: avisos.slice(0, 8) };
+    return {
+      revisadas: listadas.length,
+      llamadas,
+      nuevos,
+      hilos: hilos.size,
+      deTexto,
+      avisos: avisos.slice(0, 8),
+    };
+  }
+
+  /**
+   * Todas las conversaciones del agente, paginando por cursor.
+   *
+   * `page_size` topa en 100 y la cuenta pasa de eso a los pocos días de uso:
+   * sin cursor, "las últimas 100" es un techo silencioso que va tapando lo
+   * viejo a medida que entra tráfico nuevo.
+   */
+  private async listarConversaciones(paginas: number): Promise<ConversacionListada[]> {
+    const todas: ConversacionListada[] = [];
+    let cursor: string | undefined;
+
+    for (let i = 0; i < paginas; i++) {
+      const res = await firstValueFrom(
+        this.http.get<{
+          conversations?: ConversacionListada[];
+          has_more?: boolean;
+          next_cursor?: string;
+        }>(`${this.apiUrl}/v1/convai/conversations`, {
+          headers: this.headers,
+          params: { agent_id: this.agentId, page_size: 100, ...(cursor ? { cursor } : {}) },
+          timeout: 15_000,
+        }),
+      );
+      todas.push(...(res.data?.conversations ?? []));
+      if (!res.data?.has_more || !res.data?.next_cursor) return todas;
+      cursor = res.data.next_cursor;
+    }
+
+    this.logger.warn(`Quedaron conversaciones sin revisar: se cortó en ${paginas} páginas.`);
+    return todas;
+  }
+
+  /**
+   * Se asegura de que no falte ninguna llamada, cada tanto y por su cuenta.
+   *
+   * El webhook de post-llamada es la vía normal, pero es de un solo intento:
+   * un despliegue en curso, un secreto mal puesto o un timeout dejan la
+   * llamada afuera para siempre, y nadie se entera hasta que alguien nota que
+   * un vecino que sí llamó no aparece. Esto lo cierra sin depender de que
+   * alguien apriete un botón.
+   *
+   * Va colgado de la lista de conversaciones —que es justo donde se notaría el
+   * hueco— y con freno: una vez cada cuarto de hora como mucho, y nunca dos a
+   * la vez. Devuelve enseguida si no toca, así que no le cuesta nada a la
+   * vista que lo dispara.
+   */
+  async reconciliar(): Promise<void> {
+    if (!this.apiKey || !this.agentId || this.reconciliando) return;
+
+    const ultima = (await this.settings.get<number>(CLAVE_RECONCILIACION)) ?? 0;
+    if (Date.now() - ultima < MINUTOS_ENTRE_RECONCILIACIONES * 60_000) return;
+
+    this.reconciliando = true;
+    try {
+      // Se apunta ANTES de empezar: si esto falla a la mitad, el próximo
+      // intento espera su turno en vez de reintentar en bucle contra el
+      // proveedor.
+      await this.settings.set(CLAVE_RECONCILIACION, Date.now());
+      const r = await this.reprocesar(1);
+      if (r.nuevos) {
+        this.logger.log(`Reconciliación: entraron ${r.nuevos} turno(s) que el webhook no trajo.`);
+      }
+    } catch (err) {
+      this.logger.warn(`No se pudo reconciliar llamadas: ${(err as Error).message}`);
+    } finally {
+      this.reconciliando = false;
+    }
   }
 
   /**

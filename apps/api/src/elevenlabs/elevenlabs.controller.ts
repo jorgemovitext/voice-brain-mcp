@@ -59,6 +59,21 @@ export class ElevenLabsController {
   }
 
   /**
+   * Revisa por su cuenta que no falte ninguna llamada.
+   *
+   * Lo llama la bandeja en cada vuelta del sondeo, y el freno vive del lado
+   * del servidor: si no toca, vuelve enseguida sin pedirle nada al proveedor.
+   * Va en su propia petición para que, la vez que sí trabaja, no le sume esa
+   * espera a la lista de conversaciones.
+   */
+  @Post('api/voz/reconciliar')
+  @HttpCode(200)
+  async reconciliar() {
+    await this.voz.reconciliar();
+    return { ok: true };
+  }
+
+  /**
    * La grabación de una llamada, para escucharla en el hilo.
    *
    * Va por acá y no directo al proveedor por lo mismo que la media de
