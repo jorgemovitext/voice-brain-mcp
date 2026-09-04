@@ -18,7 +18,14 @@ describe('AgenteToolsService', () => {
     crmOk = true,
     crmFalla = false,
     sinResponsables = false,
-  }: { crmOk?: boolean; crmFalla?: boolean; sinResponsables?: boolean } = {}) {
+    ficha = [] as Array<{ occurredAt: string; ficha: Record<string, string> }>,
+  }: {
+    crmOk?: boolean;
+    crmFalla?: boolean;
+    sinResponsables?: boolean;
+    /** Lo que el agente ya entendió del caso, como lo lee `fichaDe`. */
+    ficha?: Array<{ occurredAt: string; ficha: Record<string, string> }>;
+  } = {}) {
     const anotadas: Array<Record<string, unknown>> = [];
     const enviados: Array<{ contactId: string; texto: string }> = [];
     const tareas: Array<Record<string, unknown>> = [];
@@ -29,6 +36,7 @@ describe('AgenteToolsService', () => {
     const brain = {
       getContext: async () => ({
         contact: { displayName: 'María López', phones: ['+50497616546'] },
+        recentInteractions: ficha,
       }),
       resolveIdentity: async () => ({ contactId: 'cuadrilla', created: false }),
       appendInteraction: async (i: Record<string, unknown>) => {
@@ -345,6 +353,61 @@ describe('AgenteToolsService', () => {
     expect(r.ok).toBe(true);
     expect(r.mensaje).toContain('AMDC-4417');
     expect(anotadas.some((a) => a['ficha'])).toBe(true);
+  });
+
+  describe('acciones que dispara el operador desde la consola', () => {
+    /*
+     * Tenían su propia implementación, heredada de NL Pearl: leía las
+     * variables de su flujo —que con este agente no llegan, así que iban
+     * vacías— y mandaba el pipeline con ids fijos. "Avisar a la cuadrilla" ni
+     * siquiera tocaba HubSpot: por eso el botón no producía nada.
+     *
+     * Ahora comparten código con las del agente, y los datos salen de la
+     * ficha que él viene llenando.
+     */
+    // El agente ya entendió el caso: eso es lo que el botón debe usar.
+    const conFicha = () =>
+      build({
+        ficha: [
+          { occurredAt: '2026-09-04T10:00:00Z', ficha: { tipo_problema: 'Derrumbe' } },
+          {
+            occurredAt: '2026-09-04T10:05:00Z',
+            ficha: { ubicacion: 'Colonia Mirador del Pinar', descripcion: 'Se vino el talud' },
+          },
+        ],
+      });
+
+    it('crear-ticket abre el ticket con lo que el agente entendió', async () => {
+      const { service, tickets, anotadas } = conFicha();
+
+      const r = await service.ejecutarComoOperador('c1', 'crear-ticket', 'Jorge Murcia');
+
+      expect(r.ok).toBe(true);
+      expect(tickets).toHaveLength(1);
+      // Y queda dicho quién lo disparó, que es lo que distingue esta vía.
+      const accion = anotadas.find((a) => a['accion']);
+      expect(String((accion!['accion'] as { detalle: string }).detalle)).toContain('Derrumbe');
+    });
+
+    it('emergencia SÍ avisa a la cuadrilla, con la ubicación de la ficha', async () => {
+      // Antes solo mandaba un WhatsApp con los campos vacíos del flujo viejo.
+      const { service, enviados } = conFicha();
+
+      const r = await service.ejecutarComoOperador('c1', 'emergencia', 'Jorge Murcia');
+
+      expect(r.ok).toBe(true);
+      expect(enviados).toHaveLength(1);
+      expect(enviados[0].texto).toContain('Colonia Mirador del Pinar');
+      expect(enviados[0].texto).toContain('Jorge Murcia');
+    });
+
+    it('queda en Actividad igual que si lo hubiera hecho el agente', async () => {
+      const { service, bitacora } = conFicha();
+
+      await service.ejecutarComoOperador('c1', 'crear-ticket', 'Jorge Murcia');
+
+      expect(bitacora).toEqual([{ resumen: expect.stringContaining('registrar_reporte'), ok: true }]);
+    });
   });
 
   it('toda llamada de herramienta queda en Actividad, falle o no', async () => {

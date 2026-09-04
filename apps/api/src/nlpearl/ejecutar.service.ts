@@ -31,40 +31,6 @@ export class EjecutarService {
     private readonly config: ConfigService,
   ) {}
 
-  /**
-   * Avisa a la cuadrilla de emergencia por WhatsApp con lo que el flujo
-   * alcanzó a recopilar.
-   *
-   * Antes esta acción era solo una etiqueta: se le pedía al operador "avisá a
-   * la cuadrilla" y la app no ofrecía ninguna forma de hacerlo. En una
-   * emergencia, mandar a alguien a buscar el número en otro lado es
-   * exactamente el minuto que no sobra.
-   */
-  async avisarCuadrilla(contactId: string, operador: string): Promise<{ aviso?: string }> {
-    const { tel, datos } = await this.datosDelCaso(contactId);
-
-    const mensaje = [
-      '🚨 Línea 100 · emergencia',
-      datos.get('tipoProblema') ?? datos.get('tipoConsulta') ?? 'Reporte ciudadano',
-      datos.get('ubicacion') ? `Ubicación: ${datos.get('ubicacion')}` : null,
-      datos.get('direccionFormateada') ? `Referencia: ${datos.get('direccionFormateada')}` : null,
-      datos.get('descripcion') ? `Detalle: ${datos.get('descripcion')}` : null,
-      datos.get('obstruye_paso') === 'sí' ? 'Obstruye el paso.' : null,
-      `Reporta: ${datos.get('nombreCiudadano') ?? 'ciudadano'} (${tel})`,
-      `Avisa: ${operador}, desde la consola.`,
-    ]
-      .filter(Boolean)
-      .join('\n');
-
-    const { contactId: destino } = await this.brain.resolveIdentity({
-      phone: CUADRILLA,
-      system: 'sender',
-    });
-    await this.whatsapp.send(destino, mensaje);
-
-    this.logger.log(`${operador} avisó a la cuadrilla por ${contactId}`);
-    return {};
-  }
 
   /** Las 24 h de WhatsApp: dentro de la ventana se puede escribir libre. */
   private static readonly VENTANA_MS = 24 * 60 * 60_000;
@@ -216,65 +182,4 @@ export class EjecutarService {
     }
   }
 
-  /** Teléfono del ciudadano y todo lo que el flujo capturó, en un solo lugar. */
-  private async datosDelCaso(contactId: string): Promise<{ tel: string; datos: Map<string, string> }> {
-    const ctx = await this.brain.getContext({ contactId });
-    const tel = ctx.contact.phones?.[0];
-    if (!tel) throw new BadRequestException('El contacto no tiene teléfono');
-
-    const datos = new Map<string, string>();
-    const avances = await this.store.listActivity({ phone: tel, kind: 'progress', limit: 40 });
-    for (const a of avances) {
-      const raw = (a.raw ?? {}) as { datos?: Record<string, unknown> };
-      for (const [k, v] of Object.entries(raw.datos ?? {})) {
-        if (typeof v === 'string' && v.trim()) datos.set(k, v.trim());
-      }
-    }
-    return { tel, datos };
-  }
-
-  async crearTicket(contactId: string, operador: string): Promise<{ id: string; aviso?: string }> {
-    if (!this.hubspot.configured) {
-      throw new BadRequestException('HubSpot no está conectado: falta HUBSPOT_TOKEN');
-    }
-
-    // Lo que el flujo alcanzó a recopilar es exactamente lo que va al ticket.
-    const { tel, datos } = await this.datosDelCaso(contactId);
-
-    const problema = datos.get('tipoProblema') ?? datos.get('tipoConsulta') ?? 'Reporte ciudadano';
-    const ubicacion = datos.get('ubicacion');
-
-    /*
-     * `canal_reporte` va con la capitalización que espera el portal, pero no
-     * se confía en eso: `crearTicket` sanea contra el esquema real y corrige
-     * las diferencias de mayúsculas. Así, si mañana cambian las opciones, el
-     * ticket se crea igual en vez de fallar entero.
-     */
-    const { id, descartadas } = await this.hubspot.crearTicket(
-      {
-        subject: ubicacion ? `${problema} - ${ubicacion}` : problema,
-        content: [
-          datos.get('descripcion'),
-          ubicacion ? `Ubicación: ${ubicacion}` : null,
-          datos.get('nombreCiudadano') ? `Ciudadano: ${datos.get('nombreCiudadano')}` : null,
-          datos.get('contactoCiudadano') ? `Contacto: ${datos.get('contactoCiudadano')}` : null,
-          `Registrado por ${operador} desde la consola.`,
-        ]
-          .filter(Boolean)
-          .join('\n'),
-        hs_pipeline: '0',
-        hs_pipeline_stage: '1',
-        canal_reporte: 'Whatsapp',
-      },
-      tel,
-    );
-
-    this.logger.log(`${operador} creó el ticket ${id} para ${contactId}`);
-    return {
-      id,
-      aviso: descartadas.length
-        ? `El ticket se creó, pero el portal no aceptó: ${descartadas.join(', ')}`
-        : undefined,
-    };
-  }
 }

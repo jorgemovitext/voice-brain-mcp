@@ -82,6 +82,34 @@ export class IntegrationsPage {
     }
   }
 
+  /* --- Prueba de escritura en el CRM ---
+   *
+   * Existe como botón y no como algo que se corre a mano porque el operador no
+   * tiene consola del navegador: si la única forma de diagnosticar es pegar
+   * JavaScript, en la práctica no se diagnostica.
+   */
+  readonly probandoCrm = signal(false);
+  readonly pasosCrm = signal<Array<{ paso: string; ok: boolean; detalle: string }>>([]);
+
+  async probarCrm(): Promise<void> {
+    if (this.probandoCrm()) return;
+    this.probandoCrm.set(true);
+    this.pasosCrm.set([]);
+    try {
+      const r = await this.api.probarEscrituraCrm();
+      this.pasosCrm.set(
+        r.configurado
+          ? r.pasos
+          : [{ paso: 'HubSpot', ok: false, detalle: r.motivo ?? 'no está conectado' }],
+      );
+    } catch (e) {
+      this.pasosCrm.set([{ paso: 'La prueba no pudo correr', ok: false, detalle: (e as Error).message }]);
+    } finally {
+      this.probandoCrm.set(false);
+      this.activity.reload();
+    }
+  }
+
   escribirNumero(event: Event): void {
     this.numeroPrueba.set((event.target as HTMLInputElement).value);
   }

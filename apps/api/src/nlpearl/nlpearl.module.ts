@@ -8,6 +8,7 @@ import { NlpearlActivityStore } from './activity.store';
 import { CallIngestService } from './call-ingest.service';
 import { HiveController } from './hive.controller';
 import { AuthModule } from '../auth/auth.module';
+import { ElevenLabsModule } from '../elevenlabs/elevenlabs.module';
 import { HubspotModule } from '../hubspot/hubspot.module';
 import { AnalyticsController } from './analytics.controller';
 import { ExpedienteController } from './expediente.controller';
@@ -38,7 +39,7 @@ import { WorkersController } from './workers.controller';
  * según MOCK — BrainModule y DemoModule nunca ven el cliente concreto.
  */
 @Module({
-  imports: [HttpModule, BrainModule, ChannelsModule, HubspotModule, AuthModule],
+  imports: [HttpModule, BrainModule, ChannelsModule, HubspotModule, AuthModule, ElevenLabsModule],
   controllers: [
     PrecallController,
     NlpearlWebhookController,

@@ -469,3 +469,16 @@ a.sec__head:hover { color: var(--d-primario); }
   color: var(--ink);
   overflow-wrap: anywhere;
 }
+
+/* Cada paso de la prueba de escritura, con su resultado. Va en lista y no en
+   un solo mensaje: lo que importa es EN CUÁL se rompe. */
+.prueba__paso {
+  display: block;
+  margin-top: 0.3rem;
+  font-size: 0.74rem;
+  line-height: 1.4;
+  color: var(--ink-soft);
+  overflow-wrap: anywhere;
+}
+
+.prueba__paso--mal { color: var(--negative); }

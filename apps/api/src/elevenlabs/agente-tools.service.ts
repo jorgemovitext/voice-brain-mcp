@@ -172,6 +172,61 @@ export class AgenteToolsService {
     }
   }
 
+  /**
+   * Lo mismo que hace el agente, pero disparado por el operador.
+   *
+   * Las acciones sugeridas de la consola tenían su PROPIA implementación,
+   * heredada de NL Pearl: leía las variables del flujo —que con este agente no
+   * llegan nunca, así que iban vacías— y mandaba el pipeline y la etapa con
+   * ids fijos, que solo existen en el portal donde se escribieron. "Avisar a la
+   * cuadrilla" ni siquiera tocaba HubSpot.
+   *
+   * Ahora las dos formas de disparar la misma acción comparten código: si el
+   * ticket del agente funciona, el del botón también, y al revés. Los datos
+   * salen de la ficha que el agente viene llenando.
+   */
+  async ejecutarComoOperador(
+    contactId: string,
+    accion: 'crear-ticket' | 'emergencia',
+    operador: string,
+  ): Promise<ResultadoHerramienta> {
+    const ficha = await this.fichaDe(contactId);
+    const tipo = ficha.tipo_problema ?? 'Reporte ciudadano';
+    const ubicacion = ficha.ubicacion ?? 'sin ubicación registrada';
+    const detalle = ficha.descripcion ?? ficha.resumen ?? 'Sin descripción';
+
+    if (accion === 'emergencia') {
+      return this.ejecutar(contactId, 'avisar_autoridad', {
+        motivo: `${tipo} — lo escala ${operador} desde la consola`,
+        ubicacion,
+        detalle,
+      });
+    }
+    return this.ejecutar(contactId, 'registrar_reporte', {
+      tipo_problema: tipo,
+      ubicacion,
+      descripcion: `${detalle}\n\nRegistrado por ${operador} desde la consola.`,
+    });
+  }
+
+  /**
+   * La ficha acumulada del contacto: lo que el agente entendió del caso.
+   *
+   * Cada llamada a `actualizar_ficha` guarda solo lo que cambió, así que se
+   * recorre en orden y gana el último valor de cada campo — igual que lo arma
+   * la consola para el riel.
+   */
+  private async fichaDe(contactId: string): Promise<Record<string, string>> {
+    const ctx = await this.brain.getContext({ contactId });
+    const partes = [...(ctx.recentInteractions ?? [])]
+      .filter((i) => i.ficha && Object.keys(i.ficha).length)
+      .sort((a, b) => a.occurredAt.localeCompare(b.occurredAt));
+
+    const ficha: Record<string, string> = {};
+    for (const i of partes) Object.assign(ficha, i.ficha);
+    return ficha;
+  }
+
   /** Abre el ticket en el CRM y devuelve el folio para que el agente lo diga. */
   private async registrarReporte(
     contactId: string,

@@ -209,4 +209,19 @@ export class BrainApiService {
   ): Promise<{ ok: boolean }> {
     return firstValueFrom(this.http.patch<{ ok: boolean }>(`/api/agentes/${id}/flujo`, flujo));
   }
+
+  /** Abre un ticket y una tarea reales en HubSpot y borra el ticket. */
+  probarEscrituraCrm(): Promise<{
+    configurado: boolean;
+    motivo?: string;
+    pasos: Array<{ paso: string; ok: boolean; detalle: string }>;
+  }> {
+    return firstValueFrom(
+      this.http.post<{
+        configurado: boolean;
+        motivo?: string;
+        pasos: Array<{ paso: string; ok: boolean; detalle: string }>;
+      }>('/api/hubspot/probar-escritura', {}),
+    );
+  }
 }

@@ -138,6 +138,28 @@
             <span class="prueba__res">{{ r }}</span>
           }
         </div>
+
+        <!-- Escribir en el CRM no se puede comprobar leyendo: abrir un ticket
+             además consulta el esquema y el pipeline, cada uno con su permiso.
+             Un diagnóstico de lecturas daba todo verde mientras no se creaba
+             nada, así que esto lo hace de verdad y borra lo que creó. -->
+        <div class="prueba">
+          <span class="prueba__tit">Probar la escritura en el CRM</span>
+          <div class="prueba__fila">
+            <button class="ctrl ctrl--btn" (click)="probarCrm()" [disabled]="probandoCrm()">
+              {{ probandoCrm() ? 'Probando…' : 'Abrir un ticket de prueba' }}
+            </button>
+          </div>
+          <span class="prueba__pie">
+            Abre un ticket y una tarea reales en HubSpot, marcados PRUEBA, y borra el
+            ticket al terminar.
+          </span>
+          @for (p of pasosCrm(); track p.paso) {
+            <span class="prueba__paso" [class.prueba__paso--mal]="!p.ok">
+              {{ p.ok ? '✓' : '✕' }} {{ p.paso }} — {{ p.detalle }}
+            </span>
+          }
+        </div>
       </section>
 
       <section class="sec">

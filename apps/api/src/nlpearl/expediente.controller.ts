@@ -7,6 +7,7 @@ import { ExpedienteService } from './expediente.service';
 import { HandoffService } from './handoff.service';
 import { NlpearlActivityStore } from './activity.store';
 import { BrainService } from '../brain/brain.service';
+import { AgenteToolsService } from '../elevenlabs/agente-tools.service';
 
 /**
  * GET /api/contacts/:id/expediente — resumen real del hilo y su caso en el CRM.
@@ -25,6 +26,7 @@ export class ExpedienteController {
     private readonly handoff: HandoffService,
     private readonly store: NlpearlActivityStore,
     private readonly brain: BrainService,
+    private readonly herramientas: AgenteToolsService,
   ) {}
 
   @Get(':id/expediente')
@@ -143,8 +145,22 @@ export class ExpedienteController {
       throw new BadRequestException('Tomá la conversación antes de ejecutar acciones');
     }
 
-    if (accion === 'crear-ticket') return this.ejecutor.crearTicket(id, quien);
-    if (accion === 'emergencia') return this.ejecutor.avisarCuadrilla(id, quien);
+    /*
+     * Se delega en las herramientas del agente en vez de tener una copia.
+     *
+     * La implementación vieja venía de NL Pearl: leía las variables de su flujo
+     * —que con este agente no llegan, así que iban vacías— y mandaba el
+     * pipeline con ids fijos que solo existen en el portal donde se
+     * escribieron. "Avisar a la cuadrilla" ni siquiera tocaba HubSpot.
+     *
+     * Con una sola implementación, el botón y el agente hacen lo mismo: si uno
+     * funciona el otro también, y los dos quedan en Actividad.
+     */
+    if (accion === 'crear-ticket' || accion === 'emergencia') {
+      const r = await this.herramientas.ejecutarComoOperador(id, accion, quien);
+      if (!r.ok) throw new BadRequestException(r.mensaje);
+      return { ok: true, detalle: r.mensaje };
+    }
     throw new BadRequestException(`Acción desconocida: ${accion}`);
   }
 }
