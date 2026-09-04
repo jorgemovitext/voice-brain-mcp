@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { ElevenLabsModule } from '../elevenlabs/elevenlabs.module';
 import { AgentesController } from './agentes.controller';
 import { AgentesService } from './agentes.service';
+import { AsistenteAgentesService } from './asistente.service';
 
 /**
  * Administración de los agentes conversacionales.
@@ -13,7 +14,7 @@ import { AgentesService } from './agentes.service';
 @Module({
   imports: [ElevenLabsModule],
   controllers: [AgentesController],
-  providers: [AgentesService],
+  providers: [AgentesService, AsistenteAgentesService],
   exports: [AgentesService],
 })
 export class AgentesModule {}

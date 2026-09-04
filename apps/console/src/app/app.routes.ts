@@ -49,6 +49,20 @@ export const routes: Routes = [
     loadComponent: () => import('./pages/agentes/agentes').then((m) => m.AgentesPage),
     title: 'Agentes · Brain',
   },
+  /* Antes de `agentes/:id`: si no, "nuevo" se leería como el id de un agente. */
+  {
+    path: 'agentes/nuevo',
+    pathMatch: 'full',
+    canActivate: [authGuard],
+    loadComponent: () => import('./pages/agentes/agente-nuevo').then((m) => m.AgenteNuevoPage),
+    title: 'Crear agente · Brain',
+  },
+  {
+    path: 'agentes/nuevo/flujo',
+    canActivate: [authGuard],
+    loadComponent: () => import('./pages/agentes/agente-asistente').then((m) => m.AgenteAsistentePage),
+    title: 'Crear con flujo · Brain',
+  },
   {
     path: 'agentes/:id/flujo',
     canActivate: [authGuard],

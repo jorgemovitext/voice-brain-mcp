@@ -1,0 +1,371 @@
+.pagina {
+  height: 100%;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  padding: 1.4rem 1.6rem;
+  color: var(--ink);
+}
+
+/* En dos renglones: el enlace de volver arriba, y debajo el nombre con las
+   acciones. Con todo en una fila, el enlace absoluto se montaba encima del
+   título. */
+.cabecera {
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  margin-bottom: 1rem;
+
+  h1 { margin: 0; font-size: 1.35rem; font-weight: 800; }
+  p { margin: 0.15rem 0 0; color: var(--ink-soft); font-size: 0.84rem; }
+}
+
+.cabecera__quien {
+  min-width: 0;
+  display: flex;
+  align-items: flex-end;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.cabecera__acciones {
+  margin-left: auto;
+  display: flex;
+  gap: 0.5rem;
+
+  .btn { text-decoration: none; }
+}
+
+.volver {
+  align-self: flex-start;
+  color: var(--ink-soft);
+  font-size: 0.8rem;
+  font-weight: 700;
+  text-decoration: none;
+
+  &:hover { color: var(--secondary); }
+}
+
+/* Lienzo a la izquierda, chat a la derecha — la misma repartición del hilo de
+   conversación, para que el riel de la derecha signifique siempre lo mismo:
+   el sitio desde donde se actúa. */
+.tablero {
+  flex: 1;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) clamp(320px, 30vw, 460px);
+  gap: clamp(12px, 1.4vw, 22px);
+
+  @media (max-width: 1000px) {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: minmax(260px, 1fr) minmax(300px, 1fr);
+  }
+}
+
+/* ===== Lienzo =====
+   Claro y con retícula de puntos, tarjetas blancas y conexiones en ángulo
+   recto: es el lenguaje de un tablero de flujo, y se distingue de un vistazo
+   del navy de la app, que es donde se CONFIGURA. Acá se dibuja. */
+.lienzo {
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  border-radius: 22px;
+  border: 1px solid var(--border);
+  background: #f6f7f9;
+  overflow: hidden;
+}
+
+.lienzo__svg {
+  display: block;
+  flex: 1;
+  min-height: 0;
+  width: 100%;
+}
+
+.lienzo__vacio {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.7rem;
+  text-align: center;
+  padding: 2rem;
+  color: #6b7280;
+  font-size: 0.85rem;
+
+  p { margin: 0; max-width: 40ch; line-height: 1.5; }
+}
+
+.lienzo__icono { font-size: 2rem; color: #c3c9d4; }
+
+/* ===== Tarjetas del flujo ===== */
+.ficha {
+  box-sizing: border-box;
+  height: 100%;
+  padding: 0.7rem 0.8rem;
+  border-radius: 14px;
+  background: #fff;
+  border: 1px solid #e6e8ee;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.05), 0 8px 20px -12px rgba(15, 23, 42, 0.3);
+  font-family: inherit;
+  overflow: hidden;
+}
+
+.ficha__cabeza {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+}
+
+/* El azulejo del ícono: es lo que hace que la tarjeta se lea como una pieza
+   con identidad y no como un rótulo suelto. */
+.ficha__icono {
+  flex-shrink: 0;
+  width: 30px;
+  height: 30px;
+  display: grid;
+  place-items: center;
+  border-radius: 9px;
+  background: rgba(0, 186, 254, 0.12);
+  color: #0f7fa8;
+  font-size: 0.9rem;
+}
+
+.ficha__quien {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  line-height: 1.25;
+
+  strong {
+    font-size: 0.86rem;
+    font-weight: 800;
+    color: #16202e;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  em {
+    font-style: normal;
+    font-size: 0.7rem;
+    color: #8b93a3;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+}
+
+.ficha__texto {
+  margin: 0.5rem 0 0;
+  font-size: 0.73rem;
+  line-height: 1.4;
+  color: #55607a;
+  /* Tres renglones y elipsis: la tarjeta mide lo mismo siempre, que es lo que
+     deja el tablero legible cuando hay seis. */
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+/* Inicio y fin: píldoras, no tarjetas. */
+.borne {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.3rem;
+  width: 100%;
+  height: 30px;
+  box-sizing: border-box;
+  padding: 0 0.9rem;
+  border-radius: 999px;
+  background: var(--primary);
+  color: #fff;
+  font-family: inherit;
+  font-size: 0.78rem;
+  font-weight: 800;
+  box-shadow: 0 6px 16px -8px rgba(243, 71, 0, 0.9);
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.borne--fin {
+  background: #16202e;
+  box-shadow: 0 6px 16px -8px rgba(15, 23, 42, 0.7);
+}
+
+/* ===== Conexiones ===== */
+.arista__linea {
+  fill: none;
+  stroke: #cbd2dd;
+  stroke-width: 1.6;
+}
+
+/* La condición sobre la línea, en píldora clara: leída suelta sobre la
+   retícula se confundía con el nombre de una tarjeta. */
+.arista__cond {
+  display: inline-block;
+  max-width: 180px;
+  box-sizing: border-box;
+  padding: 0.2rem 0.6rem;
+  border-radius: 999px;
+  background: #eef0f4;
+  border: 1px solid #dfe3ea;
+  color: #55607a;
+  font-family: inherit;
+  font-size: 0.68rem;
+  font-weight: 700;
+  line-height: 1.3;
+  text-align: center;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.puede {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  padding: 0.7rem 0.9rem;
+  background: #fff;
+  border-top: 1px solid #e6e8ee;
+}
+
+.puede__rotulo {
+  font-size: 0.64rem;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: #8b93a3;
+}
+
+.puede__pill {
+  padding: 0.2rem 0.6rem;
+  border-radius: 999px;
+  background: rgba(0, 186, 254, 0.12);
+  border: 1px solid rgba(0, 186, 254, 0.3);
+  color: #0f7fa8;
+  font-size: 0.74rem;
+  font-weight: 700;
+  &::first-letter { text-transform: uppercase; }
+}
+
+/* ===== Chat ===== */
+.chat {
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  border-radius: 22px;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  overflow: hidden;
+}
+
+.chat__scroll {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.7rem;
+}
+
+.turno { max-width: 92%; }
+
+/* Lo del operador va a la derecha, como en cualquier chat: sin eso, una charla
+   de diez turnos es un bloque de texto sin saber quién dijo qué. */
+.turno--mio {
+  align-self: flex-end;
+
+  .turno__texto {
+    background: color-mix(in srgb, var(--secondary) 18%, #16233a);
+    border-color: rgba(0, 186, 254, 0.35);
+  }
+}
+
+.turno__texto {
+  margin: 0;
+  padding: 0.6rem 0.8rem;
+  border-radius: 14px;
+  background: var(--panel-2);
+  border: 1px solid var(--border);
+  font-size: 0.86rem;
+  line-height: 1.45;
+  white-space: pre-wrap;
+}
+
+.turno__texto--pensando { color: var(--ink-soft); font-style: italic; }
+
+.turno__hechos {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  margin-top: 0.4rem;
+}
+
+/* Lo que de verdad se ejecutó. Va aparte del texto del asistente a propósito:
+   una cosa es lo que dice que hizo y otra lo que el servidor hizo. */
+.hecho {
+  align-self: flex-start;
+  padding: 0.2rem 0.6rem;
+  border-radius: 999px;
+  background: rgba(52, 211, 153, 0.14);
+  border: 1px solid rgba(52, 211, 153, 0.3);
+  color: #6ee7b7;
+  font-size: 0.72rem;
+  font-weight: 700;
+}
+
+.chat__error {
+  margin: 0;
+  color: var(--negative);
+  font-size: 0.8rem;
+}
+
+.chat__composer {
+  flex-shrink: 0;
+  display: flex;
+  gap: 0.5rem;
+  align-items: flex-end;
+  padding: 0.7rem;
+  border-top: 1px solid rgba(255, 255, 255, 0.12);
+}
+
+.chat__input {
+  flex: 1;
+  min-width: 0;
+  resize: none;
+  padding: 0.55rem 0.8rem;
+  border-radius: 14px;
+  border: 1px solid var(--border);
+  background: var(--panel-2);
+  color: var(--ink);
+  font: inherit;
+  font-size: 0.86rem;
+
+  &::placeholder { color: var(--ink-soft); }
+  &:focus { outline: none; border-color: var(--secondary); }
+}
+
+.chat__enviar {
+  flex-shrink: 0;
+  padding: 0.55rem 1rem;
+  border: 0;
+  border-radius: 999px;
+  background: var(--secondary);
+  color: #04283a;
+  font: inherit;
+  font-size: 0.82rem;
+  font-weight: 800;
+  cursor: pointer;
+
+  &:disabled { opacity: 0.45; cursor: default; }
+}

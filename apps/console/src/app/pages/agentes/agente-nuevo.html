@@ -1,0 +1,46 @@
+<div class="pagina">
+  <header class="cabecera">
+    <a class="volver" routerLink="/agentes">‹ Agentes</a>
+    <h1>Crear un agente</h1>
+    <p>Dos caminos. El de arriba deja el agente armado; el de abajo, listo para escribirlo vos.</p>
+  </header>
+
+  <div class="caminos">
+    <!-- Primero el de flujo: es el que hace el trabajo. -->
+    <a class="camino camino--principal" routerLink="/agentes/nuevo/flujo">
+      <span class="camino__marca">Recomendado</span>
+      <h2>Con flujo, conversando</h2>
+      <p>
+        Contale para qué es el agente y lo arma con vos: lo crea, elige qué puede hacer
+        y dibuja las fases de la conversación en el lienzo, a la vista.
+      </p>
+      <ul class="camino__lista">
+        <li>El lienzo se va llenando mientras hablás</li>
+        <li>Queda con herramientas y flujo, no en blanco</li>
+        <li>Después se sigue editando a mano igual</li>
+      </ul>
+      <span class="camino__ir">Empezar →</span>
+    </a>
+
+    <!-- Y el de siempre, para quien ya sabe qué va a escribir. -->
+    <div class="camino">
+      <h2>Con formulario</h2>
+      <p>
+        Le ponés nombre y entrás directo al editor a escribir las instrucciones,
+        como hasta ahora.
+      </p>
+      <div class="alta">
+        <input
+          class="alta__campo"
+          placeholder="Nombre del agente (ej. Línea 100 — campañas)"
+          [value]="nombre()"
+          (input)="escribirNombre($event)"
+          (keydown.enter)="crear()" />
+        <button class="btn btn--ghost" [disabled]="!nombre().trim() || creando()" (click)="crear()">
+          {{ creando() ? 'Creando…' : 'Crear y editar' }}
+        </button>
+      </div>
+      @if (error(); as e) { <p class="alta__error">⚠ {{ e }}</p> }
+    </div>
+  </div>
+</div>

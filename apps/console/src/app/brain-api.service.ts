@@ -239,6 +239,30 @@ export class BrainApiService {
   }
 
   /**
+   * Un turno del asistente que arma agentes.
+   *
+   * `agenteId` viaja en los dos sentidos porque el agente se crea a mitad de
+   * la charla: el servidor lo devuelve al crearlo y la consola lo manda de
+   * vuelta para que los turnos siguientes hablen del mismo.
+   */
+  asistenteDeAgentes(
+    turnos: Array<{ de: 'persona' | 'asistente'; texto: string }>,
+    agenteId: string | null,
+  ): Promise<{
+    respuesta: string;
+    agenteId: string | null;
+    cambios: Array<{ accion: string; detalle: string }>;
+  }> {
+    return firstValueFrom(
+      this.http.post<{
+        respuesta: string;
+        agenteId: string | null;
+        cambios: Array<{ accion: string; detalle: string }>;
+      }>('/api/agentes/asistente', { turnos, agenteId }),
+    );
+  }
+
+  /**
    * Le pide al servidor que revise si falta alguna llamada.
    *
    * Se cuelga del sondeo de la bandeja. El freno es del servidor —una revisión

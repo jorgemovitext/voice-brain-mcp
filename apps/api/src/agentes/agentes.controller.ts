@@ -1,6 +1,7 @@
 import { Body, Controller, Delete, Get, Param, Patch, Post } from '@nestjs/common';
 import { ElevenLabsClient } from '../elevenlabs/elevenlabs.client';
 import { AgentesService, AristaFlujo, NodoFlujo } from './agentes.service';
+import { AsistenteAgentesService, TurnoAsistente } from './asistente.service';
 
 /**
  * Lo que se le contesta a una herramienta durante una prueba.
@@ -38,6 +39,7 @@ export class AgentesController {
   constructor(
     private readonly agentes: AgentesService,
     private readonly cliente: ElevenLabsClient,
+    private readonly asistenteAgentes: AsistenteAgentesService,
   ) {}
 
   /**
@@ -71,6 +73,20 @@ export class AgentesController {
       // Lo que HARÍA en producción: es la mitad de lo que se está probando.
       herramientas: llamadas,
     };
+  }
+
+  /**
+   * El asistente que arma el agente conversando.
+   *
+   * Devuelve `agenteId` porque el agente se crea a mitad de la charla: la
+   * consola lo necesita para el lienzo y para seguir la conversación sobre el
+   * mismo agente en el turno siguiente.
+   */
+  @Post('asistente')
+  async asistente(
+    @Body() body: { turnos: TurnoAsistente[]; agenteId?: string | null },
+  ) {
+    return this.asistenteAgentes.responder(body.turnos ?? [], body.agenteId ?? null);
   }
 
   @Get()

@@ -1,5 +1,12 @@
 <div class="pagina">
   <header class="cabecera">
+    <!-- El botón de crear va acá arriba y flotando sobre el título: es la
+         acción de la pantalla, y colgada del encabezado se encuentra sin
+         buscarla. Antes era un campo de texto con el nombre, que pedía lo
+         único que da igual y dejaba todo el trabajo real por delante. -->
+    <a class="crear" routerLink="/agentes/nuevo" title="Crear un agente">
+      <span class="crear__mas">+</span> Crear agente
+    </a>
     <div>
       <h1>Agentes</h1>
       <p>Quién atiende, qué dice y qué puede hacer.</p>
@@ -15,19 +22,6 @@
       Falta la credencial del proveedor de agentes en el entorno.
     </div>
   } @else {
-    <div class="alta">
-      <input
-        class="alta__campo"
-        placeholder="Nombre del agente nuevo (ej. Línea 100 — campañas)"
-        [value]="nombreNuevo()"
-        (input)="escribirNombre($event)"
-        (keydown.enter)="crear()" />
-      <button class="btn btn--primary" [disabled]="!nombreNuevo().trim() || creando()" (click)="crear()">
-        {{ creando() ? 'Creando…' : 'Crear agente' }}
-      </button>
-    </div>
-    @if (error(); as e) { <div class="alta__error">⚠ {{ e }}</div> }
-
     <div class="tablero">
       <!-- ===== El panal ===== -->
       <section class="panal">
@@ -40,7 +34,7 @@
         </h2>
 
         @if (!agentes().length) {
-          <p class="panal__aviso">Todavía no hay agentes. Creá el primero con el campo de arriba.</p>
+          <p class="panal__aviso">Todavía no hay agentes. Creá el primero con el botón de arriba.</p>
         }
 
         <svg class="panal__svg" [attr.viewBox]="panal().box" preserveAspectRatio="xMidYMid meet"

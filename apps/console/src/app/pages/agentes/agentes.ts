@@ -1,7 +1,6 @@
-import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, signal } from '@angular/core';
 import { httpResource } from '@angular/common/http';
-import { Router, RouterLink } from '@angular/router';
-import { BrainApiService } from '../../brain-api.service';
+import { RouterLink } from '@angular/router';
 import { AgenteResumen } from '../../models';
 import { armarPanal } from '../../panal';
 import { valorDe } from '../../recurso';
@@ -32,14 +31,8 @@ const DE_SISTEMA = ['end_call', 'language_detection'];
 })
 export class AgentesPage {
   protected readonly valorDe = valorDe;
-  private readonly api = inject(BrainApiService);
-  private readonly router = inject(Router);
 
   readonly datos = httpResource<{ configurado: boolean; agentes: AgenteResumen[] }>(() => '/api/agentes');
-
-  readonly creando = signal(false);
-  readonly nombreNuevo = signal('');
-  readonly error = signal<string | null>(null);
 
   readonly agentes = computed(() => valorDe(this.datos)?.agentes ?? []);
 
@@ -68,32 +61,6 @@ export class AgentesPage {
 
   seleccionar(id: string): void {
     this.seleccionado.set(this.seleccionado() === id ? null : id);
-  }
-
-  escribirNombre(e: Event): void {
-    this.nombreNuevo.set((e.target as HTMLInputElement).value);
-  }
-
-  /**
-   * Un agente nuevo nace con instrucciones mínimas y sin herramientas.
-   *
-   * A propósito: se crea y se va DIRECTO al editor, que es donde se decide qué
-   * dice y qué puede hacer. Un formulario largo antes de ver nada sería pedirle
-   * al operador que escriba a ciegas.
-   */
-  async crear(): Promise<void> {
-    const nombre = this.nombreNuevo().trim();
-    if (!nombre || this.creando()) return;
-    this.creando.set(true);
-    this.error.set(null);
-    try {
-      const { id } = await this.api.crearAgente(nombre);
-      await this.router.navigate(['/agentes', id]);
-    } catch (e) {
-      this.error.set((e as Error).message);
-    } finally {
-      this.creando.set(false);
-    }
   }
 
   /** Cuántas herramientas de verdad tiene, sin contar las de sistema. */

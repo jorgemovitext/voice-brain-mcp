@@ -11,40 +11,50 @@
 }
 
 .cabecera {
+  position: relative;
   flex-shrink: 0;
+  /* El hueco de arriba es donde vive la píldora de crear. */
+  padding-top: 2.6rem;
   margin-bottom: 1rem;
 
   h1 { margin: 0; font-size: 1.5rem; font-weight: 800; }
   p { margin: 0.2rem 0 0; color: var(--ink-soft); font-size: 0.86rem; }
 }
 
-/* Alta rápida: solo el nombre. Lo demás se decide en el editor, viendo. */
-.alta {
-  flex-shrink: 0;
-  display: flex;
-  gap: 0.6rem;
-  margin-bottom: 1rem;
-}
-
-.alta__campo {
-  flex: 1;
-  max-width: 30rem;
-  padding: 0.6rem 0.9rem;
+/*
+ * Crear: flotando sobre el encabezado, arriba a la izquierda.
+ *
+ * Es LA acción de la pantalla. Colgada del título se encuentra sin buscarla, y
+ * al ir por encima no le roba renglón al panal, que es lo que uno vino a
+ * mirar.
+ */
+.crear {
+  position: absolute;
+  top: -0.15rem;
+  left: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.42rem 0.95rem 0.42rem 0.7rem;
   border-radius: 999px;
-  border: 1px solid var(--border);
-  background: var(--panel);
-  color: var(--ink);
-  font: inherit;
-  font-size: 0.88rem;
+  background: var(--primary);
+  color: #fff;
+  font-size: 0.8rem;
+  font-weight: 800;
+  text-decoration: none;
+  box-shadow: 0 6px 20px -6px rgba(243, 71, 0, 0.75);
+  transition: transform 0.12s, box-shadow 0.15s;
 
-  &::placeholder { color: var(--ink-soft); }
-  &:focus { outline: none; border-color: var(--secondary); }
+  &:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 10px 26px -8px rgba(243, 71, 0, 0.9);
+  }
 }
 
-.alta__error {
-  margin: -0.7rem 0 1rem;
-  color: var(--negative);
-  font-size: 0.83rem;
+.crear__mas {
+  font-size: 1.05rem;
+  line-height: 0.8;
+  font-weight: 700;
 }
 
 /* Dos bandas: panal a la izquierda, detalle a la derecha. Con el detalle
