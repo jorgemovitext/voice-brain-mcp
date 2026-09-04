@@ -20,11 +20,17 @@ describe('HubspotClient · crear ticket', () => {
    * @param falla Rutas que responden 403, para simular permisos faltantes.
    */
   function build(falla: string[] = []) {
-    const llamadas: Array<{ url: string; cuerpo: Record<string, unknown> | null }> = [];
+    const llamadas: Array<{ url: string; metodo: string; cuerpo: Record<string, unknown> | null }> = [];
 
     globalThis.fetch = (async (url: string, init?: RequestInit) => {
       const ruta = String(url);
-      llamadas.push({ url: ruta, cuerpo: init?.body ? JSON.parse(String(init.body)) : null });
+      const metodo = init?.method ?? 'GET';
+      llamadas.push({ url: ruta, metodo, cuerpo: init?.body ? JSON.parse(String(init.body)) : null });
+
+      // Como el real: 204 sin cuerpo. Es lo que rompía el borrado.
+      if (metodo === 'DELETE') return new Response(null, { status: 204 });
+      if (ruta.includes('/crm/v3/objects/tasks')) return new Response(JSON.stringify({ id: 'T-9' }));
+      if (ruta.includes('/crm/v3/owners')) return new Response(JSON.stringify({ results: [] }));
 
       if (falla.some((f) => ruta.includes(f))) {
         return new Response('{"message":"missing scopes"}', { status: 403 });
@@ -59,8 +65,8 @@ describe('HubspotClient · crear ticket', () => {
   }
 
   /** El cuerpo con el que se creó el ticket. */
-  const creacion = (llamadas: Array<{ url: string; cuerpo: Record<string, unknown> | null }>) =>
-    llamadas.find((l) => l.url.endsWith('/crm/v3/objects/tickets'))?.cuerpo as
+  const creacion = (llamadas: Array<{ url: string; metodo: string; cuerpo: Record<string, unknown> | null }>) =>
+    llamadas.find((l) => l.url.endsWith('/crm/v3/objects/tickets') && l.metodo === 'POST')?.cuerpo as
       | { properties: Record<string, string> }
       | undefined;
 
@@ -101,6 +107,25 @@ describe('HubspotClient · crear ticket', () => {
 
     expect(r.id).toBe('4417');
     expect(creacion(llamadas)?.properties['hs_pipeline_stage']).toBeUndefined();
+  });
+
+  it('la prueba de escritura borra el ticket Y la tarea que creó', async () => {
+    /*
+     * Un DELETE responde 204 sin cuerpo, y `res.json()` sobre vacío lanza
+     * "Unexpected end of JSON input": un borrado que SÍ funcionó se reportaba
+     * como error. Además solo se borraba el ticket, así que cada corrida
+     * dejaba una tarea suelta en el CRM del cliente.
+     */
+    const { cliente, llamadas } = build();
+
+    const pasos = await cliente.probarEscritura();
+
+    const borrados = llamadas.filter((l) => l.url.includes('/objects/') && l.metodo === 'DELETE');
+    expect(borrados.map((b) => b.url.split('/objects/')[1])).toEqual([
+      'tickets/4417',
+      'tasks/T-9',
+    ]);
+    expect(pasos.filter((p) => !p.ok)).toEqual([]);
   });
 
   it('el diagnóstico prueba el esquema y el pipeline, no solo la lectura de tickets', async () => {

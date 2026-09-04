@@ -98,7 +98,14 @@ export class HubspotClient {
       this.logger.warn(`HubSpot ${res.status} en ${path}: ${detalle}`);
       throw new ServiceUnavailableException(`HubSpot respondió ${res.status}: ${detalle}`);
     }
-    return (await res.json()) as T;
+    /*
+     * DELETE responde 204 sin cuerpo, y `res.json()` sobre vacío lanza
+     * "Unexpected end of JSON input" — un borrado que SÍ funcionó reportado
+     * como error. Apareció borrando el ticket de la prueba de escritura, y
+     * dejó basura en el CRM del cliente.
+     */
+    const texto = await res.text();
+    return (texto ? JSON.parse(texto) : {}) as T;
   }
 
   /**
@@ -514,12 +521,14 @@ export class HubspotClient {
       return `creado con id ${id}`;
     });
 
+    let tareaId: string | undefined;
     if (abrio) {
       await correr('4. CREAR la tarea', async () => {
         const { id } = await this.crearTarea({
           titulo: 'PRUEBA — borrar (diagnóstico de la Línea 100)',
           detalle: 'Tarea de prueba. Se puede borrar.',
         });
+        tareaId = id;
         return `creada con id ${id}`;
       });
       await correr('5. Leer responsables (para poder asignarla)', async () => {
@@ -528,11 +537,21 @@ export class HubspotClient {
       });
     }
 
+    /*
+     * Se limpia TODO lo que creó: dejar basura en el CRM del cliente no es
+     * aceptable. La primera versión borraba solo el ticket y dejaba la tarea
+     * suelta en el portal.
+     */
     if (ticketId) {
-      // Se limpia solo: dejar basura en el CRM del cliente no es aceptable.
       await correr('6. Borrar el ticket de prueba', async () => {
         await this.pedir(`/crm/v3/objects/tickets/${ticketId}`, undefined, 'DELETE');
         return 'borrado';
+      });
+    }
+    if (tareaId) {
+      await correr('7. Borrar la tarea de prueba', async () => {
+        await this.pedir(`/crm/v3/objects/tasks/${tareaId}`, undefined, 'DELETE');
+        return 'borrada';
       });
     }
 
