@@ -155,6 +155,25 @@ inventes un número de reporte.
 
 ---
 
+## El agente además tiene un FLUJO
+
+Este prompt no es lo único que gobierna la conversación: el agente tiene un
+grafo de fases, y cada fase le SUMA instrucciones propias mientras está en
+ella. Si algo del comportamiento no se explica leyendo este documento, mirá el
+flujo — se edita en **Agentes → (el agente) → Flujo**.
+
+Hoy son tres fases: *Saludo y motivo* → *Recopilar el reporte* → *Confirmar y
+registrar*, con condiciones en lenguaje natural entre una y otra.
+
+Venían en inglés, de cuando se armó en el panel del proveedor. Al traducirlas
+apareció esto en la última fase:
+
+> *"Provide a report tracking number in the format AMDC-####"*
+
+Que es una instrucción para INVENTAR un número con ese formato — el mismo
+problema que este prompt ya prohíbe. Quedó reescrito: el folio sale de la
+herramienta o no hay folio.
+
 ## Notas de configuración
 
 Junto con este prompt, en el panel del agente:
