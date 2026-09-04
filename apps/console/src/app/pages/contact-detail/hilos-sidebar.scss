@@ -105,15 +105,23 @@
   color: color-mix(in srgb, var(--ink-soft) 65%, transparent);
 }
 
+/*
+ * Tarjeta, no píldora — la misma pieza del directorio.
+ *
+ * La píldora obligaba a un avatar redondo flotando adentro, y quince círculos
+ * de colores sueltos era justo lo que hacía ver la columna como confeti. Con
+ * la tarjeta el tono va en un BLOQUE a ras del borde izquierdo: los quince
+ * quedan alineados en una sola columna, que se lee como un ritmo y no como
+ * quince manchas repartidas.
+ */
 .thread {
   position: relative;
   overflow: hidden;
   display: flex;
-  gap: 0.6rem;
-  align-items: center;
-  padding: 0.5rem 0.75rem 0.5rem 0.5rem;
-  /* Pill: la fila es una pieza, como el resto de la app. */
-  border-radius: 999px;
+  gap: 0;
+  align-items: stretch;
+  border-radius: 16px;
+  background: var(--panel-2);
   color: var(--ink);
   /*
    * Lo que impedía que la lista scrolleara. Los hijos de un flex column se
@@ -125,13 +133,13 @@
   flex-shrink: 0;
   /* Borde transparente de base: el seleccionado lo pinta, y sin esto la fila
      se movería 1px al cambiar de selección. */
-  border: 1px solid transparent;
+  border: 1px solid var(--border);
   /* El desplazamiento es lo que da la sensación de "se puede tocar"; sin él
      el hover solo cambiaba de color y se sentía inerte. */
-  transition: background 0.15s, transform 0.15s;
+  transition: border-color 0.15s, transform 0.15s;
 
   &:hover {
-    background: var(--panel-2);
+    border-color: var(--secondary);
     transform: translateX(2px);
   }
 
@@ -144,23 +152,16 @@
 }
 
 /*
- * Vidrio esmerilado sobre el panel oscuro. Antes tenía EXACTAMENTE el mismo
- * fondo que el hover, así que al pasar el mouse por la lista se perdía cuál
- * estaba abierta; el vidrio y el borde ya la distinguen solos.
- *
- * Llevaba además una barra de acento pegada al borde izquierdo. Se quitó: con
- * la pill capsular, una barra recta contra un borde curvo se leía como una
- * astilla de color, no como un indicador.
- *
- * El vidrio acá sí funciona (y en los sidebares completos no): esto es una
- * fila chica sobre un panel opaco propio, no un panel que se monta sobre el
- * chat claro — que era lo que dejaba la banda gris sucia en el borde.
+ * El hilo abierto: filo de marca y el vidrio esmerilado del riel del chat.
+ * El borde cian solo no alcanzaba —es el mismo que el hover—, así que el
+ * vidrio es lo que dice "esta es la que estás leyendo".
  */
 .thread--active {
+  border-color: var(--secondary);
+  /* El vidrio va en la TARJETA y no en el cuerpo: puesto solo en el cuerpo, el
+     bloque de tono quedaba de un tono y el resto de otro, y la fila se leía
+     partida en dos. */
   background: rgba(255, 255, 255, 0.1);
-  backdrop-filter: blur(14px) saturate(180%);
-  -webkit-backdrop-filter: blur(14px) saturate(180%);
-  border: 1px solid rgba(255, 255, 255, 0.18);
   box-shadow:
     0 4px 18px rgba(4, 9, 20, 0.4),
     inset 0 1px 0 rgba(255, 255, 255, 0.14);
@@ -170,54 +171,50 @@
 }
 
 /*
- * El avatar lleva el tono del contacto, pero TEÑIDO, no relleno.
+ * El tono del contacto, en un bloque a ras del borde — el del directorio.
  *
- * Era un pastel saturado a todo el disco, y con quince hilos en pantalla la
- * columna se veía como un puñado de confeti: cada fila gritaba con un color
- * distinto y ninguna decía nada. El tono ahora vive en un velo del 20% sobre
- * el panel y en las iniciales; se sigue reconociendo a cada contacto por su
- * temperatura, pero la lista entera baja a un solo volumen.
+ * A todo el alto y pegado al canto: alineados en columna, quince bloques se
+ * leen como una guarda, no como quince manchas sueltas. Es lo que permite
+ * usar el pastel entero sin que la lista vuelva a sentirse cargada.
  */
 .thread__avatar {
   position: relative;
-  width: 38px;
-  height: 38px;
+  width: 46px;
   flex-shrink: 0;
   display: grid;
   place-items: center;
-  /* Redondo, para acompañar la pill: un cuadrado redondeado dentro de una
-     forma capsular deja dos radios peleando. */
-  border-radius: 50%;
-  font-size: 0.78rem;
-  font-weight: 700;
-  background: color-mix(in srgb, var(--tono, #cdeffd) 20%, #131a29);
-  color: color-mix(in srgb, var(--tono, #cdeffd) 85%, #fff);
+  font-size: 0.92rem;
+  font-weight: 800;
+  background: var(--tono, #cdeffd);
+  color: #22303c;
 }
 
 /*
  * De dónde vino la última actividad del hilo, prendida como una insignia
  * sobre el avatar (el patrón de "canal" de WhatsApp/Messenger).
  *
- * El color del canal va apagado a propósito. Casi todo entra por WhatsApp, así
- * que en pleno verde eran catorce puntos idénticos encendidos que no
+ * El color del canal va contenido a propósito. Casi todo entra por WhatsApp,
+ * así que en pleno verde eran catorce puntos idénticos encendidos que no
  * distinguían nada — solo hacían ruido. Lo que informa es el ícono; el color
  * queda de refuerzo.
  */
 .thread__canal {
   position: absolute;
-  right: -3px;
-  bottom: -3px;
-  width: 17px;
-  height: 17px;
+  right: 5px;
+  bottom: 5px;
+  width: 15px;
+  height: 15px;
   /* `ui-icon` mide 1em: fijar la fuente acá es lo que en verdad achica el
      ícono (sus width/height van en el <svg>, no en el host). */
-  font-size: 9px;
+  font-size: 8px;
   display: grid;
   place-items: center;
   border-radius: 50%;
-  border: 2px solid var(--panel);
-  background: color-mix(in srgb, var(--canal, #8a8f98) 42%, #131a29);
-  color: color-mix(in srgb, var(--canal, #8a8f98) 30%, #fff);
+  /* El filo es claro porque ahora se recorta contra el bloque pastel, no
+     contra el panel oscuro. */
+  border: 2px solid rgba(255, 255, 255, 0.75);
+  background: color-mix(in srgb, var(--canal, #8a8f98) 62%, #22303c);
+  color: #fff;
 }
 
 .thread__body {
@@ -225,7 +222,9 @@
   min-width: 0;
   display: flex;
   flex-direction: column;
-  gap: 0.05rem;
+  justify-content: center;
+  gap: 0.1rem;
+  padding: 0.55rem 0.7rem;
 }
 
 .thread__top {
