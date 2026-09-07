@@ -118,6 +118,14 @@ export const configSchema = z.object({
    */
   ELEVENLABS_AGENT_ID: z.string().default(''),
   /**
+   * El agente CONSTRUCTOR: el que arma otros agentes conversando, desde la
+   * vista de crear. Se provisiona con `scripts/constructor-setup.mjs`.
+   *
+   * Sin esto, esa vista cae al camino de Anthropic (si hay credencial) o avisa
+   * que falta configurarlo.
+   */
+  ELEVENLABS_BUILDER_AGENT_ID: z.string().default(''),
+  /**
    * Cuánto se espera la respuesta del agente. Por debajo del `maxDuration`
    * de 30 s de la función: si el agente no contestó para entonces, es mejor
    * cortar y responder nosotros que dejar morir la lambda a mitad.

@@ -350,6 +350,79 @@ export class AgentesService {
     return { nodos, aristas };
   }
 
+  /**
+   * Suma UNA fase al flujo, sin tocar las que ya están.
+   *
+   * El constructor arma el flujo de a una fase en vez de mandarlo entero: es
+   * lo que un agente afinado para turnos cortos emite bien. Por eso acá se lee
+   * lo que hay, se le agrega y se guarda — no se reemplaza.
+   *
+   * La PRIMERA fase que llega es la entrada, y el proveedor exige que la
+   * entrada se llame `start_node`: llamarla de otra forma hace que rechace el
+   * flujo entero con "Workflow must contain a start node".
+   */
+  async agregarFase(
+    agente: string,
+    fase: { id: string; nombre: string; instrucciones?: string; herramientas?: string[]; fin?: boolean },
+  ): Promise<{ id: string; total: number }> {
+    const actual = await this.flujo(agente);
+    const primera = !actual.nodos.length;
+    const id = primera ? 'start_node' : fase.id;
+    if (actual.nodos.some((n) => n.id === id)) return { id, total: actual.nodos.length };
+
+    const i = actual.nodos.length;
+    const nodos = [
+      ...actual.nodos,
+      {
+        id,
+        tipo: primera ? 'inicio' : fase.fin ? 'fin' : 'fase',
+        nombre: fase.nombre,
+        // En zigzag y puestas por la app: pedirle coordenadas al modelo es
+        // pedirle que haga de tipógrafo, y salen encimadas.
+        x: 140 + (i % 2) * 300,
+        y: 80 + i * 190,
+        instrucciones: fase.instrucciones ?? '',
+        herramientas: fase.herramientas ?? [],
+      },
+    ];
+    await this.guardarFlujo(agente, { nodos, aristas: actual.aristas });
+    return { id, total: nodos.length };
+  }
+
+  /**
+   * Conecta dos fases. El orden en que llegan las salidas de una misma fase ES
+   * el orden de evaluación: gana la primera condición que se cumple, así que
+   * agregarlas en desorden manda una emergencia por la rama tranquila.
+   */
+  async conectarFases(
+    agente: string,
+    salida: { desde: string; hasta: string; condicion?: string },
+  ): Promise<{ total: number; aviso?: string }> {
+    const actual = await this.flujo(agente);
+    const existe = (id: string) => actual.nodos.some((n) => n.id === id);
+    // La entrada se renombró al crearla: el constructor la sigue llamando por
+    // su nombre original y hay que traducirlo o la arista queda colgando.
+    const real = (id: string) => (existe(id) ? id : existe('start_node') && actual.nodos[0]?.id === 'start_node' ? 'start_node' : id);
+
+    const desde = real(salida.desde);
+    const hasta = real(salida.hasta);
+    if (!existe(desde) || !existe(hasta)) {
+      return { total: actual.aristas.length, aviso: `No existe la fase ${!existe(desde) ? desde : hasta}` };
+    }
+
+    const aristas = [
+      ...actual.aristas,
+      { id: `e${actual.aristas.length + 1}`, desde, hasta, condicion: salida.condicion ?? '' },
+    ];
+    const nodos = actual.nodos.map((n) => {
+      const suyas = aristas.filter((a) => a.desde === n.id).map((a) => a.id);
+      return suyas.length > 1 ? { ...n, orden: suyas } : n;
+    });
+
+    await this.guardarFlujo(agente, { nodos, aristas });
+    return { total: aristas.length };
+  }
+
   async guardarFlujo(
     id: string,
     flujo: { nodos: NodoFlujo[]; aristas: AristaFlujo[] },

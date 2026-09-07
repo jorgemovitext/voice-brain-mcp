@@ -185,9 +185,30 @@ const conversationConfig = {
     // Vacío: en un chat habla primero la persona.
     first_message: '',
   },
-  // Solo texto: el constructor no atiende llamadas.
-  conversation: { text_only: true },
+  /*
+   * `text_only` va APAGADO en el agente y se enciende por turno con el
+   * override, igual que el de la Línea 100.
+   *
+   * Encendido en el agente, la conversación por WebSocket se cierra sin
+   * contestar — y el permiso del override ya estaba puesto, así que no era
+   * eso. Probado contra la cuenta: con `true` acá, "el agente cerró la
+   * conexión sin contestar" en los dos intentos.
+   */
+  conversation: { text_only: false },
   tts: { model_id: VOZ_MULTILINGUE },
+};
+
+/*
+ * Permiso para el override de solo-texto.
+ *
+ * NO es opcional: el cliente manda `text_only` en cada turno y ElevenLabs, si
+ * recibe un override que el agente no tiene habilitado, CORTA la conversación
+ * en vez de ignorarlo. El síntoma es "el agente cerró la conexión sin
+ * contestar", que no dice nada de overrides — ya nos costó una ronda con el
+ * agente de la Línea 100 y volvió a costarla acá.
+ */
+const platformSettings = {
+  overrides: { conversation_config_override: { conversation: { text_only: true } } },
 };
 
 let id;
@@ -195,6 +216,7 @@ if (previo) {
   await api('PATCH', `/v1/convai/agents/${previo.agent_id}`, {
     name: NOMBRE,
     conversation_config: conversationConfig,
+    platform_settings: platformSettings,
   });
   id = previo.agent_id;
   console.log(`\nConstructor actualizado.`);
@@ -202,6 +224,7 @@ if (previo) {
   const creado = await api('POST', '/v1/convai/agents/create', {
     name: NOMBRE,
     conversation_config: conversationConfig,
+    platform_settings: platformSettings,
   });
   id = creado.agent_id;
   console.log(`\nConstructor creado.`);

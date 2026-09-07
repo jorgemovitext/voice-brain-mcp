@@ -1,6 +1,7 @@
 import Anthropic from '@anthropic-ai/sdk';
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { ElevenLabsClient } from '../elevenlabs/elevenlabs.client';
 import { AgentesService, AristaFlujo, NodoFlujo } from './agentes.service';
 
 const MODELO = 'claude-opus-4-8';
@@ -146,18 +147,24 @@ const HERRAMIENTAS: Anthropic.Tool[] = [
 @Injectable()
 export class AsistenteAgentesService {
   private readonly logger = new Logger(AsistenteAgentesService.name);
-  private readonly cliente: Anthropic | null;
+  /** Solo si hay credencial propia: el camino alterno. */
+  private readonly claude: Anthropic | null;
+
+  /** El agente Constructor de la propia cuenta, si está provisionado. */
+  private readonly constructorId: string;
 
   constructor(
     config: ConfigService,
     private readonly agentes: AgentesService,
+    private readonly cliente: ElevenLabsClient,
   ) {
+    this.constructorId = config.get<string>('ELEVENLABS_BUILDER_AGENT_ID', '');
     const apiKey = config.get<string>('ANTHROPIC_API_KEY', '');
-    this.cliente = apiKey ? new Anthropic({ apiKey }) : null;
+    this.claude = apiKey ? new Anthropic({ apiKey }) : null;
   }
 
   get configurado(): boolean {
-    return !!this.cliente;
+    return !!this.constructorId || !!this.claude;
   }
 
   /**
@@ -172,9 +179,13 @@ export class AsistenteAgentesService {
     turnos: TurnoAsistente[],
     agenteId: string | null,
   ): Promise<{ respuesta: string; agenteId: string | null; cambios: CambioAsistente[] }> {
-    if (!this.cliente) {
+    // El Constructor de la propia cuenta manda: no suma credencial ni factura.
+    if (this.constructorId) return this.porConstructor(turnos, agenteId);
+
+    if (!this.claude) {
       return {
-        respuesta: 'Falta la credencial del asistente en el entorno; probá con el formulario.',
+        respuesta:
+          'Falta configurar el constructor: poné ELEVENLABS_BUILDER_AGENT_ID en el entorno, o probá con el formulario.',
         agenteId,
         cambios: [],
       };
@@ -203,7 +214,7 @@ export class AsistenteAgentesService {
     // Tope de vueltas: sin él, un modelo que insiste con una herramienta que
     // falla dejaría la petición girando hasta el timeout de la lambda.
     for (let vuelta = 0; vuelta < 6; vuelta++) {
-      const res = await this.cliente.messages.create({
+      const res = await this.claude.messages.create({
         model: MODELO,
         max_tokens: 4000,
         system: contexto,
@@ -234,6 +245,142 @@ export class AsistenteAgentesService {
       agenteId: id,
       cambios,
     };
+  }
+
+  /**
+   * El camino por el Constructor de la propia cuenta.
+   *
+   * El historial va como CONTEXTO y no como turnos, igual que en el chat real:
+   * mandado como mensajes, el agente le contesta al historial en vez de a lo
+   * último que se le dijo.
+   *
+   * Las herramientas llegan con argumentos planos —strings, listas separadas
+   * por comas— porque es lo que este motor emite bien; la traducción a lo que
+   * entiende el editor visual se hace acá.
+   */
+  private async porConstructor(
+    turnos: TurnoAsistente[],
+    agenteId: string | null,
+  ): Promise<{ respuesta: string; agenteId: string | null; cambios: CambioAsistente[] }> {
+    const catalogo = await this.agentes.catalogo().catch(() => []);
+    const previos = turnos.slice(0, -1);
+    const ultimo = turnos[turnos.length - 1]?.texto ?? '';
+
+    const contexto = [
+      'Herramientas disponibles en la cuenta (usá estos nombres tal cual):',
+      ...catalogo.map((h) => `- ${h.nombre}: ${h.descripcion || 'sin descripción'}`),
+      '',
+      agenteId ? 'El agente YA está creado: usá ajustar_agente, no crear_agente.' : 'Todavía no hay agente creado.',
+      '',
+      'Conversación hasta ahora:',
+      ...previos.map((t) => `${t.de === 'persona' ? 'Operador' : 'Vos'}: ${t.texto}`),
+    ].join('\n');
+
+    const cambios: CambioAsistente[] = [];
+    let id = agenteId;
+
+    const r = await this.cliente.responder({
+      agente: this.constructorId,
+      texto: ultimo,
+      contexto,
+      ejecutarHerramienta: async (nombre, args) => {
+        const salida = await this.ejecutarPlano(nombre, args, id, cambios, (nuevo) => (id = nuevo));
+        return { ok: true, mensaje: salida };
+      },
+    });
+
+    return {
+      respuesta: r?.texto ?? 'No llegó respuesta del constructor. Probá de nuevo.',
+      agenteId: id,
+      cambios,
+    };
+  }
+
+  /** De los argumentos planos del Constructor a las operaciones reales. */
+  private async ejecutarPlano(
+    nombre: string,
+    args: Record<string, unknown>,
+    agenteId: string | null,
+    cambios: CambioAsistente[],
+    fijarId: (id: string) => void,
+  ): Promise<string> {
+    const txt = (k: string) => String(args[k] ?? '').trim();
+    /** "a, b, c" → ["a","b","c"]. Vacío da lista vacía, no [""]. */
+    const lista = (k: string) =>
+      txt(k)
+        .split(',')
+        .map((x) => x.trim())
+        .filter(Boolean);
+
+    try {
+      switch (nombre) {
+        case 'crear_agente': {
+          if (agenteId) return 'El agente ya existe; usá ajustar_agente.';
+          const { id } = await this.agentes.crear({ nombre: txt('nombre'), instrucciones: txt('instrucciones') });
+          fijarId(id);
+          cambios.push({ accion: 'crear', detalle: `Se creó «${txt('nombre')}»` });
+          return 'Agente creado.';
+        }
+
+        case 'ajustar_agente': {
+          if (!agenteId) return 'Todavía no hay agente: crealo primero.';
+          await this.agentes.actualizar(agenteId, {
+            // Vacío significa "no cambia": mandarlo borraría lo que ya había.
+            nombre: txt('nombre') || undefined,
+            instrucciones: txt('instrucciones') || undefined,
+            primerMensaje: txt('primer_mensaje') || undefined,
+          });
+          cambios.push({ accion: 'instrucciones', detalle: 'Se afinaron las instrucciones' });
+          return 'Listo.';
+        }
+
+        case 'elegir_herramientas': {
+          if (!agenteId) return 'Todavía no hay agente: crealo primero.';
+          const catalogo = await this.agentes.catalogo();
+          const pedidas = lista('herramientas');
+          const validas = pedidas.filter((p) => catalogo.some((h) => h.nombre === p));
+          const desconocidas = pedidas.filter((p) => !validas.includes(p));
+          await this.agentes.actualizar(agenteId, { herramientas: validas });
+          cambios.push({ accion: 'herramientas', detalle: `Herramientas: ${validas.join(', ') || 'ninguna'}` });
+          return desconocidas.length
+            ? `Enganchadas: ${validas.join(', ') || 'ninguna'}. No existen: ${desconocidas.join(', ')}.`
+            : `Enganchadas: ${validas.join(', ') || 'ninguna'}.`;
+        }
+
+        case 'agregar_fase': {
+          if (!agenteId) return 'Todavía no hay agente: crealo primero.';
+          const r = await this.agentes.agregarFase(agenteId, {
+            id: txt('id'),
+            nombre: txt('nombre'),
+            instrucciones: txt('instrucciones'),
+            herramientas: lista('herramientas'),
+            fin: /^s[ií]$/i.test(txt('es_fin')),
+          });
+          cambios.push({ accion: 'flujo', detalle: `Fase «${txt('nombre')}»` });
+          return `Fase agregada (${r.total} en total).`;
+        }
+
+        case 'conectar_fases': {
+          if (!agenteId) return 'Todavía no hay agente: crealo primero.';
+          const r = await this.agentes.conectarFases(agenteId, {
+            desde: txt('desde'),
+            hasta: txt('hasta'),
+            condicion: txt('condicion'),
+          });
+          if (r.aviso) return r.aviso;
+          cambios.push({ accion: 'flujo', detalle: `${txt('desde')} → ${txt('hasta')}` });
+          return `Conectadas (${r.total} salidas en total).`;
+        }
+
+        default:
+          return `No conozco la herramienta ${nombre}.`;
+      }
+    } catch (err) {
+      const motivo = (err as Error).message;
+      this.logger.warn(`El constructor falló en ${nombre}: ${motivo}`);
+      // El motivo vuelve al agente: con "falló" a secas repite lo mismo.
+      return `Falló: ${motivo}`;
+    }
   }
 
   private static textoDe(res: Anthropic.Message): string {
