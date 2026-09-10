@@ -255,7 +255,22 @@ export class ElevenLabsClient {
              * ElevenLabs corta la conversación en vez de ignorarlo, así que el
              * fallo se ve enseguida y no en la factura.
              */
-            conversation_config_override: { conversation: { text_only: true } },
+            conversation_config_override: {
+              conversation: { text_only: true },
+              /*
+               * Sin saludo en el chat.
+               *
+               * El agente SÍ tiene saludo, y tiene que tenerlo: en una llamada
+               * —entrante o saliente— el que habla primero es él, y sin eso
+               * quien atiende escucha silencio y cuelga. Pero en WhatsApp habla
+               * primero la persona, y el saludo llegaría pegado a su mensaje
+               * como si el agente no lo hubiera leído.
+               *
+               * Así cada canal pide lo suyo y el agente no necesita dos
+               * configuraciones distintas.
+               */
+              agent: { first_message: '' },
+            },
           }),
         );
 
