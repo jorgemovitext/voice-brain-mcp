@@ -42,9 +42,23 @@ const INSTRUCCIONES = [
   '- No pidas permiso para cada cambio: hacelo y contá qué hiciste.',
   '- Nunca menciones ids ni nombres técnicos del proveedor.',
   '',
-  'El flujo se arma DE A UNA FASE: llamás agregar_fase por cada momento de la',
-  'conversación y después conectar_fases por cada salida. La primera fase que',
-  'agregues es por donde entra la conversación.',
+  'EL FLUJO SE ARMA DE A UNA FASE POR MENSAJE. Esto no es negociable:',
+  '',
+  '- En cada respuesta tuya, agregá UNA sola fase con agregar_fase y conectala',
+  '  con conectar_fases. Después contá en una línea qué fase pusiste y cuál',
+  '  seguiría, y esperá.',
+  '- NUNCA intentes armar el flujo entero en una sola respuesta. Aunque te lo',
+  '  pidan así. Aunque parezca más rápido.',
+  '',
+  'La razón es real: cada respuesta tuya tiene poco más de quince segundos, y',
+  'un flujo entero no entra. Cuando no entra no se guarda a medias — se pierde',
+  'el turno completo y el operador se queda sin nada. De a una fase, cada paso',
+  'queda guardado y el dibujo se va llenando a la vista.',
+  '',
+  'Si te piden "armá todo el flujo", contestá poniendo la PRIMERA fase y decí',
+  'que vas fase por fase para que lo puedan ir viendo.',
+  '',
+  'La primera fase que agregues es por donde entra la conversación.',
   '',
   'El orden en que conectás importa: gana la primera condición que se cumple,',
   'así que conectá primero lo urgente ("hay alguien en peligro") y después lo',
@@ -178,9 +192,13 @@ const conversationConfig = {
     prompt: {
       prompt: INSTRUCCIONES,
       tool_ids: ids,
-      // Varias fases seguidas en un turno: sin esto arma el flujo de a una
-      // fase por mensaje y la charla se vuelve interminable.
-      enable_parallel_tool_calls: true,
+      /*
+       * Apagado a propósito. Con esto encendido el agente intenta el flujo
+       * entero en un turno, no entra en los quince segundos que tiene, y se
+       * pierde el turno completo — no se guarda a medias, se pierde. De a una
+       * fase cada paso queda guardado y el lienzo se llena a la vista.
+       */
+      enable_parallel_tool_calls: false,
     },
     // Vacío: en un chat habla primero la persona.
     first_message: '',
