@@ -90,6 +90,12 @@ export class ElevenLabsClient {
     ejecutarHerramienta?: (nombre: string, args: Record<string, unknown>) => Promise<{ ok: boolean; mensaje: string }>;
     /** Probar OTRO agente (módulo de Agentes). Por defecto, el de producción. */
     agente?: string;
+    /**
+     * Esperar un momento después de que el agente habla, por si va a ejecutar
+     * una herramienta. Para agentes que ACTÚAN, como el constructor: sin esto,
+     * el que anuncia antes de hacer se queda sin hacer.
+     */
+    esperarHerramientas?: boolean;
   }): Promise<RespuestaAgente | null> {
     if (!this.configurado()) return null;
 
@@ -138,6 +144,7 @@ export class ElevenLabsClient {
       contexto?: string;
       variables?: Record<string, string>;
       ejecutarHerramienta?: (nombre: string, args: Record<string, unknown>) => Promise<{ ok: boolean; mensaje: string }>;
+      esperarHerramientas?: boolean;
     },
   ): Promise<RespuestaAgente> {
     return new Promise<RespuestaAgente>((resolve, reject) => {
@@ -210,6 +217,22 @@ export class ElevenLabsClient {
        */
       const reloj = setTimeout(() => fallo(`sin respuesta en ${this.timeoutMs} ms`), this.timeoutMs);
 
+      /*
+       * Espera corta después de que el agente habla, por si va a ACTUAR.
+       *
+       * Un agente puede anunciar y después hacer: primero manda el texto
+       * ("Creando el agente…") y recién entonces el `client_tool_call`. Como
+       * resolvíamos con el primer texto y cerrábamos el socket, esa herramienta
+       * no se ejecutaba nunca — el chat decía que había creado algo y no había
+       * creado nada, que es la peor forma de fallar.
+       *
+       * Solo se usa donde el agente ACTÚA (el constructor). En el chat con el
+       * ciudadano se sigue resolviendo al primer texto, que es lo que mantiene
+       * la respuesta rápida.
+       */
+      let graciaHerramientas: ReturnType<typeof setTimeout> | undefined;
+      const GRACIA_MS = 4_000;
+
       ws.onopen = () => {
         // 1) Abrir la conversación, con las variables que el prompt sepa usar.
         ws.send(
@@ -277,7 +300,17 @@ export class ElevenLabsClient {
           case 'agent_response': {
             const ev2 = (msg['agent_response_event'] ?? {}) as { agent_response?: string };
             const texto = (ev2.agent_response ?? '').trim();
-            if (texto) listo({ texto, conversationId });
+            if (!texto) return;
+
+            // Donde el agente actúa, se le da un momento por si el texto era
+            // el anuncio y la herramienta viene atrás.
+            if (input.esperarHerramientas) {
+              clearTimeout(graciaHerramientas);
+              graciaHerramientas = setTimeout(() => listo({ texto, conversationId }), GRACIA_MS);
+              return;
+            }
+
+            listo({ texto, conversationId });
             return;
           }
           case 'client_tool_call': {
@@ -291,6 +324,9 @@ export class ElevenLabsClient {
              * tool call sin respuesta deja al agente esperando hasta que
              * salte el reloj, y el ciudadano se queda sin nada.
              */
+            // Llegó la acción: el texto de antes era el anuncio, no el final
+            // del turno. Se cancela la espera para que siga la conversación.
+            clearTimeout(graciaHerramientas);
             const call = (msg['client_tool_call'] ?? {}) as {
               tool_name?: string;
               tool_call_id?: string;

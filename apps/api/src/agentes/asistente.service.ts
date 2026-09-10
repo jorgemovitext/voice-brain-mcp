@@ -283,6 +283,9 @@ export class AsistenteAgentesService {
       agente: this.constructorId,
       texto: ultimo,
       contexto,
+      // El constructor anuncia y después hace: sin esperar, el anuncio cerraba
+      // el turno y la herramienta no llegaba a ejecutarse.
+      esperarHerramientas: true,
       ejecutarHerramienta: async (nombre, args) => {
         const salida = await this.ejecutarPlano(nombre, args, id, cambios, (nuevo) => (id = nuevo));
         return { ok: true, mensaje: salida };
