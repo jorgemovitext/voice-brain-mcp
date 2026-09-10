@@ -103,6 +103,20 @@ export class ElevenLabsVozService {
     return delAgente ?? todos.find((n) => n.supports_outbound);
   }
 
+  /**
+   * Lo primero que dice el agente al atender una llamada saliente.
+   *
+   * Corto a propósito: quien atiende un número desconocido decide en dos
+   * segundos si cuelga. Con el nombre si lo tenemos, porque decirle "señor
+   * usuario" a un vecino que ya reportó algo suena a robollamada.
+   */
+  private static saludoDe(nombre?: string): string {
+    const suyo = (nombre ?? '').trim().split(/\s+/)[0];
+    return suyo
+      ? `Buenas, ${suyo}, le llamo de la Línea 100 de la AMDC. ¿Tiene un minuto?`
+      : 'Buenas, le llamo de la Línea 100 de la AMDC. ¿Tiene un minuto?';
+  }
+
   /** Para llamar hace falta, además del agente, un número desde el cual salir. */
   puedeLlamar(): boolean {
     // El número ya no se exige acá: se resuelve al llamar, así que la cuenta
@@ -339,6 +353,19 @@ export class ElevenLabsVozService {
                 // El mismo agente atiende el chat. Acá SÍ hay alguien en la
                 // línea: el prompt cambia con esto y deja de dictar enlaces.
                 canal: 'llamada',
+              },
+              /*
+               * El saludo, SOLO para la llamada.
+               *
+               * El agente lo tiene vacío a propósito: en WhatsApp habla primero
+               * la persona, y un saludo automático llega antes de que escriba.
+               * Pero en una llamada saliente el que tiene que hablar primero es
+               * él — si no, el vecino atiende, escucha silencio y cuelga. Eso es
+               * exactamente lo que pasaba: la llamada conectaba, nadie decía
+               * nada y se cortaba a los pocos segundos.
+               */
+              conversation_config_override: {
+                agent: { first_message: ElevenLabsVozService.saludoDe(ctx.contact.displayName) },
               },
             },
           },

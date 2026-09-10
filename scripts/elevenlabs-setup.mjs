@@ -316,6 +316,17 @@ const plataforma = agente.platform_settings ?? {};
 const overrides = plataforma.overrides ?? {};
 const cco = overrides.conversation_config_override ?? {};
 cco.conversation = { ...(cco.conversation ?? {}), text_only: true };
+/*
+ * Y el saludo, que se manda solo en las llamadas salientes.
+ *
+ * El agente lo tiene vacío porque en WhatsApp habla primero la persona. En una
+ * llamada el que habla primero es él: sin esto el vecino atendía, escuchaba
+ * silencio y colgaba a los pocos segundos.
+ *
+ * Igual que con text_only: si el override no está habilitado, ElevenLabs CORTA
+ * la conversación en vez de ignorarlo.
+ */
+cco.agent = { ...(cco.agent ?? {}), first_message: true };
 overrides.conversation_config_override = cco;
 plataforma.overrides = overrides;
 
