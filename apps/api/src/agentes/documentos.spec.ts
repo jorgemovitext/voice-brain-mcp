@@ -43,10 +43,24 @@ describe('DocumentosService', () => {
      */
     const servicio = new DocumentosService(config());
 
-    await expect(
-      servicio.subir('tarifas.xlsx', 'application/vnd.ms-excel', Buffer.from('x')),
-    ).rejects.toBeInstanceOf(BadRequestException);
+    await expect(servicio.subir('tarifas.xlsx', Buffer.from('x'))).rejects.toBeInstanceOf(
+      BadRequestException,
+    );
     expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it('al rechazar, dice qué hacer en vez de "formato inválido"', async () => {
+    // El "Invalid file type" del proveedor no le dice a nadie qué hacer con
+    // su .doc. Este sí.
+    const servicio = new DocumentosService(config());
+
+    await expect(servicio.subir('acta.doc', Buffer.from('x'))).rejects.toThrow(/\.docx/);
+    await expect(servicio.subir('tarifas.xlsx', Buffer.from('x'))).rejects.toThrow(/CSV/);
+  });
+
+  it('rechaza un archivo sin extensión: no hay cómo saber qué es', async () => {
+    const servicio = new DocumentosService(config());
+    await expect(servicio.subir('Reglamento', Buffer.from('x'))).rejects.toThrow(/extensión/);
   });
 
   it('rechaza un archivo más grande que el tope de la plataforma', async () => {
@@ -55,33 +69,70 @@ describe('DocumentosService', () => {
     const servicio = new DocumentosService(config());
     const grande = Buffer.alloc(5 * 1024 * 1024);
 
-    await expect(servicio.subir('reglamento.pdf', 'application/pdf', grande)).rejects.toThrow(/MB/);
+    await expect(servicio.subir('reglamento.pdf', grande)).rejects.toThrow(/MB/);
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
   it('rechaza un archivo vacío', async () => {
     const servicio = new DocumentosService(config());
-    await expect(
-      servicio.subir('vacio.pdf', 'application/pdf', Buffer.alloc(0)),
-    ).rejects.toBeInstanceOf(BadRequestException);
+    await expect(servicio.subir('vacio.pdf', Buffer.alloc(0))).rejects.toBeInstanceOf(
+      BadRequestException,
+    );
   });
 
   it('sube, cuenta las palabras del texto extraído y pide el índice', async () => {
     fetchMock
-      .mockResolvedValueOnce(respuesta({ id: 'doc-1', name: 'Reglamento' }))
+      .mockResolvedValueOnce(respuesta({ id: 'doc-1', name: 'Reglamento.pdf' }))
       .mockResolvedValueOnce(respuesta('<html><body><p>uno dos</p><p>tres</p></body></html>'))
       .mockResolvedValueOnce(respuesta({ status: 'new' }));
 
     const servicio = new DocumentosService(config());
-    const r = await servicio.subir('Reglamento', 'application/pdf', Buffer.from('%PDF-'));
+    const r = await servicio.subir('Reglamento.pdf', Buffer.from('%PDF-'));
 
-    expect(r).toEqual({ referencia: 'doc-1', nombre: 'Reglamento', palabras: 3 });
+    expect(r).toEqual({ referencia: 'doc-1', nombre: 'Reglamento.pdf', palabras: 3 });
 
     const indexado = fetchMock.mock.calls.find((c) => String(c[0]).includes('rag-index'));
     expect(indexado).toBeDefined();
     // Multilingüe: el de por defecto está entrenado en inglés y con un
     // reglamento en español recupera los párrafos equivocados.
     expect(JSON.parse(indexado![1].body).model).toBe('multilingual_e5_large_instruct');
+  });
+
+  /**
+   * El proveedor tiene su propia lista blanca —pdf, docx, epub, txt, html y
+   * markdown— y nada más. Probado contra la cuenta: un .json mandado como
+   * `application/json` vuelve 400; mandado como `text/plain` entra entero.
+   */
+  it.each([
+    ['notas.md', 'text/markdown'],
+    ['datos.json', 'text/plain'],
+    ['zonas.csv', 'text/plain'],
+    ['config.yaml', 'text/plain'],
+    ['reglamento.pdf', 'application/pdf'],
+    ['acta.docx', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'],
+  ])('manda %s al proveedor como %s', async (nombre, mime) => {
+    fetchMock
+      .mockResolvedValueOnce(respuesta({ id: 'doc-1', name: nombre }))
+      .mockResolvedValueOnce(respuesta('<p>algo</p>'))
+      .mockResolvedValueOnce(respuesta({ status: 'new' }));
+
+    const servicio = new DocumentosService(config());
+    await servicio.subir(nombre, Buffer.from('contenido'));
+
+    const enviado = (fetchMock.mock.calls[0][1].body as FormData).get('file') as File;
+    expect(enviado.type).toBe(mime);
+  });
+
+  it('se guía por la extensión aunque venga en mayúsculas', async () => {
+    fetchMock
+      .mockResolvedValueOnce(respuesta({ id: 'doc-1', name: 'R.PDF' }))
+      .mockResolvedValueOnce(respuesta('<p>algo</p>'))
+      .mockResolvedValueOnce(respuesta({ status: 'new' }));
+
+    const servicio = new DocumentosService(config());
+    await expect(servicio.subir('R.PDF', Buffer.from('%PDF-'))).resolves.toMatchObject({
+      referencia: 'doc-1',
+    });
   });
 
   it('no tira si el índice RAG falla: el documento igual se consulta', async () => {
@@ -91,7 +142,7 @@ describe('DocumentosService', () => {
       .mockResolvedValueOnce(respuesta('rag limit exceeded', false, 403));
 
     const servicio = new DocumentosService(config());
-    await expect(servicio.subir('R', 'application/pdf', Buffer.from('%PDF-'))).resolves.toMatchObject({
+    await expect(servicio.subir('R.pdf', Buffer.from('%PDF-'))).resolves.toMatchObject({
       referencia: 'doc-1',
     });
   });

@@ -32,19 +32,20 @@ const ANCHO = 236;
 const ALTO = 112;
 
 /**
- * Lo que el proveedor sabe leer. Tiene que coincidir con `documentos.service.ts`.
+ * Lo que se puede subir. Tiene que coincidir con `documentos.service.ts`.
  *
- * Se valida también acá para no hacerle subir cuatro megas al operador antes de
- * decirle que no: con una conexión de Tegucigalpa eso es un minuto perdido para
- * llegar a un 400.
+ * Por extensión y no por el tipo que declara el navegador: de un `.md` dice
+ * `text/markdown`, `text/plain` o nada según el sistema, y un `.docx` en
+ * Windows llega a veces sin tipo. El selector de archivos también entiende
+ * extensiones, así que es lo mismo que el servidor mira.
+ *
+ * Se valida también acá para no hacerle subir cuatro megas al operador antes
+ * de decirle que no: con una conexión de Tegucigalpa eso es un minuto perdido
+ * para llegar a un 400.
  */
-const TIPOS = [
-  'application/pdf',
-  'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-  'application/msword',
-  'text/plain',
-  'text/html',
-  'application/epub+zip',
+const EXTENSIONES = [
+  '.pdf', '.docx', '.epub', '.html', '.htm',
+  '.md', '.markdown', '.txt', '.json', '.csv', '.yaml', '.yml', '.xml', '.log',
 ];
 const TOPE_BYTES = 4 * 1024 * 1024;
 
@@ -68,7 +69,7 @@ export class AgenteAsistentePage {
   protected readonly valorDe = valorDe;
   protected readonly ANCHO = ANCHO;
   protected readonly ALTO = ALTO;
-  protected readonly TIPOS = TIPOS.join(',');
+  protected readonly EXTENSIONES = EXTENSIONES.join(',');
 
   private readonly api = inject(BrainApiService);
 
@@ -164,27 +165,33 @@ export class AgenteAsistentePage {
    * archivo y el asistente ya está trabajando.
    */
   async adjuntar(archivos: File[]): Promise<void> {
-    const utiles = archivos.filter((a) => a.size > 0);
-    if (!utiles.length || this.subiendo() || this.pensando()) return;
+    if (!archivos.length || this.subiendo() || this.pensando()) return;
 
     this.subiendo.set(true);
     this.error.set(null);
 
-    const subidos: Documento[] = [];
     const fallidos: string[] = [];
 
-    for (const archivo of utiles) {
-      const motivo = AgenteAsistentePage.rechazo(archivo);
-      if (motivo) {
-        fallidos.push(`${archivo.name}: ${motivo}`);
-        continue;
-      }
-      try {
-        subidos.push(await this.api.subirDocumento(archivo));
-      } catch (e) {
-        fallidos.push(`${archivo.name}: ${(e as Error).message}`);
-      }
-    }
+    /*
+     * En paralelo: cada archivo es una petición propia, y soltar seis de a uno
+     * son seis esperas encadenadas. El `allSettled` es lo que deja que uno que
+     * falla no se lleve puestos a los demás —con un `all`, un .xlsx entre
+     * cinco PDF buenos tiraba todo el lote.
+     */
+    const resultados = await Promise.allSettled(
+      archivos.map((archivo) => {
+        const motivo = AgenteAsistentePage.rechazo(archivo);
+        return motivo
+          ? Promise.reject(new Error(motivo))
+          : this.api.subirDocumento(archivo);
+      }),
+    );
+
+    const subidos: Documento[] = [];
+    resultados.forEach((r, i) => {
+      if (r.status === 'fulfilled') subidos.push(r.value);
+      else fallidos.push(`${archivos[i].name}: ${(r.reason as Error).message}`);
+    });
 
     this.subiendo.set(false);
     if (!subidos.length) {
@@ -195,11 +202,12 @@ export class AgenteAsistentePage {
     this.documentos.update((d) => [...d, ...subidos]);
 
     const nombres = subidos.map((d) => d.nombre);
-    const lista = nombres.map((n) => `«${n}»`).join(' y ');
+    const lista = AgenteAsistentePage.enumerar(nombres);
+    const unos = nombres.length === 1;
     await this.enviar(
       this.agenteId()
-        ? `Subí ${lista}. Sumalo a lo que el agente ya sabe y ajustá las instrucciones para que lo consulte.`
-        : `Subí ${lista}. Armá un agente que atienda con base en ese documento: creálo y empezá el flujo.`,
+        ? `Subí ${lista}. Sumá${unos ? 'lo' : 'los'} a lo que el agente ya sabe y ajustá las instrucciones para que ${unos ? 'lo consulte' : 'los consulte'}.`
+        : `Subí ${lista}. Armá un agente que atienda con base en ${unos ? 'ese documento' : 'esos documentos'}: creálo y empezá el flujo.`,
       nombres,
     );
 
@@ -211,16 +219,24 @@ export class AgenteAsistentePage {
     if (fallidos.length) this.error.set(fallidos.join(' · '));
   }
 
+  /** «a», «b» y «c» — para que el constructor los lea como una lista. */
+  private static enumerar(nombres: string[]): string {
+    const citados = nombres.map((n) => `«${n}»`);
+    if (citados.length < 2) return citados.join('');
+    return `${citados.slice(0, -1).join(', ')} y ${citados.at(-1)}`;
+  }
+
   /** Por qué no se puede subir, o null si se puede. */
   private static rechazo(archivo: File): string | null {
+    if (!archivo.size) return 'está vacío';
     if (archivo.size > TOPE_BYTES) {
       return `pesa ${Math.round(archivo.size / 1024 / 1024)} MB y el tope es ${TOPE_BYTES / 1024 / 1024} MB`;
     }
-    // Por tipo, y si el navegador no lo informó, por extensión: en Windows un
-    // .docx llega a veces con el tipo vacío.
-    if (TIPOS.includes(archivo.type)) return null;
-    if (/\.(pdf|docx?|txt|html?|epub)$/i.test(archivo.name)) return null;
-    return 'no es un PDF ni un Word';
+    // Por extensión y no por `archivo.type`: el navegador lo declara distinto
+    // según el sistema, y de un .md o un .docx a veces no lo declara.
+    const ext = archivo.name.toLowerCase().match(/\.[a-z0-9]+$/)?.[0];
+    if (ext && EXTENSIONES.includes(ext)) return null;
+    return `no se puede leer un ${ext ?? 'archivo sin extensión'}`;
   }
 
   /* --- Conversar --------------------------------------------------------- */

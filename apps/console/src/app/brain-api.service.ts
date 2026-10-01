@@ -276,9 +276,15 @@ export class BrainApiService {
       this.http.post<{ referencia: string; nombre: string; palabras: number }>(
         `/api/agentes/documentos?nombre=${encodeURIComponent(archivo.name)}`,
         archivo,
-        // Sin esto Angular manda `application/octet-stream` y el servidor no
-        // sabe si es un PDF o un Word.
-        { headers: { 'Content-Type': archivo.type || 'application/octet-stream' } },
+        /*
+         * Un tipo neutro y siempre el mismo: el servidor deduce qué clase de
+         * archivo es por la extensión del nombre. Mandar el tipo que declara
+         * el navegador no serviría —de un .md dice `text/markdown`,
+         * `text/plain` o nada según el sistema— y además obligaría al servidor
+         * a quedarse con `application/json`, que es el tipo real de un .json y
+         * el que usa el resto de la API para todo lo demás.
+         */
+        { headers: { 'Content-Type': 'application/octet-stream' } },
       ),
     );
   }

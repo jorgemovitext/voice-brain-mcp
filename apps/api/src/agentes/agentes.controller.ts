@@ -111,12 +111,15 @@ export class AgentesController {
   /**
    * Sube un documento para que un agente lo pueda consultar.
    *
-   * El cuerpo es el archivo CRUDO, con su propio Content-Type, y el nombre
-   * viaja en la query. No es multipart a propósito: una sola petición sube un
-   * solo archivo, el navegador ya manda el `File` tal cual sin envolverlo, y
-   * nos ahorra un parser de formularios en el camino. El nombre va en la query
-   * y no en una cabecera porque "Reglamento de Aseo.pdf" tiene acentos y una
-   * cabecera HTTP no los admite sin codificar.
+   * El cuerpo es el archivo CRUDO y el nombre viaja en la query. No es
+   * multipart a propósito: una petición sube un archivo, el navegador manda el
+   * `File` tal cual sin envolverlo, y nos ahorra un parser de formularios. El
+   * nombre va en la query y no en una cabecera porque "Reglamento de Aseo.pdf"
+   * tiene espacios y acentos, y una cabecera HTTP no los admite.
+   *
+   * El Content-Type que llega es siempre el mismo y no se mira: qué clase de
+   * archivo es se deduce del nombre, porque el navegador declara el tipo de un
+   * .md o un .docx de forma distinta según el sistema —y a veces no lo declara.
    *
    * Devuelve una `referencia` opaca: la consola la guarda para engancharla al
    * agente, pero lo que muestra es el nombre.
@@ -127,7 +130,7 @@ export class AgentesController {
     if (!Buffer.isBuffer(cuerpo)) {
       throw new BadRequestException('Mandá el archivo como cuerpo de la petición.');
     }
-    return this.documentos.subir(nombre ?? 'Documento', req.headers['content-type'] ?? '', cuerpo);
+    return this.documentos.subir(nombre ?? 'Documento', cuerpo);
   }
 
   @Get()

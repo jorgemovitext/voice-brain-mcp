@@ -34,22 +34,23 @@
         <div class="lienzo__vacio">
           @if (desde() === 'documentos' || documentos().length) {
             <span class="lienzo__icono">▤</span>
-            <p class="lienzo__titulo">Soltá acá el documento</p>
+            <p class="lienzo__titulo">Soltá acá los documentos</p>
             <p>
-              Un reglamento, un tarifario, un directorio: un PDF o un Word de hasta 4 MB.
-              Se lee, el agente queda pudiéndolo consultar durante la llamada, y el
-              asistente arma el flujo con eso.
+              Un reglamento, un tarifario, un directorio. Podés soltar varios de una vez:
+              PDF, Word, Markdown, JSON, CSV o texto, de hasta 4 MB cada uno. Se leen, el
+              agente queda pudiéndolos consultar durante la llamada, y el asistente arma
+              el flujo con eso.
             </p>
           } @else {
             <span class="lienzo__icono">⬡</span>
             <p>
               Acá se va a dibujar el flujo: cada fase de la conversación y por qué condición
               se pasa de una a otra. Empezá contándole al asistente qué necesitás —o soltá
-              un documento y lo arma con eso.
+              uno o varios documentos y lo arma con eso.
             </p>
           }
           <button class="lienzo__subir" type="button" [disabled]="subiendo()" (click)="archivo.click()">
-            {{ subiendo() ? 'Subiendo…' : 'Elegir un documento' }}
+            {{ subiendo() ? 'Subiendo…' : 'Elegir documentos' }}
           </button>
         </div>
       } @else {
@@ -171,13 +172,13 @@
           class="chat__archivo"
           type="file"
           multiple
-          [attr.accept]="TIPOS"
+          [attr.accept]="EXTENSIONES"
           (change)="elegidos($event)" />
         <button
           class="chat__clip"
           type="button"
-          title="Adjuntar un PDF o un Word"
-          aria-label="Adjuntar un documento"
+          title="Adjuntar documentos: PDF, Word, Markdown, JSON, CSV o texto"
+          aria-label="Adjuntar documentos"
           [disabled]="subiendo() || pensando()"
           (click)="archivo.click()">▤</button>
         <textarea
