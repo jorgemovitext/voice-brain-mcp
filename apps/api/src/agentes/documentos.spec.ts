@@ -1,5 +1,6 @@
 import { BadRequestException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { AgenteActivoService } from '../shared/agente-activo.service';
 import { AgentesService } from './agentes.service';
 import { DocumentosService } from './documentos.service';
 
@@ -20,6 +21,9 @@ function config(valores: Record<string, string> = {}): ConfigService {
   };
   return { get: (clave: string, def?: string) => base[clave] ?? def ?? '' } as ConfigService;
 }
+
+/** Nadie eligió agente en la consola: nada está «en uso». */
+const SIN_AGENTE_ACTIVO = { id: async () => '' } as unknown as AgenteActivoService;
 
 describe('DocumentosService', () => {
   let fetchMock: jest.Mock;
@@ -230,7 +234,7 @@ describe('AgentesService.engancharDocumentos', () => {
      * hay nada que buscar.
      */
     cuentaCon();
-    const servicio = new AgentesService(config());
+    const servicio = new AgentesService(config(), SIN_AGENTE_ACTIVO);
 
     const nuevos = await servicio.engancharDocumentos('ag-1', [
       { referencia: 'doc-1', nombre: 'Reglamento de Aseo' },
@@ -249,7 +253,7 @@ describe('AgentesService.engancharDocumentos', () => {
 
   it('conserva los documentos que ya tenía', async () => {
     cuentaCon([{ id: 'doc-viejo', name: 'Tarifario' }]);
-    const servicio = new AgentesService(config());
+    const servicio = new AgentesService(config(), SIN_AGENTE_ACTIVO);
 
     await servicio.engancharDocumentos('ag-1', [{ referencia: 'doc-1', nombre: 'Reglamento' }]);
 
@@ -262,7 +266,7 @@ describe('AgentesService.engancharDocumentos', () => {
     // Enganchado dos veces, RAG recupera el mismo párrafo duplicado. Se llama
     // en cada turno, así que esto no es un caso raro: es el caso normal.
     cuentaCon([{ id: 'doc-1', name: 'Reglamento' }]);
-    const servicio = new AgentesService(config());
+    const servicio = new AgentesService(config(), SIN_AGENTE_ACTIVO);
 
     const nuevos = await servicio.engancharDocumentos('ag-1', [
       { referencia: 'doc-1', nombre: 'Reglamento' },
@@ -275,7 +279,7 @@ describe('AgentesService.engancharDocumentos', () => {
   it('borra el arreglo viejo de herramientas, que no puede convivir con tool_ids', async () => {
     // La API rechaza el PATCH con "Cannot specify both".
     cuentaCon();
-    const servicio = new AgentesService(config());
+    const servicio = new AgentesService(config(), SIN_AGENTE_ACTIVO);
 
     await servicio.engancharDocumentos('ag-1', [{ referencia: 'doc-1', nombre: 'R' }]);
 
@@ -284,7 +288,7 @@ describe('AgentesService.engancharDocumentos', () => {
 
   it('sin documentos no llama al proveedor', async () => {
     cuentaCon();
-    const servicio = new AgentesService(config());
+    const servicio = new AgentesService(config(), SIN_AGENTE_ACTIVO);
 
     await servicio.engancharDocumentos('ag-1', []);
 

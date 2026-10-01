@@ -3,6 +3,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { firstValueFrom } from 'rxjs';
 import { BrainService } from '../brain/brain.service';
+import { AgenteActivoService } from '../shared/agente-activo.service';
 import { SettingsService } from '../shared/settings.service';
 
 /** Un número de los que ElevenLabs tiene disponibles para llamar. */
@@ -29,6 +30,14 @@ interface ConversacionListada {
   /** Solo las telefónicas la traen: es lo que distingue llamada de texto. */
   direction?: string | null;
   message_count?: number;
+  start_time_unix_secs?: number;
+  call_duration_secs?: number;
+  /** `done`, `failed`, `in-progress`. */
+  status?: string;
+  /** `success`, `failure` o `unknown` según la evaluación del proveedor. */
+  call_successful?: string;
+  call_summary_title?: string | null;
+  transcript_summary?: string | null;
 }
 
 /** Cuándo se revisó por última vez que no faltara ninguna llamada. */
@@ -51,7 +60,6 @@ export class ElevenLabsVozService {
   private readonly logger = new Logger(ElevenLabsVozService.name);
   private readonly apiUrl: string;
   private readonly apiKey: string;
-  private readonly agentId: string;
   private readonly phoneNumberId: string;
   /** Candado en memoria: dos pestañas abiertas no disparan dos barridos. */
   private reconciliando = false;
@@ -60,22 +68,23 @@ export class ElevenLabsVozService {
     private readonly http: HttpService,
     private readonly brain: BrainService,
     private readonly settings: SettingsService,
+    private readonly activo: AgenteActivoService,
     config: ConfigService,
   ) {
     this.apiUrl = config.get<string>('ELEVENLABS_API_URL', 'https://api.elevenlabs.io');
     this.apiKey = config.get<string>('ELEVENLABS_API_KEY', '');
-    /*
-     * El agente que atiende WhatsApp lleva "Solo texto" encendido, y esa
-     * opción le apaga el motor de voz: con él la llamada no levanta. Por eso
-     * la voz puede apuntar a OTRO agente —mismo prompt y misma base, sin esa
-     * opción—. Si no está configurado se usa el de texto: quien todavía no
-     * duplicó el agente sigue como estaba, y el fallo se ve al llamar y no en
-     * el arranque.
-     */
-    this.agentId =
-      config.get<string>('ELEVENLABS_VOICE_AGENT_ID', '') ||
-      config.get<string>('ELEVENLABS_AGENT_ID', '');
     this.phoneNumberId = config.get<string>('ELEVENLABS_PHONE_NUMBER_ID', '');
+  }
+
+  /**
+   * Quién atiende las llamadas, resuelto en cada uso.
+   *
+   * Antes se leía una sola vez al construir el servicio. Con el agente
+   * elegible desde la consola eso ya no sirve: el cambio tiene que valer para
+   * la próxima llamada, no para el próximo despliegue.
+   */
+  private agenteDeVoz(): Promise<string> {
+    return this.activo.idVoz();
   }
 
   /**
@@ -99,7 +108,8 @@ export class ElevenLabsVozService {
         `ELEVENLABS_PHONE_NUMBER_ID apunta a un número que ya no existe; se usa el del agente.`,
       );
     }
-    const delAgente = todos.find((n) => n.assigned_agent?.agent_id === this.agentId && n.supports_outbound);
+    const mio = await this.agenteDeVoz();
+    const delAgente = todos.find((n) => n.assigned_agent?.agent_id === mio && n.supports_outbound);
     return delAgente ?? todos.find((n) => n.supports_outbound);
   }
 
@@ -121,11 +131,11 @@ export class ElevenLabsVozService {
   puedeLlamar(): boolean {
     // El número ya no se exige acá: se resuelve al llamar, así que la cuenta
     // puede tener uno aunque la variable de entorno esté vieja o vacía.
-    return !!this.apiKey && !!this.agentId;
+    return !!this.apiKey && this.activo.hayAlguno;
   }
 
   faltantes(): string[] {
-    return [!this.apiKey && 'ELEVENLABS_API_KEY', !this.agentId && 'ELEVENLABS_AGENT_ID'].filter(
+    return [!this.apiKey && 'ELEVENLABS_API_KEY', !this.activo.hayAlguno && 'ELEVENLABS_AGENT_ID'].filter(
       Boolean,
     ) as string[];
   }
@@ -211,7 +221,72 @@ export class ElevenLabsVozService {
    * sin cursor, "las últimas 100" es un techo silencioso que va tapando lo
    * viejo a medida que entra tráfico nuevo.
    */
-  private async listarConversaciones(paginas: number): Promise<ConversacionListada[]> {
+  /**
+   * Lo que hizo un agente: cuánto trabajó y cómo le fue.
+   *
+   * Sale del proveedor y no de nuestra base a propósito. Nuestras
+   * interacciones guardan QUIÉN atendió solo como rol —«agente», o el nombre
+   * del operador que tomó el hilo—, no cuál de los agentes: no hay forma de
+   * separar por agente sin agregar la columna y rellenar lo viejo. El
+   * proveedor sí lo tiene, y está a una llamada.
+   *
+   * Un agente que nunca atendió devuelve todo en cero, que es la respuesta
+   * correcta y no un error: es lo que hay que ver antes de ponerlo a atender.
+   */
+  async actividad(
+    agenteId: string,
+    paginas = 2,
+  ): Promise<{
+    total: number;
+    llamadas: number;
+    mensajes: number;
+    exitosas: number;
+    fallidas: number;
+    minutos: number;
+    ultimas: Array<{
+      id: string;
+      cuando: string | null;
+      tipo: 'llamada' | 'mensaje';
+      segundos: number;
+      turnos: number;
+      estado: string;
+      resumen: string | null;
+    }>;
+  }> {
+    const todas = await this.listarConversaciones(paginas, agenteId);
+
+    const llamadas = todas.filter((c) => !!c.direction);
+    const segundos = todas.reduce((s, c) => s + (c.call_duration_secs ?? 0), 0);
+
+    return {
+      total: todas.length,
+      llamadas: llamadas.length,
+      mensajes: todas.length - llamadas.length,
+      exitosas: todas.filter((c) => c.call_successful === 'success').length,
+      fallidas: todas.filter((c) => c.status === 'failed').length,
+      minutos: Math.round(segundos / 60),
+      // Las últimas primero: es el orden en que alguien revisa qué pasó.
+      ultimas: todas
+        .slice()
+        .sort((a, b) => (b.start_time_unix_secs ?? 0) - (a.start_time_unix_secs ?? 0))
+        .slice(0, 20)
+        .map((c) => ({
+          id: c.conversation_id,
+          cuando: c.start_time_unix_secs ? new Date(c.start_time_unix_secs * 1000).toISOString() : null,
+          tipo: c.direction ? ('llamada' as const) : ('mensaje' as const),
+          segundos: c.call_duration_secs ?? 0,
+          turnos: c.message_count ?? 0,
+          estado: c.status ?? 'desconocido',
+          resumen: c.call_summary_title ?? c.transcript_summary ?? null,
+        })),
+    };
+  }
+
+  async listarConversaciones(paginas: number, deAgente?: string): Promise<ConversacionListada[]> {
+    // Por defecto, el que atiende. Con `deAgente` se puede mirar otro, que es
+    // lo que necesita la ficha de un agente para mostrar lo suyo sin que eso
+    // dependa de ponerlo a atender primero.
+    const agente = deAgente || (await this.agenteDeVoz());
     const todas: ConversacionListada[] = [];
     let cursor: string | undefined;
 
@@ -223,7 +298,7 @@ export class ElevenLabsVozService {
           next_cursor?: string;
         }>(`${this.apiUrl}/v1/convai/conversations`, {
           headers: this.headers,
-          params: { agent_id: this.agentId, page_size: 100, ...(cursor ? { cursor } : {}) },
+          params: { agent_id: agente, page_size: 100, ...(cursor ? { cursor } : {}) },
           timeout: 15_000,
         }),
       );
@@ -251,7 +326,7 @@ export class ElevenLabsVozService {
    * vista que lo dispara.
    */
   async reconciliar(): Promise<void> {
-    if (!this.apiKey || !this.agentId || this.reconciliando) return;
+    if (!this.apiKey || !this.activo.hayAlguno || this.reconciliando) return;
 
     const ultima = (await this.settings.get<number>(CLAVE_RECONCILIACION)) ?? 0;
     if (Date.now() - ultima < MINUTOS_ENTRE_RECONCILIACIONES * 60_000) return;
@@ -343,7 +418,7 @@ export class ElevenLabsVozService {
         this.http.post<{ success?: boolean; message?: string; conversation_id?: string }>(
           `${this.apiUrl}/v1/convai/${ruta}/outbound-call`,
           {
-            agent_id: this.agentId,
+            agent_id: await this.agenteDeVoz(),
             agent_phone_number_id: numero.phone_number_id,
             to_number: telefono,
             conversation_initiation_client_data: {

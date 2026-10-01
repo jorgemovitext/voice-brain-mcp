@@ -1,5 +1,6 @@
 import { Injectable, Logger, ServiceUnavailableException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { AgenteActivoService } from '../shared/agente-activo.service';
 import { DocumentosService } from './documentos.service';
 
 /**
@@ -86,8 +87,6 @@ export class AgentesService {
   private readonly logger = new Logger(AgentesService.name);
   private readonly apiKey: string;
   private readonly apiUrl: string;
-  /** El agente de producción, para marcarlo y protegerlo. */
-  private readonly enUsoId: string;
 
   /**
    * Las que ejecuta AgenteToolsService. Se marcan en la consola para que nadie
@@ -101,10 +100,12 @@ export class AgentesService {
     'actualizar_ficha',
   ]);
 
-  constructor(config: ConfigService) {
+  constructor(
+    config: ConfigService,
+    private readonly activo: AgenteActivoService,
+  ) {
     this.apiKey = config.get<string>('ELEVENLABS_API_KEY', '');
     this.apiUrl = config.get<string>('ELEVENLABS_API_URL', 'https://api.elevenlabs.io');
-    this.enUsoId = config.get<string>('ELEVENLABS_AGENT_ID', '');
   }
 
   get configurado(): boolean {
@@ -150,6 +151,15 @@ export class AgentesService {
     return this.leer(id);
   }
 
+  /**
+   * Solo el nombre, para poder decir «ahora atiende X» sin leer el agente
+   * entero —que son dos viajes más, uno de ellos al catálogo de herramientas—.
+   */
+  async nombreDe(id: string): Promise<string | null> {
+    const a = await this.pedir<{ name?: string }>(`/v1/convai/agents/${id}`).catch(() => null);
+    return a?.name ?? null;
+  }
+
   private async leer(id: string): Promise<AgenteDetalle> {
     const a = await this.pedir<Record<string, any>>(`/v1/convai/agents/${id}`);
     const cc = a['conversation_config'] ?? {};
@@ -175,7 +185,7 @@ export class AgentesService {
       documentos: ((prompt['knowledge_base'] ?? []) as Array<{ name?: string }>).map(
         (d) => d.name ?? 'documento',
       ),
-      enUso: id === this.enUsoId,
+      enUso: id === (await this.activo.id()),
       instrucciones: prompt['prompt'] ?? '',
       primerMensaje: agente['first_message'] ?? '',
       variables: Object.keys((agente['dynamic_variables'] ?? {})['dynamic_variable_placeholders'] ?? {}),
@@ -289,7 +299,7 @@ export class AgentesService {
    * sin quién conteste, y eso no se deshace con un ctrl-z.
    */
   async eliminar(id: string): Promise<void> {
-    if (id === this.enUsoId) {
+    if (id === (await this.activo.id())) {
       throw new ServiceUnavailableException(
         'Ese agente es el que atiende WhatsApp ahora mismo. Cambiá el agente en uso antes de borrarlo.',
       );

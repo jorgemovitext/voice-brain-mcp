@@ -1,3 +1,4 @@
+import { AgenteActivoService } from './agente-activo.service';
 import { SettingsService } from './settings.service';
 import { Global, Injectable, Module } from '@nestjs/common';
 import { APP_INTERCEPTOR } from '@nestjs/core';
@@ -47,6 +48,7 @@ export class FlowLogService {
     WebhookLogService,
     SettingsService,
     AtencionService,
+    AgenteActivoService,
     /*
      * Va acá y no en main.ts: la función serverless monta AppModule por su
      * cuenta y nunca ejecuta main.ts, así que lo registrado allá no existe
@@ -54,6 +56,6 @@ export class FlowLogService {
      */
     { provide: APP_INTERCEPTOR, useClass: FlushLogInterceptor },
   ],
-  exports: [FlowLogService, WebhookLogService, SettingsService, AtencionService],
+  exports: [FlowLogService, WebhookLogService, SettingsService, AtencionService, AgenteActivoService],
 })
 export class SharedModule {}

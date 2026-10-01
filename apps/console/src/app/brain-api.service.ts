@@ -1,7 +1,16 @@
 import { HttpClient } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
 import { firstValueFrom } from 'rxjs';
-import { AristaFlujo, Atencion, Contact, DemoStatus, FlowStep, NlpearlTestResult, NodoFlujo } from './models';
+import {
+  ActividadAgente,
+  AristaFlujo,
+  Atencion,
+  Contact,
+  DemoStatus,
+  FlowStep,
+  NlpearlTestResult,
+  NodoFlujo,
+} from './models';
 
 /**
  * Acciones (POST) contra el backend. Las lecturas de las vistas usan
@@ -236,6 +245,37 @@ export class BrainApiService {
         avisos: string[];
       }>('/api/voz/reprocesar', {}),
     );
+  }
+
+  /**
+   * Qué puede salir mal si este agente pasa a atender.
+   *
+   * Se pregunta ANTES de cambiar, para poder mostrarlo en la confirmación: el
+   * error acá no avisa solo. Un agente en inglés o sin herramientas no falla,
+   * se pone a atender y contesta — y la diferencia aparece del lado del
+   * vecino, en una llamada que ya pasó.
+   */
+  revisarAgente(id: string): Promise<{ reparos: Array<{ gravedad: string; texto: string }> }> {
+    return firstValueFrom(
+      this.http.get<{ reparos: Array<{ gravedad: string; texto: string }> }>(
+        `/api/agentes/${id}/revision`,
+      ),
+    );
+  }
+
+  /** Lo pone a atender de verdad: WhatsApp, llamadas que salen y que entran. */
+  usarAgente(id: string): Promise<{ nombre: string | null; numeros: string[]; aviso?: string }> {
+    return firstValueFrom(
+      this.http.post<{ nombre: string | null; numeros: string[]; aviso?: string }>(
+        `/api/agentes/${id}/usar`,
+        {},
+      ),
+    );
+  }
+
+  /** Lo que hizo un agente, según el proveedor: conversaciones y minutos. */
+  actividadDeAgente(id: string): Promise<ActividadAgente> {
+    return firstValueFrom(this.http.get<ActividadAgente>(`/api/agentes/${id}/actividad`));
   }
 
   /**

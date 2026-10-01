@@ -1,6 +1,8 @@
 import { FastifyAdapter, NestFastifyApplication } from '@nestjs/platform-fastify';
 import { Test } from '@nestjs/testing';
+import { ElevenLabsVozService } from '../elevenlabs/elevenlabs-voz.service';
 import { ElevenLabsClient } from '../elevenlabs/elevenlabs.client';
+import { AgenteActivoService } from '../shared/agente-activo.service';
 import { AgentesController } from './agentes.controller';
 import { AgentesService } from './agentes.service';
 import { AsistenteAgentesService } from './asistente.service';
@@ -35,6 +37,8 @@ describe('POST /api/agentes/documentos', () => {
         { provide: AgentesService, useValue: {} },
         { provide: ElevenLabsClient, useValue: {} },
         { provide: AsistenteAgentesService, useValue: { responder } },
+        { provide: AgenteActivoService, useValue: {} },
+        { provide: ElevenLabsVozService, useValue: {} },
       ],
     }).compile();
 

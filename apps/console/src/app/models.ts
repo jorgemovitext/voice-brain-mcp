@@ -312,6 +312,32 @@ export interface AgenteResumen {
   enUso: boolean;
 }
 
+/**
+ * Lo que hizo un agente, según el proveedor.
+ *
+ * Viene de ahí y no de nuestra base porque nuestras interacciones guardan
+ * quién atendió solo como rol —«agente», o el operador que tomó el hilo—, no
+ * cuál de los agentes. Un agente que nunca atendió devuelve todo en cero, que
+ * es justo lo que hay que ver antes de ponerlo a atender.
+ */
+export interface ActividadAgente {
+  total: number;
+  llamadas: number;
+  mensajes: number;
+  exitosas: number;
+  fallidas: number;
+  minutos: number;
+  ultimas: Array<{
+    id: string;
+    cuando: string | null;
+    tipo: 'llamada' | 'mensaje';
+    segundos: number;
+    turnos: number;
+    estado: string;
+    resumen: string | null;
+  }>;
+}
+
 export interface AgenteDetalle extends AgenteResumen {
   instrucciones: string;
   primerMensaje: string;

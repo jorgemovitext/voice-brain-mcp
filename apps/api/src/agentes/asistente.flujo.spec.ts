@@ -1,4 +1,5 @@
 import { ConfigService } from '@nestjs/config';
+import { AgenteActivoService } from '../shared/agente-activo.service';
 import { AgentesService, AristaFlujo, NodoFlujo } from './agentes.service';
 import { flujoDesdeAsistente } from './asistente.service';
 
@@ -10,6 +11,9 @@ import { flujoDesdeAsistente } from './asistente.service';
  * cada una: el nodo de entrada tiene que llamarse `start_node`, y el orden de
  * las salidas de una fase no es cosmético.
  */
+/** Nadie eligió agente en la consola: nada está «en uso». */
+const SIN_AGENTE_ACTIVO = { id: async () => '' } as unknown as AgenteActivoService;
+
 describe('flujoDesdeAsistente', () => {
   const base = {
     fases: [
@@ -97,9 +101,10 @@ describe('AgentesService.agregarFase', () => {
 
   /** Un servicio con el flujo que diga el caso, y el guardado interceptado. */
   function conFlujo(nodos: NodoFlujo[], aristas: AristaFlujo[] = []): AgentesService {
-    const servicio = new AgentesService({
-      get: (_c: string, d?: string) => d ?? '',
-    } as unknown as ConfigService);
+    const servicio = new AgentesService(
+      { get: (_c: string, d?: string) => d ?? '' } as unknown as ConfigService,
+      SIN_AGENTE_ACTIVO,
+    );
     jest.spyOn(servicio, 'flujo').mockResolvedValue({ nodos, aristas });
     jest.spyOn(servicio, 'guardarFlujo').mockImplementation(async (_id, f) => {
       guardado = f;

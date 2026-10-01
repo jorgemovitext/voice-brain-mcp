@@ -388,3 +388,135 @@
 
   .btn { text-decoration: none; }
 }
+
+/* ===== Lo que hizo el agente =====
+   Cifras grandes y una lista corta: antes de poner a alguien a atender, lo que
+   se quiere saber es si trabajó y si le fue bien, no un tablero. */
+.cifras {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 0.5rem;
+  margin-bottom: 0.8rem;
+}
+
+.cifra {
+  display: flex;
+  flex-direction: column;
+  padding: 0.5rem 0.7rem;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+
+  strong { font-size: 1.15rem; font-weight: 800; line-height: 1.1; }
+  em { font-style: normal; font-size: 0.7rem; color: var(--ink-soft); }
+}
+
+/* Las fallidas en rojo solo cuando las hay: un cero en rojo es ruido. */
+.cifra--mala {
+  background: rgba(239, 68, 68, 0.12);
+  border-color: rgba(239, 68, 68, 0.3);
+  strong { color: #fca5a5; }
+}
+
+.registro {
+  list-style: none;
+  margin: 0 0 0.9rem;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+
+.registro__fila {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+  padding: 0.45rem 0.6rem;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.04);
+  font-size: 0.78rem;
+}
+
+.registro__fila--mala { background: rgba(239, 68, 68, 0.1); }
+
+.registro__tipo { flex-shrink: 0; color: var(--secondary); }
+
+.registro__cuerpo { min-width: 0; display: flex; flex-direction: column; }
+
+.registro__titulo {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.registro__pie { color: var(--ink-soft); font-size: 0.7rem; }
+
+/* ===== Poner a atender =====
+   Separado del resto de las acciones y en el naranja de la marca: abrir el
+   editor no se le nota a nadie; esto hace que el agente le conteste a los
+   ciudadanos desde el minuto siguiente. */
+.atender {
+  width: 100%;
+  margin-top: 0.9rem;
+  padding: 0.6rem 1rem;
+  border: 1px solid rgba(243, 71, 0, 0.5);
+  border-radius: 12px;
+  background: rgba(243, 71, 0, 0.14);
+  color: #ffb495;
+  font: inherit;
+  font-size: 0.85rem;
+  font-weight: 800;
+  cursor: pointer;
+
+  &:hover { background: rgba(243, 71, 0, 0.22); color: #fff; }
+}
+
+.confirmar {
+  margin-top: 0.9rem;
+  padding: 0.8rem;
+  border-radius: 14px;
+  border: 1px solid rgba(243, 71, 0, 0.45);
+  background: rgba(243, 71, 0, 0.1);
+}
+
+.confirmar__que {
+  margin: 0 0 0.6rem;
+  font-size: 0.82rem;
+  line-height: 1.45;
+}
+
+.confirmar__revisando { margin: 0 0 0.6rem; color: var(--ink-soft); font-size: 0.78rem; }
+.confirmar__error { margin: 0 0 0.6rem; color: var(--negative); font-size: 0.78rem; }
+
+.reparos { list-style: none; margin: 0 0 0.7rem; padding: 0; display: flex; flex-direction: column; gap: 0.35rem; }
+
+/* Un aviso se puede seguir; un bloqueo no. Se distinguen por color y por el
+   glifo, no solo por color. */
+.reparo {
+  padding: 0.4rem 0.6rem;
+  border-radius: 10px;
+  background: rgba(234, 179, 8, 0.14);
+  border: 1px solid rgba(234, 179, 8, 0.3);
+  color: #fde68a;
+  font-size: 0.76rem;
+  line-height: 1.4;
+}
+
+.reparo--bloqueo {
+  background: rgba(239, 68, 68, 0.14);
+  border-color: rgba(239, 68, 68, 0.35);
+  color: #fca5a5;
+}
+
+.confirmar__botones { display: flex; gap: 0.5rem; justify-content: flex-end; }
+
+.hecho-cambio {
+  margin: 0.8rem 0 0;
+  padding: 0.5rem 0.7rem;
+  border-radius: 10px;
+  background: rgba(52, 211, 153, 0.14);
+  border: 1px solid rgba(52, 211, 153, 0.3);
+  color: #6ee7b7;
+  font-size: 0.78rem;
+  line-height: 1.45;
+}

@@ -3,6 +3,7 @@ import { ConfigService } from '@nestjs/config';
 import { of, throwError } from 'rxjs';
 import { BrainService } from '../brain/brain.service';
 import { SettingsService } from '../shared/settings.service';
+import { AgenteActivoService } from '../shared/agente-activo.service';
 import { ElevenLabsVozService } from './elevenlabs-voz.service';
 
 /**
@@ -128,6 +129,8 @@ describe('ElevenLabsVozService', () => {
       http as unknown as HttpService,
       brain as unknown as BrainService,
       set as unknown as SettingsService,
+      // Quién atiende se resuelve acá: la consola gana sobre el entorno.
+      { idVoz: async () => CONFIG['ELEVENLABS_AGENT_ID'], hayAlguno: true } as unknown as AgenteActivoService,
       { get: (k: string, def?: unknown) => CONFIG[k] ?? def } as unknown as ConfigService,
     );
     return { service, guardadas, settings, posts, identificados, detalles, cursores };

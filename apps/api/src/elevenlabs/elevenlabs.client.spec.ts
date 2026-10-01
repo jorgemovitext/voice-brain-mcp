@@ -1,6 +1,7 @@
 import { ConfigService } from '@nestjs/config';
 import { HttpService } from '@nestjs/axios';
 import { of } from 'rxjs';
+import { AgenteActivoService } from '../shared/agente-activo.service';
 import { ElevenLabsClient } from './elevenlabs.client';
 
 /**
@@ -62,7 +63,14 @@ describe('ElevenLabsClient · turno', () => {
         ({ ELEVENLABS_API_KEY: 'k', ELEVENLABS_AGENT_ID: 'a' })[clave] ?? porDefecto,
     };
     const http = { get: () => of({ data: { signed_url: 'wss://falso' } }) };
-    return new ElevenLabsClient(http as unknown as HttpService, config as unknown as ConfigService);
+    // Quién atiende ya no sale del entorno directo: lo resuelve este servicio,
+    // que es el que mira lo elegido en la consola antes que la variable.
+    const activo = { id: async () => 'a', hayAlguno: true };
+    return new ElevenLabsClient(
+      http as unknown as HttpService,
+      activo as unknown as AgenteActivoService,
+      config as unknown as ConfigService,
+    );
   }
 
   /** Espera a que el socket falso exista y esté abierto. */

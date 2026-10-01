@@ -11,7 +11,9 @@ import {
   Req,
 } from '@nestjs/common';
 import type { FastifyRequest } from 'fastify';
+import { ElevenLabsVozService } from '../elevenlabs/elevenlabs-voz.service';
 import { ElevenLabsClient } from '../elevenlabs/elevenlabs.client';
+import { AgenteActivoService } from '../shared/agente-activo.service';
 import { AgentesService, AristaFlujo, NodoFlujo } from './agentes.service';
 import { AsistenteAgentesService, DocumentoAdjunto, TurnoAsistente } from './asistente.service';
 import { DocumentosService } from './documentos.service';
@@ -54,6 +56,8 @@ export class AgentesController {
     private readonly cliente: ElevenLabsClient,
     private readonly asistenteAgentes: AsistenteAgentesService,
     private readonly documentos: DocumentosService,
+    private readonly agenteActivo: AgenteActivoService,
+    private readonly voz: ElevenLabsVozService,
   ) {}
 
   /**
@@ -143,6 +147,55 @@ export class AgentesController {
   @Get('herramientas')
   async herramientas() {
     return this.agentes.catalogo();
+  }
+
+  /*
+   * --- Quién atiende -------------------------------------------------------
+   *
+   * Van ANTES de `:id`, o "activo" se leería como el id de un agente.
+   */
+
+  /** Quién atiende ahora, y desde dónde se decidió. */
+  @Get('activo')
+  async activo() {
+    const id = await this.agenteActivo.id();
+    const nombre = id ? await this.agentes.nombreDe(id) : null;
+    return { id, nombre, origen: await this.agenteActivo.origen() };
+  }
+
+  /**
+   * Qué puede salir mal si este agente pasa a atender.
+   *
+   * Se consulta ANTES de cambiar, para poder mostrarlo en la confirmación.
+   * Acá no se cambia nada: es la pregunta, no la acción.
+   */
+  @Get(':id/revision')
+  async revision(@Param('id') id: string) {
+    return { reparos: await this.agenteActivo.revisar(id) };
+  }
+
+  /**
+   * Pone a este agente a atender de verdad.
+   *
+   * Es la acción más consecuente de la consola: a partir de acá le contesta a
+   * los ciudadanos. Por eso se revisa de nuevo del lado del servidor —la
+   * pantalla pudo quedar abierta media hora— y un `bloqueo` no se puede
+   * forzar desde el cliente.
+   */
+  @Post(':id/usar')
+  async usar(@Param('id') id: string) {
+    const reparos = await this.agenteActivo.revisar(id);
+    const bloqueo = reparos.find((r) => r.gravedad === 'bloqueo');
+    if (bloqueo) throw new BadRequestException(bloqueo.texto);
+
+    const r = await this.agenteActivo.poner(id);
+    return { ok: true, nombre: await this.agentes.nombreDe(id), ...r, reparos };
+  }
+
+  /** Lo que hizo un agente: conversaciones, minutos y cómo le fue. */
+  @Get(':id/actividad')
+  async actividad(@Param('id') id: string) {
+    return this.voz.actividad(id);
   }
 
   @Get(':id')

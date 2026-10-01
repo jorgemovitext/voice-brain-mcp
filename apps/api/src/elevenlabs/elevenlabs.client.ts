@@ -2,6 +2,7 @@ import { HttpService } from '@nestjs/axios';
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { firstValueFrom } from 'rxjs';
+import { AgenteActivoService } from '../shared/agente-activo.service';
 
 /** Lo que el agente contestó en un turno. */
 export interface RespuestaAgente {
@@ -34,7 +35,6 @@ export class ElevenLabsClient {
   private readonly logger = new Logger(ElevenLabsClient.name);
   private readonly apiUrl: string;
   private readonly apiKey: string;
-  private readonly agentId: string;
   /**
    * Cuánto se espera a una herramienta que quedó corriendo al cerrar el turno.
    *
@@ -48,23 +48,23 @@ export class ElevenLabsClient {
 
   constructor(
     private readonly http: HttpService,
+    private readonly activo: AgenteActivoService,
     config: ConfigService,
   ) {
     this.apiUrl = config.get<string>('ELEVENLABS_API_URL', 'https://api.elevenlabs.io');
     this.apiKey = config.get<string>('ELEVENLABS_API_KEY', '');
-    this.agentId = config.get<string>('ELEVENLABS_AGENT_ID', '');
     this.timeoutMs = config.get<number>('ELEVENLABS_TIMEOUT_MS', 20_000);
   }
 
   /** Sin key o sin agente, el motor está apagado y nadie debe llamarlo. */
   configurado(): boolean {
-    return !!this.apiKey && !!this.agentId;
+    return !!this.apiKey && this.activo.hayAlguno;
   }
 
   /** Qué falta, para poder decirlo en Actividad en vez de fallar en silencio. */
   faltantes(): string[] {
     return (['ELEVENLABS_API_KEY', 'ELEVENLABS_AGENT_ID'] as const).filter(
-      (k) => !(k === 'ELEVENLABS_API_KEY' ? this.apiKey : this.agentId),
+      (k) => !(k === 'ELEVENLABS_API_KEY' ? this.apiKey : this.activo.hayAlguno),
     );
   }
 
@@ -124,9 +124,12 @@ export class ElevenLabsClient {
    *   Agentes pasa otro para poder probar un borrador sin exponerlo a nadie.
    */
   private async urlFirmada(agente?: string): Promise<string> {
+    // Se resuelve en cada turno y no al arrancar: cambiar de agente desde la
+    // consola tiene que valer para el próximo mensaje, no para el próximo
+    // despliegue.
     const res = await firstValueFrom(
       this.http.get<{ signed_url: string }>(`${this.apiUrl}/v1/convai/conversation/get-signed-url`, {
-        params: { agent_id: agente || this.agentId },
+        params: { agent_id: agente || (await this.activo.id()) },
         headers: { 'xi-api-key': this.apiKey },
         timeout: 10_000,
       }),

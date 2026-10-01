@@ -133,10 +133,103 @@
               </p>
             }
 
+            <!-- ===== Lo que hizo ===== -->
+            <h3 class="detalle__sub">Lo que ha hecho</h3>
+            @if (valorDe(actividad); as act) {
+              @if (act.total) {
+                <div class="cifras">
+                  <div class="cifra">
+                    <strong>{{ act.total }}</strong>
+                    <em>{{ act.total === 1 ? 'conversación' : 'conversaciones' }}</em>
+                  </div>
+                  <div class="cifra"><strong>{{ act.llamadas }}</strong><em>llamadas</em></div>
+                  <div class="cifra"><strong>{{ act.minutos }}</strong><em>minutos</em></div>
+                  <!-- Las fallidas aparte y en rojo: el promedio las esconde, y
+                       son las que hay que mirar. -->
+                  <div class="cifra" [class.cifra--mala]="act.fallidas > 0">
+                    <strong>{{ act.fallidas }}</strong><em>fallidas</em>
+                  </div>
+                </div>
+
+                <ul class="registro">
+                  @for (c of act.ultimas; track c.id) {
+                    <li class="registro__fila" [class.registro__fila--mala]="c.estado === 'failed'">
+                      <span class="registro__tipo">{{ c.tipo === 'llamada' ? '☎' : '✉' }}</span>
+                      <span class="registro__cuerpo">
+                        <span class="registro__titulo">{{ c.resumen || (c.tipo === 'llamada' ? 'Llamada' : 'Mensaje') }}</span>
+                        <span class="registro__pie">
+                          {{ cuando(c.cuando) }}
+                          @if (c.tipo === 'llamada') { · {{ duracion(c.segundos) }} }
+                          @if (c.turnos) { · {{ c.turnos }} turnos }
+                          @if (c.estado === 'failed') { · no se completó }
+                        </span>
+                      </span>
+                    </li>
+                  }
+                </ul>
+              } @else {
+                <p class="detalle__vacio">
+                  Todavía no atendió a nadie. Es lo que hay que mirar antes de ponerlo a atender.
+                </p>
+              }
+            } @else if (actividad.isLoading()) {
+              <p class="detalle__vacio">Buscando lo que hizo…</p>
+            }
+
             <div class="detalle__acciones">
               <a class="btn btn--primary" [routerLink]="['/agentes', a.id]">Abrir el editor</a>
               <a class="btn btn--ghost" [routerLink]="['/agentes', a.id, 'flujo']">Ver el flujo</a>
             </div>
+
+            <!-- ===== Ponerlo a atender =====
+                 Aparte del resto de las acciones y con su propia confirmación:
+                 abrir el editor no se le nota a nadie, y esto hace que el
+                 agente le conteste a los ciudadanos desde el minuto siguiente. -->
+            @if (!a.enUso) {
+              @if (confirmando() !== a.id) {
+                <button class="atender" type="button" (click)="proponerCambio(a.id)">
+                  Poner a atender
+                </button>
+              } @else {
+                <div class="confirmar">
+                  <p class="confirmar__que">
+                    <strong>«{{ a.nombre }}»</strong> va a pasar a contestar el WhatsApp y las
+                    llamadas de la Línea 100, en lugar del que atiende hoy.
+                  </p>
+
+                  @if (reparos(); as rs) {
+                    @if (rs.length) {
+                      <ul class="reparos">
+                        @for (r of rs; track r.texto) {
+                          <li class="reparo" [class.reparo--bloqueo]="r.gravedad === 'bloqueo'">
+                            {{ r.gravedad === 'bloqueo' ? '✕' : '⚠' }} {{ r.texto }}
+                          </li>
+                        }
+                      </ul>
+                    }
+                  } @else {
+                    <p class="confirmar__revisando">Revisando el agente…</p>
+                  }
+
+                  @if (errorCambio(); as e) { <p class="confirmar__error">⚠ {{ e }}</p> }
+
+                  <div class="confirmar__botones">
+                    <button class="btn btn--ghost" type="button" (click)="cancelarCambio()">
+                      Mejor no
+                    </button>
+                    <button
+                      class="btn btn--primary"
+                      type="button"
+                      [disabled]="reparos() === null || bloqueado() || cambiando()"
+                      (click)="confirmarCambio()">
+                      {{ cambiando() ? 'Cambiando…' : 'Sí, que atienda' }}
+                    </button>
+                  </div>
+                </div>
+              }
+            }
+
+            @if (resultado(); as r) { <p class="hecho-cambio">✓ {{ r }}</p> }
           </section>
         } @else {
           <div class="lateral__vacio">
