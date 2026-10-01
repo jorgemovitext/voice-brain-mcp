@@ -91,6 +91,23 @@ interface Tip {
   styleUrl: './tablero.scss',
 })
 export class TableroPage {
+  protected readonly valorDe = valorDe;
+
+  /**
+   * Quién atiende ahora: es el dueño de todo lo que este tablero muestra.
+   *
+   * El título lo lleva porque la consola ya no es de un solo agente — la
+   * Línea 100 y Movi conviven con trabajos distintos— y un tablero sin dueño
+   * a la vista hace creer que los números son de "todo", cuando son de él.
+   */
+  readonly activo = httpResource<{ id: string; nombre: string | null; origen: string }>(
+    () => '/api/agentes/activo',
+  );
+  readonly quien = computed(() => {
+    const a = valorDe(this.activo);
+    return a?.id ? a : null;
+  });
+
   readonly dias = signal(14);
   /** null = todos los canales. Filtra el tablero completo, no solo un gráfico. */
   readonly canal = signal<Channel | null>(null);

@@ -2,6 +2,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import { BrainService } from '../brain/brain.service';
 import { Channel, Interaction } from '../brain/types';
 import { HubspotClient } from '../hubspot/hubspot.client';
+import { AgenteActivoService } from '../shared/agente-activo.service';
 import { NlpearlActivityStore } from './activity.store';
 
 /** Un conteo con etiqueta, para rankings. */
@@ -93,6 +94,7 @@ export class AnalyticsService {
     private readonly brain: BrainService,
     private readonly store: NlpearlActivityStore,
     private readonly hubspot: HubspotClient,
+    private readonly activo: AgenteActivoService,
   ) {}
 
   /** `canal` filtra el tablero entero; sin él se cuenta todo el tráfico. */
@@ -100,11 +102,26 @@ export class AnalyticsService {
     const hasta = new Date();
     const desde = new Date(hasta.getTime() - dias * 86_400_000);
 
-    const [contactos, todas, avances] = await Promise.all([
+    const [contactos, todasDeTodos, avances, esDelActivo] = await Promise.all([
       this.brain.listContacts(),
       this.brain.listInteractions(),
       this.store.listActivity({ kind: 'progress', limit: 500 }),
+      this.activo.filtroDeHilos(),
     ]);
+
+    /*
+     * El tablero sigue al agente activo, y filtra por HILO y no por mensaje:
+     * la pregunta del vecino no es de ningún agente, pero es parte de la
+     * conversación que este agente atendió — filtrar por mensaje dejaría
+     * hilos sin preguntas y los tiempos de respuesta no se podrían calcular.
+     */
+    const porHilo = new Map<string, Interaction[]>();
+    for (const i of todasDeTodos) {
+      const lista = porHilo.get(i.contactId) ?? [];
+      lista.push(i);
+      porHilo.set(i.contactId, lista);
+    }
+    const todas = todasDeTodos.filter((i) => esDelActivo(porHilo.get(i.contactId) ?? []));
 
     // Las notas internas son del equipo, no conversación: no cuentan como tráfico.
     const enRango = todas.filter(

@@ -1,5 +1,6 @@
 import { BadRequestException, Body, Controller, Get, Param, Post, Query } from '@nestjs/common';
 import { z } from 'zod';
+import { AgenteActivoService } from '../shared/agente-activo.service';
 import { BrainService } from './brain.service';
 import { UnificacionService } from './unificacion.service';
 
@@ -21,6 +22,7 @@ export class BrainController {
   constructor(
     private readonly brain: BrainService,
     private readonly unificacion: UnificacionService,
+    private readonly activo: AgenteActivoService,
   ) {}
 
   @Get('health')
@@ -43,9 +45,14 @@ export class BrainController {
     };
   }
 
+  /**
+   * La bandeja sigue al agente activo: se ven los hilos que atendió él, más
+   * los que no atendió ninguno. Lo de los demás agentes no desaparece — está
+   * en su propia vista, cambiando el que atiende.
+   */
   @Get('contacts')
-  listContacts() {
-    return this.brain.listContacts();
+  async listContacts() {
+    return this.brain.listContacts(await this.activo.filtroDeHilos());
   }
 
   /**

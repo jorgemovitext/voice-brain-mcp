@@ -128,7 +128,14 @@ export class BrainService {
     return hechas;
   }
 
-  async listContacts(): Promise<ContactListItem[]> {
+  /**
+   * `soloHilosDe` deja afuera los contactos cuyos hilos atendió OTRO agente:
+   * es lo que hace que la bandeja siga al selector de agente. Viene como
+   * predicado y no como id porque la regla —a quién pertenece un hilo, qué
+   * pasa con lo histórico sin marca— vive en AgenteActivoService, y este
+   * servicio no tiene por qué conocerla.
+   */
+  async listContacts(soloHilosDe?: (interacciones: Interaction[]) => boolean): Promise<ContactListItem[]> {
     const [contacts, interacciones, señales] = await Promise.all([
       this.repo.listContacts(),
       this.repo.listInteractions(),
@@ -136,25 +143,33 @@ export class BrainService {
     ]);
 
     const ultima = new Map<string, Interaction>();
+    const porContacto = new Map<string, Interaction[]>();
     for (const i of interacciones) {
       const previa = ultima.get(i.contactId);
       if (!previa || i.occurredAt > previa.occurredAt) ultima.set(i.contactId, i);
+      if (soloHilosDe) {
+        const lista = porContacto.get(i.contactId) ?? [];
+        lista.push(i);
+        porContacto.set(i.contactId, lista);
+      }
     }
     const promesa = new Map<string, Signal>();
     for (const s of señales) {
       if (s.type === 'promise' && s.status === 'active') promesa.set(s.contactId, s);
     }
 
-    return contacts.map((contact) => {
-      const last = ultima.get(contact.id);
-      return {
-        ...contact,
-        lastInteraction: last
-          ? { channel: last.channel, occurredAt: last.occurredAt, summary: last.summary, sentiment: last.sentiment }
-          : undefined,
-        activePromise: promesa.get(contact.id),
-      };
-    });
+    return contacts
+      .filter((c) => !soloHilosDe || soloHilosDe(porContacto.get(c.id) ?? []))
+      .map((contact) => {
+        const last = ultima.get(contact.id);
+        return {
+          ...contact,
+          lastInteraction: last
+            ? { channel: last.channel, occurredAt: last.occurredAt, summary: last.summary, sentiment: last.sentiment }
+            : undefined,
+          activePromise: promesa.get(contact.id),
+        };
+      });
   }
 
   /** Contexto unificado: contacto + timeline cross-channel + señales. */

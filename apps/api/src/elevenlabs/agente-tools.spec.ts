@@ -1,3 +1,4 @@
+import { AgenteActivoService } from '../shared/agente-activo.service';
 import { BrainService } from '../brain/brain.service';
 import { HubspotClient } from '../hubspot/hubspot.client';
 import { ChannelPort } from '../ports/channel.port';
@@ -13,6 +14,12 @@ import { AgenteToolsService } from './agente-tools.service';
  * nunca lance, porque un fallo del CRM no puede cortar la conversación con el
  * ciudadano.
  */
+/** El agente activo de los tests: todo pertenece al activo. */
+const ACTIVO_DE_PRUEBA = {
+  id: async () => 'ag-1',
+  filtroDeHilos: async () => () => true,
+} as unknown as AgenteActivoService;
+
 describe('AgenteToolsService', () => {
   function build({
     crmOk = true,
@@ -97,6 +104,7 @@ describe('AgenteToolsService', () => {
       hubspot as unknown as HubspotClient,
       settings as unknown as SettingsService,
       { push: (_f: string, resumen: string, ok: boolean) => bitacora.push({ resumen, ok }) } as unknown as WebhookLogService,
+      ACTIVO_DE_PRUEBA,
       canal as unknown as ChannelPort,
     );
     return { service, anotadas, enviados, tareas, asignadas, tickets, bitacora };

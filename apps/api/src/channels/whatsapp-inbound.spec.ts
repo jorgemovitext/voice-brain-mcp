@@ -1,3 +1,4 @@
+import { AgenteActivoService } from '../shared/agente-activo.service';
 import { BrainService } from '../brain/brain.service';
 import { AtencionService } from '../shared/atencion.service';
 import { WebhookLogService } from '../shared/webhook-log.service';
@@ -14,6 +15,12 @@ import { ChannelPort } from '../ports/channel.port';
  * Gupshup y la respuesta vuelve por acá: dejarla solo en la bitácora hacía
  * que el operador escribiera a ciegas.
  */
+/** El agente activo de los tests: todo pertenece al activo. */
+const ACTIVO_DE_PRUEBA = {
+  id: async () => 'ag-1',
+  filtroDeHilos: async () => () => true,
+} as unknown as AgenteActivoService;
+
 describe('WhatsappInboundService', () => {
   const TEL = '+50497616546';
 
@@ -75,6 +82,7 @@ describe('WhatsappInboundService', () => {
       atencion as unknown as AtencionService,
       { push: (_o: string, texto: string) => bitacora.push(texto) } as unknown as WebhookLogService,
       agente as unknown as ElevenLabsService,
+      ACTIVO_DE_PRUEBA,
       canal as unknown as ChannelPort,
     );
     return { service, guardadas, bitacora, enviados };

@@ -34,25 +34,20 @@ function armar(opciones: { guardado?: string; env?: Record<string, string> } = {
 }
 
 /** Un agente como lo devuelve el proveedor. */
-function agente(opciones: Partial<{ texto: boolean; idioma: string; prompt: string; tools: string[] }> = {}) {
+function agente(
+  opciones: Partial<{ texto: boolean; idioma: string; prompt: string; tools: string[]; saludo: string }> = {},
+) {
   return {
     conversation_config: {
       conversation: { text_only: opciones.texto ?? false },
       agent: {
         language: opciones.idioma ?? 'es',
+        first_message: opciones.saludo ?? 'Buenas, le atiende la Línea 100.',
         prompt: { prompt: opciones.prompt ?? 'Sos el agente.', tool_ids: opciones.tools ?? ['t1', 't2'] },
       },
     },
   };
 }
-
-const CATALOGO = {
-  tools: [
-    { id: 't1', tool_config: { name: 'registrar_reporte' } },
-    { id: 't2', tool_config: { name: 'escalar_a_humano' } },
-    { id: 't3', tool_config: { name: 'avisar_autoridad' } },
-  ],
-};
 
 describe('AgenteActivoService · quién atiende', () => {
   let fetchMock: jest.Mock;
@@ -152,9 +147,57 @@ describe('AgenteActivoService · quién atiende', () => {
     expect(r.aviso).toMatch(/llamadas entrantes/i);
   });
 
+  describe('a quién pertenece un hilo', () => {
+    const hilo = (agentes: Array<string | undefined>, conAgente = true) =>
+      agentes.map((a) => ({ handledBy: conAgente ? 'agente' : undefined, agente: a }));
+
+    it('un hilo del activo se ve; uno de otro agente, no', async () => {
+      const { servicio } = armar({ guardado: 'movi', env: { ELEVENLABS_AGENT_ID: 'linea100' } });
+      const filtro = await servicio.filtroDeHilos();
+
+      expect(filtro(hilo(['movi']))).toBe(true);
+      expect(filtro(hilo(['linea100']))).toBe(false);
+    });
+
+    it('lo histórico sin marca pertenece al agente del entorno', async () => {
+      /*
+       * Todo lo guardado antes de la atribución lo atendió el agente que
+       * estaba en el entorno. Con el entorno activo se ve; con otro, no —
+       * si se viera desde todos, cambiar de agente no cambiaría nada.
+       */
+      const sinEleccion = armar({ env: { ELEVENLABS_AGENT_ID: 'linea100' } });
+      expect((await sinEleccion.servicio.filtroDeHilos())(hilo([undefined]))).toBe(true);
+
+      const conMovi = armar({ guardado: 'movi', env: { ELEVENLABS_AGENT_ID: 'linea100' } });
+      expect((await conMovi.servicio.filtroDeHilos())(hilo([undefined]))).toBe(false);
+    });
+
+    it('un hilo que ningún agente atendió se ve desde cualquiera', async () => {
+      // Un contacto recién creado por un operador: si no se viera, no habría
+      // desde dónde escribirle.
+      const { servicio } = armar({ guardado: 'movi' });
+      const filtro = await servicio.filtroDeHilos();
+
+      expect(filtro([])).toBe(true);
+      expect(filtro(hilo(['cualquiera'], false))).toBe(true);
+    });
+
+    it('un hilo compartido se ve desde los dos agentes', async () => {
+      // El mismo vecino pudo ser atendido por los dos en épocas distintas: el
+      // hilo es del contacto, no de un agente, y cada vista lo muestra.
+      const compartido = hilo(['movi', 'linea100']);
+
+      const movi = armar({ guardado: 'movi', env: { ELEVENLABS_AGENT_ID: 'linea100' } });
+      expect((await movi.servicio.filtroDeHilos())(compartido)).toBe(true);
+
+      const linea = armar({ env: { ELEVENLABS_AGENT_ID: 'linea100' } });
+      expect((await linea.servicio.filtroDeHilos())(compartido)).toBe(true);
+    });
+  });
+
   describe('revisar antes de cambiar', () => {
     it('un agente completo no levanta reparos', async () => {
-      fetchMock.mockResolvedValueOnce(ok(agente())).mockResolvedValueOnce(ok(CATALOGO));
+      fetchMock.mockResolvedValueOnce(ok(agente()));
 
       const { servicio } = armar();
       await expect(servicio.revisar('ag-1')).resolves.toEqual([]);
@@ -163,7 +206,7 @@ describe('AgenteActivoService · quién atiende', () => {
     it('avisa que está en otro idioma', async () => {
       // Pasó de verdad: un agente en inglés contestándole a un vecino de
       // Tegucigalpa. No falla nada, simplemente habla en el idioma equivocado.
-      fetchMock.mockResolvedValueOnce(ok(agente({ idioma: 'en' }))).mockResolvedValueOnce(ok(CATALOGO));
+      fetchMock.mockResolvedValueOnce(ok(agente({ idioma: 'en' })));
 
       const r = await armar().servicio.revisar('ag-1');
       expect(r).toHaveLength(1);
@@ -171,24 +214,43 @@ describe('AgenteActivoService · quién atiende', () => {
       expect(r[0].texto).toContain('en');
     });
 
-    it('avisa que no puede abrir un reporte ni pasar el caso', async () => {
-      // El peor modo de fallar de este sistema: conversa bien, suena bien en
-      // la transcripción y no abre un solo ticket.
-      fetchMock.mockResolvedValueOnce(ok(agente({ tools: [] }))).mockResolvedValueOnce(ok(CATALOGO));
+    it('avisa cuando no tiene NINGUNA herramienta, sin asumir cuáles debería tener', async () => {
+      /*
+       * La consola lleva agentes con trabajos distintos: exigirle a Movi las
+       * herramientas de la Línea 100 lo marcaría roto estando bien. Lo único
+       * que es un problema en cualquier agente es no poder ejecutar nada.
+       */
+      fetchMock.mockResolvedValueOnce(ok(agente({ tools: [] })));
 
       const r = await armar().servicio.revisar('ag-1');
-      expect(r.some((x) => /registrar_reporte/.test(x.texto))).toBe(true);
+      expect(r.some((x) => /ninguna herramienta/.test(x.texto))).toBe(true);
+      expect(r.some((x) => /registrar_reporte/.test(x.texto))).toBe(false);
+    });
+
+    it('avisa cuando no tiene saludo: la llamada arranca en silencio', async () => {
+      // Ya pasó, y el síntoma —"se corta sola"— no dice nada del saludo.
+      fetchMock.mockResolvedValueOnce(ok(agente({ saludo: '' })));
+
+      const r = await armar().servicio.revisar('ag-1');
+      expect(r.some((x) => /saludo/.test(x.texto))).toBe(true);
+    });
+
+    it('sin saludo pero de solo texto NO avisa: en un chat habla primero la persona', async () => {
+      fetchMock.mockResolvedValueOnce(ok(agente({ saludo: '', texto: true })));
+
+      const r = await armar().servicio.revisar('ag-1');
+      expect(r.some((x) => /saludo/.test(x.texto))).toBe(false);
     });
 
     it('avisa que con «solo texto» las llamadas no levantan', async () => {
-      fetchMock.mockResolvedValueOnce(ok(agente({ texto: true }))).mockResolvedValueOnce(ok(CATALOGO));
+      fetchMock.mockResolvedValueOnce(ok(agente({ texto: true })));
 
       const r = await armar().servicio.revisar('ag-1');
       expect(r.some((x) => /llamadas/.test(x.texto))).toBe(true);
     });
 
     it('un agente sin instrucciones se BLOQUEA, no se avisa', async () => {
-      fetchMock.mockResolvedValueOnce(ok(agente({ prompt: '  ' }))).mockResolvedValueOnce(ok(CATALOGO));
+      fetchMock.mockResolvedValueOnce(ok(agente({ prompt: '  ' })));
 
       const r = await armar().servicio.revisar('ag-1');
       expect(r.some((x) => x.gravedad === 'bloqueo')).toBe(true);

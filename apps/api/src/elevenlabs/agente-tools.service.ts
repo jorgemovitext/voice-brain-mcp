@@ -1,5 +1,6 @@
 import { Inject, Injectable, Logger } from '@nestjs/common';
 import { BrainService } from '../brain/brain.service';
+import { AgenteActivoService } from '../shared/agente-activo.service';
 import { HubspotClient } from '../hubspot/hubspot.client';
 import { ChannelPort, WHATSAPP_CHANNEL } from '../ports/channel.port';
 import { SettingsService } from '../shared/settings.service';
@@ -44,6 +45,7 @@ export class AgenteToolsService {
     private readonly hubspot: HubspotClient,
     private readonly settings: SettingsService,
     private readonly bitacora: WebhookLogService,
+    private readonly activo: AgenteActivoService,
     @Inject(WHATSAPP_CHANNEL) private readonly whatsapp: ChannelPort,
   ) {}
 
@@ -570,6 +572,7 @@ export class AgenteToolsService {
         summary: `Ficha actualizada: ${Object.keys(ficha).join(', ')}`,
         source: 'own',
         handledBy: 'agente',
+        agente: await this.activo.id(),
         ficha,
       })
       .catch((err) => {
@@ -698,6 +701,7 @@ export class AgenteToolsService {
         summary: detalle,
         source: 'own',
         handledBy: 'agente',
+        agente: await this.activo.id(),
         accion: { tipo, ok, detalle },
       })
       .catch((err) => {

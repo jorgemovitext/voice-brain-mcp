@@ -2,6 +2,7 @@ import { BrainService } from '../brain/brain.service';
 import { Interaction } from '../brain/types';
 import { HubspotClient } from '../hubspot/hubspot.client';
 import { NlpearlActivityStore } from './activity.store';
+import { AgenteActivoService } from '../shared/agente-activo.service';
 import { AnalyticsService } from './analytics.service';
 
 /**
@@ -38,6 +39,8 @@ describe('AnalyticsService · mapa de flujo', () => {
       brain as unknown as BrainService,
       store as unknown as NlpearlActivityStore,
       hubspot as unknown as HubspotClient,
+      // Todo pertenece al activo: lo que se prueba acá es el mapa, no el filtro.
+      { filtroDeHilos: async () => () => true } as unknown as AgenteActivoService,
     );
   }
 

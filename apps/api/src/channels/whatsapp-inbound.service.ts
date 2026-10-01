@@ -1,4 +1,5 @@
 import { Inject, Injectable, Logger } from '@nestjs/common';
+import { AgenteActivoService } from '../shared/agente-activo.service';
 import { AtencionService } from '../shared/atencion.service';
 import { BrainService } from '../brain/brain.service';
 import { WebhookLogService } from '../shared/webhook-log.service';
@@ -68,6 +69,7 @@ export class WhatsappInboundService {
     private readonly atencion: AtencionService,
     private readonly webhookLog: WebhookLogService,
     private readonly agente: ElevenLabsService,
+    private readonly activo: AgenteActivoService,
     @Inject(WHATSAPP_CHANNEL) private readonly whatsapp: ChannelPort,
   ) {}
 
@@ -195,6 +197,9 @@ export class WhatsappInboundService {
         summary: respuesta,
         source: 'own',
         handledBy: 'agente',
+        // CUÁL agente: es lo que deja que la bandeja y el tablero separen lo
+        // de la Línea 100 de lo de Movi cuando se cambia el que atiende.
+        agente: await this.activo.id(),
         collectedInfo: envio.providerId ? { providerId: envio.providerId } : undefined,
       });
 

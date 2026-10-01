@@ -69,6 +69,23 @@
 
 .dash__star { color: var(--d-muted); }
 
+/* El dueño del tablero y la puerta para cambiarlo. Chico y al lado del
+   nombre: es contexto, no una acción primaria. */
+.dash__quien {
+  align-self: flex-end;
+  margin-left: 0.6rem;
+  padding: 0.2rem 0.6rem;
+  border-radius: 999px;
+  border: 1px solid color-mix(in srgb, var(--d-muted) 40%, transparent);
+  color: var(--d-muted);
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-decoration: none;
+  white-space: nowrap;
+
+  &:hover { color: var(--secondary); border-color: var(--secondary); }
+}
+
 .dash__controls {
   display: flex;
   align-items: center;

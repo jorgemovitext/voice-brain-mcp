@@ -54,6 +54,11 @@ export function ensureSchema(pool: Pool): Promise<void> {
         -- Qué agente (Pearl) atendió cada interacción.
         ALTER TABLE interactions ADD COLUMN IF NOT EXISTS handled_by text;
 
+        -- CUÁL de los agentes atendió: handled_by dice el rol, esto la
+        -- identidad. Es lo que deja separar lo de la Línea 100 de lo de Movi.
+        -- NULL en lo histórico = lo atendió el agente del entorno.
+        ALTER TABLE interactions ADD COLUMN IF NOT EXISTS agente text;
+
         -- Foto o ubicación que mandó la persona: el turno llega sin texto.
         ALTER TABLE interactions ADD COLUMN IF NOT EXISTS attachment text;
         ALTER TABLE interactions ADD COLUMN IF NOT EXISTS attachment_url text;

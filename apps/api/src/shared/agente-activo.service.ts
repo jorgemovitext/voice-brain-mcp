@@ -28,16 +28,6 @@ export interface ReparoAgente {
 
 export const CLAVE_ACTIVO = 'agente:activo';
 
-/**
- * Las herramientas sin las cuales el agente conversa pero no hace nada.
- *
- * Un agente sin ellas contesta amable, suena bien en la transcripción y no
- * abre un solo ticket. Es el peor modo de fallar que tiene este sistema,
- * porque nada se rompe: simplemente no pasa nada, y nadie se entera hasta que
- * un vecino vuelve a llamar preguntando por su reporte.
- */
-const ESENCIALES = ['registrar_reporte', 'escalar_a_humano'];
-
 @Injectable()
 export class AgenteActivoService {
   private readonly logger = new Logger(AgenteActivoService.name);
@@ -180,20 +170,35 @@ export class AgenteActivoService {
       });
     }
 
-    const herramientas = await this.nombresDeHerramientas(prompt['tool_ids'] ?? []);
-    const faltan = ESENCIALES.filter((e) => !herramientas.includes(e));
-    if (faltan.length) {
-      // Se nombra cada consecuencia, no solo la primera: faltando las dos, el
-      // agente no puede ni registrar ni derivar, y decir solo una de las dos
-      // hace sonar el problema más chico de lo que es.
-      const consecuencias: Record<string, string> = {
-        registrar_reporte: 'abrir un reporte',
-        escalar_a_humano: 'pasarle el caso a una persona',
-      };
-      const nopuede = faltan.map((f) => consecuencias[f]).join(' ni ');
+    /*
+     * Sin NINGUNA herramienta, no sin "las de la Línea 100".
+     *
+     * Esta consola lleva agentes con trabajos distintos —el de la Línea 100
+     * abre reportes; Movi contesta sobre beneficios de una cooperativa— y
+     * cuáles herramientas le corresponden a cada uno lo decide su función,
+     * no nosotros. Lo único que es un problema en CUALQUIER agente es no
+     * tener ninguna: conversa amable, suena bien en la transcripción y no
+     * ejecuta nada, que es el peor modo de fallar porque nada se rompe.
+     */
+    if (!(prompt['tool_ids'] ?? []).length) {
       reparos.push({
         gravedad: 'aviso',
-        texto: `Le faltan herramientas (${faltan.join(', ')}): va a conversar bien, pero no va a poder ${nopuede}.`,
+        texto:
+          'No tiene ninguna herramienta enganchada: puede conversar, pero no puede HACER nada (registrar, avisar, escalar). Si su trabajo es solo informar, está bien así.',
+      });
+    }
+
+    /*
+     * Sin saludo, una llamada arranca en silencio: el vecino atiende, no
+     * escucha nada y cuelga. Ya pasó, y el síntoma —"la llamada se corta
+     * sola"— no dice nada del saludo. El agente de WhatsApp puede tenerlo
+     * vacío a propósito (en un chat habla primero la persona), por eso es
+     * aviso y no bloqueo.
+     */
+    if (!(agente['first_message'] ?? '').trim() && !cc['conversation']?.['text_only']) {
+      reparos.push({
+        gravedad: 'aviso',
+        texto: 'No tiene saludo: una llamada arranca en silencio y quien atiende suele colgar.',
       });
     }
 
@@ -204,15 +209,31 @@ export class AgenteActivoService {
     return reparos;
   }
 
-  /** Los ids de herramienta no dicen nada: se cambian por nombres. */
-  private async nombresDeHerramientas(ids: string[]): Promise<string[]> {
-    if (!ids.length) return [];
-    const res = await this.pedir<{
-      tools?: Array<{ id: string; tool_config?: { name?: string } }>;
-    }>('/v1/convai/tools?page_size=100').catch(() => ({ tools: [] }));
+  /**
+   * Qué hilos son del agente activo, para que el tablero y la bandeja sigan
+   * al selector.
+   *
+   * La regla trabaja sobre el HILO completo y no sobre cada mensaje: un
+   * mensaje entrante del vecino no es de ningún agente, y filtrarlo por
+   * mensaje dejaría conversaciones sin preguntas. Un hilo pertenece al activo
+   * si algún agente lo atendió y fue este, o si todavía no lo atendió ninguno
+   * —un contacto recién creado por un operador tiene que verse desde
+   * cualquier agente, o no se le puede escribir.
+   *
+   * Lo guardado ANTES de que existiera la atribución (sin `agente`) se
+   * atribuye al agente del entorno: toda esa historia la atendió el de la
+   * Línea 100, que es el que estaba configurado cuando se escribió.
+   */
+  async filtroDeHilos(): Promise<(interacciones: Array<{ agente?: string; handledBy?: string }>) => boolean> {
+    const activo = await this.id();
+    const esDelActivo = (i: { agente?: string }) =>
+      i.agente === activo || (!i.agente && activo === this.delEntorno);
 
-    const porId = new Map((res.tools ?? []).map((t) => [t.id, t.tool_config?.name ?? '']));
-    return ids.map((i) => porId.get(i) ?? '').filter(Boolean);
+    return (interacciones) => {
+      const atendidas = interacciones.filter((i) => i.handledBy === 'agente');
+      if (!atendidas.length) return true;
+      return atendidas.some(esDelActivo);
+    };
   }
 
   private async pedir<T>(ruta: string, cuerpo?: unknown, metodo?: string): Promise<T> {

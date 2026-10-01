@@ -113,20 +113,6 @@ export class ElevenLabsVozService {
     return delAgente ?? todos.find((n) => n.supports_outbound);
   }
 
-  /**
-   * Lo primero que dice el agente al atender una llamada saliente.
-   *
-   * Corto a propósito: quien atiende un número desconocido decide en dos
-   * segundos si cuelga. Con el nombre si lo tenemos, porque decirle "señor
-   * usuario" a un vecino que ya reportó algo suena a robollamada.
-   */
-  private static saludoDe(nombre?: string): string {
-    const suyo = (nombre ?? '').trim().split(/\s+/)[0];
-    return suyo
-      ? `Buenas, ${suyo}, le llamo de la Línea 100 de la AMDC. ¿Tiene un minuto?`
-      : 'Buenas, le llamo de la Línea 100 de la AMDC. ¿Tiene un minuto?';
-  }
-
   /** Para llamar hace falta, además del agente, un número desde el cual salir. */
   puedeLlamar(): boolean {
     // El número ya no se exige acá: se resuelve al llamar, así que la cuenta
@@ -430,18 +416,16 @@ export class ElevenLabsVozService {
                 canal: 'llamada',
               },
               /*
-               * El saludo, SOLO para la llamada.
+               * SIN override de saludo, a propósito.
                *
-               * El agente lo tiene vacío a propósito: en WhatsApp habla primero
-               * la persona, y un saludo automático llega antes de que escriba.
-               * Pero en una llamada saliente el que tiene que hablar primero es
-               * él — si no, el vecino atiende, escucha silencio y cuelga. Eso es
-               * exactamente lo que pasaba: la llamada conectaba, nadie decía
-               * nada y se cortaba a los pocos segundos.
+               * El saludo vive en el agente (su `first_message`), no acá: con
+               * el agente elegible desde la consola, un texto nuestro diría
+               * "le llamo de la Línea 100" por la boca de cualquier otro. Y
+               * hay una razón más dura: el proveedor CORTA la conversación si
+               * le llega un override que el agente no tiene habilitado — con
+               * agentes dinámicos eso es una ruleta. El que no tenga saludo
+               * se detecta en la revisión antes de ponerlo a atender.
                */
-              conversation_config_override: {
-                agent: { first_message: ElevenLabsVozService.saludoDe(ctx.contact.displayName) },
-              },
             },
           },
           { headers: this.headers, timeout: 15_000 },
@@ -473,6 +457,7 @@ export class ElevenLabsVozService {
         summary: `Llamada iniciada por ${quien}`,
         source: 'own',
         handledBy: 'agente',
+        agente: await this.agenteDeVoz(),
         accion: { tipo: 'aviso', ok: true, detalle: `Llamando a ${telefono} con el agente de voz` },
         collectedInfo: conversationId ? { conversationId } : undefined,
       });
@@ -516,6 +501,7 @@ export class ElevenLabsVozService {
       const res = await firstValueFrom(
         this.http.get<{
           status?: string;
+          agent_id?: string;
           transcript?: TurnoTranscripcion[];
           metadata?: {
             call_duration_secs?: number;
@@ -565,6 +551,13 @@ export class ElevenLabsVozService {
 
       const turnos = res.data?.transcript ?? [];
       const inicio = (res.data?.metadata?.start_time_unix_secs ?? 0) * 1000 || Date.now();
+      /*
+       * El dueño es el agente DE LA CONVERSACIÓN, no el activo de ahora: una
+       * llamada vieja de la Línea 100 reingerida con Movi activo seguiría
+       * siendo de la Línea 100 — atribuirla al de turno mezclaría las
+       * bandejas en el primer reproceso.
+       */
+      const dueño = res.data?.agent_id ?? (await this.agenteDeVoz());
       let nuevos = 0;
 
       for (const [i, t] of turnos.entries()) {
@@ -581,6 +574,7 @@ export class ElevenLabsVozService {
           summary: texto,
           source: 'own',
           handledBy: t.role === 'agent' ? 'agente' : undefined,
+          agente: t.role === 'agent' ? dueño : undefined,
           /*
            * De qué llamada es y en qué segundo arranca: con eso el chat puede
            * reproducir la grabación desde ESTE turno en vez de desde el
@@ -603,6 +597,7 @@ export class ElevenLabsVozService {
           summary: resumen,
           source: 'own',
           handledBy: 'agente',
+          agente: dueño,
         });
       }
 

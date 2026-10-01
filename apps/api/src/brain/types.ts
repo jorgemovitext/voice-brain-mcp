@@ -34,6 +34,17 @@ export interface Interaction {
    */
   handledBy?: string;
   /**
+   * CUÁL de los agentes atendió (la llave del proveedor), cuando
+   * `handledBy` es 'agente'.
+   *
+   * `handledBy` dice el rol; esto dice la identidad. La consola lleva varios
+   * agentes con trabajos distintos —Línea 100, Movi— y sin esta marca el
+   * tablero y la bandeja no tienen cómo separar lo de uno de lo del otro.
+   * Vacío en lo guardado antes de que existiera: eso lo atendió el agente
+   * del entorno, y el filtro lo sabe.
+   */
+  agente?: string;
+  /**
    * La persona mandó un archivo en vez de texto (foto, audio, ubicación…).
    *
    * Por NL Pearl el archivo NO lo tenemos: entrega esos turnos vacíos y no

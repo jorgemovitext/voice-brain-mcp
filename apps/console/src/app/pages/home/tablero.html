@@ -3,8 +3,13 @@
   <header class="dash__top">
     <div class="dash__title">
       <span class="dash__back" title="La colmena">‹</span>
-      <h1>Línea 100 AMDC</h1>
-      <span class="dash__star">☆</span>
+      <!-- El nombre del agente que atiende, no un rótulo fijo: este tablero
+           muestra LO DE ÉL, y al cambiar de agente cambia el mundo entero. -->
+      <h1>{{ quien()?.nombre || 'Tablero' }}</h1>
+      <a class="dash__quien" routerLink="/agentes" title="Cambiar el agente que atiende">
+        {{ quien() ? 'atendiendo ahora' : '¿quién atiende?' }} ·
+        {{ quien() ? 'cambiar' : 'elegir' }}
+      </a>
     </div>
     <div class="dash__controls">
       <div class="ctrl ctrl--grupo" role="group" aria-label="Rango de análisis">
