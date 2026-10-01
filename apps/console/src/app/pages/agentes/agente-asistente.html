@@ -6,6 +6,7 @@
         <h1>{{ valorDe(agente)?.nombre || 'Agente nuevo' }}</h1>
         <p>
           @if (agenteId()) { Se está armando de verdad: lo que ves acá ya existe. }
+          @else if (desde() === 'documentos') { Soltá el reglamento en el lienzo y lo armo con eso. }
           @else { Contale para qué es y lo va armando con vos. }
         </p>
       </div>
@@ -19,15 +20,37 @@
   </header>
 
   <div class="tablero">
-    <!-- ===== El lienzo: lo que se va armando ===== -->
-    <section class="lienzo">
+    <!-- ===== El lienzo: lo que se va armando =====
+         Es también la zona de soltar archivos: cuando está vacío no hay otro
+         lugar natural donde tirar un reglamento, y cuando ya hay flujo sigue
+         siendo el blanco más grande de la pantalla. -->
+    <section
+      class="lienzo"
+      [class.lienzo--soltar]="arrastrando()"
+      (dragover)="encima($event)"
+      (dragleave)="afuera()"
+      (drop)="soltar($event)">
       @if (!nodos().length) {
         <div class="lienzo__vacio">
-          <span class="lienzo__icono">⬡</span>
-          <p>
-            Acá se va a dibujar el flujo: cada fase de la conversación y por qué condición
-            se pasa de una a otra. Empezá contándole al asistente qué necesitás.
-          </p>
+          @if (desde() === 'documentos' || documentos().length) {
+            <span class="lienzo__icono">▤</span>
+            <p class="lienzo__titulo">Soltá acá el documento</p>
+            <p>
+              Un reglamento, un tarifario, un directorio: un PDF o un Word de hasta 4 MB.
+              Se lee, el agente queda pudiéndolo consultar durante la llamada, y el
+              asistente arma el flujo con eso.
+            </p>
+          } @else {
+            <span class="lienzo__icono">⬡</span>
+            <p>
+              Acá se va a dibujar el flujo: cada fase de la conversación y por qué condición
+              se pasa de una a otra. Empezá contándole al asistente qué necesitás —o soltá
+              un documento y lo arma con eso.
+            </p>
+          }
+          <button class="lienzo__subir" type="button" [disabled]="subiendo()" (click)="archivo.click()">
+            {{ subiendo() ? 'Subiendo…' : 'Elegir un documento' }}
+          </button>
         </div>
       } @else {
         <svg class="lienzo__svg" [attr.viewBox]="lienzo()" preserveAspectRatio="xMidYMid meet"
@@ -84,10 +107,23 @@
         </svg>
       }
 
-      @if (herramientas().length) {
+      <!-- Qué PUEDE hacer y de qué SABE: las dos mitades de un agente armado,
+           separadas porque son cosas distintas —una ejecuta, la otra consulta—
+           y se arreglan en lugares distintos cuando están mal. -->
+      @if (herramientas().length || sabeDe().length) {
         <div class="puede">
-          <span class="puede__rotulo">Puede</span>
-          @for (h of herramientas(); track h) { <span class="puede__pill">{{ h }}</span> }
+          @if (herramientas().length) {
+            <div class="puede__fila">
+              <span class="puede__rotulo">Puede</span>
+              @for (h of herramientas(); track h) { <span class="puede__pill">{{ h }}</span> }
+            </div>
+          }
+          @if (sabeDe().length) {
+            <div class="puede__fila">
+              <span class="puede__rotulo">Sabe de</span>
+              @for (d of sabeDe(); track d) { <span class="puede__pill puede__pill--doc">▤ {{ d }}</span> }
+            </div>
+          }
         </div>
       }
     </section>
@@ -97,7 +133,18 @@
       <div class="chat__scroll">
         @for (t of turnos(); track $index) {
           <div class="turno" [class.turno--mio]="t.de === 'persona'">
-            <p class="turno__texto">{{ t.texto }}</p>
+            <!-- Un turno con documentos se dibuja como ficha de archivo: el
+                 texto que viaja al servidor es la instrucción, pero lo que el
+                 operador tiene que reconocer de un vistazo es QUÉ subió. -->
+            @if (t.docs?.length) {
+              <div class="adjunto">
+                @for (d of t.docs!; track d) {
+                  <span class="adjunto__pieza"><span class="adjunto__icono">▤</span> {{ d }}</span>
+                }
+              </div>
+            } @else {
+              <p class="turno__texto">{{ t.texto }}</p>
+            }
             <!-- Lo que ese turno CAMBIÓ, no lo que dijo que iba a cambiar: sale
                  de lo que el servidor ejecutó de verdad. -->
             @if (t.cambios?.length) {
@@ -107,6 +154,9 @@
             }
           </div>
         }
+        @if (subiendo()) {
+          <div class="turno"><p class="turno__texto turno__texto--pensando">Leyendo el documento…</p></div>
+        }
         @if (pensando()) {
           <div class="turno"><p class="turno__texto turno__texto--pensando">Armándolo…</p></div>
         }
@@ -114,6 +164,22 @@
       </div>
 
       <div class="chat__composer">
+        <!-- Fuera de la vista pero en el DOM: lo abre el clip y también el
+             botón del lienzo, así hay un solo selector de archivos. -->
+        <input
+          #archivo
+          class="chat__archivo"
+          type="file"
+          multiple
+          [attr.accept]="TIPOS"
+          (change)="elegidos($event)" />
+        <button
+          class="chat__clip"
+          type="button"
+          title="Adjuntar un PDF o un Word"
+          aria-label="Adjuntar un documento"
+          [disabled]="subiendo() || pensando()"
+          (click)="archivo.click()">▤</button>
         <textarea
           class="chat__input"
           rows="2"

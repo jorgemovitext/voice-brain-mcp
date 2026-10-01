@@ -248,6 +248,7 @@ export class BrainApiService {
   asistenteDeAgentes(
     turnos: Array<{ de: 'persona' | 'asistente'; texto: string }>,
     agenteId: string | null,
+    documentos: Array<{ referencia: string; nombre: string }> = [],
   ): Promise<{
     respuesta: string;
     agenteId: string | null;
@@ -258,7 +259,27 @@ export class BrainApiService {
         respuesta: string;
         agenteId: string | null;
         cambios: Array<{ accion: string; detalle: string }>;
-      }>('/api/agentes/asistente', { turnos, agenteId }),
+      }>('/api/agentes/asistente', { turnos, agenteId, documentos }),
+    );
+  }
+
+  /**
+   * Sube un documento para que el agente lo pueda consultar.
+   *
+   * El archivo va como cuerpo crudo y el nombre en la query: es lo que entiende
+   * el servidor, y así el `File` del navegador viaja tal cual sin pasarlo a
+   * base64 —que lo infla un tercio contra el mismo tope de 4,5 MB— ni armar un
+   * formulario de por medio.
+   */
+  subirDocumento(archivo: File): Promise<{ referencia: string; nombre: string; palabras: number }> {
+    return firstValueFrom(
+      this.http.post<{ referencia: string; nombre: string; palabras: number }>(
+        `/api/agentes/documentos?nombre=${encodeURIComponent(archivo.name)}`,
+        archivo,
+        // Sin esto Angular manda `application/octet-stream` y el servidor no
+        // sabe si es un PDF o un Word.
+        { headers: { 'Content-Type': archivo.type || 'application/octet-stream' } },
+      ),
     );
   }
 

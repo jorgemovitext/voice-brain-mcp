@@ -1,7 +1,20 @@
-import { Body, Controller, Delete, Get, Param, Patch, Post } from '@nestjs/common';
+import {
+  BadRequestException,
+  Body,
+  Controller,
+  Delete,
+  Get,
+  Param,
+  Patch,
+  Post,
+  Query,
+  Req,
+} from '@nestjs/common';
+import type { FastifyRequest } from 'fastify';
 import { ElevenLabsClient } from '../elevenlabs/elevenlabs.client';
 import { AgentesService, AristaFlujo, NodoFlujo } from './agentes.service';
-import { AsistenteAgentesService, TurnoAsistente } from './asistente.service';
+import { AsistenteAgentesService, DocumentoAdjunto, TurnoAsistente } from './asistente.service';
+import { DocumentosService } from './documentos.service';
 
 /**
  * Lo que se le contesta a una herramienta durante una prueba.
@@ -40,6 +53,7 @@ export class AgentesController {
     private readonly agentes: AgentesService,
     private readonly cliente: ElevenLabsClient,
     private readonly asistenteAgentes: AsistenteAgentesService,
+    private readonly documentos: DocumentosService,
   ) {}
 
   /**
@@ -84,9 +98,36 @@ export class AgentesController {
    */
   @Post('asistente')
   async asistente(
-    @Body() body: { turnos: TurnoAsistente[]; agenteId?: string | null },
+    @Body()
+    body: { turnos: TurnoAsistente[]; agenteId?: string | null; documentos?: DocumentoAdjunto[] },
   ) {
-    return this.asistenteAgentes.responder(body.turnos ?? [], body.agenteId ?? null);
+    return this.asistenteAgentes.responder(
+      body.turnos ?? [],
+      body.agenteId ?? null,
+      body.documentos ?? [],
+    );
+  }
+
+  /**
+   * Sube un documento para que un agente lo pueda consultar.
+   *
+   * El cuerpo es el archivo CRUDO, con su propio Content-Type, y el nombre
+   * viaja en la query. No es multipart a propósito: una sola petición sube un
+   * solo archivo, el navegador ya manda el `File` tal cual sin envolverlo, y
+   * nos ahorra un parser de formularios en el camino. El nombre va en la query
+   * y no en una cabecera porque "Reglamento de Aseo.pdf" tiene acentos y una
+   * cabecera HTTP no los admite sin codificar.
+   *
+   * Devuelve una `referencia` opaca: la consola la guarda para engancharla al
+   * agente, pero lo que muestra es el nombre.
+   */
+  @Post('documentos')
+  async subirDocumento(@Query('nombre') nombre: string, @Req() req: FastifyRequest) {
+    const cuerpo = req.body;
+    if (!Buffer.isBuffer(cuerpo)) {
+      throw new BadRequestException('Mandá el archivo como cuerpo de la petición.');
+    }
+    return this.documentos.subir(nombre ?? 'Documento', req.headers['content-type'] ?? '', cuerpo);
   }
 
   @Get()

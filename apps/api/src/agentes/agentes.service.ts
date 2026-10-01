@@ -1,5 +1,6 @@
 import { Injectable, Logger, ServiceUnavailableException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { DocumentosService } from './documentos.service';
 
 /**
  * Los agentes conversacionales, administrados desde la consola.
@@ -22,7 +23,8 @@ export interface AgenteResumen {
   /** Con esto encendido no puede atender llamadas: solo texto. */
   soloTexto: boolean;
   herramientas: string[];
-  documentos: number;
+  /** Nombres de lo que el agente puede consultar. Nunca las llaves del proveedor. */
+  documentos: string[];
   /** Es el que atiende WhatsApp hoy: no se puede borrar sin romper producción. */
   enUso: boolean;
 }
@@ -170,7 +172,9 @@ export class AgentesService {
         ...(prompt['tool_ids'] ?? []).map((t: string) => porId.get(t) ?? 'herramienta desconocida'),
         ...deSistema,
       ],
-      documentos: (prompt['knowledge_base'] ?? []).length,
+      documentos: ((prompt['knowledge_base'] ?? []) as Array<{ name?: string }>).map(
+        (d) => d.name ?? 'documento',
+      ),
       enUso: id === this.enUsoId,
       instrucciones: prompt['prompt'] ?? '',
       primerMensaje: agente['first_message'] ?? '',
@@ -357,17 +361,27 @@ export class AgentesService {
    * lo que un agente afinado para turnos cortos emite bien. Por eso acá se lee
    * lo que hay, se le agrega y se guarda — no se reemplaza.
    *
-   * La PRIMERA fase que llega es la entrada, y el proveedor exige que la
-   * entrada se llame `start_node`: llamarla de otra forma hace que rechace el
-   * flujo entero con "Workflow must contain a start node".
+   * El proveedor exige que la entrada se llame `start_node`: llamarla de otra
+   * forma hace que rechace el flujo entero con "Workflow must contain a start
+   * node".
+   *
+   * Y lo crea SOLO. Un agente recién creado ya viene con un `start_node` vacío
+   * y sin salidas, así que no alcanza con "si no hay nodos, esta fase es la
+   * entrada": con esa cuenta la primera fase se agregaba como una fase común y
+   * nadie la conectaba a la entrada. El flujo quedaba naciendo muerto —la
+   * conversación arrancaba en un nodo sin salidas— y no fallaba nada
+   * visiblemente, que es lo que lo hizo pasar desapercibido. Por eso acá, si la
+   * entrada existe y todavía no tiene salidas, se la conecta.
    */
   async agregarFase(
     agente: string,
     fase: { id: string; nombre: string; instrucciones?: string; herramientas?: string[]; fin?: boolean },
   ): Promise<{ id: string; total: number }> {
     const actual = await this.flujo(agente);
-    const primera = !actual.nodos.length;
-    const id = primera ? 'start_node' : fase.id;
+    const entrada = actual.nodos.find((n) => n.tipo === 'inicio');
+    // Sin nodo de entrada (agentes de antes de que el proveedor lo sembrara),
+    // la primera fase ES la entrada y hay que renombrarla.
+    const id = entrada ? fase.id : 'start_node';
     if (actual.nodos.some((n) => n.id === id)) return { id, total: actual.nodos.length };
 
     const i = actual.nodos.length;
@@ -375,7 +389,7 @@ export class AgentesService {
       ...actual.nodos,
       {
         id,
-        tipo: primera ? 'inicio' : fase.fin ? 'fin' : 'fase',
+        tipo: entrada ? (fase.fin ? 'fin' : 'fase') : 'inicio',
         nombre: fase.nombre,
         // En zigzag y puestas por la app: pedirle coordenadas al modelo es
         // pedirle que haga de tipógrafo, y salen encimadas.
@@ -385,7 +399,15 @@ export class AgentesService {
         herramientas: fase.herramientas ?? [],
       },
     ];
-    await this.guardarFlujo(agente, { nodos, aristas: actual.aristas });
+
+    // La entrada recién sembrada no lleva a ninguna parte: esta fase es su
+    // única salida posible, así que se conecta sin condición.
+    const huerfana = entrada && !actual.aristas.some((a) => a.desde === entrada.id);
+    const aristas = huerfana
+      ? [...actual.aristas, { id: `e${actual.aristas.length + 1}`, desde: entrada!.id, hasta: id, condicion: '' }]
+      : actual.aristas;
+
+    await this.guardarFlujo(agente, { nodos, aristas });
     return { id, total: nodos.length };
   }
 
@@ -488,19 +510,73 @@ export class AgentesService {
       name: titulo,
       text: texto,
     });
+    await this.engancharDocumentos(id, [{ referencia: doc.id, nombre: titulo }], 'text');
+  }
 
-    // Subirlo no lo engancha: hay que sumarlo a la base del agente.
+  /**
+   * Engancha documentos ya subidos a la base de conocimiento del agente.
+   *
+   * Subir un documento NO lo conecta a nada: queda en la cuenta y hay que
+   * sumarlo al agente que lo va a consultar. Es el paso que se olvida y el
+   * síntoma es el peor de todos —el agente contesta igual, pero inventando—
+   * porque nada falla visiblemente.
+   *
+   * Los que ya están se saltan por llave y no por nombre: subir dos veces el
+   * mismo reglamento con el mismo título son dos documentos distintos, y
+   * engancharlos a los dos hace que RAG recupere el mismo párrafo duplicado.
+   */
+  async engancharDocumentos(
+    id: string,
+    docs: Array<{ referencia: string; nombre: string }>,
+    tipo: 'file' | 'text' = 'file',
+  ): Promise<string[]> {
+    if (!docs.length) return [];
+
     const a = await this.pedir<Record<string, any>>(`/v1/convai/agents/${id}`);
-    const cc = a['conversation_config'];
-    const prompt = cc['agent']['prompt'];
+    const cc = a['conversation_config'] ?? {};
+    cc['agent'] = cc['agent'] ?? {};
+    const prompt = (cc['agent']['prompt'] = cc['agent']['prompt'] ?? {});
+
+    const previos = (prompt['knowledge_base'] ?? []) as Array<{ id: string }>;
+    const ya = new Set(previos.map((d) => d.id));
+    const nuevos = docs.filter((d) => !ya.has(d.referencia));
+    if (!nuevos.length) return [];
+
     prompt['knowledge_base'] = [
-      ...(prompt['knowledge_base'] ?? []),
-      { type: 'text', name: titulo, id: doc.id, usage_mode: 'auto' },
+      ...previos,
+      ...nuevos.map((d) => ({ type: tipo, name: d.nombre, id: d.referencia, usage_mode: 'auto' })),
     ];
+
+    /*
+     * RAG encendido a mano: viene apagado por defecto, y apagado el proveedor
+     * le mete el documento ENTERO al prompt en cada turno. Con un reglamento
+     * de treinta páginas eso es la llamada entera gastada en leerse a sí
+     * misma, y el agente igual contesta cortado.
+     *
+     * El modelo de embeddings tiene que ser el mismo con el que se indexó, o
+     * no hay nada que buscar en el índice.
+     */
+    prompt['rag'] = {
+      ...(prompt['rag'] ?? {}),
+      enabled: true,
+      embedding_model: DocumentosService.embeddings,
+    };
+
+    // Igual que en `actualizar`: `tools` y `tool_ids` no pueden convivir.
     delete prompt['tools'];
     delete cc['agent']['tools'];
 
     await this.pedir(`/v1/convai/agents/${id}`, { conversation_config: cc }, 'PATCH');
-    this.logger.log(`Contexto "${titulo}" agregado a ${id}`);
+    this.logger.log(`Documentos enganchados a ${id}: ${nuevos.map((d) => d.nombre).join(', ')}`);
+    return nuevos.map((d) => d.nombre);
+  }
+
+  /** Las llaves de lo que el agente ya puede consultar, para no duplicar. */
+  async referenciasDe(id: string): Promise<string[]> {
+    const a = await this.pedir<Record<string, any>>(`/v1/convai/agents/${id}`);
+    const kb = (a['conversation_config']?.['agent']?.['prompt']?.['knowledge_base'] ?? []) as Array<{
+      id: string;
+    }>;
+    return kb.map((d) => d.id);
   }
 }

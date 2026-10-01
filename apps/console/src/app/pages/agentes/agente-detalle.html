@@ -10,7 +10,7 @@
           <div class="obra__name">{{ a.nombre }}</div>
           <div class="obra__meta">
             @if (a.enUso) { Atiende WhatsApp ahora mismo · }
-            {{ a.idioma }} · {{ a.documentos }} {{ a.documentos === 1 ? 'documento' : 'documentos' }}
+            {{ a.idioma }} · {{ a.documentos.length }} {{ a.documentos.length === 1 ? 'documento' : 'documentos' }}
           </div>
         </div>
         <a class="obra__flujo" [routerLink]="['/agentes', id(), 'flujo']" title="Ver el flujo de la conversación">

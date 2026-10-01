@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, Component, computed, effect, inject, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, effect, inject, input, signal } from '@angular/core';
 import { httpResource } from '@angular/common/http';
 import { RouterLink } from '@angular/router';
 import { BrainApiService } from '../../brain-api.service';
@@ -11,10 +11,42 @@ interface Turno {
   texto: string;
   /** Lo que ese turno cambió de verdad en el agente. */
   cambios?: string[];
+  /**
+   * Los documentos que se adjuntaron en ese turno.
+   *
+   * Cuando están, el turno se dibuja como una ficha de archivo y no como un
+   * globo de texto: el `texto` igual viaja al servidor —es la instrucción— pero
+   * en pantalla lo que importa es QUÉ se subió.
+   */
+  docs?: string[];
+}
+
+/** Un documento ya subido y esperando enganche. */
+interface Documento {
+  referencia: string;
+  nombre: string;
+  palabras: number;
 }
 
 const ANCHO = 236;
 const ALTO = 112;
+
+/**
+ * Lo que el proveedor sabe leer. Tiene que coincidir con `documentos.service.ts`.
+ *
+ * Se valida también acá para no hacerle subir cuatro megas al operador antes de
+ * decirle que no: con una conexión de Tegucigalpa eso es un minuto perdido para
+ * llegar a un 400.
+ */
+const TIPOS = [
+  'application/pdf',
+  'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+  'application/msword',
+  'text/plain',
+  'text/html',
+  'application/epub+zip',
+];
+const TOPE_BYTES = 4 * 1024 * 1024;
 
 /**
  * Crear un agente conversando, con el flujo a la vista.
@@ -36,8 +68,12 @@ export class AgenteAsistentePage {
   protected readonly valorDe = valorDe;
   protected readonly ANCHO = ANCHO;
   protected readonly ALTO = ALTO;
+  protected readonly TIPOS = TIPOS.join(',');
 
   private readonly api = inject(BrainApiService);
+
+  /** `?desde=documentos`: se entró por el camino de subir un reglamento. */
+  readonly desde = input<string>('');
 
   /** El agente que el asistente creó, si ya llegó a crearlo. */
   readonly agenteId = signal<string | null>(null);
@@ -46,7 +82,8 @@ export class AgenteAsistentePage {
     {
       de: 'asistente',
       texto:
-        '¿Para qué necesitás este agente? Contame en una línea qué tiene que resolver y con quién habla.',
+        '¿Para qué necesitás este agente? Contame en una línea qué tiene que resolver y con quién habla. ' +
+        'Si tenés un reglamento o un documento con las reglas, adjuntalo y lo armo con eso.',
     },
   ]);
 
@@ -54,11 +91,29 @@ export class AgenteAsistentePage {
   readonly pensando = signal(false);
   readonly error = signal<string | null>(null);
 
+  /* --- Documentos ------------------------------------------------------- */
+
+  /**
+   * Los subidos en esta charla.
+   *
+   * Viajan en CADA turno y no una sola vez: el agente puede no existir todavía
+   * cuando se sube el documento, y el servidor los engancha en cuanto exista.
+   * Mandarlos siempre hace que el enganche no dependa de que un turno puntual
+   * no se haya perdido.
+   */
+  readonly documentos = signal<Documento[]>([]);
+  readonly subiendo = signal(false);
+  /** Hay un archivo encima del lienzo, listo para soltar. */
+  readonly arrastrando = signal(false);
+
+  /** Lo que el agente ya puede consultar, según el servidor. */
+  readonly sabeDe = computed(() => valorDe(this.agente)?.documentos ?? []);
+
   /** El flujo del agente que se está armando. Se relee tras cada cambio. */
   readonly flujo = httpResource<{ nodos: NodoFlujo[]; aristas: AristaFlujo[] }>(() =>
     this.agenteId() ? `/api/agentes/${this.agenteId()}/flujo` : undefined,
   );
-  readonly agente = httpResource<{ nombre: string; herramientas: string[] }>(() =>
+  readonly agente = httpResource<{ nombre: string; herramientas: string[]; documentos: string[] }>(() =>
     this.agenteId() ? `/api/agentes/${this.agenteId()}` : undefined,
   );
 
@@ -77,12 +132,108 @@ export class AgenteAsistentePage {
     this.texto.set((e.target as HTMLTextAreaElement).value);
   }
 
-  async enviar(): Promise<void> {
-    const texto = this.texto().trim();
+  /* --- Adjuntar ---------------------------------------------------------- */
+
+  elegidos(e: Event): void {
+    const input = e.target as HTMLInputElement;
+    void this.adjuntar(Array.from(input.files ?? []));
+    // Se limpia para que volver a elegir el MISMO archivo dispare el evento.
+    input.value = '';
+  }
+
+  encima(e: DragEvent): void {
+    e.preventDefault();
+    this.arrastrando.set(true);
+  }
+
+  afuera(): void {
+    this.arrastrando.set(false);
+  }
+
+  soltar(e: DragEvent): void {
+    e.preventDefault();
+    this.arrastrando.set(false);
+    void this.adjuntar(Array.from(e.dataTransfer?.files ?? []));
+  }
+
+  /**
+   * Sube los archivos y le pide al asistente que arme el agente con ellos.
+   *
+   * El envío es automático a propósito: subir un reglamento y quedarse mirando
+   * un chip no es "crear el agente con el documento". El operador suelta el
+   * archivo y el asistente ya está trabajando.
+   */
+  async adjuntar(archivos: File[]): Promise<void> {
+    const utiles = archivos.filter((a) => a.size > 0);
+    if (!utiles.length || this.subiendo() || this.pensando()) return;
+
+    this.subiendo.set(true);
+    this.error.set(null);
+
+    const subidos: Documento[] = [];
+    const fallidos: string[] = [];
+
+    for (const archivo of utiles) {
+      const motivo = AgenteAsistentePage.rechazo(archivo);
+      if (motivo) {
+        fallidos.push(`${archivo.name}: ${motivo}`);
+        continue;
+      }
+      try {
+        subidos.push(await this.api.subirDocumento(archivo));
+      } catch (e) {
+        fallidos.push(`${archivo.name}: ${(e as Error).message}`);
+      }
+    }
+
+    this.subiendo.set(false);
+    if (!subidos.length) {
+      this.error.set(fallidos.join(' · '));
+      return;
+    }
+
+    this.documentos.update((d) => [...d, ...subidos]);
+
+    const nombres = subidos.map((d) => d.nombre);
+    const lista = nombres.map((n) => `«${n}»`).join(' y ');
+    await this.enviar(
+      this.agenteId()
+        ? `Subí ${lista}. Sumalo a lo que el agente ya sabe y ajustá las instrucciones para que lo consulte.`
+        : `Subí ${lista}. Armá un agente que atienda con base en ese documento: creálo y empezá el flujo.`,
+      nombres,
+    );
+
+    /*
+     * El aviso de lo que NO subió va al final y no antes del envío: `enviar`
+     * limpia el error al arrancar, así que puesto antes se borraba solo y el
+     * operador se quedaba creyendo que subieron los tres archivos.
+     */
+    if (fallidos.length) this.error.set(fallidos.join(' · '));
+  }
+
+  /** Por qué no se puede subir, o null si se puede. */
+  private static rechazo(archivo: File): string | null {
+    if (archivo.size > TOPE_BYTES) {
+      return `pesa ${Math.round(archivo.size / 1024 / 1024)} MB y el tope es ${TOPE_BYTES / 1024 / 1024} MB`;
+    }
+    // Por tipo, y si el navegador no lo informó, por extensión: en Windows un
+    // .docx llega a veces con el tipo vacío.
+    if (TIPOS.includes(archivo.type)) return null;
+    if (/\.(pdf|docx?|txt|html?|epub)$/i.test(archivo.name)) return null;
+    return 'no es un PDF ni un Word';
+  }
+
+  /* --- Conversar --------------------------------------------------------- */
+
+  /**
+   * Un turno. `forzado` lo manda la app (al adjuntar) en vez del operador.
+   */
+  async enviar(forzado?: string, docs?: string[]): Promise<void> {
+    const texto = (forzado ?? this.texto()).trim();
     if (!texto || this.pensando()) return;
 
-    this.turnos.update((t) => [...t, { de: 'persona', texto }]);
-    this.texto.set('');
+    this.turnos.update((t) => [...t, { de: 'persona', texto, docs }]);
+    if (!forzado) this.texto.set('');
     this.pensando.set(true);
     this.error.set(null);
 
@@ -90,6 +241,7 @@ export class AgenteAsistentePage {
       const r = await this.api.asistenteDeAgentes(
         this.turnos().map(({ de, texto }) => ({ de, texto })),
         this.agenteId(),
+        this.documentos().map(({ referencia, nombre }) => ({ referencia, nombre })),
       );
 
       if (r.agenteId && r.agenteId !== this.agenteId()) this.agenteId.set(r.agenteId);

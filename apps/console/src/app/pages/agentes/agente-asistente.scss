@@ -86,6 +86,15 @@
   width: 100%;
 }
 
+/* Soltando un archivo: el lienzo entero se marca como blanco. El borde
+   discontinuo es lo que dice "esto recibe algo", y es la convención que el
+   operador ya conoce de cualquier otra app. */
+.lienzo--soltar {
+  border-color: var(--secondary);
+  border-style: dashed;
+  background: #eef9ff;
+}
+
 .lienzo__vacio {
   flex: 1;
   display: flex;
@@ -101,7 +110,32 @@
   p { margin: 0; max-width: 40ch; line-height: 1.5; }
 }
 
+.lienzo__titulo {
+  font-size: 1.05rem;
+  font-weight: 800;
+  color: #16202e;
+}
+
 .lienzo__icono { font-size: 2rem; color: #c3c9d4; }
+
+/* Claro sobre el lienzo claro: acá el naranja de la marca sería el único
+   elemento saturado de una pantalla que es a propósito un tablero en blanco. */
+.lienzo__subir {
+  margin-top: 0.3rem;
+  padding: 0.5rem 1.1rem;
+  border-radius: 999px;
+  border: 1px solid #cbd2dd;
+  background: #fff;
+  color: #16202e;
+  font: inherit;
+  font-size: 0.82rem;
+  font-weight: 700;
+  cursor: pointer;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.06);
+
+  &:hover:not(:disabled) { border-color: var(--secondary); color: #0f7fa8; }
+  &:disabled { opacity: 0.55; cursor: default; }
+}
 
 /* ===== Tarjetas del flujo ===== */
 .ficha {
@@ -232,15 +266,24 @@
 .puede {
   flex-shrink: 0;
   display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 0.35rem;
+  flex-direction: column;
+  gap: 0.4rem;
   padding: 0.7rem 0.9rem;
   background: #fff;
   border-top: 1px solid #e6e8ee;
 }
 
+/* Un renglón por cosa: "puede" y "sabe de" en la misma fila se leían como una
+   sola lista revuelta de verbos y sustantivos. */
+.puede__fila {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+
 .puede__rotulo {
+  min-width: 4.4rem;
   font-size: 0.64rem;
   font-weight: 800;
   letter-spacing: 0.1em;
@@ -257,6 +300,15 @@
   font-size: 0.74rem;
   font-weight: 700;
   &::first-letter { text-transform: uppercase; }
+}
+
+/* Lo que consulta va en el naranja de la marca y no en el cian de las
+   acciones: son dos naturalezas distintas y mezclarlas en un color hace que
+   "avisar a la cuadrilla" y "el Reglamento de Aseo" se lean como lo mismo. */
+.puede__pill--doc {
+  background: rgba(243, 71, 0, 0.1);
+  border-color: rgba(243, 71, 0, 0.28);
+  color: #a8360d;
 }
 
 /* ===== Chat ===== */
@@ -335,6 +387,34 @@
 
 .turno__texto--pensando { color: var(--ink-soft); font-style: italic; }
 
+/* Un adjunto no es un globo de texto: es un objeto que se trajo a la charla.
+   Se dibuja como ficha para que el operador lo distinga del resto de lo que
+   escribió, que es lo que va a buscar cuando quiera saber qué subió. */
+.adjunto {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+
+.adjunto__pieza {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.5rem 0.75rem;
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--primary) 14%, #1d2436);
+  border: 1px solid rgba(243, 71, 0, 0.35);
+  font-size: 0.82rem;
+  font-weight: 700;
+  word-break: break-word;
+}
+
+.adjunto__icono {
+  flex-shrink: 0;
+  color: var(--primary);
+  font-size: 0.95rem;
+}
+
 .turno__hechos {
   display: flex;
   flex-direction: column;
@@ -368,6 +448,36 @@
   align-items: flex-end;
   padding: 0.7rem 0.7rem 0.7rem 1.9rem;
   border-top: 1px solid rgba(255, 255, 255, 0.12);
+}
+
+/* El selector nativo es impresentable y no se puede estilar: se esconde y se
+   abre desde el clip o desde el botón del lienzo. `display:none` no sirve —en
+   Safari un input oculto así no abre el diálogo—, así que se saca de la vista
+   sin sacarlo del flujo de foco. */
+.chat__archivo {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.chat__clip {
+  flex-shrink: 0;
+  width: 34px;
+  height: 34px;
+  display: grid;
+  place-items: center;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: var(--panel-2);
+  color: var(--ink-soft);
+  font-size: 0.95rem;
+  cursor: pointer;
+  transition: color 0.12s, border-color 0.12s;
+
+  &:hover:not(:disabled) { color: var(--secondary); border-color: var(--secondary); }
+  &:disabled { opacity: 0.4; cursor: default; }
 }
 
 .chat__input {

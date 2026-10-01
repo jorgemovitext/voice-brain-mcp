@@ -306,7 +306,8 @@ export interface AgenteResumen {
   soloTexto: boolean;
   /** Nombres, nunca ids: un hash del proveedor no le dice nada a nadie. */
   herramientas: string[];
-  documentos: number;
+  /** Nombres de lo que puede consultar, nunca las llaves del proveedor. */
+  documentos: string[];
   /** Es el que atiende WhatsApp hoy: no se puede borrar. */
   enUso: boolean;
 }

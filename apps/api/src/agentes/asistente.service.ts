@@ -3,6 +3,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { ElevenLabsClient } from '../elevenlabs/elevenlabs.client';
 import { AgentesService, AristaFlujo, NodoFlujo } from './agentes.service';
+import { DocumentosService } from './documentos.service';
 
 const MODELO = 'claude-opus-4-8';
 
@@ -14,8 +15,21 @@ export interface TurnoAsistente {
 
 /** Lo que el asistente hizo de verdad en este turno. */
 export interface CambioAsistente {
-  accion: 'crear' | 'instrucciones' | 'herramientas' | 'flujo';
+  accion: 'crear' | 'instrucciones' | 'herramientas' | 'flujo' | 'documentos';
   detalle: string;
+}
+
+/**
+ * Un documento que el operador subió durante la charla.
+ *
+ * Viaja en los dos sentidos: la consola lo manda en cada turno porque el
+ * agente puede no existir todavía cuando se sube, y en cuanto exista hay que
+ * engancharlo. Sin esto, el documento quedaría arriba en la cuenta y
+ * desconectado del agente que se está armando.
+ */
+export interface DocumentoAdjunto {
+  referencia: string;
+  nombre: string;
 }
 
 const INSTRUCCIONES = [
@@ -157,6 +171,7 @@ export class AsistenteAgentesService {
     config: ConfigService,
     private readonly agentes: AgentesService,
     private readonly cliente: ElevenLabsClient,
+    private readonly documentos: DocumentosService,
   ) {
     this.constructorId = config.get<string>('ELEVENLABS_BUILDER_AGENT_ID', '');
     const apiKey = config.get<string>('ANTHROPIC_API_KEY', '');
@@ -178,9 +193,10 @@ export class AsistenteAgentesService {
   async responder(
     turnos: TurnoAsistente[],
     agenteId: string | null,
+    adjuntos: DocumentoAdjunto[] = [],
   ): Promise<{ respuesta: string; agenteId: string | null; cambios: CambioAsistente[] }> {
     // El Constructor de la propia cuenta manda: no suma credencial ni factura.
-    if (this.constructorId) return this.porConstructor(turnos, agenteId);
+    if (this.constructorId) return this.porConstructor(turnos, agenteId, adjuntos);
 
     if (!this.claude) {
       return {
@@ -192,6 +208,10 @@ export class AsistenteAgentesService {
     }
 
     const catalogo = await this.agentes.catalogo().catch(() => []);
+    const cambios: CambioAsistente[] = [];
+    let id = agenteId;
+    if (id) await this.engancharPendientes(id, adjuntos, cambios);
+
     const contexto = [
       INSTRUCCIONES,
       '',
@@ -201,15 +221,13 @@ export class AsistenteAgentesService {
       agenteId
         ? 'El agente YA está creado: usá `ajustar_agente`, no `crear_agente`.'
         : 'Todavía no hay agente creado.',
+      ...(await this.briefingDeDocumentos(adjuntos)),
     ].join('\n');
 
     const mensajes: Anthropic.MessageParam[] = turnos.map((t) => ({
       role: t.de === 'persona' ? 'user' : 'assistant',
       content: t.texto,
     }));
-
-    const cambios: CambioAsistente[] = [];
-    let id = agenteId;
 
     // Tope de vueltas: sin él, un modelo que insiste con una herramienta que
     // falla dejaría la petición girando hasta el timeout de la lambda.
@@ -232,7 +250,11 @@ export class AsistenteAgentesService {
 
       for (const uso of usos) {
         const r = await this.ejecutar(uso.name, uso.input as Record<string, unknown>, id);
-        if (r.id) id = r.id;
+        if (r.id) {
+          id = r.id;
+          // Recién ahora hay agente a quien engancharle lo que ya se subió.
+          await this.engancharPendientes(id, adjuntos, cambios);
+        }
         if (r.cambio) cambios.push(r.cambio);
         resultados.push({ type: 'tool_result', tool_use_id: uso.id, content: r.salida });
       }
@@ -261,23 +283,35 @@ export class AsistenteAgentesService {
   private async porConstructor(
     turnos: TurnoAsistente[],
     agenteId: string | null,
+    adjuntos: DocumentoAdjunto[],
   ): Promise<{ respuesta: string; agenteId: string | null; cambios: CambioAsistente[] }> {
     const catalogo = await this.agentes.catalogo().catch(() => []);
     const previos = turnos.slice(0, -1);
     const ultimo = turnos[turnos.length - 1]?.texto ?? '';
+
+    const cambios: CambioAsistente[] = [];
+    let id = agenteId;
+
+    /*
+     * Primero enganchar, después hablar.
+     *
+     * Si el documento se engancha recién cuando el constructor termina, el
+     * turno en el que el operador lo sube es un turno en el que el agente
+     * todavía no sabe nada — y es justo el turno en el que el constructor está
+     * escribiendo el prompt que lo menciona.
+     */
+    if (id) await this.engancharPendientes(id, adjuntos, cambios);
 
     const contexto = [
       'Herramientas disponibles en la cuenta (usá estos nombres tal cual):',
       ...catalogo.map((h) => `- ${h.nombre}: ${h.descripcion || 'sin descripción'}`),
       '',
       agenteId ? 'El agente YA está creado: usá ajustar_agente, no crear_agente.' : 'Todavía no hay agente creado.',
+      ...(await this.briefingDeDocumentos(adjuntos)),
       '',
       'Conversación hasta ahora:',
       ...previos.map((t) => `${t.de === 'persona' ? 'Operador' : 'Vos'}: ${t.texto}`),
     ].join('\n');
-
-    const cambios: CambioAsistente[] = [];
-    let id = agenteId;
 
     const r = await this.cliente.responder({
       agente: this.constructorId,
@@ -287,7 +321,11 @@ export class AsistenteAgentesService {
       // el turno y la herramienta no llegaba a ejecutarse.
       esperarHerramientas: true,
       ejecutarHerramienta: async (nombre, args) => {
-        const salida = await this.ejecutarPlano(nombre, args, id, cambios, (nuevo) => (id = nuevo));
+        const salida = await this.ejecutarPlano(nombre, args, id, cambios, async (nuevo) => {
+          id = nuevo;
+          // Recién ahora hay agente a quien engancharle lo que ya se subió.
+          await this.engancharPendientes(nuevo, adjuntos, cambios);
+        });
         return { ok: true, mensaje: salida };
       },
     });
@@ -299,13 +337,82 @@ export class AsistenteAgentesService {
     };
   }
 
+  /**
+   * Engancha al agente los documentos que todavía no tenga.
+   *
+   * Se llama en cada turno y no una sola vez: el documento puede subirse antes
+   * de que el agente exista, o pueden sumarse más a mitad de la charla. Los ya
+   * enganchados se detectan leyendo el agente, así que llamarla de más no
+   * duplica nada.
+   *
+   * No tira para arriba si falla. Que no se pueda enganchar un documento
+   * —tope del plan, índice sin terminar— no es razón para que el operador
+   * pierda el turno entero de conversación; queda avisado en el chat y puede
+   * seguir armando el agente.
+   */
+  private async engancharPendientes(
+    agenteId: string,
+    adjuntos: DocumentoAdjunto[],
+    cambios: CambioAsistente[],
+  ): Promise<void> {
+    if (!adjuntos.length) return;
+    try {
+      const nuevos = await this.agentes.engancharDocumentos(agenteId, adjuntos);
+      if (nuevos.length) {
+        cambios.push({ accion: 'documentos', detalle: `Ya puede consultar: ${nuevos.join(', ')}` });
+      }
+    } catch (err) {
+      const motivo = (err as Error).message;
+      this.logger.warn(`No se pudieron enganchar los documentos a ${agenteId}: ${motivo}`);
+      cambios.push({ accion: 'documentos', detalle: `No se pudieron enganchar los documentos: ${motivo}` });
+    }
+  }
+
+  /**
+   * Lo que el constructor necesita saber de los documentos subidos.
+   *
+   * Va un EXTRACTO y no el documento: el documento ya está enganchado al
+   * agente y se consulta por RAG en la llamada. Lo que el constructor tiene
+   * que hacer con esto es reconocer el tema y escribir COMPORTAMIENTO —"si
+   * preguntan por horarios de recolección, consultá el reglamento"—, no
+   * copiarse el contenido al prompt.
+   *
+   * Si se copia, el reglamento entero se paga en cada turno de cada llamada y
+   * encima entra cortado: el prompt tiene tope y el documento no.
+   */
+  private async briefingDeDocumentos(adjuntos: DocumentoAdjunto[]): Promise<string[]> {
+    if (!adjuntos.length) return [];
+
+    const partes = await Promise.all(
+      adjuntos.map(async (d) => {
+        const extracto = await this.documentos.extracto(d.referencia).catch(() => '');
+        return [`--- «${d.nombre}» ---`, extracto || '(no se pudo leer el contenido)'].join('\n');
+      }),
+    );
+
+    return [
+      '',
+      `DOCUMENTOS: el operador subió ${adjuntos.length === 1 ? 'un documento' : `${adjuntos.length} documentos`}`,
+      'y ya quedaron enganchados a la base de conocimiento del agente (o lo quedarán',
+      'en cuanto lo crees). El agente los va a poder consultar durante la llamada.',
+      '',
+      'NO copies el contenido dentro de las instrucciones. Escribí comportamiento:',
+      'de qué temas sabe, cuándo tiene que consultarlos y qué hacer si no encuentra',
+      'la respuesta ahí. Nombralos por su nombre para que el agente sepa a qué',
+      'referirse.',
+      '',
+      'Esto es lo que dicen, para que sepas de qué se trata:',
+      ...partes,
+    ];
+  }
+
   /** De los argumentos planos del Constructor a las operaciones reales. */
   private async ejecutarPlano(
     nombre: string,
     args: Record<string, unknown>,
     agenteId: string | null,
     cambios: CambioAsistente[],
-    fijarId: (id: string) => void,
+    fijarId: (id: string) => Promise<void>,
   ): Promise<string> {
     const txt = (k: string) => String(args[k] ?? '').trim();
     /** "a, b, c" → ["a","b","c"]. Vacío da lista vacía, no [""]. */
@@ -320,7 +427,7 @@ export class AsistenteAgentesService {
         case 'crear_agente': {
           if (agenteId) return 'El agente ya existe; usá ajustar_agente.';
           const { id } = await this.agentes.crear({ nombre: txt('nombre'), instrucciones: txt('instrucciones') });
-          fijarId(id);
+          await fijarId(id);
           cambios.push({ accion: 'crear', detalle: `Se creó «${txt('nombre')}»` });
           return 'Agente creado.';
         }
