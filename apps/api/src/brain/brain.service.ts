@@ -237,7 +237,17 @@ export class BrainService {
    * Nota interna del operador: queda en el timeline del hilo (canal `note`)
    * pero no sale por ningún canal. Los agentes conversan; el humano apunta.
    */
-  addInternalNote(contactId: string, text: string, author?: string): Promise<Interaction> {
+  addInternalNote(
+    contactId: string,
+    text: string,
+    author?: string,
+    /**
+     * El espacio de trabajo donde se escribió la nota. Sin él, una nota en un
+     * hilo de Movi cuenta como "historia sin marca" y el hilo entero se cuela
+     * en la bandeja del agente del entorno.
+     */
+    agente?: string,
+  ): Promise<Interaction> {
     return this.appendInteraction({
       contactId,
       channel: 'note',
@@ -245,6 +255,7 @@ export class BrainService {
       occurredAt: new Date().toISOString(),
       summary: text,
       source: 'own',
+      agente,
       collectedInfo: author ? { author } : undefined,
     });
   }

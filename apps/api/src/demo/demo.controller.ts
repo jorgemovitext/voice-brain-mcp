@@ -2,6 +2,7 @@ import { BadRequestException, Body, Controller, Get, Param, Post, Req } from '@n
 import { FastifyRequest } from 'fastify';
 import { z } from 'zod';
 import { AuthService } from '../auth/auth.service';
+import { AgenteActivoService } from '../shared/agente-activo.service';
 import { BrainService } from '../brain/brain.service';
 import { FollowupService } from '../channels/followup.service';
 import { DemoService } from './demo.service';
@@ -29,6 +30,7 @@ export class DemoController {
     private readonly followup: FollowupService,
     private readonly brain: BrainService,
     private readonly auth: AuthService,
+    private readonly activo: AgenteActivoService,
   ) {}
 
   @Post('demo/run')
@@ -62,14 +64,14 @@ export class DemoController {
    * teléfono de la sesión para saber quién la dejó.
    */
   @Post('contacts/:id/notes')
-  addNote(
+  async addNote(
     @Param('id') id: string,
     @Body() body: unknown,
     @Req() req: FastifyRequest & { user?: { phone?: string } },
   ) {
     const parsed = noteSchema.safeParse(body ?? {});
     if (!parsed.success) throw new BadRequestException(parsed.error.issues);
-    return this.brain.addInternalNote(id, parsed.data.text, req.user?.phone);
+    return this.brain.addInternalNote(id, parsed.data.text, req.user?.phone, await this.activo.id());
   }
 
   /** Botón "Enviar seguimiento por WhatsApp" de la vista de contexto. */

@@ -1,4 +1,5 @@
 import { ConfigService } from '@nestjs/config';
+import { AgenteActivoService } from '../shared/agente-activo.service';
 import { BrainService } from '../brain/brain.service';
 import { HubspotClient } from '../hubspot/hubspot.client';
 import { ChannelPort } from '../ports/channel.port';
@@ -53,6 +54,8 @@ describe('EjecutarService.saludar', () => {
       {} as unknown as NlpearlActivityStore,
       {} as unknown as HubspotClient,
       { push: (_f: string, texto: string, ok: boolean) => bitacora.push({ ok, texto }) } as unknown as WebhookLogService,
+      // El espacio de trabajo que se estampa en lo que el operador escribe.
+      { id: async () => 'ag-1' } as unknown as AgenteActivoService,
       adaptador as unknown as ChannelPort,
       {
         get: (clave: string, def?: unknown) =>

@@ -1,5 +1,6 @@
 import { BadRequestException, Inject, Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { AgenteActivoService } from '../shared/agente-activo.service';
 import { BrainService } from '../brain/brain.service';
 import { HubspotClient } from '../hubspot/hubspot.client';
 import { ChannelPort, WHATSAPP_CHANNEL } from '../ports/channel.port';
@@ -27,6 +28,7 @@ export class EjecutarService {
     private readonly store: NlpearlActivityStore,
     private readonly hubspot: HubspotClient,
     private readonly webhookLog: WebhookLogService,
+    private readonly activo: AgenteActivoService,
     @Inject(WHATSAPP_CHANNEL) private readonly whatsapp: ChannelPort,
     private readonly config: ConfigService,
   ) {}
@@ -54,6 +56,7 @@ export class EjecutarService {
         summary: mensaje,
         source: 'own',
         handledBy: operador,
+        agente: await this.activo.id(),
         collectedInfo: envio.providerId ? { providerId: envio.providerId } : undefined,
       });
       this.logger.log(`${operador} se presentó con ${contactId} en texto libre (ventana abierta)`);
@@ -157,6 +160,7 @@ export class EjecutarService {
         occurredAt: new Date().toISOString(),
         summary: `Saludo de presentación enviado de parte de ${operador}.`,
         source: 'own',
+        agente: await this.activo.id(),
         collectedInfo: envio?.providerId ? { providerId: envio.providerId } : undefined,
       });
 

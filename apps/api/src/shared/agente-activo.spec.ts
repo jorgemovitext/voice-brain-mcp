@@ -172,14 +172,43 @@ describe('AgenteActivoService · quién atiende', () => {
       expect((await conMovi.servicio.filtroDeHilos())(hilo([undefined]))).toBe(false);
     });
 
-    it('un hilo que ningún agente atendió se ve desde cualquiera', async () => {
-      // Un contacto recién creado por un operador: si no se viera, no habría
-      // desde dónde escribirle.
+    it('un contacto sin interacciones se ve desde cualquiera', async () => {
+      // Recién creado por un operador: si no se viera, no habría desde dónde
+      // escribirle.
       const { servicio } = armar({ guardado: 'movi' });
+      expect((await servicio.filtroDeHilos())([])).toBe(true);
+    });
+
+    it('la marca manda aunque el mensaje no lo haya escrito un agente', async () => {
+      /*
+       * La marca dice EN QUÉ ESPACIO ocurrió, no quién habló: la pregunta del
+       * vecino y el mensaje del operador también la llevan. La primera versión
+       * miraba `handledBy === 'agente'`, y los hilos de la era NL Pearl —que
+       * guardan el nombre del Pearl, no 'agente'— se colaban en CUALQUIER
+       * bandeja: cambiar a Movi mostraba la Línea 100 igual.
+       */
+      const { servicio } = armar({ guardado: 'movi', env: { ELEVENLABS_AGENT_ID: 'linea100' } });
       const filtro = await servicio.filtroDeHilos();
 
-      expect(filtro([])).toBe(true);
-      expect(filtro(hilo(['cualquiera'], false))).toBe(true);
+      // Mensajes marcados sin handledBy (vecino/operador en el espacio de Movi):
+      expect(filtro(hilo(['movi'], false))).toBe(true);
+      // Era NL Pearl: handledBy trae el nombre del Pearl y no hay marca.
+      expect(filtro([{ handledBy: 'Pearl Línea 100', agente: undefined }])).toBe(false);
+    });
+
+    it('un hilo viejo que después atendió Movi se ve desde los DOS', async () => {
+      /*
+       * La historia sin marca es del entorno ADEMÁS de lo marcado: la primera
+       * versión hacía desaparecer el hilo de la bandeja de la Línea 100 al
+       * primer mensaje de Movi, como si su historia se la hubiera llevado.
+       */
+      const mixto = [{ handledBy: 'agente' }, { agente: 'movi' }];
+
+      const movi = armar({ guardado: 'movi', env: { ELEVENLABS_AGENT_ID: 'linea100' } });
+      expect((await movi.servicio.filtroDeHilos())(mixto)).toBe(true);
+
+      const linea = armar({ env: { ELEVENLABS_AGENT_ID: 'linea100' } });
+      expect((await linea.servicio.filtroDeHilos())(mixto)).toBe(true);
     });
 
     it('un hilo compartido se ve desde los dos agentes', async () => {

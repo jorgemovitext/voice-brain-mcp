@@ -125,6 +125,9 @@ export class WhatsappInboundService {
         occurredAt: new Date().toISOString(),
         summary: m.text,
         source: 'own',
+        // El espacio donde ocurrió: la pregunta del vecino no la escribió
+        // ningún agente, pero es parte de la conversación de ESTE.
+        agente: await this.activo.id(),
         attachment: m.attachment,
         attachmentUrl: m.attachmentUrl,
       });
@@ -170,6 +173,9 @@ export class WhatsappInboundService {
         occurredAt: new Date().toISOString(),
         summary: m.text,
         source: 'own',
+        // El espacio donde ocurrió: la pregunta del vecino no la escribió
+        // ningún agente, pero es parte de la conversación de ESTE.
+        agente: await this.activo.id(),
         attachment: m.attachment,
         attachmentUrl: m.attachmentUrl,
       });

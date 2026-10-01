@@ -574,7 +574,9 @@ export class ElevenLabsVozService {
           summary: texto,
           source: 'own',
           handledBy: t.role === 'agent' ? 'agente' : undefined,
-          agente: t.role === 'agent' ? dueño : undefined,
+          // El turno del vecino también es de esta llamada: sin marcarlo, un
+          // hilo donde solo habló él quedaría sin dueño.
+          agente: dueño,
           /*
            * De qué llamada es y en qué segundo arranca: con eso el chat puede
            * reproducir la grabación desde ESTE turno en vez de desde el

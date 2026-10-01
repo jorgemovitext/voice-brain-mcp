@@ -1,5 +1,6 @@
 import { Inject, Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { AgenteActivoService } from '../shared/agente-activo.service';
 import { BrainService } from '../brain/brain.service';
 import { Interaction } from '../brain/types';
 import type { GupshupAdapter } from '../integrations/whatsapp/gupshup.adapter';
@@ -21,6 +22,7 @@ export class FollowupService {
 
   constructor(
     private readonly brain: BrainService,
+    private readonly activo: AgenteActivoService,
     private readonly flowLog: FlowLogService,
     config: ConfigService,
     @Inject(WHATSAPP_CHANNEL) private readonly whatsapp: ChannelPort,
@@ -186,6 +188,9 @@ export class FollowupService {
       occurredAt: new Date().toISOString(),
       summary: text,
       source: 'own',
+      // El espacio de trabajo: el operador escribe DENTRO del agente activo,
+      // y es lo que hace que este hilo aparezca en su bandeja y no en otra.
+      agente: await this.activo.id(),
       collectedInfo: { providerId: result.providerId },
     });
     return { message: text, channel: target, abrioConPlantilla };

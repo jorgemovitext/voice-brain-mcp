@@ -213,26 +213,41 @@ export class AgenteActivoService {
    * Qué hilos son del agente activo, para que el tablero y la bandeja sigan
    * al selector.
    *
-   * La regla trabaja sobre el HILO completo y no sobre cada mensaje: un
-   * mensaje entrante del vecino no es de ningún agente, y filtrarlo por
-   * mensaje dejaría conversaciones sin preguntas. Un hilo pertenece al activo
-   * si algún agente lo atendió y fue este, o si todavía no lo atendió ninguno
-   * —un contacto recién creado por un operador tiene que verse desde
-   * cualquier agente, o no se le puede escribir.
+   * La marca `agente` no dice "este mensaje lo escribió el agente": dice EN
+   * QUÉ ESPACIO ocurrió — todo lo que el sistema escribe (la pregunta del
+   * vecino, la respuesta, la nota del operador) la lleva. Por eso la regla es
+   * por hilo y simple:
    *
-   * Lo guardado ANTES de que existiera la atribución (sin `agente`) se
-   * atribuye al agente del entorno: toda esa historia la atendió el de la
-   * Línea 100, que es el que estaba configurado cuando se escribió.
+   * - alguna interacción marcada con este agente → suyo (si lo atendieron
+   *   dos en épocas distintas, se ve desde los dos: el hilo es del contacto);
+   * - tiene historia pero NINGUNA marca → del agente del entorno. Es todo lo
+   *   anterior a la atribución —la era NL Pearl marcaba `handledBy` con el
+   *   nombre del Pearl, los mensajes sin respuesta no marcaban nada— y toda
+   *   esa historia la atendió la Línea 100. La primera versión de esta regla
+   *   miraba `handledBy === 'agente'` y esos hilos se colaban en CUALQUIER
+   *   agente: cambiar a Movi mostraba la bandeja de la Línea 100 igual;
+   * - sin interacciones → se ve desde cualquiera: un contacto recién creado
+   *   tiene que verse, o no hay desde dónde escribirle.
    */
-  async filtroDeHilos(): Promise<(interacciones: Array<{ agente?: string; handledBy?: string }>) => boolean> {
+  // `handledBy` se acepta pero NO se consulta, a propósito: trae nombres de
+  // Pearl, de operadores o 'agente' según la época, y decidir con eso fue el
+  // bug que coló la bandeja de la Línea 100 dentro de la de Movi.
+  async filtroDeHilos(): Promise<
+    (interacciones: Array<{ agente?: string; handledBy?: string }>) => boolean
+  > {
     const activo = await this.id();
-    const esDelActivo = (i: { agente?: string }) =>
-      i.agente === activo || (!i.agente && activo === this.delEntorno);
 
     return (interacciones) => {
-      const atendidas = interacciones.filter((i) => i.handledBy === 'agente');
-      if (!atendidas.length) return true;
-      return atendidas.some(esDelActivo);
+      if (!interacciones.length) return true;
+      if (interacciones.some((i) => i.agente === activo)) return true;
+      /*
+       * La historia sin marca es del agente del entorno ADEMÁS de lo que el
+       * hilo tenga marcado: un hilo viejo de la Línea 100 que después atendió
+       * Movi es de los dos, y la primera versión de esta línea lo hacía
+       * desaparecer de la bandeja de la Línea 100 al primer mensaje de Movi.
+       */
+      const haySinMarca = interacciones.some((i) => !i.agente);
+      return haySinMarca && activo === this.delEntorno;
     };
   }
 
