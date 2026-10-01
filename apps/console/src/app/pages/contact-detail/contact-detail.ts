@@ -850,11 +850,26 @@ export class ContactDetailPage implements OnDestroy {
    * `handledBy`. Se muestra en la cabecera del chat porque con voz, SMS,
    * WhatsApp y varios Pearls conviviendo, quién contesta es parte del hilo.
    */
+  /** Quién atiende AHORA en toda la app, para encabezar el chat con eso. */
+  private readonly activo = httpResource<{ id: string; nombre: string | null }>(
+    () => '/api/agentes/activo',
+  );
+
   readonly agente = computed(() => {
-    const conAgente = [...(valorDe(this.context)?.recentInteractions ?? [])]
+    const historico = [...(valorDe(this.context)?.recentInteractions ?? [])]
       .filter((i) => i.handledBy)
       .sort((a, b) => b.occurredAt.localeCompare(a.occurredAt))[0];
-    return conAgente ? { nombre: conAgente.handledBy!, channel: conAgente.channel } : null;
+
+    /*
+     * El nombre es el del agente ACTIVO, no el del historial. El `handledBy`
+     * más reciente podía ser de la era NL Pearl ("Línea 100 AMDC Whatsapp"),
+     * y el rótulo decía eso aunque el que fuera a contestar el próximo
+     * mensaje era Movi: anunciaba al agente equivocado justo donde el
+     * operador decide si tomar la conversación.
+     */
+    const quien = valorDe(this.activo);
+    if (quien?.nombre) return { nombre: quien.nombre, channel: historico?.channel ?? 'whatsapp' };
+    return historico ? { nombre: historico.handledBy!, channel: historico.channel } : null;
   });
 
   readonly chat = computed<ChatItem[]>(() => {

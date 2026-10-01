@@ -59,6 +59,15 @@ describe('AgenteActivoService · quién atiende', () => {
 
   const ok = (cuerpo: unknown) => ({ ok: true, status: 200, text: async () => JSON.stringify(cuerpo) });
 
+  /** Con los permisos de override YA puestos: poner() no tiene que tocarlos. */
+  const CON_PERMISOS = {
+    platform_settings: {
+      overrides: {
+        conversation_config_override: { conversation: { text_only: true }, agent: { first_message: true } },
+      },
+    },
+  };
+
   it('sin nada elegido, atiende el del entorno', async () => {
     // Un despliegue limpio o una base vacía no pueden dejar la línea sin
     // quién conteste.
@@ -107,6 +116,7 @@ describe('AgenteActivoService · quién atiende', () => {
      * el viejo.
      */
     fetchMock
+      .mockResolvedValueOnce(ok(CON_PERMISOS))
       .mockResolvedValueOnce(
         ok([
           { phone_number_id: 'ph1', phone_number: '+50400000000', assigned_agent: { agent_id: 'ag-viejo' } },
@@ -124,9 +134,11 @@ describe('AgenteActivoService · quién atiende', () => {
   });
 
   it('no toca el número que ya era suyo', async () => {
-    fetchMock.mockResolvedValueOnce(
-      ok([{ phone_number_id: 'ph1', phone_number: '+504', assigned_agent: { agent_id: 'ag-nuevo' } }]),
-    );
+    fetchMock
+      .mockResolvedValueOnce(ok(CON_PERMISOS))
+      .mockResolvedValueOnce(
+        ok([{ phone_number_id: 'ph1', phone_number: '+504', assigned_agent: { agent_id: 'ag-nuevo' } }]),
+      );
 
     const { servicio } = armar();
     const r = await servicio.poner('ag-nuevo');
@@ -138,13 +150,47 @@ describe('AgenteActivoService · quién atiende', () => {
   it('si el teléfono no se puede mover, el cambio queda hecho pero se avisa', async () => {
     // Deshacerlo sería peor: el agente ya está guardado y contestando. Lo que
     // no se puede es callar que las llamadas siguen yendo al anterior.
-    fetchMock.mockResolvedValueOnce({ ok: false, status: 403, text: async () => 'sin permiso' });
+    fetchMock
+      .mockResolvedValueOnce(ok(CON_PERMISOS))
+      .mockResolvedValueOnce({ ok: false, status: 403, text: async () => 'sin permiso' });
 
     const { servicio, guardado } = armar();
     const r = await servicio.poner('ag-nuevo');
 
     expect(guardado[CLAVE_ACTIVO]).toBe('ag-nuevo');
     expect(r.aviso).toMatch(/llamadas entrantes/i);
+  });
+
+  it('al poner, habilita los overrides que el motor de texto exige', async () => {
+    /*
+     * Cada turno de WhatsApp manda dos overrides, y el proveedor CORTA la
+     * conversación si el agente no los permite — sin error y sin respuesta.
+     * Movi nació por fuera de la consola sin el de `first_message`, y cada
+     * mensaje moría en silencio. Ponerlo a atender ES dejarlo contestable.
+     */
+    fetchMock
+      .mockResolvedValueOnce(ok({ platform_settings: {} }))
+      .mockResolvedValueOnce(ok({})) // el PATCH de permisos
+      .mockResolvedValueOnce(ok([])); // sin números que mover
+
+    const { servicio } = armar();
+    await servicio.poner('ag-nuevo');
+
+    const patch = fetchMock.mock.calls.find((c) => c[1]?.method === 'PATCH');
+    const cuerpo = JSON.parse(patch![1].body);
+    const cc = cuerpo.platform_settings.overrides.conversation_config_override;
+    expect(cc.conversation.text_only).toBe(true);
+    expect(cc.agent.first_message).toBe(true);
+  });
+
+  it('si ya tiene los permisos, no le manda ningún PATCH de permisos', async () => {
+    // Mezclar sin motivo es arriesgar pisarle configuración puesta a mano.
+    fetchMock.mockResolvedValueOnce(ok(CON_PERMISOS)).mockResolvedValueOnce(ok([]));
+
+    const { servicio } = armar();
+    await servicio.poner('ag-nuevo');
+
+    expect(fetchMock.mock.calls.filter((c) => c[1]?.method === 'PATCH')).toHaveLength(0);
   });
 
   describe('a quién pertenece un hilo', () => {

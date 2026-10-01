@@ -100,6 +100,19 @@ export class AgenteActivoService {
    * que nadie nota hasta que un vecino cuenta algo raro.
    */
   async poner(id: string): Promise<{ numeros: string[]; aviso?: string }> {
+    /*
+     * ANTES de guardarlo: dejarlo en condiciones de contestar.
+     *
+     * Nuestro turno de texto manda dos overrides en cada mensaje (solo texto,
+     * y silenciar el saludo), y el proveedor CORTA la conversación si el
+     * agente no los tiene permitidos — sin error, sin respuesta, nada. Ya
+     * pasó con Movi: elegido para atender, cada WhatsApp moría en silencio
+     * porque nació sin el permiso de `first_message`. Los agentes creados
+     * por fuera de la consola no tienen por qué venir con esto puesto, así
+     * que ponerlo es parte de qué significa "poner a atender".
+     */
+    await this.permitirOverrides(id);
+
     await this.settings.set(CLAVE_ACTIVO, id);
     this.logger.warn(`El agente que atiende pasó a ser ${id}`);
 
@@ -116,6 +129,32 @@ export class AgenteActivoService {
         aviso: `El agente ya contesta los mensajes, pero no se pudo mover el teléfono: ${motivo}. Las llamadas entrantes siguen yendo al agente anterior.`,
       };
     }
+  }
+
+  /**
+   * Permite los overrides que nuestro motor manda en cada turno de texto.
+   *
+   * Se LEE y se MEZCLA en vez de pisar: el agente puede tener otros permisos
+   * puestos a mano, y reemplazar el objeto entero se los quitaría. Si esto
+   * falla se corta el cambio completo — poner a atender un agente que no va
+   * a poder contestar es peor que no cambiarlo.
+   */
+  private async permitirOverrides(id: string): Promise<void> {
+    const a = await this.pedir<Record<string, any>>(`/v1/convai/agents/${id}`);
+    const settings = a['platform_settings'] ?? {};
+    const overrides = (settings['overrides'] = settings['overrides'] ?? {});
+    const cc = (overrides['conversation_config_override'] =
+      overrides['conversation_config_override'] ?? {});
+
+    const yaConversacion = !!cc['conversation']?.['text_only'];
+    const yaSaludo = !!cc['agent']?.['first_message'];
+    if (yaConversacion && yaSaludo) return;
+
+    cc['conversation'] = { ...(cc['conversation'] ?? {}), text_only: true };
+    cc['agent'] = { ...(cc['agent'] ?? {}), first_message: true };
+
+    await this.pedir(`/v1/convai/agents/${id}`, { platform_settings: settings }, 'PATCH');
+    this.logger.log(`Overrides de texto permitidos en ${id}`);
   }
 
   /** Mueve al agente nuevo los números que tenía el anterior. */
