@@ -8,6 +8,7 @@ import { IntegrationsModule } from '../integrations/integrations.module';
 import { AuthController } from './auth.controller';
 import { AuthGuard } from './auth.guard';
 import { AuthService } from './auth.service';
+import { InvitacionesService } from './invitaciones.service';
 import { OtpSender } from './otp.sender';
 import { JsonUsersRepository, PgUsersRepository, USERS_REPOSITORY } from './users.repository';
 
@@ -40,7 +41,7 @@ import { JsonUsersRepository, PgUsersRepository, USERS_REPOSITORY } from './user
     }),
   ],
   controllers: [AuthController],
-  providers: [
+  providers: [InvitacionesService, 
     AuthService,
     RateLimitGuard,
     OtpSender,

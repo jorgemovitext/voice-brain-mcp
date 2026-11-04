@@ -27,6 +27,11 @@ export interface UsersRepository {
   findByPhone(phone: string): Promise<AuthUser | undefined>;
   findById(id: string): Promise<AuthUser | undefined>;
   save(user: AuthUser): Promise<AuthUser>;
+  /** Cuántas cuentas hay. Cero habilita el alta de arranque. */
+  contar(): Promise<number>;
+  /** Todas, para la pantalla de equipo. Sin hashes. */
+  listar(): Promise<AuthUser[]>;
+  eliminar(id: string): Promise<boolean>;
 }
 
 export const USERS_REPOSITORY = 'UsersRepository';
@@ -115,6 +120,24 @@ export class PgUsersRepository implements UsersRepository {
     );
     return user;
   }
+
+  async contar(): Promise<number> {
+    const db = await this.db();
+    const r = await db.query('SELECT count(*)::int AS n FROM users');
+    return r.rows[0]?.n ?? 0;
+  }
+
+  async listar(): Promise<AuthUser[]> {
+    const db = await this.db();
+    const r = await db.query('SELECT * FROM users ORDER BY created_at ASC');
+    return r.rows.map((row) => this.rowToUser(row));
+  }
+
+  async eliminar(id: string): Promise<boolean> {
+    const db = await this.db();
+    const r = await db.query('DELETE FROM users WHERE id = $1', [id]);
+    return !!r.rowCount;
+  }
 }
 
 /**
@@ -164,5 +187,22 @@ export class JsonUsersRepository implements UsersRepository {
     else users.push(user);
     await this.persist();
     return user;
+  }
+
+  async contar(): Promise<number> {
+    return (await this.load()).length;
+  }
+
+  async listar(): Promise<AuthUser[]> {
+    return [...(await this.load())];
+  }
+
+  async eliminar(id: string): Promise<boolean> {
+    const users = await this.load();
+    const i = users.findIndex((u) => u.id === id);
+    if (i < 0) return false;
+    users.splice(i, 1);
+    await this.persist();
+    return true;
   }
 }

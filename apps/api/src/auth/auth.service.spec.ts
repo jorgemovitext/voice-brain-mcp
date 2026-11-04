@@ -27,6 +27,30 @@ class MemoryUsers implements UsersRepository {
     else this.users.push(user);
     return user;
   }
+  async contar() {
+    return this.users.length;
+  }
+  async listar() {
+    return [...this.users];
+  }
+  async eliminar(id: string) {
+    const i = this.users.findIndex((u) => u.id === id);
+    if (i < 0) return false;
+    this.users.splice(i, 1);
+    return true;
+  }
+}
+
+/** Invitaciones de mentira: lleva la cuenta de qué códigos se canjearon. */
+class InvitacionesFalsas {
+  validos = new Set<string>();
+  canjeados: string[] = [];
+  async canjear(codigo: string, usuarioId: string) {
+    if (!this.validos.has(codigo)) throw new Error('El código de invitación no es válido o ya venció.');
+    this.validos.delete(codigo);
+    this.canjeados.push(`${codigo}:${usuarioId}`);
+    return 'inv-1';
+  }
 }
 
 class CaptureOtp {
@@ -50,13 +74,15 @@ function build() {
     get: (key: string, def?: unknown) =>
       ({ AUTH_OTP_TTL_MIN: 5, AUTH_SESSION_HOURS: 12 } as Record<string, unknown>)[key] ?? def,
   };
+  const invitaciones = new InvitacionesFalsas();
   const service = new AuthService(
     users,
+    invitaciones as never,
     new JwtService({ secret: 'test-secret', signOptions: { expiresIn: '1h' } }),
     otp as unknown as OtpSender,
     config as never,
   );
-  return { service, users, otp };
+  return { service, users, otp, invitaciones };
 }
 
 /** Deja un usuario listo para entrar. El registro ya abre sesión. */
@@ -84,12 +110,83 @@ describe('AuthService (seguridad)', () => {
     const ctx = build();
     await registered(ctx);
     const hashOriginal = ctx.users.users[0].passwordHash;
+    ctx.invitaciones.validos.add('CODE');
 
-    await expect(ctx.service.register(USER, 'otraClave123', PHONE)).rejects.toBeInstanceOf(
+    await expect(ctx.service.register(USER, 'otraClave123', PHONE, undefined, 'CODE')).rejects.toBeInstanceOf(
       ConflictException,
     );
     // Y la contraseña del dueño real no se toca.
     expect(ctx.users.users[0].passwordHash).toBe(hashOriginal);
+  });
+
+  it('la PRIMERA cuenta se crea sin invitación; la segunda ya no', async () => {
+    /*
+     * Esto es el agujero que estuvo abierto en producción: `register` era
+     * público y entregaba sesión al instante, así que cualquiera con la URL
+     * se creaba una cuenta y leía los datos de los ciudadanos. Se comprobó
+     * contra el dominio real antes de cerrarlo.
+     *
+     * La puerta de arranque se cierra SOLA en cuanto existe una cuenta: no
+     * es una bandera de configuración que alguien pueda dejar encendida.
+     */
+    const ctx = build();
+    await ctx.service.register(USER, PASSWORD, PHONE);
+    expect(ctx.users.users).toHaveLength(1);
+
+    await expect(
+      ctx.service.register('colado', PASSWORD, '+50455556666'),
+    ).rejects.toBeInstanceOf(UnauthorizedException);
+    expect(ctx.users.users).toHaveLength(1);
+  });
+
+  it('con invitación válida sí entra, y el código se canjea una sola vez', async () => {
+    const ctx = build();
+    await registered(ctx);
+    ctx.invitaciones.validos.add('BUENA');
+
+    await ctx.service.register('invitado', PASSWORD, '+50477778888', undefined, 'BUENA');
+    expect(ctx.users.users).toHaveLength(2);
+    expect(ctx.invitaciones.canjeados).toHaveLength(1);
+
+    // El mismo código no sirve dos veces.
+    await expect(
+      ctx.service.register('otro.mas', PASSWORD, '+50499998888', undefined, 'BUENA'),
+    ).rejects.toThrow(/no es válido o ya venció/i);
+  });
+
+  it('un código inventado no abre la puerta', async () => {
+    const ctx = build();
+    await registered(ctx);
+
+    await expect(
+      ctx.service.register('colado', PASSWORD, '+50433334444', undefined, 'INVENTADO'),
+    ).rejects.toThrow(/no es válido/i);
+    expect(ctx.users.users).toHaveLength(1);
+  });
+
+  it('nadie borra su propia cuenta ni la última que queda', async () => {
+    // Las dos dejarían la consola sin nadie que pueda entrar ni invitar.
+    const ctx = build();
+    await registered(ctx);
+    const yo = ctx.users.users[0];
+
+    await expect(ctx.service.eliminarCuenta(yo.id, yo.id)).rejects.toThrow(/tu propia cuenta/i);
+
+    ctx.invitaciones.validos.add('C2');
+    await ctx.service.register('otro', PASSWORD, '+50466667777', undefined, 'C2');
+    const otro = ctx.users.users[1];
+    await ctx.service.eliminarCuenta(otro.id, yo.id);
+
+    await expect(ctx.service.eliminarCuenta(yo.id, 'alguien')).rejects.toThrow(/única cuenta/i);
+  });
+
+  it('el equipo se lista sin hashes y con el teléfono enmascarado', async () => {
+    const ctx = build();
+    await registered(ctx);
+
+    const equipo = await ctx.service.equipo();
+    expect(equipo[0].phone).not.toBe(PHONE);
+    expect(JSON.stringify(equipo)).not.toContain('passwordHash');
   });
 
   it('el hash de contraseña no es reversible ni acepta contraseñas equivocadas', async () => {
@@ -205,8 +302,9 @@ describe('AuthService (seguridad)', () => {
     const ctx = build();
     await registered(ctx); // USER queda tomado por la primera cuenta
 
-    // Segunda cuenta, con otro teléfono.
-    await ctx.service.register('otro.user', PASSWORD, '+50411112222');
+    // Segunda cuenta, con otro teléfono y su invitación.
+    ctx.invitaciones.validos.add('CODE');
+    await ctx.service.register('otro.user', PASSWORD, '+50411112222', undefined, 'CODE');
     const segunda = ctx.users.users.find((u) => u.username === 'otro.user')!;
 
     await expect(ctx.service.setUsername(segunda.id, USER, PASSWORD)).rejects.toThrow(/tomado/i);

@@ -69,6 +69,21 @@ export function ensureSchema(pool: Pool): Promise<void> {
         -- descartaba en silencio y el riel se quedaba con el dato viejo.
         ALTER TABLE interactions ADD COLUMN IF NOT EXISTS ficha jsonb;
 
+        -- Invitaciones: la ÚNICA puerta de alta a la consola.
+        -- Se guarda el hash del código, nunca el código: una filtración de
+        -- esta tabla no debe habilitar a nadie a entrar.
+        CREATE TABLE IF NOT EXISTS invitations (
+          id text PRIMARY KEY,
+          code_hash text NOT NULL,
+          phone text,
+          nota text,
+          creada_por text,
+          creada timestamptz NOT NULL DEFAULT now(),
+          expira timestamptz NOT NULL,
+          usada timestamptz,
+          usada_por text
+        );
+
         -- Una LÍNEA: el número de WhatsApp de un cliente y el agente que lo
         -- atiende. Es la unidad de Hive: cada cliente configura un número por
         -- agente, y todo lo demás (bandeja, tablero, cobro) cuelga de acá.

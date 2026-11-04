@@ -1,8 +1,20 @@
-import { BadRequestException, Body, Controller, Get, Post, Req, Res, UseGuards } from '@nestjs/common';
+import {
+  BadRequestException,
+  Body,
+  Controller,
+  Delete,
+  Get,
+  Param,
+  Post,
+  Req,
+  Res,
+  UseGuards,
+} from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { FastifyReply, FastifyRequest } from 'fastify';
 import { z } from 'zod';
 import { AuthService } from './auth.service';
+import { InvitacionesService } from './invitaciones.service';
 import { SESSION_COOKIE } from './auth.guard';
 import { Public } from './public.decorator';
 import { RateLimitGuard } from './rate-limit.guard';
@@ -62,6 +74,8 @@ const registerSchema = z.object({
   /** Solo para recibir el código: no es el identificador de acceso. */
   phone: phoneSchema,
   name: z.string().trim().min(2).max(80).optional(),
+  /** Obligatoria salvo en el alta de arranque (primera cuenta del sistema). */
+  invitacion: z.string().trim().max(40).optional(),
 });
 const loginSchema = z.object({ username: identificadorSchema, password: z.string().min(1).max(200) });
 const otpSchema = z.object({
@@ -77,6 +91,7 @@ export class AuthController {
 
   constructor(
     private readonly auth: AuthService,
+    private readonly invitaciones: InvitacionesService,
     config: ConfigService,
   ) {
     // Secure solo aplica sobre HTTPS; en dev local (http) rompería la cookie.
@@ -93,10 +108,62 @@ export class AuthController {
   @UseGuards(RateLimitGuard)
   @Post('register')
   async register(@Body() body: unknown, @Res({ passthrough: true }) res: FastifyReply) {
-    const { username, password, phone, name } = this.parse(registerSchema, body);
-    const { token, user } = await this.auth.register(username, password, phone, name);
+    const { username, password, phone, name, invitacion } = this.parse(registerSchema, body);
+    const { token, user } = await this.auth.register(username, password, phone, name, invitacion);
     this.abrirSesion(res, token);
     return { user };
+  }
+
+  /**
+   * ¿Hace falta invitación para registrarse?
+   *
+   * Público y a propósito: la pantalla de alta tiene que saber si pedir el
+   * código ANTES de que alguien llene el formulario entero. Solo dice sí o
+   * no — no filtra cuántas cuentas hay ni quiénes son.
+   */
+  @Public()
+  @Get('alta')
+  async comoEsElAlta() {
+    return { requiereInvitacion: !(await this.auth.esArranque()) };
+  }
+
+  /* --- Equipo e invitaciones (con sesión) --- */
+
+  @Post('invitaciones')
+  async invitar(
+    @Body() body: { phone?: string; nota?: string },
+    @Req() req: FastifyRequest & { user?: { sub: string; username?: string } },
+  ) {
+    return this.invitaciones.crear({
+      phone: body?.phone?.trim() || undefined,
+      nota: body?.nota?.trim() || undefined,
+      creadaPor: req.user?.username ?? req.user?.sub ?? 'desconocido',
+    });
+  }
+
+  @Get('invitaciones')
+  listarInvitaciones() {
+    return this.invitaciones.listar();
+  }
+
+  @Delete('invitaciones/:id')
+  async revocar(@Param('id') id: string) {
+    await this.invitaciones.revocar(id);
+    return { ok: true };
+  }
+
+  @Get('equipo')
+  equipo() {
+    return this.auth.equipo();
+  }
+
+  @Delete('equipo/:id')
+  async quitarDelEquipo(
+    @Param('id') id: string,
+    @Req() req: FastifyRequest & { user?: { sub: string } },
+  ) {
+    await this.auth.eliminarCuenta(id, req.user?.sub ?? '');
+    return { ok: true };
   }
 
   @Public()

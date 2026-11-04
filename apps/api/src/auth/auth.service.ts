@@ -3,6 +3,7 @@ import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 import { createHash, randomBytes, randomInt, randomUUID, scrypt as scryptCb, timingSafeEqual } from 'crypto';
 import { promisify } from 'util';
+import { InvitacionesService } from './invitaciones.service';
 import { OtpSender } from './otp.sender';
 import { AuthUser, USERS_REPOSITORY, UsersRepository } from './users.repository';
 
@@ -40,6 +41,7 @@ export class AuthService {
 
   constructor(
     @Inject(USERS_REPOSITORY) private readonly users: UsersRepository,
+    private readonly invitaciones: InvitacionesService,
     private readonly jwt: JwtService,
     private readonly otpSender: OtpSender,
     config: ConfigService,
@@ -72,12 +74,27 @@ export class AuthService {
    * usuario y el número (anti-enumeración): si están libres o pendientes de
    * verificar se crea/actualiza y se envía OTP; si ya están tomados, nada.
    */
+  /**
+   * Alta de una cuenta de consola. SOLO con invitación.
+   *
+   * La excepción es el arranque: con la tabla vacía, la primera cuenta se
+   * crea sin código, porque si no no habría forma de crear la primera. Esa
+   * puerta se cierra sola en cuanto existe un usuario — no es una bandera de
+   * configuración que alguien pueda dejar encendida sin darse cuenta.
+   */
   async register(
     username: string,
     password: string,
     phone: string,
     name?: string,
+    invitacion?: string,
   ): Promise<{ token: string; user: SessionUser }> {
+    const arranque = (await this.users.contar()) === 0;
+    if (!arranque && !invitacion?.trim()) {
+      throw new UnauthorizedException(
+        'Para crear una cuenta hace falta una invitación. Pedísela a alguien del equipo.',
+      );
+    }
     const porUsuario = await this.users.findByUsername(username);
     const porTelefono = await this.users.findByPhone(phone);
 
@@ -111,8 +128,32 @@ export class AuthService {
      * consola interna con altas contadas es un cambio aceptable. Si algún día
      * el registro se abre a cualquiera, esto se revierte.
      */
+    /*
+     * `verified` lo da la INVITACIÓN, no el OTP.
+     *
+     * El OTP viaja por WhatsApp y WhatsApp solo entrega texto libre dentro de
+     * la ventana de 24 h: exigirlo para entrar deja a un operador afuera por
+     * una regla de Meta, y ya pasó. Lo que acredita el alta es que alguien de
+     * adentro la autorizó; el OTP queda para recuperar el acceso, donde su
+     * demora no bloquea a nadie.
+     */
     user.verified = true;
     user.failedLogins = 0;
+
+    /*
+     * El canje va ANTES de guardar, y no después.
+     *
+     * Guardando primero, un código inválido dejaba la cuenta ya creada y
+     * verificada: la petición devolvía error, pero la cuenta existía y
+     * entraba por el login. O sea, la invitación no filtraba nada. Lo
+     * encontró el test del código inventado, no la lectura del código.
+     *
+     * El canje es atómico (UPDATE condicional): si dos personas usan el
+     * mismo código a la vez, solo una se lo lleva.
+     */
+    if (!arranque) await this.invitaciones.canjear(invitacion!, user.id);
+    else this.logger.warn(`Alta de ARRANQUE: ${username} es la primera cuenta de la consola`);
+
     await this.users.save(user);
 
     const sessionUser: SessionUser = {
@@ -123,6 +164,44 @@ export class AuthService {
     };
     const token = await this.jwt.signAsync({ sub: user.id, username: user.username });
     return { token, user: sessionUser };
+  }
+
+  /** Sin ninguna cuenta todavía: la primera se crea sin invitación. */
+  async esArranque(): Promise<boolean> {
+    return (await this.users.contar()) === 0;
+  }
+
+  /** El equipo con acceso a la consola. Nunca sale un hash de acá. */
+  async equipo(): Promise<Array<{ id: string; username?: string; name?: string; phone: string; creada: string }>> {
+    const todos = await this.users.listar();
+    return todos.map((u) => ({
+      id: u.id,
+      username: u.username,
+      name: u.name,
+      // Enmascarado: el equipo se reconoce por el nombre, no por el número
+      // completo de alguien más.
+      phone: u.phone.replace(/^(\+\d{3})\d+(\d{4})$/, '$1••••$2'),
+      creada: u.createdAt,
+    }));
+  }
+
+  /**
+   * Da de baja una cuenta.
+   *
+   * Dos frenos: nadie se borra a sí mismo —quedaría una sesión viva sin
+   * cuenta detrás— y no se puede borrar la última, que dejaría la consola
+   * sin nadie que pueda entrar ni invitar.
+   */
+  async eliminarCuenta(id: string, quienPide: string): Promise<void> {
+    if (id === quienPide) {
+      throw new ConflictException('No podés borrar tu propia cuenta: pedíselo a alguien más del equipo.');
+    }
+    if ((await this.users.contar()) <= 1) {
+      throw new ConflictException('Es la única cuenta que queda: borrarla dejaría la consola sin acceso.');
+    }
+    const ok = await this.users.eliminar(id);
+    if (!ok) throw new ConflictException('Esa cuenta ya no existe.');
+    this.logger.warn(`Cuenta eliminada: ${id} (por ${quienPide})`);
   }
 
   /**
