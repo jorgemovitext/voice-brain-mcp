@@ -392,6 +392,149 @@ export class TableroPage {
       .filter((p) => p.total > 0);
   });
 
+  /**
+   * Las cuatro cifras de cabecera del diseño.
+   *
+   * Cada una lleva su comparación contra el período anterior: un número
+   * suelto no dice si el día va bien o mal, y «248 conversaciones» significa
+   * cosas opuestas según si ayer hubo 200 o 400. La chispa es el mismo dato
+   * por día, normalizado — sirve para ver la forma, no para leer valores.
+   */
+  /** «Martes 4 de noviembre», como encabeza el diseño. */
+  readonly hoy = computed(() => {
+    const f = new Date().toLocaleDateString('es-HN', { weekday: 'long', day: 'numeric', month: 'long' });
+    return f.charAt(0).toUpperCase() + f.slice(1);
+  });
+
+  /**
+   * Si cada pieza está viva. Lo que está caído se ve ACÁ y no en un número
+   * raro más abajo: un tablero en cero puede ser un día tranquilo o una
+   * integración muerta, y son cosas opuestas.
+   */
+  readonly estados = computed(() => {
+    const a = this.a();
+    const porCanal = new Map((a?.porCanal ?? []).map((c) => [c.channel, c.total]));
+    return [
+      {
+        nombre: 'WhatsApp',
+        ok: (porCanal.get('whatsapp') ?? 0) > 0,
+        detalle: `${porCanal.get('whatsapp') ?? 0} mensajes en el período`,
+      },
+      {
+        nombre: 'Voz',
+        ok: (porCanal.get('voice') ?? 0) > 0,
+        detalle: `${porCanal.get('voice') ?? 0} llamadas en el período`,
+      },
+      {
+        nombre: 'CRM',
+        ok: !!a?.casos?.configurado,
+        detalle: a?.casos?.configurado ? 'Conectado' : (a?.casos?.motivo ?? 'Sin conectar'),
+      },
+    ];
+  });
+
+  readonly kpis = computed(() => {
+    const a = this.a();
+    if (!a) return [];
+
+    const dias = a.porDia ?? [];
+    const mitad = Math.floor(dias.length / 2);
+    const suma = (xs: typeof dias) => xs.reduce((t, d) => t + d.conversaciones, 0);
+    const previas = mitad ? suma(dias.slice(0, mitad)) : 0;
+    const recientes = mitad ? suma(dias.slice(mitad)) : 0;
+    const delta = previas ? Math.round(((recientes - previas) / previas) * 100) : null;
+
+    /** La chispa: la serie por día llevada a un trazo de 60×20. */
+    const chispa = (valores: number[]): string => {
+      if (valores.length < 2) return '';
+      const max = Math.max(1, ...valores);
+      const paso = 60 / (valores.length - 1);
+      return valores
+        .map((v, i) => `${i ? 'L' : 'M'} ${(i * paso).toFixed(1)} ${(18 - (v / max) * 15).toFixed(1)}`)
+        .join(' ');
+    };
+
+    const porDia = dias.map((d) => d.conversaciones);
+    const r = a.resumen;
+
+    return [
+      {
+        rotulo: 'Conversaciones',
+        valor: String(r.conversaciones),
+        delta: delta === null ? null : `${delta >= 0 ? '+' : ''}${delta}% vs período anterior`,
+        bien: delta === null ? null : delta >= 0,
+        chispa: chispa(porDia),
+        color: this.CIAN,
+      },
+      {
+        rotulo: 'Esperando respuesta',
+        valor: String(r.sinRespuesta),
+        delta: r.sinRespuesta ? 'nadie les contestó todavía' : 'al día',
+        bien: r.sinRespuesta === 0,
+        chispa: chispa(dias.map((d) => d.mensajes)),
+        color: this.NARANJA,
+      },
+      {
+        rotulo: 'Primera respuesta',
+        valor: r.primeraRespuestaMin === null ? '—' : this.enTiempo(r.primeraRespuestaMin),
+        delta: r.primeraRespuestaMin === null ? 'sin datos todavía' : 'mediana del período',
+        bien: r.primeraRespuestaMin !== null && r.primeraRespuestaMin <= 5,
+        chispa: chispa(porDia.slice().reverse()),
+        color: '#a78bfa',
+      },
+      {
+        rotulo: 'Atendidas',
+        valor: r.conversaciones ? `${Math.round((r.atendidos / r.conversaciones) * 100)}%` : '—',
+        delta: `${r.atendidos} de ${r.conversaciones}`,
+        bien: r.conversaciones ? r.atendidos / r.conversaciones >= 0.8 : null,
+        chispa: chispa(porDia),
+        color: this.OK,
+      },
+    ];
+  });
+
+  /** 8 → «8 min»; 95 → «1 h 35». Un número de minutos crudo no se lee. */
+  private enTiempo(min: number): string {
+    if (min < 60) return `${min} min`;
+    const h = Math.floor(min / 60);
+    return `${h} h ${String(min % 60).padStart(2, '0')}`;
+  }
+
+  /**
+   * Lo que exige atención AHORA, ordenado por urgencia.
+   *
+   * Sale de datos que ya teníamos sueltos por el tablero; juntarlos en una
+   * sola lista es la diferencia entre un panel que se mira y uno que se
+   * usa: acá cada renglón tiene a dónde ir.
+   */
+  readonly atencion = computed(() => {
+    const a = this.a();
+    if (!a) return [];
+    const items: Array<{ icono: string; titulo: string; detalle: string; ruta: string[]; grave: boolean }> = [];
+
+    for (const e of (a.esperandoMas ?? []).slice(0, 3)) {
+      items.push({
+        icono: '◷',
+        titulo: `${e.displayName || 'Alguien'} espera hace ${this.enTiempo(e.esperaMin)}`,
+        detalle: e.resumen || channelLabel(e.channel),
+        ruta: ['/contacts', e.contactId],
+        grave: e.esperaMin > 60,
+      });
+    }
+
+    if (a.casos && !a.casos.configurado) {
+      items.push({
+        icono: '⚠',
+        titulo: 'El CRM no está conectado',
+        detalle: a.casos.motivo ?? 'Los casos no se están registrando',
+        ruta: ['/integraciones'],
+        grave: true,
+      });
+    }
+
+    return items;
+  });
+
   readonly horaPico = computed(() => {
     const porHora = this.a()?.porHora ?? [];
     const max = Math.max(...porHora, 0);

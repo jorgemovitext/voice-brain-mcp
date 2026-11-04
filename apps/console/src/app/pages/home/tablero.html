@@ -1,16 +1,29 @@
 <section class="dash">
-  <!-- ===== Cabecera: título grande + controles de rango ===== -->
+  <!-- ===== Cabecera: título con la celda de marca, estado de canales y rango ===== -->
   <header class="dash__top">
     <div class="dash__title">
-      <span class="dash__back" title="La colmena">‹</span>
-      <!-- El nombre del agente que atiende, no un rótulo fijo: este tablero
-           muestra LO DE ÉL, y al cambiar de agente cambia el mundo entero. -->
-      <h1>{{ quien()?.nombre || 'Tablero' }}</h1>
-      <a class="dash__quien" routerLink="/agentes" title="Cambiar el agente que atiende">
-        {{ quien() ? 'atendiendo ahora' : '¿quién atiende?' }} ·
-        {{ quien() ? 'cambiar' : 'elegir' }}
-      </a>
+      <span class="dash__marca"></span>
+      <div>
+        <!-- El nombre del agente que atiende, no un rótulo fijo: este tablero
+             muestra LO DE ÉL, y al cambiar de agente cambia el mundo entero. -->
+        <h1>La colmena</h1>
+        <a class="dash__quien" routerLink="/agentes" title="Cambiar el agente que atiende">
+          {{ hoy() }} · {{ quien()?.nombre || 'sin agente' }}
+        </a>
+      </div>
     </div>
+
+    <!-- Estado de cada pieza, de un vistazo: si algo está caído se ve acá
+         antes que en un número raro más abajo. -->
+    <div class="estados">
+      @for (e of estados(); track e.nombre) {
+        <span class="estado" [class.estado--mal]="!e.ok" [title]="e.detalle">
+          {{ e.nombre }}
+          <i class="estado__punto" [class.estado__punto--mal]="!e.ok"></i>
+        </span>
+      }
+    </div>
+
     <div class="dash__controls">
       <div class="ctrl ctrl--grupo" role="group" aria-label="Rango de análisis">
         @for (r of [7, 14, 30]; track r) {
@@ -22,18 +35,12 @@
     </div>
   </header>
 
-  <!-- ===== Filtros: cada uno filtra de verdad el tablero entero ===== -->
+  <!-- ===== Filtros de canal ===== -->
   <div class="dash__filters">
-    <span class="chip chip--label"><b>Canal</b></span>
     <button class="chip chip--btn" [class.chip--on]="!canal()" (click)="canal.set(null)">Todos</button>
     @for (c of canalesDisponibles(); track c) {
       <button class="chip chip--btn" [class.chip--on]="canal() === c" (click)="alternarCanal(c)">
         <i class="chip__punto" [style.background]="colorCanal(c)"></i>{{ channelLabel(c) }}
-      </button>
-    }
-    @if (canal()) {
-      <button class="tag tag--activo" (click)="canal.set(null)">
-        Filtrando {{ channelLabel(canal()!) }} <i>×</i>
       </button>
     }
   </div>
@@ -46,6 +53,29 @@
       <button class="ctrl__btn" (click)="datos.reload()">Reintentar</button>
     </div>
   } @else if (a(); as an) {
+    <!-- ===== Las cuatro cifras ===== -->
+    <div class="kpis">
+      @for (k of kpis(); track k.rotulo; let i = $index) {
+        <article class="kpi" [style.--entrada]="i">
+          <span class="kpi__rotulo">{{ k.rotulo }}</span>
+          <div class="kpi__fila">
+            <strong class="kpi__valor">{{ k.valor }}</strong>
+            @if (k.chispa) {
+              <svg class="kpi__chispa" viewBox="0 0 60 20" preserveAspectRatio="none" aria-hidden="true">
+                <path [attr.d]="k.chispa" fill="none" [attr.stroke]="k.color" stroke-width="1.6"
+                      stroke-linecap="round" stroke-linejoin="round" />
+              </svg>
+            }
+          </div>
+          @if (k.delta) {
+            <span class="kpi__delta" [class.kpi__delta--bien]="k.bien === true"
+                  [class.kpi__delta--mal]="k.bien === false">{{ k.delta }}</span>
+          }
+        </article>
+      }
+    </div>
+
+
     <div class="dash__body">
       <!-- ===== Centro: mapa de flujo + resultados + fila inferior ===== -->
       <main class="centro">
@@ -298,6 +328,30 @@
 
       <!-- ===== Riel derecho ===== -->
       <aside class="rail">
+        <!-- Lo que exige atención AHORA: lo único del tablero donde cada
+             renglón tiene a dónde ir. Va primero por eso. -->
+        <section class="sec atiende">
+          <div class="sec__head atiende__head">
+            Qué exige atención
+            @if (atencion().length) { <span class="atiende__cuenta">{{ atencion().length }}</span> }
+          </div>
+          @if (atencion().length) {
+            @for (it of atencion(); track it.titulo; let i = $index) {
+              <a class="atiende__item" [class.atiende__item--grave]="it.grave"
+                 [routerLink]="it.ruta" [style.--entrada]="i">
+                <span class="atiende__icono">{{ it.icono }}</span>
+                <span class="atiende__texto">
+                  <strong>{{ it.titulo }}</strong>
+                  <em>{{ it.detalle }}</em>
+                </span>
+                <span class="atiende__ir">›</span>
+              </a>
+            }
+          } @else {
+            <p class="atiende__vacio">Nadie esperando. Al día.</p>
+          }
+        </section>
+
         <section class="sec">
           <a class="sec__head" routerLink="/conversations">Diagnóstico <i>↗</i></a>
           <div class="menu__mini">
