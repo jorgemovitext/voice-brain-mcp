@@ -83,6 +83,49 @@ agregan las vistas del Figma que no existen. Las 15 pantallas del Figma mapean
 
 ---
 
+## 1b. Stack
+
+Regla: **el stack ideal es el que ya corre en producción, afilado** — se
+cambia una pieza solo cuando una historia del PRD lo exige, no por moda.
+Angular, Tailwind y NestJS son decisión tomada; el resto se justifica acá.
+
+### Frontend
+| Pieza | Elección | Por qué |
+|---|---|---|
+| Framework | **Angular 22** (standalone, signals, `httpResource`, `@if/@for`) | Ya corre; los 243 tests y toda la consola viven ahí |
+| Estilos | **Tailwind CSS v4** + tokens del Figma como variables CSS (`--primary`, superficies, radios) | Entra CON el re-tema de la Fase 6: cada pantalla que se re-viste nace en Tailwind y el SCSS viejo muere con la vista que reemplaza. Se acaban los topes de presupuesto de SCSS por componente |
+| Componentes | Propios (panal, flujo, chat) — **sin librería UI** | El Figma es un lenguaje propio; una librería encima es pelearle a dos sistemas de diseño |
+| Gráficos | SVG inline propio (como hoy: panal, flujo, mapa) | Cero dependencias, control total del estilo Hive |
+| Estado | Signals + `httpResource`; nada de NgRx | El tamaño de la app no paga un store global |
+
+### Backend
+| Pieza | Elección | Por qué |
+|---|---|---|
+| Framework | **NestJS 11 + Fastify** | Ya corre; Fastify es requisito nuestro de siempre |
+| Validación | **zod 4** en los bordes (webhooks, body de la API) | Ya es la regla del repo; obligatoria además por el SDK de MCP |
+| Datos | **Postgres + SQL directo con `pg`** (sin ORM) | Las consultas finas (append atómico jsonb, ordinality) ya nos costaron aprenderlas; un ORM las esconde y no paga el peaje de migrar |
+| Migraciones | `ensureSchema` idempotente (como hoy) + archivo de migraciones versionado cuando entre `linea_id` | El ALTER suelto deja de alcanzar con multi-tenant |
+| Colas y cron | **Vercel Cron hoy → BullMQ + Redis en el servidor de Byron** | Recordatorios 24h/2h, reintentos de handoff y escáner diario necesitan cola de verdad; en Vercel se simula con cron + idempotencia, y la interfaz queda detrás de un puerto para que el cambio sea un adaptador |
+| Auth consola | JWT en cookie httpOnly + OTP (como hoy), roles por cliente encima | Deny-by-default ya probado; solo se le suma `linea_id` al token |
+| IA | **ElevenLabs Agents** (motor) + **Claude API** (constructor/copiloto Movi donde haga falta más cabeza) | Lo decidido; el cliente WebSocket propio queda de respaldo del Custom Channel |
+
+### Plataforma
+| Pieza | Elección | Por qué |
+|---|---|---|
+| Hosting | **Vercel hoy → Docker Compose en servidor propio (Byron)** | D5: el pipeline se arma ya; el destino cambia al final |
+| Borde | **Cloudflare delante del servidor** (WAF, TLS, rate limit) + Nginx/Caddy adentro | El WAF de HU11 sin licenciar un appliance |
+| CI/CD | **GitHub Actions**: tests → gitleaks (secretos) → suite de ataques → escáner Luhn → deploy | Las reglas innegociables de QA viven en el pipeline, no en un doc |
+| Logs | **pino** estructurado con redacción de campos sensibles + bitácora Postgres (como hoy) | La regla «cero OTP/tarjetas en logs» necesita redacción en la librería, no disciplina |
+| Monitoreo | Healthchecks + alertas por WhatsApp/correo a Pao (uptime-kuma o cron propio) | El aviso de handoff caído en 5 min lo exige QA |
+| Secretos | `.env` por entorno, fuera del repo; gitleaks en CI; key de ElevenLabs rotada y cuentas dev/prod separadas | Pendiente #7, condición de piloto |
+| E2E | **Playwright** contra el simulador (HU15) | Las 20 preguntas del onboarding y los 20 ataques corren como specs, repetibles |
+
+Lo único genuinamente NUEVO del stack es: Tailwind v4, BullMQ/Redis (recién en
+el servidor propio), Cloudflare, gitleaks, pino y Playwright. Todo lo demás es
+lo que ya está en producción.
+
+---
+
 ## 2. Fases
 
 ### Fase 0 · Cimiento multi-cliente (sin UI nueva)
