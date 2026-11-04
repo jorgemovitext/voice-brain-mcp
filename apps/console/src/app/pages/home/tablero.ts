@@ -3,6 +3,7 @@ import { valorDe } from '../../recurso';
 import { httpResource } from '@angular/common/http';
 import { RouterLink } from '@angular/router';
 import { Analytics, Channel } from '../../models';
+import { VoiceNebula } from '../../nebula';
 import { crearSondeo } from '../../sondeo';
 import { channelColor, channelLabel } from '../../ui';
 
@@ -86,7 +87,7 @@ interface Tip {
 @Component({
   selector: 'app-tablero',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [RouterLink],
+  imports: [RouterLink, VoiceNebula],
   templateUrl: './tablero.html',
   styleUrl: './tablero.scss',
 })
@@ -400,6 +401,66 @@ export class TableroPage {
    * cosas opuestas según si ayer hubo 200 o 400. La chispa es el mismo dato
    * por día, normalizado — sirve para ver la forma, no para leer valores.
    */
+  /**
+   * El pie del mapa: canal, problema y resultado con sus cifras.
+   *
+   * El dibujo muestra la FORMA del tráfico; esto pone los números. Sin el
+   * pie, un sankey es bonito y no se puede citar en una reunión: nadie
+   * puede decir «62 de basura» mirando el grosor de una cinta.
+   */
+  readonly leyendaFlujo = computed(() => {
+    const a = this.a();
+    const flujo = a?.flujo ?? [];
+    if (!flujo.length) return null;
+
+    const sumar = (clave: (f: (typeof flujo)[number]) => string) => {
+      const m = new Map<string, number>();
+      for (const f of flujo) m.set(clave(f), (m.get(clave(f)) ?? 0) + f.total);
+      return [...m.entries()].sort((x, y) => y[1] - x[1]);
+    };
+
+    return {
+      canales: sumar((f) => f.canal).map(([c, total]) => ({
+        etiqueta: channelLabel(c as Channel),
+        total,
+        color: this.colorCanal(c as Channel),
+      })),
+      problemas: sumar((f) => f.problema).slice(0, 5),
+      resultados: sumar((f) => f.resultado),
+    };
+  });
+
+  /**
+   * El mapa, dicho en una frase.
+   *
+   * Es la línea que el diseño pone bajo el dibujo, y la que un director lee
+   * en vez del gráfico. Se arma del dato, no de una plantilla con huecos:
+   * si no hay con qué decir algo cierto, no dice nada.
+   */
+  readonly flujoEnPalabras = computed(() => {
+    const l = this.leyendaFlujo();
+    const a = this.a();
+    if (!l || !a) return null;
+
+    const total = l.resultados.reduce((t, [, n]) => t + n, 0);
+    if (!total) return null;
+
+    const atendidas = l.resultados.find(([r]) => /atend/i.test(r))?.[1] ?? 0;
+    const deCada10 = Math.round((atendidas / total) * 10);
+    const esperan = total - atendidas;
+
+    const partes = [`De cada 10 casos que entran, ${deCada10} se atienden.`];
+    if (esperan > 0) {
+      // De qué es lo que espera: el dato accionable, no el conteo.
+      const enEspera = (a.flujo ?? []).filter((f) => !/atend/i.test(f.resultado));
+      const porProblema = new Map<string, number>();
+      for (const f of enEspera) porProblema.set(f.problema, (porProblema.get(f.problema) ?? 0) + f.total);
+      const peor = [...porProblema.entries()].sort((x, y) => y[1] - x[1])[0];
+      if (peor) partes.push(`Los ${esperan} que esperan son sobre todo de ${peor[0].toLowerCase()}.`);
+    }
+    return partes.join(' ');
+  });
+
   /** «Martes 4 de noviembre», como encabeza el diseño. */
   readonly hoy = computed(() => {
     const f = new Date().toLocaleDateString('es-HN', { weekday: 'long', day: 'numeric', month: 'long' });

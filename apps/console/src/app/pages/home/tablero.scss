@@ -961,3 +961,137 @@ a.sec__head:hover {
   .atiende__item { animation: none; }
   .atiende__item:hover { transform: none; }
 }
+
+
+/* ===== Tarjeta del mapa: título y pie con cifras ===== */
+.flow__titulo {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+
+.flow__rango {
+  margin-left: auto;
+  padding: 0.2rem 0.65rem;
+  border-radius: 999px;
+  background: var(--panel-2);
+  color: var(--ink-soft);
+  font-size: 0.73rem;
+  font-weight: 700;
+}
+
+/* Las tres columnas bajo el dibujo: canal, problema, resultado. */
+.pie {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  gap: 0.9rem;
+  align-items: start;
+  margin-top: 0.7rem;
+  padding-top: 0.7rem;
+  border-top: 1px solid var(--border);
+
+  @media (max-width: 900px) { grid-template-columns: 1fr; }
+}
+
+.pie__col { min-width: 0; }
+.pie__col--ancha { text-align: center; }
+
+.pie__rotulo {
+  display: block;
+  margin-bottom: 0.3rem;
+  font-size: 0.62rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--ink-soft);
+}
+
+.pie__items {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3rem;
+}
+
+.pie__items--texto { justify-content: center; gap: 0.5rem; }
+
+/* La píldora lleva el color del canal en el punto, no en el fondo: ocho
+   fondos de colores compiten entre sí y ninguno se lee. */
+.pie__pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.22rem 0.6rem;
+  border-radius: 999px;
+  background: var(--panel-2);
+  border: 1px solid var(--border);
+  font-size: 0.76rem;
+  font-weight: 600;
+  white-space: nowrap;
+
+  i {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: var(--tono, var(--ink-soft));
+  }
+
+  b { font-weight: 800; font-variant-numeric: tabular-nums; }
+}
+
+.pie__pill--res {
+  background: rgba(248, 40, 52, 0.08);
+  border-color: transparent;
+  color: #b42318;
+}
+
+.pie__pill--ok {
+  background: rgba(22, 163, 74, 0.1);
+  color: #15803d;
+}
+
+.pie__problema {
+  font-size: 0.76rem;
+  color: var(--ink-soft);
+  white-space: nowrap;
+
+  b { color: var(--ink); font-weight: 700; font-variant-numeric: tabular-nums; }
+}
+
+/* La frase que un director lee en vez del gráfico. */
+.flow__frase {
+  margin: 0.6rem 0 0;
+  font-size: 0.82rem;
+  color: var(--ink-soft);
+  line-height: 1.5;
+}
+
+
+/* ===== Movi en el riel ===== */
+.movi {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.15rem;
+  padding: 1.1rem 1rem 1.2rem;
+  border-radius: 18px;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  box-shadow: var(--sombra-tarjeta);
+  text-decoration: none;
+  color: var(--ink);
+  text-align: center;
+  transition: transform 0.18s, box-shadow 0.22s;
+
+  strong { margin-top: 0.5rem; font-size: 0.95rem; font-weight: 700; }
+  em { font-style: normal; font-size: 0.78rem; color: var(--ink-soft); }
+
+  &:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 16px 34px -16px rgba(13, 21, 41, 0.35);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .movi:hover { transform: none; }
+}

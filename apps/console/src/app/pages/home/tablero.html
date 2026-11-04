@@ -82,8 +82,8 @@
         <div class="flowzone">
           <article class="flow">
             <div class="flow__bar">
-              <span class="chip chip--label"><b>Mapa de flujo</b></span>
-              <span class="flow__leyenda">canal → problema → resultado</span>
+              <h2 class="flow__titulo">Por dónde entra y en qué termina</h2>
+              <span class="flow__rango">{{ dias() }} días</span>
             </div>
 
             @if (sankey(); as sk) {
@@ -203,6 +203,47 @@
               </svg>
             } @else {
               <p class="vacio">Sin conversaciones en el rango: el mapa se dibuja con la primera.</p>
+            }
+
+            <!-- El pie pone los NÚMEROS que el dibujo no puede decir: nadie
+                 lee «62 de basura» en el grosor de una cinta. -->
+            @if (leyendaFlujo(); as l) {
+              <div class="pie">
+                <div class="pie__col">
+                  <span class="pie__rotulo">Canal</span>
+                  <div class="pie__items">
+                    @for (c of l.canales; track c.etiqueta) {
+                      <span class="pie__pill" [style.--tono]="c.color">
+                        <i></i>{{ c.etiqueta }} <b>{{ c.total }}</b>
+                      </span>
+                    }
+                  </div>
+                </div>
+
+                <div class="pie__col pie__col--ancha">
+                  <span class="pie__rotulo">Tipo de problema</span>
+                  <div class="pie__items pie__items--texto">
+                    @for (p of l.problemas; track p[0]) {
+                      <span class="pie__problema">{{ p[0] }} <b>{{ p[1] }}</b></span>
+                    }
+                  </div>
+                </div>
+
+                <div class="pie__col">
+                  <span class="pie__rotulo">Resultado</span>
+                  <div class="pie__items">
+                    @for (r of l.resultados; track r[0]) {
+                      <span class="pie__pill pie__pill--res" [class.pie__pill--ok]="r[0].startsWith('atend')">
+                        {{ r[0] }} <b>{{ r[1] }}</b>
+                      </span>
+                    }
+                  </div>
+                </div>
+              </div>
+            }
+
+            @if (flujoEnPalabras(); as frase) {
+              <p class="flow__frase">{{ frase }}</p>
             }
           </article>
 
@@ -328,6 +369,15 @@
 
       <!-- ===== Riel derecho ===== -->
       <aside class="rail">
+        <!-- Movi, a mano. Es el ser vivo de la app: respira ahí mientras el
+             operador mira números, y es el atajo para preguntarle algo en
+             vez de buscarlo por el tablero. -->
+        <a class="movi" routerLink="/conversations">
+          <voice-nebula [size]="128" />
+          <strong>¿En qué puedo ayudarte?</strong>
+          <em>Tocá para hablar con {{ quien()?.nombre || 'tu agente' }}</em>
+        </a>
+
         <!-- Lo que exige atención AHORA: lo único del tablero donde cada
              renglón tiene a dónde ir. Va primero por eso. -->
         <section class="sec atiende">
