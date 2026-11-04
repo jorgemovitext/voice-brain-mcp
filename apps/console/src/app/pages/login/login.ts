@@ -63,6 +63,22 @@ type Paso = 'credenciales' | 'otp';
                 <span>Teléfono (WhatsApp)</span>
                 <input type="tel" autocomplete="tel" [value]="phone()" (input)="phone.set(asValue($event))" placeholder="+50499998888" required />
               </label>
+              <!-- El alta es por invitación. Solo la PRIMERA cuenta de la
+                   instalación se crea sin código; por eso se pregunta antes
+                   en vez de pedirlo siempre. -->
+              @if (conInvitacion()) {
+                <label class="auth__field">
+                  <span>Código de invitación</span>
+                  <input [value]="invitacion()" (input)="invitacion.set(asValue($event))"
+                         placeholder="ABCD-EFGH-JKLM" autocapitalize="characters" spellcheck="false" required />
+                </label>
+                <p class="auth__nota">Te lo pasa alguien del equipo desde Equipo → Invitar.</p>
+              } @else {
+                <p class="auth__nota auth__nota--primera">
+                  Esta es la primera cuenta de la consola: se crea sin invitación y desde ella
+                  se invita al resto.
+                </p>
+              }
             }
             <label class="auth__field">
               <span>Contraseña</span>
@@ -117,6 +133,18 @@ export class LoginPage {
   readonly name = signal('');
   readonly username = signal('');
   readonly phone = signal('');
+  readonly invitacion = signal('');
+  /** Si ya hay alguien registrado, el alta exige código. */
+  readonly conInvitacion = signal(true);
+
+  constructor() {
+    // Por defecto SÍ se pide: si la consulta falla, el formulario pide el
+    // código de más y no de menos.
+    void this.auth
+      .requiereInvitacion()
+      .then((hace) => this.conInvitacion.set(hace))
+      .catch(() => this.conInvitacion.set(true));
+  }
   readonly password = signal('');
   readonly code = signal('');
   readonly busy = signal(false);
@@ -153,7 +181,13 @@ export class LoginPage {
     try {
       const usuario = this.username().trim().toLowerCase();
       if (this.modo() === 'register') {
-        await this.auth.register(usuario, this.password(), this.phone().trim(), this.name().trim() || undefined);
+        await this.auth.register(
+          usuario,
+          this.password(),
+          this.phone().trim(),
+          this.name().trim() || undefined,
+          this.invitacion().trim() || undefined,
+        );
         await this.router.navigate(['/home']);
         return;
       }

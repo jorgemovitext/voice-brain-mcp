@@ -1,0 +1,86 @@
+<div class="pagina">
+  <header class="cabecera">
+    <div>
+      <h1>Equipo</h1>
+      <p>Quién puede entrar a la consola. El alta es solo por invitación.</p>
+    </div>
+  </header>
+
+  @if (error(); as e) { <p class="aviso">⚠ {{ e }}</p> }
+
+  <div class="columnas">
+    <!-- ===== Quién tiene acceso ===== -->
+    <section class="bloque">
+      <h2 class="bloque__titulo">
+        Con acceso
+        <span class="bloque__cuenta">{{ lista().length }}</span>
+      </h2>
+
+      @if (miembros.isLoading() && !lista().length) {
+        @for (s of [1, 2, 3]; track s) { <div class="fila fila--hueso"></div> }
+      } @else {
+        @for (m of lista(); track m.id; let i = $index) {
+          <article class="fila" [style.--entrada]="i">
+            <span class="fila__avatar">{{ iniciales(m) }}</span>
+            <span class="fila__quien">
+              <strong>{{ m.name || m.username }}</strong>
+              <em>{{ m.username }} · {{ m.phone }}</em>
+            </span>
+            <span class="fila__desde">desde {{ cuando(m.creada) }}</span>
+            @if (m.username !== yo()) {
+              <button class="fila__quitar" title="Quitar el acceso" (click)="quitar(m)">×</button>
+            } @else {
+              <span class="fila__vos">vos</span>
+            }
+          </article>
+        }
+      }
+    </section>
+
+    <!-- ===== Invitar ===== -->
+    <section class="bloque">
+      <h2 class="bloque__titulo">Invitar a alguien</h2>
+
+      <div class="invitar">
+        <label class="campo">
+          <span>Para quién (opcional)</span>
+          <input placeholder="Nombre o para qué es" [value]="nota()" (input)="escribir('nota', $event)" />
+        </label>
+        <label class="campo">
+          <span>Su WhatsApp (opcional)</span>
+          <input placeholder="+504 8888-7777" [value]="telefono()" (input)="escribir('telefono', $event)" />
+        </label>
+        <button class="btn btn--primary" [disabled]="generando()" (click)="invitar()">
+          {{ generando() ? 'Generando…' : 'Generar código' }}
+        </button>
+      </div>
+
+      <!-- El código, una sola vez. -->
+      @if (codigoNuevo(); as codigo) {
+        <div class="codigo">
+          <span class="codigo__rotulo">Pasale este código. No se puede volver a ver.</span>
+          <div class="codigo__caja">
+            <code>{{ codigo }}</code>
+            <button class="codigo__copiar" (click)="copiar()">
+              {{ copiado() ? '✓ Copiado' : 'Copiar' }}
+            </button>
+          </div>
+          <span class="codigo__pie">Con él se registra en la pantalla de acceso. Vale 72 horas y una sola vez.</span>
+        </div>
+      }
+
+      @if (pendientes().length) {
+        <h3 class="bloque__sub">Sin usar</h3>
+        @for (i of pendientes(); track i.id) {
+          <div class="inv">
+            <span class="inv__quien">
+              <strong>{{ i.nota || i.phone || 'Sin anotar' }}</strong>
+              <em>{{ vence(i.expira) }}</em>
+            </span>
+            <button class="inv__revocar" (click)="revocar(i)">Revocar</button>
+          </div>
+        }
+      }
+    </section>
+  </div>
+</div>

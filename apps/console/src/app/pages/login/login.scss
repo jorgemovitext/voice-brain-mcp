@@ -214,3 +214,20 @@ form {
 @media (prefers-reduced-motion: reduce) {
   .auth__card { animation: none; }
 }
+
+/* Nota bajo el campo de invitación: explica de dónde sale el código sin
+   convertirse en un párrafo que nadie lee. */
+.auth__nota {
+  margin: -8px 0 0;
+  font-size: 0.78rem;
+  color: var(--ink-soft);
+  line-height: 1.45;
+}
+
+.auth__nota--primera {
+  padding: 0.6rem 0.8rem;
+  border-radius: 12px;
+  background: var(--primary-suave);
+  color: #c23700;
+  font-weight: 600;
+}

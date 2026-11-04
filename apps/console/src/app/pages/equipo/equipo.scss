@@ -1,0 +1,295 @@
+.pagina {
+  height: 100%;
+  box-sizing: border-box;
+  overflow-y: auto;
+  padding: 1.4rem 1.6rem;
+  color: var(--ink);
+}
+
+.cabecera {
+  margin-bottom: 1.1rem;
+
+  h1 { margin: 0; font-size: 1.5rem; font-weight: 700; }
+  p { margin: 0.2rem 0 0; color: var(--ink-soft); font-size: 0.86rem; }
+}
+
+.aviso { margin: 0 0 0.8rem; color: var(--negative); font-size: 0.84rem; }
+
+.columnas {
+  display: grid;
+  grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr);
+  gap: 1rem;
+  align-items: start;
+
+  @media (max-width: 980px) { grid-template-columns: minmax(0, 1fr); }
+}
+
+.bloque {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--sombra-tarjeta);
+  padding: 1.1rem 1.2rem;
+}
+
+.bloque__titulo {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin: 0 0 0.9rem;
+  font-size: 1rem;
+  font-weight: 700;
+}
+
+.bloque__cuenta {
+  padding: 0.1rem 0.5rem;
+  border-radius: 999px;
+  background: var(--primary-suave);
+  color: #c23700;
+  font-size: 0.76rem;
+  font-weight: 700;
+}
+
+.bloque__sub {
+  margin: 1.2rem 0 0.6rem;
+  font-size: 0.74rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ink-soft);
+}
+
+/* ===== Miembros ===== */
+.fila {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+  padding: 0.6rem 0.2rem;
+  border-bottom: 1px solid var(--border);
+  animation: llegar 0.3s ease-out both;
+  animation-delay: calc(var(--entrada, 0) * 50ms);
+
+  &:last-child { border-bottom: 0; }
+  &:hover .fila__quitar { opacity: 1; }
+}
+
+@keyframes llegar {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: none; }
+}
+
+.fila--hueso {
+  height: 52px;
+  border-radius: 12px;
+  background: linear-gradient(100deg, var(--panel-2) 40%, var(--bg) 50%, var(--panel-2) 60%);
+  background-size: 200% 100%;
+  animation: respirar 1.3s ease-in-out infinite;
+}
+
+@keyframes respirar {
+  from { background-position: 120% 0; }
+  to { background-position: -80% 0; }
+}
+
+.fila__avatar {
+  flex-shrink: 0;
+  display: grid;
+  place-items: center;
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  background: var(--oscuro);
+  color: var(--oscuro-ink);
+  font-size: 0.8rem;
+  font-weight: 700;
+}
+
+.fila__quien {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  line-height: 1.3;
+
+  strong { font-size: 0.9rem; font-weight: 700; }
+  em {
+    font-style: normal;
+    font-size: 0.76rem;
+    color: var(--ink-soft);
+    font-variant-numeric: tabular-nums;
+  }
+}
+
+.fila__desde {
+  margin-left: auto;
+  font-size: 0.75rem;
+  color: var(--ink-soft);
+  white-space: nowrap;
+}
+
+.fila__vos {
+  padding: 0.12rem 0.5rem;
+  border-radius: 999px;
+  background: var(--panel-2);
+  color: var(--ink-soft);
+  font-size: 0.7rem;
+  font-weight: 700;
+}
+
+.fila__quitar {
+  width: 26px;
+  height: 26px;
+  flex-shrink: 0;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--ink-soft);
+  font-size: 1rem;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.15s, background 0.15s, color 0.15s;
+
+  &:hover { background: rgba(248, 40, 52, 0.1); color: var(--negative); }
+}
+
+/* ===== Invitar ===== */
+.invitar {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+
+.campo {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  font-size: 0.74rem;
+  font-weight: 700;
+  color: var(--ink-soft);
+
+  input {
+    padding: 0.5rem 0.7rem;
+    border-radius: 12px;
+    border: 1px solid var(--border);
+    background: var(--panel-2);
+    color: var(--ink);
+    font: inherit;
+    font-size: 0.86rem;
+    font-weight: 500;
+    transition: border-color 0.15s, box-shadow 0.15s;
+
+    &::placeholder { color: var(--ink-soft); font-weight: 400; }
+    &:focus {
+      outline: none;
+      border-color: var(--primary);
+      box-shadow: 0 0 0 3px var(--primary-suave);
+    }
+  }
+}
+
+/* El código recién nacido: entra con un destello, porque es la única vez
+   que se puede leer. */
+.codigo {
+  margin-top: 0.9rem;
+  padding: 0.9rem;
+  border-radius: 16px;
+  background: var(--primary-suave);
+  border: 1px solid color-mix(in srgb, var(--primary) 30%, transparent);
+  animation: destello 0.5s ease-out both;
+}
+
+@keyframes destello {
+  from { opacity: 0; transform: scale(0.97); }
+  to { opacity: 1; transform: none; }
+}
+
+.codigo__rotulo {
+  display: block;
+  font-size: 0.76rem;
+  font-weight: 700;
+  color: #c23700;
+  margin-bottom: 0.5rem;
+}
+
+.codigo__caja {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+
+  code {
+    flex: 1;
+    padding: 0.55rem 0.8rem;
+    border-radius: 12px;
+    background: var(--panel);
+    border: 1px solid var(--border);
+    font-family: 'Inter', monospace;
+    font-size: 1.05rem;
+    font-weight: 800;
+    letter-spacing: 0.08em;
+    text-align: center;
+  }
+}
+
+.codigo__copiar {
+  flex-shrink: 0;
+  padding: 0.55rem 0.9rem;
+  border: 0;
+  border-radius: 999px;
+  background: var(--primary);
+  color: var(--primary-ink);
+  font: inherit;
+  font-size: 0.8rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: transform 0.12s;
+
+  &:hover { transform: translateY(-1px); }
+}
+
+.codigo__pie {
+  display: block;
+  margin-top: 0.5rem;
+  font-size: 0.74rem;
+  color: var(--ink-soft);
+}
+
+.inv {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.5rem 0.2rem;
+  border-bottom: 1px solid var(--border);
+
+  &:last-child { border-bottom: 0; }
+}
+
+.inv__quien {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  line-height: 1.3;
+
+  strong { font-size: 0.85rem; font-weight: 700; }
+  em { font-style: normal; font-size: 0.73rem; color: var(--ink-soft); }
+}
+
+.inv__revocar {
+  margin-left: auto;
+  padding: 0.25rem 0.7rem;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--panel);
+  color: var(--ink-soft);
+  font: inherit;
+  font-size: 0.75rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: color 0.15s, border-color 0.15s;
+
+  &:hover { color: var(--negative); border-color: var(--negative); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .fila, .codigo { animation: none; }
+  .fila--hueso { animation: none; }
+  .codigo__copiar:hover { transform: none; }
+}

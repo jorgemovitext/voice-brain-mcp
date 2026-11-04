@@ -43,6 +43,12 @@ export const routes: Routes = [
     title: 'Conversaciones · Hive',
   },
   {
+    path: 'equipo',
+    canActivate: [authGuard],
+    loadComponent: () => import('./pages/equipo/equipo').then((m) => m.EquipoPage),
+    title: 'Equipo · Hive',
+  },
+  {
     path: 'canales',
     canActivate: [authGuard],
     loadComponent: () => import('./pages/canales/canales').then((m) => m.CanalesPage),

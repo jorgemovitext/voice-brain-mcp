@@ -151,6 +151,29 @@ export class BrainApiService {
 
   /* --- Módulo de Agentes --- */
 
+  /* --- Equipo e invitaciones --- */
+
+  equipo(): Promise<Array<{ id: string; username?: string; name?: string; phone: string; creada: string }>> {
+    return firstValueFrom(this.http.get<Array<{ id: string; username?: string; name?: string; phone: string; creada: string }>>('/api/auth/equipo'));
+  }
+
+  quitarDelEquipo(id: string): Promise<{ ok: boolean }> {
+    return firstValueFrom(this.http.delete<{ ok: boolean }>(`/api/auth/equipo/${id}`));
+  }
+
+  /** Devuelve el código UNA vez: después solo queda su hash en el servidor. */
+  crearInvitacion(input: { phone?: string; nota?: string }): Promise<{ codigo: string }> {
+    return firstValueFrom(this.http.post<{ codigo: string }>('/api/auth/invitaciones', input));
+  }
+
+  invitaciones(): Promise<Array<{ id: string; phone?: string; nota?: string; creada: string; expira: string; usada?: string; vigente: boolean }>> {
+    return firstValueFrom(this.http.get<Array<{ id: string; phone?: string; nota?: string; creada: string; expira: string; usada?: string; vigente: boolean }>>('/api/auth/invitaciones'));
+  }
+
+  revocarInvitacion(id: string): Promise<{ ok: boolean }> {
+    return firstValueFrom(this.http.delete<{ ok: boolean }>(`/api/auth/invitaciones/${id}`));
+  }
+
   /* --- Líneas: el número de cada cliente --- */
 
   crearLinea(input: {
