@@ -381,3 +381,16 @@ export interface AristaFlujo {
   /** En lenguaje natural: la evalúa el modelo. */
   condicion?: string;
 }
+
+/** Una línea: el número de WhatsApp de un cliente y el agente que lo atiende. */
+export interface Linea {
+  id: string;
+  cliente: string;
+  nombre: string;
+  numero: string;
+  destino?: string;
+  /** Referencia del agente; la vista muestra su nombre, nunca esto. */
+  agente: string;
+  estado: 'activa' | 'pausada';
+  creado: string;
+}

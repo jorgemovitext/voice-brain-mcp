@@ -4,6 +4,7 @@ import { AtencionService } from '../shared/atencion.service';
 import { BrainService } from '../brain/brain.service';
 import { WebhookLogService } from '../shared/webhook-log.service';
 import { ElevenLabsService } from '../elevenlabs/elevenlabs.service';
+import { LineasService } from '../lineas/lineas.service';
 import { ChannelPort, WHATSAPP_CHANNEL } from '../ports/channel.port';
 
 /**
@@ -32,6 +33,12 @@ interface MensajeNormalizado {
   id: string;
   from: string;
   text: string;
+  /**
+   * A QUÉ número o app le escribió la persona. Es la llave del multi-cliente:
+   * con varias líneas conviviendo, el destino decide qué agente contesta.
+   * Meta lo trae como número; Gupshup, como nombre de app.
+   */
+  destino?: string;
   profileName?: string;
   /** Si el mensaje era un archivo y no texto, con qué ícono se muestra. */
   attachment?: 'foto' | 'ubicacion' | 'audio' | 'adjunto';
@@ -69,6 +76,7 @@ export class WhatsappInboundService {
     private readonly atencion: AtencionService,
     private readonly webhookLog: WebhookLogService,
     private readonly agente: ElevenLabsService,
+    private readonly lineas: LineasService,
     private readonly activo: AgenteActivoService,
     @Inject(WHATSAPP_CHANNEL) private readonly whatsapp: ChannelPort,
   ) {}
@@ -82,6 +90,16 @@ export class WhatsappInboundService {
     for (const m of mensajes) {
       if (this.yaVisto(m.id)) continue;
 
+      /*
+       * QUIÉN atiende lo decide el número al que la persona escribió, no una
+       * configuración global: con varias líneas conviviendo, el mismo webhook
+       * recibe mensajes de clientes distintos. Sin línea que coincida, cae al
+       * agente activo de siempre — el número histórico sigue funcionando
+       * aunque nadie lo haya dado de alta como línea.
+       */
+      const linea = await this.lineas.agenteDe(m.destino).catch(() => null);
+      const agenteId = linea?.agente ?? (await this.activo.id());
+
       const quien = m.profileName ?? m.from;
       const puerta = await this.hiloTomado(m.from);
       if (puerta.estado !== 'tomado') {
@@ -91,7 +109,7 @@ export class WhatsappInboundService {
          * configurado. Un hilo TOMADO no pasa por acá a propósito: lo atiende
          * una persona, y el agente encima sería una segunda voz contestando.
          */
-        if (await this.atendioElAgente(m, origen)) continue;
+        if (await this.atendioElAgente(m, origen, agenteId)) continue;
 
         /*
          * Sin agente configurado se conserva el comportamiento de siempre, y
@@ -127,7 +145,7 @@ export class WhatsappInboundService {
         source: 'own',
         // El espacio donde ocurrió: la pregunta del vecino no la escribió
         // ningún agente, pero es parte de la conversación de ESTE.
-        agente: await this.activo.id(),
+        agente: agenteId,
         attachment: m.attachment,
         attachmentUrl: m.attachmentUrl,
       });
@@ -155,7 +173,11 @@ export class WhatsappInboundService {
    * no existía: no es un fantasma, es alguien con quien estamos conversando de
    * verdad. Ese es el primer mensaje de un hilo nuevo.
    */
-  private async atendioElAgente(m: MensajeNormalizado, origen: 'gupshup' | 'whatsapp-cloud'): Promise<boolean> {
+  private async atendioElAgente(
+    m: MensajeNormalizado,
+    origen: 'gupshup' | 'whatsapp-cloud',
+    agenteId: string,
+  ): Promise<boolean> {
     if (!this.agente.configurado()) return false;
 
     try {
@@ -175,12 +197,12 @@ export class WhatsappInboundService {
         source: 'own',
         // El espacio donde ocurrió: la pregunta del vecino no la escribió
         // ningún agente, pero es parte de la conversación de ESTE.
-        agente: await this.activo.id(),
+        agente: agenteId,
         attachment: m.attachment,
         attachmentUrl: m.attachmentUrl,
       });
 
-      const respuesta = await this.agente.responderEnHilo(contactId, m.text);
+      const respuesta = await this.agente.responderEnHilo(contactId, m.text, agenteId);
       if (!respuesta) {
         // El motor está encendido pero no contestó. No se inventa una
         // respuesta: queda el mensaje del ciudadano y el aviso para que un
@@ -205,7 +227,7 @@ export class WhatsappInboundService {
         handledBy: 'agente',
         // CUÁL agente: es lo que deja que la bandeja y el tablero separen lo
         // de la Línea 100 de lo de Movi cuando se cambia el que atiende.
-        agente: await this.activo.id(),
+        agente: agenteId,
         collectedInfo: envio.providerId ? { providerId: envio.providerId } : undefined,
       });
 
@@ -272,6 +294,12 @@ export class WhatsappInboundService {
     for (const entry of (body['entry'] as Array<Record<string, unknown>>) ?? []) {
       for (const change of (entry['changes'] as Array<Record<string, unknown>>) ?? []) {
         const value = (change['value'] as Record<string, unknown>) ?? {};
+        // El número NUESTRO al que escribieron: decide qué línea (y agente)
+        // atiende. display_phone_number llega sin el «+».
+        const metadata = (value['metadata'] as Record<string, unknown>) ?? {};
+        const destino =
+          (metadata['display_phone_number'] as string | undefined) ??
+          (metadata['phone_number_id'] as string | undefined);
 
         // Acuses de entrega: se registran, no entran al hilo del contacto.
         const statuses = value['statuses'] as Array<Record<string, unknown>> | undefined;
@@ -300,7 +328,7 @@ export class WhatsappInboundService {
           const id = String(msg['id'] ?? `${from}-${msg['timestamp']}`);
 
           if (texto) {
-            salida.push({ id, from: desde, text: texto, profileName });
+            salida.push({ id, from: desde, text: texto, profileName, destino });
             continue;
           }
 
@@ -317,6 +345,7 @@ export class WhatsappInboundService {
               from: desde,
               text: caption || media.etiqueta,
               profileName,
+              destino,
               attachment: media.attachment,
               attachmentUrl: this.urlDeMedia(obj, origen, tipo),
             });
@@ -379,9 +408,12 @@ export class WhatsappInboundService {
     const desde = phone.startsWith('+') ? phone : `+${phone}`;
     const id = String(payload['id'] ?? `${phone}-${Date.now()}`);
     const nombre = sender['name'] as string | undefined;
+    // En el formato propio de Gupshup el número nuestro no viaja: viaja el
+    // nombre de la app, y cada app ES un número. Con eso enruta la línea.
+    const destino = (body['app'] as string | undefined) ?? undefined;
 
     if (texto) {
-      return [{ id, from: desde, text: texto, profileName: nombre }];
+      return [{ id, from: desde, text: texto, profileName: nombre, destino }];
     }
 
     // Sin texto: en el formato v2 el tipo de media está en `payload.type` y el
@@ -396,6 +428,7 @@ export class WhatsappInboundService {
           from: desde,
           text: caption || media.etiqueta,
           profileName: nombre,
+          destino,
           attachment: media.attachment,
           attachmentUrl: this.urlDeMedia(interno, origen, tipoMedia),
         },

@@ -2,6 +2,7 @@ import { AgenteActivoService } from '../shared/agente-activo.service';
 import { BrainService } from '../brain/brain.service';
 import { AtencionService } from '../shared/atencion.service';
 import { WebhookLogService } from '../shared/webhook-log.service';
+import { LineasService } from '../lineas/lineas.service';
 import { WhatsappInboundService } from './whatsapp-inbound.service';
 import { ElevenLabsService } from '../elevenlabs/elevenlabs.service';
 import { ChannelPort } from '../ports/channel.port';
@@ -45,11 +46,14 @@ describe('WhatsappInboundService', () => {
     operador,
     contactos = ['c1'],
     respuestaAgente = null,
+    lineas = {},
   }: {
     operador: Record<string, string | null>;
     contactos?: string[];
     /** Qué contesta el agente. null = motor apagado (el caso por defecto). */
     respuestaAgente?: string | null;
+    /** destino → agente de la línea, para probar el routing multi-cliente. */
+    lineas?: Record<string, string>;
   }) {
     const guardadas: Array<Record<string, unknown>> = [];
     const bitacora: string[] = [];
@@ -65,9 +69,17 @@ describe('WhatsappInboundService', () => {
         return i;
       },
     };
+    const atendidoPor: string[] = [];
     const agente = {
       configurado: () => respuestaAgente !== null,
-      responderEnHilo: async () => respuestaAgente,
+      responderEnHilo: async (_c: string, _t: string, agenteId?: string) => {
+        atendidoPor.push(agenteId ?? 'sin-agente');
+        return respuestaAgente;
+      },
+    };
+    const lineasService = {
+      agenteDe: async (destino?: string) =>
+        destino && lineas[destino] ? { agente: lineas[destino], linea: `linea-${destino}` } : null,
     };
     const canal = {
       send: async (contactId: string, texto: string) => {
@@ -82,10 +94,11 @@ describe('WhatsappInboundService', () => {
       atencion as unknown as AtencionService,
       { push: (_o: string, texto: string) => bitacora.push(texto) } as unknown as WebhookLogService,
       agente as unknown as ElevenLabsService,
+      lineasService as unknown as LineasService,
       ACTIVO_DE_PRUEBA,
       canal as unknown as ChannelPort,
     );
-    return { service, guardadas, bitacora, enviados };
+    return { service, guardadas, bitacora, enviados, atendidoPor };
   }
 
   it('la respuesta del ciudadano entra al hilo que un operador tomó', async () => {
@@ -258,6 +271,41 @@ describe('WhatsappInboundService', () => {
     await service.process(mensaje('Una sola vez', 'repetido'), 'gupshup');
 
     expect(guardadas).toHaveLength(1);
+  });
+
+  it('el número al que escribieron decide qué agente contesta', async () => {
+    /*
+     * Multi-cliente: el mismo webhook recibe mensajes de líneas distintas.
+     * Un mensaje a la app de la clínica lo atiende el agente de la clínica,
+     * no el activo global — si esto se rompe, el agente de un cliente le
+     * contesta a los ciudadanos de otro.
+     */
+    const { service, atendidoPor, guardadas } = build({
+      operador: {},
+      contactos: [],
+      respuestaAgente: 'Con gusto, ¿su nombre?',
+      lineas: { ClinicaApp: 'ag-clinica' },
+    });
+
+    const conApp = { app: 'ClinicaApp', ...mensaje('Quiero una cita') };
+    await service.process(conApp, 'gupshup');
+
+    expect(atendidoPor).toEqual(['ag-clinica']);
+    // Y el hilo queda atribuido a ESE agente: la bandeja de la clínica lo ve.
+    expect(guardadas[0]).toMatchObject({ agente: 'ag-clinica' });
+  });
+
+  it('sin línea que coincida, cae al agente activo de siempre', async () => {
+    const { service, atendidoPor } = build({
+      operador: {},
+      contactos: [],
+      respuestaAgente: 'Hola',
+      lineas: { ClinicaApp: 'ag-clinica' },
+    });
+
+    await service.process({ app: 'OtraApp', ...mensaje('Hola', 'm9') }, 'gupshup');
+
+    expect(atendidoPor).toEqual(['ag-1']);
   });
 
   it('un acuse de entrega no es un mensaje del ciudadano', async () => {

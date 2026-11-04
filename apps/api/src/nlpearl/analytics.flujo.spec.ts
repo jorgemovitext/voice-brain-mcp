@@ -15,6 +15,12 @@ import { AnalyticsService } from './analytics.service';
  */
 describe('AnalyticsService · mapa de flujo', () => {
   const ahora = new Date().toISOString();
+  /*
+   * Fechas RELATIVAS al presente, no fijas: con '2026-09-04' escrito a mano,
+   * estos tests pasaron hasta que la ventana de 30 días del resumen los dejó
+   * atrás — y fallaron solos un mes después, sin que nadie tocara nada.
+   */
+  const hace = (horas: number) => new Date(Date.now() - horas * 3_600_000).toISOString();
 
   function interaccion(p: Partial<Interaction>): Interaction {
     return {
@@ -46,9 +52,9 @@ describe('AnalyticsService · mapa de flujo', () => {
 
   it('un contacto que escribió Y llamó aparece en los dos canales', async () => {
     const service = build([
-      interaccion({ channel: 'whatsapp', direction: 'inbound', occurredAt: '2026-09-04T10:00:00.000Z' }),
-      interaccion({ channel: 'whatsapp', direction: 'outbound', occurredAt: '2026-09-04T10:01:00.000Z' }),
-      interaccion({ channel: 'voice', direction: 'inbound', occurredAt: '2026-09-04T11:00:00.000Z' }),
+      interaccion({ channel: 'whatsapp', direction: 'inbound', occurredAt: hace(3) }),
+      interaccion({ channel: 'whatsapp', direction: 'outbound', occurredAt: hace(2.9) }),
+      interaccion({ channel: 'voice', direction: 'inbound', occurredAt: hace(2) }),
     ]);
 
     const { flujo } = await service.resumen(30);
@@ -66,9 +72,9 @@ describe('AnalyticsService · mapa de flujo', () => {
     // Se le contestó el WhatsApp, pero la llamada quedó sin devolver: el mapa
     // tiene que poder mostrar las dos cosas a la vez.
     const service = build([
-      interaccion({ channel: 'whatsapp', direction: 'inbound', occurredAt: '2026-09-04T10:00:00.000Z' }),
-      interaccion({ channel: 'whatsapp', direction: 'outbound', occurredAt: '2026-09-04T10:01:00.000Z' }),
-      interaccion({ channel: 'voice', direction: 'inbound', occurredAt: '2026-09-04T11:00:00.000Z' }),
+      interaccion({ channel: 'whatsapp', direction: 'inbound', occurredAt: hace(3) }),
+      interaccion({ channel: 'whatsapp', direction: 'outbound', occurredAt: hace(2.9) }),
+      interaccion({ channel: 'voice', direction: 'inbound', occurredAt: hace(2) }),
     ]);
 
     const { flujo } = await service.resumen(30);

@@ -9,6 +9,7 @@ import { AgentesModule } from './agentes/agentes.module';
 import { ElevenLabsModule } from './elevenlabs/elevenlabs.module';
 import { DemoModule } from './demo/demo.module';
 import { IntegrationsModule } from './integrations/integrations.module';
+import { LineasModule } from './lineas/lineas.module';
 import { NlpearlModule } from './nlpearl/nlpearl.module';
 import { DatabaseModule } from './shared/database.module';
 import { SharedModule } from './shared/flow-log.service';
@@ -34,6 +35,7 @@ import { SharedModule } from './shared/flow-log.service';
     ChannelsModule,
     ElevenLabsModule,
     AgentesModule,
+    LineasModule,
     NlpearlModule,
     DemoModule,
   ],

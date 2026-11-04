@@ -40,7 +40,8 @@ export class ElevenLabsService {
    * Devuelve null si el motor está apagado o no contestó; quien llama decide
    * qué hacer con ese silencio.
    */
-  async responderEnHilo(contactId: string, texto: string): Promise<string | null> {
+  /** @param agente Qué agente contesta (la línea lo decide). Vacío = el activo. */
+  async responderEnHilo(contactId: string, texto: string, agente?: string): Promise<string | null> {
     if (!this.configurado()) return null;
 
     const ctx = await this.brain.getContext({ contactId }).catch(() => null);
@@ -48,6 +49,7 @@ export class ElevenLabsService {
     const nombre = ctx?.contact.displayName?.trim();
 
     const r = await this.client.responder({
+      agente,
       texto,
       contexto: historial,
       // El prompt del agente puede interpolarlas como {{nombre_ciudadano}}.

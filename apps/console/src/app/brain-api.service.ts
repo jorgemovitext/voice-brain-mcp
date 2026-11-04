@@ -151,6 +151,28 @@ export class BrainApiService {
 
   /* --- Módulo de Agentes --- */
 
+  /* --- Líneas: el número de cada cliente --- */
+
+  crearLinea(input: {
+    cliente: string;
+    nombre: string;
+    numero: string;
+    agente: string;
+  }): Promise<unknown> {
+    return firstValueFrom(this.http.post('/api/lineas', input));
+  }
+
+  actualizarLinea(
+    id: string,
+    cambios: Partial<{ cliente: string; nombre: string; agente: string; estado: 'activa' | 'pausada' }>,
+  ): Promise<{ ok: boolean }> {
+    return firstValueFrom(this.http.patch<{ ok: boolean }>(`/api/lineas/${id}`, cambios));
+  }
+
+  eliminarLinea(id: string): Promise<{ ok: boolean }> {
+    return firstValueFrom(this.http.delete<{ ok: boolean }>(`/api/lineas/${id}`));
+  }
+
   crearAgente(nombre: string): Promise<{ id: string }> {
     return firstValueFrom(
       this.http.post<{ id: string }>('/api/agentes', {

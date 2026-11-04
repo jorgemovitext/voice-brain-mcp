@@ -43,6 +43,12 @@ export const routes: Routes = [
     title: 'Conversaciones · Brain',
   },
   {
+    path: 'canales',
+    canActivate: [authGuard],
+    loadComponent: () => import('./pages/canales/canales').then((m) => m.CanalesPage),
+    title: 'Canales · Hive',
+  },
+  {
     path: 'agentes',
     pathMatch: 'full',
     canActivate: [authGuard],

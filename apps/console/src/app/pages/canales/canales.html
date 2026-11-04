@@ -1,0 +1,108 @@
+<div class="pagina">
+  <header class="cabecera">
+    <div>
+      <h1>Canales</h1>
+      <p>El número de WhatsApp de cada cliente y el agente que lo atiende.</p>
+    </div>
+    <button class="crear" (click)="creando.set(!creando())">
+      <span class="crear__mas">{{ creando() ? '×' : '+' }}</span>
+      {{ creando() ? 'Cerrar' : 'Nueva línea' }}
+    </button>
+  </header>
+
+  @if (error(); as e) { <p class="aviso">⚠ {{ e }}</p> }
+
+  <!-- ===== Alta: se abre como una tarjeta más, no como otra página ===== -->
+  @if (creando()) {
+    <section class="alta">
+      <div class="alta__campos">
+        <label class="campo">
+          <span>Cliente</span>
+          <input placeholder="Clínica San Jorge" [value]="cliente()" (input)="escribir('cliente', $event)" />
+        </label>
+        <label class="campo">
+          <span>Nombre de la línea</span>
+          <input placeholder="Citas Tegucigalpa" [value]="nombre()" (input)="escribir('nombre', $event)" />
+        </label>
+        <label class="campo">
+          <span>Número de WhatsApp</span>
+          <input placeholder="+504 8888-7777" [value]="numero()" (input)="escribir('numero', $event)" />
+        </label>
+        <label class="campo">
+          <span>Agente que atiende</span>
+          <select [value]="agente()" (change)="escribir('agente', $event)">
+            <option value="" disabled>Elegí un agente…</option>
+            @for (a of catalogo(); track a.id) {
+              <option [value]="a.id">{{ a.nombre }}</option>
+            }
+          </select>
+        </label>
+      </div>
+      <p class="alta__nota">Por ahora el canal es WhatsApp. El agente queda listo para contestar al guardar.</p>
+      <button class="btn btn--primary" [disabled]="!puedeCrear() || guardando()" (click)="crear()">
+        {{ guardando() ? 'Conectando…' : 'Conectar la línea' }}
+      </button>
+    </section>
+  }
+
+  <!-- ===== Las líneas ===== -->
+  @if (lineas.isLoading() && !listado().length) {
+    <div class="tarjetas">
+      @for (s of [1, 2, 3]; track s) { <div class="tarjeta tarjeta--hueso"></div> }
+    </div>
+  } @else if (!listado().length) {
+    <div class="vacio">
+      <span class="vacio__icono">◎</span>
+      <p>Todavía no hay líneas. Conectá el número de tu primer cliente y su agente empieza a atender solo.</p>
+    </div>
+  } @else {
+    <div class="tarjetas">
+      @for (l of listado(); track l.id; let i = $index) {
+        <article class="tarjeta" [class.tarjeta--pausada]="l.estado === 'pausada'" [style.--entrada]="i">
+          <header class="tarjeta__cabeza">
+            <span class="latido" [class.latido--quieto]="l.estado === 'pausada'"></span>
+            <div class="tarjeta__quien">
+              <strong>{{ l.cliente }}</strong>
+              <em>{{ l.nombre }}</em>
+            </div>
+            <button class="tarjeta__borrar" title="Quitar la línea" (click)="eliminar(l)">×</button>
+          </header>
+
+          <p class="tarjeta__numero">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21 12a9 9 0 0 1-13.5 7.8L3 21l1.2-4.5A9 9 0 1 1 21 12"/></svg>
+            {{ telefono(l.numero) }}
+          </p>
+
+          <!-- Quién contesta este número, con cambio en el lugar. -->
+          <div class="tarjeta__agente">
+            @if (editando() === l.id) {
+              <select class="tarjeta__selector" (change)="cambiarAgente(l, $event)" (blur)="editando.set(null)">
+                <option value="" disabled selected>Pasar la línea a…</option>
+                @for (a of catalogo(); track a.id) {
+                  <option [value]="a.id" [disabled]="a.id === l.agente">{{ a.nombre }}</option>
+                }
+              </select>
+            } @else {
+              <button class="chip" (click)="editando.set(l.id)" title="Cambiar el agente de esta línea">
+                <span class="chip__orbe"></span>
+                {{ nombreDe()(l.agente) }}
+                <span class="chip__editar">✎</span>
+              </button>
+            }
+            @if (l.estado === 'activa') {
+              <span class="estado">atendiendo ahora</span>
+            } @else {
+              <span class="estado estado--pausa">en pausa</span>
+            }
+          </div>
+
+          <footer class="tarjeta__pie">
+            <button class="btn btn--ghost" (click)="pausar(l)">
+              {{ l.estado === 'activa' ? 'Pausar' : 'Reactivar' }}
+            </button>
+          </footer>
+        </article>
+      }
+    </div>
+  }
+</div>

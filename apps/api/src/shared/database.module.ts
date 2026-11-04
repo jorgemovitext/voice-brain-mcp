@@ -69,6 +69,22 @@ export function ensureSchema(pool: Pool): Promise<void> {
         -- descartaba en silencio y el riel se quedaba con el dato viejo.
         ALTER TABLE interactions ADD COLUMN IF NOT EXISTS ficha jsonb;
 
+        -- Una LÍNEA: el número de WhatsApp de un cliente y el agente que lo
+        -- atiende. Es la unidad de Hive: cada cliente configura un número por
+        -- agente, y todo lo demás (bandeja, tablero, cobro) cuelga de acá.
+        -- 'destino' es la clave extra de routing cuando el proveedor no manda
+        -- el número (p. ej. el nombre de app de Gupshup).
+        CREATE TABLE IF NOT EXISTS lineas (
+          id text PRIMARY KEY,
+          cliente text NOT NULL,
+          nombre text NOT NULL,
+          numero text UNIQUE NOT NULL,
+          destino text,
+          agente text NOT NULL,
+          estado text NOT NULL DEFAULT 'activa',
+          creado timestamptz NOT NULL DEFAULT now()
+        );
+
         -- Configuración editable desde la app (p. ej. qué Pearl usa cada canal),
         -- para no depender de variables de entorno que exigen redeploy.
         CREATE TABLE IF NOT EXISTS app_settings (
