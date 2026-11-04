@@ -14,7 +14,9 @@ import type { FastifyRequest } from 'fastify';
 import { ElevenLabsVozService } from '../elevenlabs/elevenlabs-voz.service';
 import { ElevenLabsClient } from '../elevenlabs/elevenlabs.client';
 import { AgenteActivoService } from '../shared/agente-activo.service';
-import { AgentesService, AristaFlujo, NodoFlujo } from './agentes.service';
+import { ReparoAgente } from '../shared/agente-activo.service';
+import { AgentesService, AristaFlujo, ConfigCanales, NodoFlujo } from './agentes.service';
+import { plantillas as listaDePlantillas } from './plantillas';
 import { AsistenteAgentesService, DocumentoAdjunto, TurnoAsistente } from './asistente.service';
 import { DocumentosService } from './documentos.service';
 
@@ -137,6 +139,27 @@ export class AgentesController {
     return this.documentos.subir(nombre ?? 'Documento', cuerpo);
   }
 
+  /** El catálogo de roles del asistente (paso 1). Son datos, no agentes. */
+  @Get('plantillas')
+  plantillas() {
+    return listaDePlantillas().map((p) => ({
+      id: p.id,
+      nombre: p.nombre,
+      resumen: p.resumen,
+      para: p.para,
+      herramientas: p.herramientas,
+      fases: p.fases.length,
+    }));
+  }
+
+  /** Paso 1 del asistente: el agente nace de verdad, con prompt y flujo. */
+  @Post('desde-plantilla')
+  crearDesdePlantilla(
+    @Body() body: { plantilla: string; nombre: string; negocio: string; horario?: string },
+  ) {
+    return this.agentes.crearDesdePlantilla(body ?? ({} as never));
+  }
+
   @Get()
   async listar() {
     if (!this.agentes.configurado) return { configurado: false, agentes: [] };
@@ -228,6 +251,77 @@ export class AgentesController {
   @Post(':id/duplicar')
   async duplicar(@Param('id') id: string, @Body() body: { nombre: string }) {
     return this.agentes.duplicar(id, body.nombre);
+  }
+
+  /**
+   * Engancha documentos YA subidos a la base de conocimiento del agente.
+   *
+   * Subir y enganchar son dos pasos porque en el asistente el documento se
+   * sube apenas se elige el archivo —para poder mostrar que se leyó— y el
+   * agente puede no existir todavía en ese momento.
+   */
+  @Post(':id/documentos')
+  async engancharDocumentos(
+    @Param('id') id: string,
+    @Body() body: { documentos: Array<{ referencia: string; nombre: string }> },
+  ) {
+    const nuevos = await this.agentes.engancharDocumentos(id, body?.documentos ?? []);
+    return { enganchados: nuevos };
+  }
+
+  /* --- Canales y horario (paso 3) --- */
+
+  @Get(':id/canales')
+  canales(@Param('id') id: string) {
+    return this.agentes.canalesDe(id);
+  }
+
+  @Patch(':id/canales')
+  guardarCanales(@Param('id') id: string, @Body() body: Partial<ConfigCanales>) {
+    return this.agentes.guardarCanales(id, body ?? {});
+  }
+
+  /**
+   * Todo lo que el asistente armó, en una sola lectura (paso 4).
+   *
+   * Va junto y no en cuatro peticiones porque la pantalla de revisar las
+   * necesita TODAS para decidir si se puede activar: con llamadas sueltas,
+   * el botón se habilitaría antes de saber si falta algo.
+   */
+  @Get(':id/resumen')
+  async resumen(@Param('id') id: string) {
+    const [detalle, flujo, canales] = await Promise.all([
+      this.agentes.detalle(id),
+      this.agentes.flujo(id).catch(() => ({ nodos: [], aristas: [] })),
+      this.agentes.canalesDe(id),
+    ]);
+
+    /*
+     * Los reparos son los mismos que bloquean el cambio de agente: una sola
+     * definición de «esto no está listo», o la pantalla diría que sí y el
+     * botón de activar diría que no.
+     */
+    const reparos: ReparoAgente[] = await this.agenteActivo.revisar(id).catch(() => []);
+    if (!canales.horario.trim()) {
+      reparos.push({
+        gravedad: 'aviso' as const,
+        texto: 'No tiene horario: va a decir que no sabe cuándo atienden.',
+      });
+    }
+    if (!detalle.documentos.length) {
+      reparos.push({
+        gravedad: 'aviso' as const,
+        texto: 'No tiene base de conocimiento: solo puede contestar con lo que diga su prompt.',
+      });
+    }
+
+    return {
+      agente: detalle,
+      canales,
+      fases: flujo.nodos.map((n) => ({ id: n.id, nombre: n.nombre, tipo: n.tipo })),
+      reparos,
+      puedeActivar: !reparos.some((r) => r.gravedad === 'bloqueo'),
+    };
   }
 
   /* --- Flujo de la conversación --- */

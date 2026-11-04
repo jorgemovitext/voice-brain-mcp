@@ -1,0 +1,338 @@
+<div class="pagina">
+  <!-- ===== Cabecera con los 4 pasos, como en el diseño ===== -->
+  <header class="cabecera">
+    <div class="cabecera__texto">
+      <h1>{{ actual().titulo }}</h1>
+      <p>Paso {{ indice() + 1 }} de 4 · {{ actual().bajada }}</p>
+    </div>
+
+    <nav class="pasos">
+      @for (p of PASOS; track p.id; let i = $index) {
+        <button
+          class="paso"
+          [class.paso--activo]="paso() === p.id"
+          [class.paso--hecho]="hecho(p.id)"
+          [disabled]="!hecho(p.id) && paso() !== p.id"
+          (click)="volverA(p.id)">
+          @if (hecho(p.id)) {
+            <span class="paso__tilde">✓</span>
+          } @else {
+            <span class="paso__num">{{ i + 1 }}</span>
+          }
+          {{ p.rotulo }}
+        </button>
+      }
+    </nav>
+  </header>
+
+  @if (error(); as e) { <p class="aviso">⚠ {{ e }}</p> }
+
+  <div class="tablero">
+    <!-- ================= PASO 1 · ORIGEN ================= -->
+    @if (paso() === 'origen') {
+      <section class="panel">
+        <h2 class="panel__titulo">
+          Qué trabajo va a hacer
+          <em>Elegí el rol más parecido; después se afina todo</em>
+        </h2>
+
+        <div class="roles">
+          @for (p of catalogo(); track p.id; let i = $index) {
+            <button
+              class="rol"
+              [class.rol--elegido]="elegida() === p.id"
+              [style.--entrada]="i"
+              (click)="elegida.set(p.id)">
+              <span class="rol__cabeza">
+                <strong>{{ p.nombre }}</strong>
+                @if (elegida() === p.id) { <span class="rol__tilde">✓</span> }
+              </span>
+              <span class="rol__resumen">{{ p.resumen }}</span>
+              <span class="rol__meta">
+                @for (r of p.para; track r) { <em class="rol__rubro">{{ r }}</em> }
+              </span>
+              <span class="rol__pie">{{ p.fases }} fases · {{ p.herramientas.length }} acciones</span>
+            </button>
+          }
+        </div>
+
+        <div class="campos">
+          <label class="campo">
+            <span>Cómo se llama el agente</span>
+            <input placeholder="Aseo 100" [value]="nombre()" (input)="escribir('nombre', $event)" />
+          </label>
+          <label class="campo">
+            <span>De qué negocio es</span>
+            <input placeholder="Alcaldía de Tegucigalpa" [value]="negocio()" (input)="escribir('negocio', $event)" />
+          </label>
+        </div>
+      </section>
+
+      <aside class="riel">
+        <h2 class="riel__titulo">Qué va a pasar</h2>
+        <p class="riel__texto">
+          Al continuar, el agente se crea de verdad con el guion del rol, sus acciones y
+          las fases de la conversación. Lo que sigue lo va afinando.
+        </p>
+        <ul class="riel__lista">
+          <li>Nace con guion, no en blanco</li>
+          <li>Podés volver a cualquier paso sin perder nada</li>
+          <li>No atiende a nadie hasta que lo actives</li>
+        </ul>
+        <button class="btn btn--primary riel__accion" [disabled]="!puedeSeguirDeOrigen() || trabajando()" (click)="crearAgente()">
+          {{ trabajando() ? 'Creando…' : 'Crear y continuar →' }}
+        </button>
+        <a class="riel__salir" routerLink="/agentes">Cancelar</a>
+      </aside>
+    }
+
+    <!-- ================= PASO 2 · CONOCIMIENTO ================= -->
+    @if (paso() === 'conocimiento') {
+      <section class="panel">
+        <h2 class="panel__titulo">
+          Lo que ya está escrito
+          <em>Reglamentos, tarifarios, preguntas frecuentes. El agente los consulta al contestar</em>
+        </h2>
+
+        <label class="soltar">
+          <input type="file" multiple hidden
+                 accept=".pdf,.docx,.txt,.md,.json,.csv,.html,.yaml,.xml"
+                 (change)="adjuntar($event)" />
+          <span class="soltar__icono">↑</span>
+          <strong>Subí un documento</strong>
+          <em>PDF, Word, Markdown, JSON, CSV o texto · hasta 4 MB</em>
+        </label>
+
+        @if (subiendo(); as s) {
+          <p class="subiendo"><span class="subiendo__punto"></span> Leyendo «{{ s }}»…</p>
+        }
+
+        @if (documentos().length) {
+          <div class="docs">
+            @for (d of documentos(); track d.referencia; let i = $index) {
+              <article class="doc" [style.--entrada]="i">
+                <span class="doc__icono">▤</span>
+                <span class="doc__quien">
+                  <strong>{{ d.nombre }}</strong>
+                  <em>{{ d.palabras }} palabras leídas</em>
+                </span>
+                <span class="doc__ok">✓ Enganchado</span>
+              </article>
+            }
+          </div>
+        } @else if (!subiendo()) {
+          <p class="vacio">Sin documentos el agente solo sabe lo que dice su guion. Se puede seguir igual.</p>
+        }
+      </section>
+
+      <aside class="riel">
+        <h2 class="riel__titulo">Por qué importa</h2>
+        <p class="riel__texto">
+          El guion dice CÓMO se comporta; los documentos, QUÉ sabe. Con la base cargada,
+          en vez de inventar un horario o una tarifa, el agente la busca y la cita.
+        </p>
+        <button class="btn btn--primary riel__accion" (click)="paso.set('canales')">
+          Continuar a canales →
+        </button>
+        <button class="riel__salir" (click)="volverA('origen')">‹ Volver</button>
+      </aside>
+    }
+
+    <!-- ================= PASO 3 · CANALES ================= -->
+    @if (paso() === 'canales') {
+      <section class="panel">
+        <h2 class="panel__titulo">
+          Por dónde atiende
+          <em>Hoy solo WhatsApp. Voz y SMS llegan después del MVP de texto</em>
+        </h2>
+
+        <div class="canal canal--on">
+          <span class="canal__icono canal__icono--wa">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21 12a9 9 0 0 1-13.5 7.8L3 21l1.2-4.5A9 9 0 1 1 21 12"/></svg>
+          </span>
+          <span class="canal__quien">
+            <strong>WhatsApp</strong>
+            <em>El número del cliente, atendido por este agente</em>
+          </span>
+          <span class="canal__estado">Encendido</span>
+        </div>
+
+        <div class="campos">
+          <label class="campo">
+            <span>Número de WhatsApp (opcional)</span>
+            <input placeholder="+504 8888-7777" [value]="numero()" (input)="escribir('numero', $event)" />
+          </label>
+          <label class="campo">
+            <span>Cliente dueño del número</span>
+            <input placeholder="Alcaldía de Tegucigalpa" [value]="cliente()" (input)="escribir('cliente', $event)" />
+          </label>
+        </div>
+        <p class="nota">Si el número todavía no está migrado, dejalo vacío: el agente queda armado y se le conecta después.</p>
+
+        <h3 class="panel__sub">Horario de atención</h3>
+        <label class="campo">
+          <span>En palabras, como se lo va a decir a la gente</span>
+          <input placeholder="Lunes a viernes de 6:00 a 20:00 · sábados de 7:00 a 13:00"
+                 [value]="horario()" (input)="escribir('horario', $event)" />
+        </label>
+
+        <h3 class="panel__sub">Fuera de horario</h3>
+        <div class="opciones">
+          <button class="opcion" [class.opcion--on]="fueraDeHorario() === 'toma'" (click)="fueraDeHorario.set('toma')">
+            <strong>Toma el caso igual</strong>
+            <em>Atiende, registra y avisa cuándo le responden</em>
+          </button>
+          <button class="opcion" [class.opcion--on]="fueraDeHorario() === 'avisa'" (click)="fueraDeHorario.set('avisa')">
+            <strong>Solo avisa el horario</strong>
+            <em>Dice cuándo abren y no toma nada</em>
+          </button>
+        </div>
+
+        <h3 class="panel__sub">Si piden hablar con alguien</h3>
+        <label class="campo">
+          <span>A quién se le pasa el caso</span>
+          <input placeholder="Kenia Rodríguez · operaciones" [value]="respaldo()" (input)="escribir('respaldo', $event)" />
+        </label>
+      </section>
+
+      <aside class="riel">
+        <h2 class="riel__titulo">Lo que va a decir</h2>
+        <div class="muestra">
+          <p class="muestra__burbuja">
+            {{ horario().trim()
+              ? 'Atendemos ' + horario() + '. ¿En qué te puedo ayudar?'
+              : 'El horario todavía no está puesto: el agente va a decir que no lo sabe.' }}
+          </p>
+          @if (fueraDeHorario() === 'toma') {
+            <p class="muestra__burbuja muestra__burbuja--tenue">
+              Fuera de horario: «Tomo tu caso y te responden apenas abran.»
+            </p>
+          } @else {
+            <p class="muestra__burbuja muestra__burbuja--tenue">
+              Fuera de horario: «Ahora estamos cerrados, escribinos en el horario de atención.»
+            </p>
+          }
+        </div>
+        <button class="btn btn--primary riel__accion" [disabled]="trabajando()" (click)="guardarCanales()">
+          {{ trabajando() ? 'Guardando…' : 'Continuar a revisar →' }}
+        </button>
+        <button class="riel__salir" (click)="volverA('conocimiento')">‹ Volver</button>
+      </aside>
+    }
+
+    <!-- ================= PASO 4 · REVISAR ================= -->
+    @if (paso() === 'revisar') {
+      <section class="panel">
+        <h2 class="panel__titulo">
+          Lo que armaste
+          <em>Revisá cada bloque; podés volver a cualquier paso sin perder nada</em>
+        </h2>
+
+        @if (resumen(); as r) {
+          <div class="bloques">
+            <article class="bloque">
+              <header class="bloque__cabeza">
+                <span class="bloque__icono">◉</span>
+                <strong>Identidad</strong>
+                <button class="bloque__editar" (click)="volverA('origen')">Editar ›</button>
+              </header>
+              <p class="bloque__nombre">{{ r.agente.nombre }}</p>
+              <p class="bloque__cita">«{{ r.agente.primerMensaje || 'Sin saludo configurado' }}»</p>
+            </article>
+
+            <article class="bloque">
+              <header class="bloque__cabeza">
+                <span class="bloque__icono">☎</span>
+                <strong>Canales y horario</strong>
+                <button class="bloque__editar" (click)="volverA('canales')">Editar ›</button>
+              </header>
+              <div class="bloque__pills">
+                <span class="pill pill--positive">WhatsApp</span>
+                <span class="pill pill--neutral">Voz apagada</span>
+                <span class="pill pill--neutral">SMS apagado</span>
+              </div>
+              <dl class="bloque__datos">
+                <div><dt>Horario</dt><dd>{{ r.canales.horario || 'sin definir' }}</dd></div>
+                <div><dt>Fuera de horario</dt><dd>{{ r.canales.fueraDeHorario === 'toma' ? 'Toma el caso' : 'Solo avisa' }}</dd></div>
+                <div><dt>Si piden a alguien</dt><dd>{{ r.canales.respaldo || 'sin asignar' }}</dd></div>
+              </dl>
+            </article>
+
+            <article class="bloque bloque--ancho">
+              <header class="bloque__cabeza">
+                <span class="bloque__icono">▤</span>
+                <strong>Base de conocimiento</strong>
+                <button class="bloque__editar" (click)="volverA('conocimiento')">Editar ›</button>
+              </header>
+              <div class="cifras">
+                <span class="cifra"><b>{{ r.agente.documentos.length }}</b> documentos</span>
+                <span class="cifra"><b>{{ r.fases.length }}</b> fases</span>
+                <span class="cifra"><b>{{ r.agente.herramientas.length }}</b> acciones</span>
+              </div>
+              @if (r.agente.documentos.length) {
+                <div class="bloque__pills">
+                  @for (d of r.agente.documentos; track d) { <span class="pill pill--secondary">{{ d }}</span> }
+                </div>
+              }
+            </article>
+
+            <article class="bloque bloque--ancho">
+              <header class="bloque__cabeza">
+                <span class="bloque__icono">⌁</span>
+                <strong>Flujo</strong>
+                <button class="bloque__editar" (click)="volverA('origen')">Ver ›</button>
+              </header>
+              <div class="fases">
+                @for (f of r.fases; track f.id; let i = $index) {
+                  <span class="fase"><b>{{ i + 1 }}</b> {{ f.nombre }}</span>
+                }
+              </div>
+            </article>
+          </div>
+        } @else {
+          <p class="vacio">Cargando lo que armaste…</p>
+        }
+      </section>
+
+      <aside class="riel">
+        <h2 class="riel__titulo">
+          Probá antes de activar
+          <span class="riel__chip">Simulación</span>
+        </h2>
+
+        <div class="sim">
+          <p class="sim__aviso">Escribí como si fueras un cliente. Nada de esto se registra.</p>
+          @for (t of prueba(); track $index) {
+            <p class="sim__burbuja" [class.sim__burbuja--mia]="t.de === 'yo'">{{ t.texto }}</p>
+          }
+          @if (probando()) { <p class="sim__burbuja sim__burbuja--pensando">Pensando…</p> }
+        </div>
+
+        <div class="sim__barra">
+          <input placeholder="Probá otra cosa…" [value]="mensajePrueba()"
+                 (input)="escribir('mensajePrueba', $event)"
+                 (keydown.enter)="probar()" />
+          <button [disabled]="!mensajePrueba().trim() || probando()" (click)="probar()">➤</button>
+        </div>
+
+        @if (resumen(); as r) {
+          <div class="listo">
+            <span class="listo__rotulo">Listo para activar</span>
+            @for (rep of r.reparos; track rep.texto) {
+              <p class="listo__item listo__item--duda">⚠ {{ rep.texto }}</p>
+            }
+            @if (!r.reparos.length) {
+              <p class="listo__item">✓ Todo en orden</p>
+            }
+          </div>
+
+          <button class="btn btn--primary riel__accion" [disabled]="!r.puedeActivar || trabajando()" (click)="activar()">
+            {{ trabajando() ? 'Activando…' : 'Activar ' + r.agente.nombre + ' ✓' }}
+          </button>
+          <p class="riel__pie">Empieza a atender por WhatsApp. Podés pausarlo desde Canales.</p>
+        }
+        <a class="riel__salir" routerLink="/agentes">Guardar como borrador</a>
+      </aside>
+    }
+  </div>
+</div>

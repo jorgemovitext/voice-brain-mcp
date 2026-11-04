@@ -1,7 +1,9 @@
 import { Injectable, Logger, ServiceUnavailableException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { AgenteActivoService } from '../shared/agente-activo.service';
+import { SettingsService } from '../shared/settings.service';
 import { DocumentosService } from './documentos.service';
+import { aplicar, plantilla } from './plantillas';
 
 /**
  * Los agentes conversacionales, administrados desde la consola.
@@ -71,6 +73,34 @@ export interface AristaFlujo {
   condicion?: string;
 }
 
+/**
+ * Cómo y cuándo atiende un agente.
+ *
+ * Por ahora solo WhatsApp está encendido de verdad; voz y SMS quedan
+ * declarados porque el asistente los muestra y el PRD los tiene en el
+ * backlog — pero apagados, que es lo honesto hasta que funcionen.
+ */
+export interface ConfigCanales {
+  whatsapp: boolean;
+  voz: boolean;
+  sms: boolean;
+  /** En palabras: «L-V 6-20 · S 7-13». Entra al prompt tal cual. */
+  horario: string;
+  /** Qué hace cuando le escriben fuera de horario. */
+  fueraDeHorario: 'toma' | 'avisa';
+  /** A quién se le pasa el caso cuando piden una persona. */
+  respaldo: string;
+}
+
+export const CANALES_POR_DEFECTO: ConfigCanales = {
+  whatsapp: true,
+  voz: false,
+  sms: false,
+  horario: '',
+  fueraDeHorario: 'toma',
+  respaldo: '',
+};
+
 /** Una herramienta del catálogo de la cuenta. */
 export interface HerramientaDisponible {
   id: string;
@@ -103,6 +133,7 @@ export class AgentesService {
   constructor(
     config: ConfigService,
     private readonly activo: AgenteActivoService,
+    private readonly settings: SettingsService,
   ) {
     this.apiKey = config.get<string>('ELEVENLABS_API_KEY', '');
     this.apiUrl = config.get<string>('ELEVENLABS_API_URL', 'https://api.elevenlabs.io');
@@ -230,8 +261,129 @@ export class AgentesService {
         tts: { model_id: AgentesService.VOZ_MULTILINGUE },
       },
     });
+    /*
+     * Los permisos de override, al NACER y no al activar.
+     *
+     * Nuestro motor de texto manda dos overrides en cada turno y el
+     * proveedor CORTA la conversación si el agente no los tiene permitidos:
+     * sin error, sin respuesta, nada. Estaba resuelto en `poner()` —cuando
+     * se activa—, pero el banco de pruebas y el simulador del asistente
+     * hablan con el agente ANTES de activarlo, y ahí moría en silencio. El
+     * síntoma era «No contestó» en una pantalla que existe justamente para
+     * generar confianza antes de encenderlo.
+     *
+     * Acá es donde va: un agente que nace sin poder contestar no es un
+     * agente a medias, es uno roto, y el lugar de arreglarlo es el parto.
+     */
+    await this.activo.permitirOverrides(res.agent_id).catch((err) =>
+      this.logger.warn(`Permisos de override en ${res.agent_id}: ${(err as Error).message}`),
+    );
+
     this.logger.log(`Agente creado: ${input.nombre}`);
     return { id: res.agent_id };
+  }
+
+  /**
+   * Crea un agente desde una plantilla de rol: prompt, herramientas y flujo.
+   *
+   * Es el paso 1 del asistente. El agente se crea DE VERDAD acá y no al
+   * final: así cada paso siguiente tiene algo real sobre lo que trabajar —
+   * subirle documentos, asignarle un número— y si el operador abandona a la
+   * mitad, lo que hizo quedó, no se evaporó.
+   */
+  async crearDesdePlantilla(input: {
+    plantilla: string;
+    nombre: string;
+    negocio: string;
+    horario?: string;
+  }): Promise<{ id: string }> {
+    const receta = plantilla(input.plantilla);
+    if (!receta) throw new ServiceUnavailableException(`No existe la plantilla «${input.plantilla}».`);
+
+    const datos = { negocio: input.negocio, horario: input.horario };
+    const { id } = await this.crear({
+      nombre: input.nombre,
+      instrucciones: aplicar(receta.instrucciones, datos),
+    });
+
+    // El saludo y las herramientas van en un segundo paso porque `crear` no
+    // los acepta: es el mismo camino que usa el editor, no uno paralelo.
+    await this.actualizar(id, {
+      primerMensaje: aplicar(receta.primerMensaje, datos),
+      herramientas: receta.herramientas,
+    }).catch((err) => this.logger.warn(`Plantilla ${receta.id}: herramientas sin enganchar — ${(err as Error).message}`));
+
+    /*
+     * El flujo entero de una, y no fase por fase: acá el que lo arma es
+     * código y no un modelo con quince segundos de turno, así que la razón
+     * para ir de a una no aplica.
+     */
+    const nodos: NodoFlujo[] = receta.fases.map((f, i) => ({
+      id: i === 0 ? 'start_node' : f.id,
+      tipo: i === 0 ? 'inicio' : f.fin ? 'fin' : 'fase',
+      nombre: f.nombre,
+      x: 140 + (i % 2) * 300,
+      y: 80 + i * 190,
+      instrucciones: aplicar(f.instrucciones, datos),
+      herramientas: f.herramientas ?? [],
+    }));
+    const primera = receta.fases[0]?.id;
+    const real = (x: string) => (x === primera ? 'start_node' : x);
+    const aristas: AristaFlujo[] = receta.salidas.map((sa, i) => ({
+      id: `e${i + 1}`,
+      desde: real(sa.desde),
+      hasta: real(sa.hasta),
+      condicion: sa.condicion ?? '',
+    }));
+    for (const n of nodos) {
+      const suyas = aristas.filter((a) => a.desde === n.id).map((a) => a.id);
+      if (suyas.length > 1) n.orden = suyas;
+    }
+    await this.guardarFlujo(id, { nodos, aristas }).catch((err) =>
+      this.logger.warn(`Plantilla ${receta.id}: flujo sin guardar — ${(err as Error).message}`),
+    );
+
+    this.logger.log(`Agente «${input.nombre}» creado desde la plantilla ${receta.id}`);
+    return { id };
+  }
+
+  /* --- Canales y horario del agente (paso 3 del asistente) --- */
+
+  /**
+   * Viven en `app_settings` y no en el proveedor porque son NUESTROS: el
+   * horario decide qué contesta el agente fuera de hora y a quién se escala,
+   * y eso no tiene campo donde guardarse del otro lado.
+   */
+  async canalesDe(id: string): Promise<ConfigCanales> {
+    const guardado = await this.settings.get<ConfigCanales>(`agente:${id}:canales`);
+    return { ...CANALES_POR_DEFECTO, ...(guardado ?? {}) };
+  }
+
+  async guardarCanales(id: string, config: Partial<ConfigCanales>): Promise<ConfigCanales> {
+    const actual = await this.canalesDe(id);
+    const nueva = { ...actual, ...config };
+    await this.settings.set(`agente:${id}:canales`, nueva);
+
+    /*
+     * El horario entra al PROMPT, no solo a la configuración: el agente tiene
+     * que poder decir «abrimos de 6 a 20» sin que nadie se lo pregunte al
+     * sistema. Se reemplaza la línea, no se agrega otra, o cada guardado
+     * dejaría un horario más dentro del mismo prompt.
+     */
+    if (config.horario !== undefined) {
+      const a = await this.pedir<Record<string, any>>(`/v1/convai/agents/${id}`);
+      const prompt: string = a['conversation_config']?.['agent']?.['prompt']?.['prompt'] ?? '';
+      const linea = `Horario de atención: ${config.horario || 'no está configurado todavía'}.`;
+      const nuevo = /^Horario (de atención|del equipo):.*$/m.test(prompt)
+        ? prompt.replace(/^Horario (de atención|del equipo):.*$/m, linea)
+        : `${prompt}
+
+${linea}`;
+      if (nuevo !== prompt) await this.actualizar(id, { instrucciones: nuevo });
+    }
+
+    this.logger.log(`Canales de ${id} guardados`);
+    return nueva;
   }
 
   /**

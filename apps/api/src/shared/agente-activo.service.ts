@@ -134,12 +134,16 @@ export class AgenteActivoService {
   /**
    * Permite los overrides que nuestro motor manda en cada turno de texto.
    *
+   * Público porque lo necesitan DOS momentos: al crear un agente (para que
+   * el simulador pueda hablarle antes de activarlo) y al ponerlo a atender
+   * (para los que nacieron fuera de la consola).
+   *
    * Se LEE y se MEZCLA en vez de pisar: el agente puede tener otros permisos
    * puestos a mano, y reemplazar el objeto entero se los quitaría. Si esto
    * falla se corta el cambio completo — poner a atender un agente que no va
    * a poder contestar es peor que no cambiarlo.
    */
-  private async permitirOverrides(id: string): Promise<void> {
+  async permitirOverrides(id: string): Promise<void> {
     const a = await this.pedir<Record<string, any>>(`/v1/convai/agents/${id}`);
     const settings = a['platform_settings'] ?? {};
     const overrides = (settings['overrides'] = settings['overrides'] ?? {});

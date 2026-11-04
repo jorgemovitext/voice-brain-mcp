@@ -70,6 +70,13 @@ export const routes: Routes = [
     title: 'Crear agente · Hive',
   },
   {
+    path: 'agentes/nuevo/asistente',
+    pathMatch: 'full',
+    canActivate: [authGuard],
+    loadComponent: () => import('./pages/agentes/asistente-alta').then((m) => m.AsistenteAltaPage),
+    title: 'Crear agente · Hive',
+  },
+  {
     path: 'agentes/nuevo/flujo',
     canActivate: [authGuard],
     loadComponent: () => import('./pages/agentes/agente-asistente').then((m) => m.AgenteAsistentePage),

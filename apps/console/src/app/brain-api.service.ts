@@ -151,6 +151,46 @@ export class BrainApiService {
 
   /* --- Módulo de Agentes --- */
 
+  /* --- Asistente de alta de agentes --- */
+
+  crearAgenteDesdePlantilla(input: {
+    plantilla: string;
+    nombre: string;
+    negocio: string;
+    horario?: string;
+  }): Promise<{ id: string }> {
+    return firstValueFrom(this.http.post<{ id: string }>('/api/agentes/desde-plantilla', input));
+  }
+
+  engancharDocumentos(
+    id: string,
+    documentos: Array<{ referencia: string; nombre: string }>,
+  ): Promise<unknown> {
+    return firstValueFrom(this.http.post(`/api/agentes/${id}/documentos`, { documentos }));
+  }
+
+  guardarCanales(
+    id: string,
+    config: Partial<{ horario: string; fueraDeHorario: 'toma' | 'avisa'; respaldo: string }>,
+  ): Promise<unknown> {
+    return firstValueFrom(this.http.patch(`/api/agentes/${id}/canales`, config));
+  }
+
+  resumenDeAgente(id: string): Promise<{
+    agente: { id: string; nombre: string; primerMensaje: string; instrucciones: string; documentos: string[]; herramientas: string[] };
+    canales: { whatsapp: boolean; voz: boolean; sms: boolean; horario: string; fueraDeHorario: 'toma' | 'avisa'; respaldo: string };
+    fases: Array<{ id: string; nombre: string; tipo: string }>;
+    reparos: Array<{ gravedad: 'aviso' | 'bloqueo'; texto: string }>;
+    puedeActivar: boolean;
+  }> {
+    return firstValueFrom(this.http.get<never>(`/api/agentes/${id}/resumen`));
+  }
+
+  /** Lo pone a atender: queda como el agente activo de la consola. */
+  ponerAgenteActivo(id: string): Promise<{ ok: boolean; nombre: string | null }> {
+    return firstValueFrom(this.http.post<{ ok: boolean; nombre: string | null }>(`/api/agentes/${id}/usar`, {}));
+  }
+
   /* --- Equipo e invitaciones --- */
 
   equipo(): Promise<Array<{ id: string; username?: string; name?: string; phone: string; creada: string }>> {

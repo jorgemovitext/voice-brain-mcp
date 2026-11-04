@@ -6,19 +6,30 @@
   </header>
 
   <div class="caminos">
-    <!-- Primero el de flujo: es el que hace el trabajo. -->
-    <a class="camino camino--principal" routerLink="/agentes/nuevo/flujo">
+    <!-- El asistente guiado va primero: es el que deja el agente listo para
+         atender, no solo creado. -->
+    <a class="camino camino--principal" routerLink="/agentes/nuevo/asistente">
       <span class="camino__marca">Recomendado</span>
-      <h2>Con flujo, conversando</h2>
+      <h2>Guiado, en cuatro pasos</h2>
       <p>
-        Contale para qué es el agente y lo arma con vos: lo crea, elige qué puede hacer
-        y dibuja las fases de la conversación en el lienzo, a la vista.
+        Elegís el rol —recepcionista, ventas, citas, reportes, posventa—, le subís lo que
+        tiene que saber, le ponés número y horario, y lo probás antes de activarlo.
       </p>
       <ul class="camino__lista">
-        <li>El lienzo se va llenando mientras hablás</li>
-        <li>Queda con herramientas y flujo, no en blanco</li>
-        <li>Después se sigue editando a mano igual</li>
+        <li>Nace con guion, acciones y flujo armados</li>
+        <li>Lo probás como si fueras un cliente antes de encenderlo</li>
+        <li>Podés volver a cualquier paso sin perder nada</li>
       </ul>
+      <span class="camino__ir">Empezar →</span>
+    </a>
+
+    <!-- El constructor conversando: para quien prefiere dictarlo. -->
+    <a class="camino" routerLink="/agentes/nuevo/flujo">
+      <h2>Conversando con el constructor</h2>
+      <p>
+        Le contás para qué es y lo arma con vos, dibujando las fases en el lienzo
+        mientras hablan.
+      </p>
       <span class="camino__ir">Empezar →</span>
     </a>
 

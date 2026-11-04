@@ -99,11 +99,15 @@ describe('flujoDesdeAsistente', () => {
 describe('AgentesService.agregarFase', () => {
   let guardado: { nodos: NodoFlujo[]; aristas: AristaFlujo[] };
 
+  /** La configuración de canales no interviene en el flujo: no guarda nada. */
+  const SIN_SETTINGS = { get: async () => undefined, set: async () => undefined } as never;
+
   /** Un servicio con el flujo que diga el caso, y el guardado interceptado. */
   function conFlujo(nodos: NodoFlujo[], aristas: AristaFlujo[] = []): AgentesService {
     const servicio = new AgentesService(
       { get: (_c: string, d?: string) => d ?? '' } as unknown as ConfigService,
       SIN_AGENTE_ACTIVO,
+      SIN_SETTINGS,
     );
     jest.spyOn(servicio, 'flujo').mockResolvedValue({ nodos, aristas });
     jest.spyOn(servicio, 'guardarFlujo').mockImplementation(async (_id, f) => {
