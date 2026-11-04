@@ -385,9 +385,9 @@
   /* Mismo tratamiento de solapa que el riel del hilo: un filo claro arriba y
      dos sombras —una corta que define el canto, otra larga que da fondo—. */
   box-shadow:
-    -1px 0 0 rgba(255, 255, 255, 0.12),
-    -8px 0 18px rgba(4, 9, 20, 0.46),
-    -28px 0 56px rgba(4, 9, 20, 0.42);
+    -1px 0 0 rgba(13, 21, 41, 0.108),
+    -8px 0 18px rgba(13, 21, 41, 0.138),
+    -28px 0 56px rgba(13, 21, 41, 0.126);
   display: flex;
   flex-direction: column;
   min-height: 0;
@@ -456,11 +456,11 @@
   gap: 0.5rem;
   padding: 0.65rem;
   border-radius: 16px;
-  background: rgba(4, 9, 20, 0.5);
+  background: rgba(13, 21, 41, 0.14);
 
   scrollbar-width: thin;
   scrollbar-color: transparent transparent;
-  &:hover { scrollbar-color: rgba(255, 255, 255, 0.18) transparent; }
+  &:hover { scrollbar-color: rgba(13, 21, 41, 0.12) transparent; }
 }
 
 .prueba__vacio,
@@ -496,7 +496,7 @@
 
 .turno--agente .turno__burbuja {
   border-radius: 14px 14px 14px 4px;
-  background: rgba(255, 255, 255, 0.07);
+  background: rgba(13, 21, 41, 0.063);
 }
 
 /* La acción va pegada bajo la burbuja, igual que en el chat real: es la
@@ -532,7 +532,7 @@
     padding: 0.55rem 0.85rem;
     border-radius: 999px;
     border: 1px solid var(--border);
-    background: rgba(4, 9, 20, 0.5);
+    background: rgba(13, 21, 41, 0.14);
     color: var(--ink);
     font: inherit;
     font-size: 0.82rem;

@@ -1,72 +1,93 @@
-/* La app ocupa la ventana COMPLETA: sin margen ni marco exterior, que daba
-   la sensación de estar dentro de otra ventana. El sidebar de iconos va
-   plano sobre el fondo oscuro y el contenido se superpone a él. */
+/* ===== Armazón Hive =====
+   Lienzo claro, riel de botones redondos FLOTANDO sobre el fondo (no una
+   barra), y la cabecera con quién atiende y quién sos. Del Figma «Hive ·
+   Pantallas».
+
+   El riel flota a propósito: en el diseño no hay columna ni separador, son
+   pastillas blancas sobre el lienzo. Eso es lo que hace que la app se lea
+   ligera en vez de como un panel de administración. */
 .shell {
   display: flex;
   height: 100dvh;
-  background:
-    radial-gradient(900px 500px at 80% -10%, #14284a 0%, transparent 60%),
-    linear-gradient(160deg, #0e1b33, #081020 70%);
+  background: var(--bg);
   overflow: hidden;
 }
 
-/* --- Rail de iconos: plano, sin card ---
-   Ancho generoso a propósito: el escenario lo solapa 14px, así que con el
-   ancho justo del icono el contenido quedaba pegado al menú. El sobrante es
-   el aire que separa los dos. */
 .rail {
-  width: 92px;
+  width: 104px;
   flex-shrink: 0;
   display: flex;
   flex-direction: column;
   align-items: center;
-  padding: 1.3rem 0;
+  padding: 1.1rem 0 1.4rem;
+  z-index: 2;
 }
 
 .rail__logo {
   display: grid;
   place-items: center;
-  margin-bottom: 1.6rem;
+  width: 60px;
+  height: 60px;
+  border-radius: 50%;
+  background: var(--panel);
+  box-shadow: var(--sombra-tarjeta);
+  margin-bottom: 2.4rem;
+  transition: transform 0.18s;
+
+  &:hover { transform: scale(1.05); }
 }
 
-/* El logo es la celda madre del panal: misma forma que los agentes.
-   El resplandor va con drop-shadow y no con box-shadow, porque el recorte
-   se aplica antes que el filtro: así la luz sigue el hexágono en vez de
-   quedar recortada con él. */
+/* La celda madre del panal, en naranja hueco como en el Figma. */
 .rail__logo-orb {
-  width: 30px;
-  height: 30px;
+  width: 26px;
+  height: 26px;
   clip-path: url(#hexCell);
-  background: conic-gradient(from 210deg, var(--primary), #ff9d5c, var(--secondary), var(--primary));
-  filter: drop-shadow(0 0 7px rgba(0, 186, 254, 0.55));
+  background: var(--primary);
+  /* El hueco: la celda interior del mismo color del panel deja el anillo. */
+  position: relative;
+
+  &::after {
+    content: '';
+    position: absolute;
+    inset: 3.5px;
+    clip-path: url(#hexCell);
+    background: var(--panel);
+  }
 }
 
 .rail__nav {
   display: flex;
   flex-direction: column;
-  gap: 0.6rem;
+  gap: 0.85rem;
 }
 
+/* Cada botón es una pastilla blanca; el activo se llena de naranja. */
 .rail__btn {
-  width: 44px;
-  height: 44px;
+  width: 52px;
+  height: 52px;
   display: grid;
   place-items: center;
-  border-radius: 14px;
-  color: #5c6f92;
-  transition: background 0.15s, color 0.15s;
+  border-radius: 50%;
+  background: var(--panel);
+  color: var(--ink-soft);
+  box-shadow: var(--sombra-pildora);
+  transition: transform 0.16s, color 0.16s, box-shadow 0.18s;
 
   svg { width: 21px; height: 21px; }
 
-  &:hover { color: var(--ink); }
+  &:hover {
+    color: var(--primary);
+    transform: translateY(-2px);
+    box-shadow: var(--sombra-tarjeta);
+  }
 }
 
 .rail__btn--active {
-  background: var(--secondary);
-  color: #04283a;
-  box-shadow: 0 4px 18px rgba(0, 186, 254, 0.35);
+  background: var(--primary);
+  color: var(--primary-ink);
+  box-shadow: 0 8px 20px -6px rgba(243, 71, 0, 0.6);
 
-  &:hover { background: var(--secondary); color: #04283a; }
+  &:hover { background: var(--primary); color: var(--primary-ink); }
 }
 
 .rail__bottom {
@@ -74,66 +95,168 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 10px;
+  gap: 0.7rem;
 }
 
 .rail__logout {
-  width: 34px;
-  height: 34px;
-  border: 0;
-  background: transparent;
-  cursor: pointer;
-  font: inherit;
-}
-
-.rail__avatar {
   width: 40px;
   height: 40px;
   display: grid;
   place-items: center;
+  border: 0;
   border-radius: 50%;
-  font-size: 0.78rem;
-  font-weight: 800;
-  color: #fff;
-  background: linear-gradient(135deg, var(--primary), #b33500);
-  position: relative;
-  text-decoration: none;
-  transition: box-shadow 0.18s ease;
+  background: transparent;
+  color: var(--ink-soft);
+  cursor: pointer;
+  font: inherit;
+  transition: background 0.15s, color 0.15s;
+
+  svg { width: 19px; height: 19px; }
+  &:hover { background: var(--panel); color: var(--negative); }
 }
 
-.rail__avatar--active,
-.rail__avatar:hover {
-  box-shadow: 0 0 0 2px var(--bg), 0 0 0 4px var(--secondary);
-}
-
-/* Punto de aviso: la cuenta todavía entra por teléfono. */
-.rail__avatar--pendiente::after {
-  content: '';
-  position: absolute;
-  top: -1px;
-  right: -1px;
-  width: 11px;
-  height: 11px;
-  border-radius: 50%;
-  background: var(--secondary);
-  border: 2px solid var(--bg);
-}
-
-/* --- Escenario: se superpone levemente al rail, con esquinas redondeadas --- */
-/* Pegado a los bordes de la ventana; solo conserva el redondeo izquierdo
-   con el que se sobrepone al rail. */
-.stage {
+/* ===== Cabecera ===== */
+.cuerpo {
   flex: 1;
   min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.topbar {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 1.1rem 1.6rem 0.9rem 0;
+}
+
+.topbar__pill,
+.topbar__linea {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.55rem 1.05rem;
+  border-radius: 999px;
+  background: var(--panel);
+  color: var(--ink);
+  font-size: 0.84rem;
+  font-weight: 700;
+  text-decoration: none;
+  box-shadow: var(--sombra-pildora);
+  transition: transform 0.14s, box-shadow 0.18s;
+
+  svg { width: 16px; height: 16px; color: var(--ink-soft); }
+  &:hover { transform: translateY(-1px); box-shadow: var(--sombra-tarjeta); }
+}
+
+.topbar__linea svg { color: var(--primary); }
+
+.topbar__redondo {
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: var(--panel);
+  color: var(--ink);
+  box-shadow: var(--sombra-pildora);
+  transition: transform 0.14s, color 0.15s;
+
+  svg { width: 17px; height: 17px; }
+  &:hover { transform: translateY(-1px); color: var(--primary); }
+}
+
+.topbar__derecha {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+/* El agente en la cabecera: su orbe gira sin parar. Es el recordatorio
+   permanente de que hay alguien trabajando aunque nadie esté mirando. */
+.topbar__agente {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.4rem 1rem 0.4rem 0.45rem;
+  border-radius: 999px;
+  background: var(--panel);
+  font-size: 0.84rem;
+  font-weight: 700;
+  box-shadow: var(--sombra-pildora);
+}
+
+.topbar__orbe {
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  background: conic-gradient(from 0deg, #c7d2fe, #fbcfe8, #bfdbfe, #c7d2fe);
+  animation: orbe-gira 7s linear infinite;
+}
+
+@keyframes orbe-gira { to { transform: rotate(1turn); } }
+
+.topbar__yo {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.6rem;
+  text-decoration: none;
+  color: var(--ink);
+}
+
+.topbar__nombre {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  line-height: 1.25;
+
+  strong { font-size: 0.88rem; font-weight: 700; }
+  em { font-style: normal; font-size: 0.72rem; color: var(--ink-soft); }
+}
+
+.topbar__yo--pendiente em { color: var(--primary); font-weight: 600; }
+
+.topbar__avatar {
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background: var(--oscuro);
+  color: var(--oscuro-ink);
+  font-size: 0.95rem;
+  font-weight: 700;
+  box-shadow: var(--sombra-avatar);
+  transition: transform 0.16s;
+
+  .topbar__yo:hover & { transform: scale(1.06); }
+}
+
+/* ===== Escenario ===== */
+/* Sin tarjeta propia: las pantallas traen las suyas sobre el lienzo. */
+.stage {
+  flex: 1;
+  min-height: 0;
   overflow-y: auto;
   position: relative;
   z-index: 1;
-  margin-left: -14px;
-  border-radius: 26px 0 0 26px;
+  padding-right: 0;
 }
 
 /* Sin rail (pantalla de acceso): el escenario ocupa todo. */
 .stage--full {
   margin: 0;
   border-radius: 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .topbar__orbe { animation: none; }
+  .rail__btn:hover,
+  .rail__logo:hover,
+  .topbar__pill:hover,
+  .topbar__linea:hover,
+  .topbar__redondo:hover,
+  .topbar__yo:hover .topbar__avatar { transform: none; }
 }

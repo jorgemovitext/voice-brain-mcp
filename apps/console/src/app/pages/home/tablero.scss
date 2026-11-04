@@ -6,15 +6,15 @@
 :host {
   display: block;
   /* Tokens del shell (styles.scss) con fallback local. */
-  --d-bg: var(--bg, #060b16);
-  --d-panel: var(--panel, #0d1526);
-  --d-panel2: var(--panel-2, #111d36);
-  --d-borde: var(--border, #1c2a47);
-  --d-ink: var(--ink, #e8edf6);
-  --d-muted: var(--ink-soft, #8fa0ba);
+  --d-bg: var(--bg, #eef2f6);
+  --d-panel: var(--panel, var(--panel));
+  --d-panel2: var(--panel-2, var(--panel-2));
+  --d-borde: var(--border, var(--border));
+  --d-ink: var(--ink, #0d1529);
+  --d-muted: var(--ink-soft, #6b7689);
   --d-primario: var(--primary, #f34700);
-  --d-ok: #34d399;
-  --d-mal: #f87171;
+  --d-ok: #16a34a;
+  --d-mal: #f82834;
   --d-alerta: #ffb020;
 
   /* Transparente a propósito: deja ver el degradado del shell, el mismo
@@ -274,7 +274,8 @@
 }
 
 .flow {
-  background: rgba(13, 21, 38, 0.72);
+  background: var(--d-panel);
+  box-shadow: var(--sombra-tarjeta);
   border: 1px solid var(--d-borde);
   border-radius: 16px;
   padding: 0.8rem 0.9rem;
@@ -348,7 +349,7 @@
    si pasara por delante. */
 .flow__sombra {
   fill: none;
-  stroke: rgba(2, 6, 16, 0.6);
+  stroke: rgba(13, 21, 41, 0.14);
   stroke-linecap: butt;
   filter: blur(5px);
   pointer-events: none;
@@ -361,7 +362,7 @@
    ancho de la cinta la rellena de blanco, que es lo que la hacía parecer un
    neón. */
 .flow__filo {
-  fill: rgba(255, 255, 255, 0.38);
+  fill: rgba(13, 21, 41, 0.12);
   pointer-events: none;
 }
 
@@ -503,7 +504,7 @@ a.sec__head:hover {
 }
 
 .baja__grid {
-  stroke: rgba(255, 255, 255, 0.05);
+  stroke: rgba(13, 21, 41, 0.045);
   stroke-width: 0.4;
   vector-effect: non-scaling-stroke;
 
@@ -684,14 +685,14 @@ a.sec__head:hover {
   font-size: 0.75rem;
   font-weight: 700;
   line-height: 1.3;
-  color: #fff;
-  background: rgba(255, 255, 255, 0.1);
+  color: var(--d-ink);
+  background: rgba(255, 255, 255, 0.82);
   backdrop-filter: blur(16px) saturate(180%);
   -webkit-backdrop-filter: blur(16px) saturate(180%);
-  border: 1px solid rgba(255, 255, 255, 0.2);
+  border: 1px solid rgba(13, 21, 41, 0.12);
   box-shadow:
-    0 10px 28px rgba(0, 0, 0, 0.45),
-    inset 0 1px 0 rgba(255, 255, 255, 0.26);
+    0 10px 28px rgba(13, 21, 41, 0.135),
+    inset 0 1px 0 rgba(13, 21, 41, 0.12);
 }
 
 .tip__punto {
@@ -699,7 +700,7 @@ a.sec__head:hover {
   height: 7px;
   border-radius: 50%;
   flex-shrink: 0;
-  box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.18);
+  box-shadow: 0 0 0 2px rgba(13, 21, 41, 0.12);
 }
 
 /* Blancos de cursor invisibles sobre los puntos diminutos. */

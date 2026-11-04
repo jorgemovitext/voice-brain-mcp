@@ -17,7 +17,7 @@
        Oculto en /login: sin sesión no hay navegación que mostrar. -->
   @if (!enLogin()) {
   <aside class="rail">
-    <a routerLink="/home" class="rail__logo" title="Movitext Brain">
+    <a routerLink="/home" class="rail__logo" title="Hive">
       <span class="rail__logo-orb"></span>
     </a>
 
@@ -42,9 +42,6 @@
     </nav>
 
     <div class="rail__bottom">
-      <a routerLink="/perfil" routerLinkActive="rail__avatar--active" class="rail__avatar"
-         [class.rail__avatar--pendiente]="sinUsuario()"
-         [title]="sinUsuario() ? 'Tu cuenta — falta asignar usuario' : 'Tu cuenta'">{{ iniciales() }}</a>
       <!-- Los avisos suenan distinto según lo que pasó; acá se apagan. La
            preferencia sobrevive a la sesión. -->
       <button class="rail__btn" (click)="sonido.alternar()"
@@ -62,7 +59,49 @@
   </aside>
   }
 
-  <main class="stage" [class.stage--full]="enLogin()">
-    <router-outlet />
-  </main>
+  <div class="cuerpo">
+    <!-- Cabecera Hive: quién atiende y quién sos, presente en toda la app.
+         Fuera del escenario a propósito — es el marco, no el contenido. -->
+    @if (!enLogin()) {
+      <header class="topbar">
+        @if (agenteActivo(); as quien) {
+          <a class="topbar__linea" routerLink="/canales" title="Ver las líneas y sus agentes">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M22 16.92V20a1.5 1.5 0 0 1-1.64 1.5A19 19 0 0 1 2.5 3.64 1.5 1.5 0 0 1 4 2h3.09a1.5 1.5 0 0 1 1.48 1.25l.57 3.38a1.5 1.5 0 0 1-.43 1.35l-1.6 1.6a16 16 0 0 0 6.31 6.31l1.6-1.6a1.5 1.5 0 0 1 1.35-.43l3.38.57A1.5 1.5 0 0 1 22 16.92Z"/></svg>
+            {{ quien }}
+          </a>
+        }
+        <a class="topbar__pill" routerLink="/integraciones" title="Estado de las integraciones">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></svg>
+          Soporte
+        </a>
+        <a class="topbar__redondo" routerLink="/contacts" title="Buscar">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+        </a>
+
+        <div class="topbar__derecha">
+          <!-- El agente, vivo: el orbe gira mientras hay alguien atendiendo. -->
+          @if (agenteActivo(); as quien) {
+            <span class="topbar__agente" [title]="quien + ' está atendiendo'">
+              <span class="topbar__orbe"></span>
+              {{ quien }}
+            </span>
+          }
+          <a class="topbar__redondo" routerLink="/actividad" title="Actividad reciente">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18 8a6 6 0 1 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9"/><path d="M10.3 21a2 2 0 0 0 3.4 0"/></svg>
+          </a>
+          <a class="topbar__yo" routerLink="/perfil" [class.topbar__yo--pendiente]="sinUsuario()">
+            <span class="topbar__nombre">
+              <strong>{{ quienSoy() }}</strong>
+              <em>{{ sinUsuario() ? 'falta asignar usuario' : 'Operador' }}</em>
+            </span>
+            <span class="topbar__avatar">{{ iniciales() }}</span>
+          </a>
+        </div>
+      </header>
+    }
+
+    <main class="stage" [class.stage--full]="enLogin()">
+      <router-outlet />
+    </main>
+  </div>
 </div>

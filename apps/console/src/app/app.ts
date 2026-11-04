@@ -1,4 +1,5 @@
 import { Component, DestroyRef, computed, effect, inject } from '@angular/core';
+import { httpResource } from '@angular/common/http';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { NavigationEnd, Router, RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
 import { filter, map } from 'rxjs';
@@ -33,10 +34,32 @@ export class App {
   /** En la pantalla de acceso el rail no se muestra. */
   readonly enLogin = computed(() => this.url().startsWith('/login'));
 
+  /** El nombre para la cabecera: el propio, con el usuario como respaldo. */
+  readonly quienSoy = computed(() => {
+    const sesion = this.auth.user();
+    return sesion?.name?.trim() || sesion?.username?.trim() || 'Operador';
+  });
+
   /** Cuentas anteriores al login por usuario: el rail lo señala. */
   readonly sinUsuario = computed(() => !!this.auth.user() && !this.auth.user()?.username);
 
   /** Iniciales del operador con sesión (fallback genérico). */
+  /**
+   * Quién atiende, en la cabecera de TODA la app.
+   *
+   * Va en el armazón y no en una pantalla porque con varias líneas
+   * conviviendo es contexto permanente: el operador tiene que saber, mire lo
+   * que mire, de quién es lo que está viendo.
+   */
+  private readonly activoRecurso = httpResource<{ id: string; nombre: string | null }>(() =>
+    this.auth.user() ? '/api/agentes/activo' : undefined,
+  );
+
+  readonly agenteActivo = computed(() => {
+    const r = this.activoRecurso.value();
+    return r?.nombre ?? null;
+  });
+
   readonly iniciales = computed(() => {
     const sesion = this.auth.user();
     const name = sesion?.name?.trim() || sesion?.username?.trim();

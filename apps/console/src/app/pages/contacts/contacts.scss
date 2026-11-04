@@ -111,9 +111,9 @@
 }
 
 .chip--active {
-  background: #fff;
-  border-color: #fff;
-  color: #10131a;
+  background: var(--oscuro);
+  border-color: var(--oscuro);
+  color: var(--oscuro-ink);
 }
 
 /* --- Grid de tarjetas --- */

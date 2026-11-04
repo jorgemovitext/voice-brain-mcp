@@ -6,9 +6,9 @@
 :host {
   display: block;
   /* Tokens del shell (styles.scss) con fallback local. */
-  --d-panel: var(--panel, #0d1526);
-  --d-panel2: var(--panel-2, #111d36);
-  --d-borde: var(--border, #1c2a47);
+  --d-panel: var(--panel, var(--panel));
+  --d-panel2: var(--panel-2, var(--panel-2));
+  --d-borde: var(--border, var(--border));
   --d-ink: var(--ink, #e8edf6);
   --d-muted: var(--ink-soft, #8fa0ba);
   --d-primario: var(--primary, #f34700);

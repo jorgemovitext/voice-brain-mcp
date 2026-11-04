@@ -19,8 +19,8 @@ type Paso = 'credenciales' | 'otp';
         <div class="auth__brand">
           <span class="auth__orb"></span>
           <div>
-            <h1>Movitext <span>Brain</span></h1>
-            <p>Consola de atención omnicanal</p>
+            <h1><span>Hive</span></h1>
+            <p>Tus agentes atendiendo WhatsApp, de Movitext</p>
           </div>
         </div>
 

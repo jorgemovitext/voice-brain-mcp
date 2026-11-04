@@ -35,7 +35,7 @@
   scrollbar-color: transparent transparent;
   transition: scrollbar-color 0.2s;
 
-  &:hover { scrollbar-color: rgba(255, 255, 255, 0.18) transparent; }
+  &:hover { scrollbar-color: rgba(13, 21, 41, 0.12) transparent; }
 
   &::-webkit-scrollbar { width: 8px; }
   &::-webkit-scrollbar-track { background: transparent; }
@@ -45,16 +45,16 @@
     border: 2px solid transparent;
     background-clip: content-box;
   }
-  &:hover::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.18); background-clip: content-box; }
+  &:hover::-webkit-scrollbar-thumb { background: rgba(13, 21, 41, 0.12); background-clip: content-box; }
 }
 
 .voice {
   /* Mismo tratamiento de solapa que el chat, un escalón más marcado: es la
      capa de más arriba de las tres. */
   box-shadow:
-    -1px 0 0 rgba(255, 255, 255, 0.12),
-    -8px 0 18px rgba(4, 9, 20, 0.46),
-    -28px 0 56px rgba(4, 9, 20, 0.42);
+    -1px 0 0 rgba(13, 21, 41, 0.108),
+    -8px 0 18px rgba(13, 21, 41, 0.138),
+    -28px 0 56px rgba(13, 21, 41, 0.126);
   /* El elemento de la retícula ahora es el host, así que el panel tiene que
      llenarlo: antes esto ERA el elemento de la retícula y el alto le venía
      dado. Sin esto el panel terminaba donde terminaba su contenido y dejaba
@@ -76,7 +76,7 @@
 }
 
 @media (max-width: 900px) {
-  .voice { box-shadow: 0 -20px 44px rgba(4, 9, 20, 0.5); }
+  .voice { box-shadow: 0 -20px 44px rgba(13, 21, 41, 0.14); }
 }
 
 .voice--live {
@@ -87,7 +87,7 @@
   position: absolute;
   top: 0.9rem;
   right: 1rem;
-  background: rgba(0, 0, 0, 0.45);
+  background: rgba(13, 21, 41, 0.135);
   border: 1px solid var(--border);
   color: #fff;
   font-weight: 800;
@@ -320,7 +320,7 @@
  */
 .ficha--viva > div + div {
   padding-top: 0.5rem;
-  border-top: 1px solid rgba(255, 255, 255, 0.06);
+  border-top: 1px solid rgba(13, 21, 41, 0.054);
 }
 
 /*

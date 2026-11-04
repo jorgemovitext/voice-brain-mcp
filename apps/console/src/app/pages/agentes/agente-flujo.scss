@@ -258,9 +258,9 @@
   z-index: 2; /* se superpone al borde derecho del lienzo */
   margin-left: -26px;
   box-shadow:
-    -1px 0 0 rgba(255, 255, 255, 0.12),
-    -8px 0 18px rgba(4, 9, 20, 0.46),
-    -28px 0 56px rgba(4, 9, 20, 0.42);
+    -1px 0 0 rgba(13, 21, 41, 0.108),
+    -8px 0 18px rgba(13, 21, 41, 0.138),
+    -28px 0 56px rgba(13, 21, 41, 0.126);
   display: flex;
   flex-direction: column;
   min-height: 0;
@@ -310,7 +310,7 @@
 
   scrollbar-width: thin;
   scrollbar-color: transparent transparent;
-  &:hover { scrollbar-color: rgba(255, 255, 255, 0.18) transparent; }
+  &:hover { scrollbar-color: rgba(13, 21, 41, 0.12) transparent; }
 }
 
 .riel__nota {
@@ -358,7 +358,7 @@
     padding: 0.5rem 0.75rem;
     border-radius: 12px;
     border: 1px solid var(--border);
-    background: rgba(4, 9, 20, 0.5);
+    background: rgba(13, 21, 41, 0.14);
     color: var(--ink);
     font: inherit;
     font-size: 0.82rem;
@@ -382,7 +382,7 @@
   font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
 
   input { accent-color: var(--secondary); }
-  &:hover { background: rgba(255, 255, 255, 0.04); }
+  &:hover { background: rgba(13, 21, 41, 0.036); }
 }
 
 .chk--on {
@@ -525,7 +525,7 @@
   gap: 0.4rem;
   padding: 0.35rem 0.5rem;
   border-radius: 10px;
-  background: rgba(255, 255, 255, 0.04);
+  background: rgba(13, 21, 41, 0.036);
 
   > b {
     flex-shrink: 0;
@@ -550,7 +550,7 @@
     font: inherit;
     cursor: pointer;
 
-    &:hover:not(:disabled) { background: rgba(255, 255, 255, 0.08); color: var(--ink); }
+    &:hover:not(:disabled) { background: rgba(13, 21, 41, 0.072); color: var(--ink); }
     &:disabled { opacity: 0.25; cursor: default; }
   }
 }

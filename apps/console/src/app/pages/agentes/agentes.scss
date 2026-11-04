@@ -87,13 +87,13 @@
   display: flex;
   flex-direction: column;
   border-radius: 20px;
-  background: rgba(255, 255, 255, 0.08);
-  border: 1px solid rgba(255, 255, 255, 0.16);
+  background: rgba(13, 21, 41, 0.072);
+  border: 1px solid rgba(13, 21, 41, 0.12);
   backdrop-filter: blur(20px) saturate(180%);
   -webkit-backdrop-filter: blur(20px) saturate(180%);
   box-shadow:
-    0 12px 32px rgba(0, 0, 0, 0.4),
-    inset 0 1px 0 rgba(255, 255, 255, 0.12);
+    0 12px 32px rgba(13, 21, 41, 0.12),
+    inset 0 1px 0 rgba(13, 21, 41, 0.108);
   overflow: hidden;
 
   /* El detalle y el estado vacío llenan el vidrio: sin esto el contenido
@@ -126,7 +126,7 @@
 
 .lateral__icono {
   font-size: 1.6rem;
-  color: rgba(255, 255, 255, 0.35);
+  color: rgba(13, 21, 41, 0.12);
 }
 
 /* ===== El panal =====
@@ -233,7 +233,7 @@
   /* Los borradores van en gris, no en el navy del panel: es lo que los hace
      leerse "apagados" contra los que sí trabajan. */
   .hex__fondo {
-    fill: #1a1f2b;
+    fill: var(--panel-2);
     transition: fill 0.15s;
   }
 
@@ -371,8 +371,8 @@
   li {
     padding: 0.4rem 0.7rem;
     border-radius: 10px;
-    background: rgba(255, 255, 255, 0.06);
-    border: 1px solid rgba(255, 255, 255, 0.1);
+    background: rgba(13, 21, 41, 0.054);
+    border: 1px solid rgba(13, 21, 41, 0.09);
     font-size: 0.83rem;
     /* Los nombres vienen del proveedor en snake_case; se muestran con
        espacios, y la primera en mayúscula sin tocar el dato. */
@@ -404,8 +404,8 @@
   flex-direction: column;
   padding: 0.5rem 0.7rem;
   border-radius: 12px;
-  background: rgba(255, 255, 255, 0.05);
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(13, 21, 41, 0.045);
+  border: 1px solid rgba(13, 21, 41, 0.09);
 
   strong { font-size: 1.15rem; font-weight: 800; line-height: 1.1; }
   em { font-style: normal; font-size: 0.7rem; color: var(--ink-soft); }
@@ -433,7 +433,7 @@
   gap: 0.5rem;
   padding: 0.45rem 0.6rem;
   border-radius: 10px;
-  background: rgba(255, 255, 255, 0.04);
+  background: rgba(13, 21, 41, 0.036);
   font-size: 0.78rem;
 }
 

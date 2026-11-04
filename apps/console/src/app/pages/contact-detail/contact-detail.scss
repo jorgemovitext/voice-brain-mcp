@@ -12,7 +12,7 @@
   scrollbar-color: transparent transparent;
   transition: scrollbar-color 0.2s;
 
-  &:hover { scrollbar-color: rgba(255, 255, 255, 0.18) transparent; }
+  &:hover { scrollbar-color: rgba(13, 21, 41, 0.12) transparent; }
 
   &::-webkit-scrollbar { width: 8px; }
   &::-webkit-scrollbar-track { background: transparent; }
@@ -22,7 +22,7 @@
     border: 2px solid transparent;
     background-clip: content-box;
   }
-  &:hover::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.18); background-clip: content-box; }
+  &:hover::-webkit-scrollbar-thumb { background: rgba(13, 21, 41, 0.12); background-clip: content-box; }
 }
 
 /* El chat es panel claro: ahí la barra tiene que ser oscura. */
@@ -116,9 +116,9 @@ $overlap: 44px;
 .convo--threads .chat {
   margin-left: -14px;
   box-shadow:
-    -1px 0 0 rgba(255, 255, 255, 0.1),
-    -6px 0 14px rgba(4, 9, 20, 0.34),
-    -22px 0 48px rgba(4, 9, 20, 0.34);
+    -1px 0 0 rgba(13, 21, 41, 0.09),
+    -6px 0 14px rgba(13, 21, 41, 0.102),
+    -22px 0 48px rgba(13, 21, 41, 0.102);
 }
 
 @media (max-width: 1100px) {
@@ -299,7 +299,7 @@ $overlap: 44px;
     border-radius: 11px 11px 4px 4px;
     box-shadow:
       inset 0 1px 0 rgba(255, 255, 255, 0.9),
-      0 1px 2px rgba(15, 23, 42, 0.06),
+      0 1px 2px rgba(13, 21, 41, 0.018),
       0 6px 16px -6px rgba(24, 58, 110, 0.28);
 
     &::after { transform: scaleX(1); }
@@ -322,10 +322,10 @@ $overlap: 44px;
 /* Sobre el navy la solapa no puede ser blanca: es el vidrio del riel de
    contexto, la misma receta (blanco al 8%, filo al 16%). */
 .chat--flujo .vistatab__op--on {
-  background: rgba(255, 255, 255, 0.09);
+  background: rgba(13, 21, 41, 0.081);
   box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.16),
-    0 6px 18px -8px rgba(4, 9, 20, 0.7);
+    inset 0 1px 0 rgba(13, 21, 41, 0.12),
+    0 6px 18px -8px rgba(13, 21, 41, 0.14);
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -351,7 +351,7 @@ $overlap: 44px;
   background:
     radial-gradient(520px 320px at 78% 0%, rgba(0, 186, 254, 0.1), transparent 65%),
     radial-gradient(420px 300px at 12% 100%, rgba(243, 71, 0, 0.08), transparent 70%),
-    linear-gradient(160deg, #0e1b33, #081020 70%);
+    linear-gradient(160deg, var(--panel), var(--bg) 70%);
 }
 
 .wf {
@@ -382,8 +382,8 @@ $overlap: 44px;
   color: #fff;
   padding: 0.35rem 0.8rem;
   border-radius: 999px;
-  background: rgba(255, 255, 255, 0.1);
-  border: 1px solid rgba(255, 255, 255, 0.2);
+  background: rgba(13, 21, 41, 0.09);
+  border: 1px solid rgba(13, 21, 41, 0.12);
   backdrop-filter: blur(16px) saturate(180%);
   -webkit-backdrop-filter: blur(16px) saturate(180%);
 }
@@ -441,11 +441,11 @@ $overlap: 44px;
   bottom: -3px;
   width: 2px;
   border-radius: 2px;
-  background: linear-gradient(color-mix(in srgb, var(--secondary) 55%, transparent), rgba(255, 255, 255, 0.07));
+  background: linear-gradient(color-mix(in srgb, var(--secondary) 55%, transparent), rgba(13, 21, 41, 0.063));
 }
 
 .wf__item:last-child::before { display: none; }
-.wf__item--fantasma::before { background: rgba(255, 255, 255, 0.07); }
+.wf__item--fantasma::before { background: rgba(13, 21, 41, 0.063); }
 
 @keyframes wf-entra {
   from { opacity: 0; transform: translateY(10px); filter: blur(6px); }
@@ -483,7 +483,7 @@ $overlap: 44px;
 .wf__hex--escala { background: linear-gradient(135deg, var(--primary), #a33000); color: #fff; }
 .wf__hex--fin { background: linear-gradient(135deg, var(--positive), #0d8a53); color: #04240f; font-size: 0.82rem; }
 /* Apagado, como los agentes en reposo del panal. */
-.wf__hex--fantasma { background: #1a1f2b; animation: none; }
+.wf__hex--fantasma { background: var(--panel-2); animation: none; }
 
 @keyframes wf-pop {
   from { transform: scale(0.3); }
@@ -494,13 +494,13 @@ $overlap: 44px;
 /* La tarjeta del hito: vidrio sobre el navy. */
 .wf__card {
   min-width: 0;
-  background: rgba(255, 255, 255, 0.06);
-  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(13, 21, 41, 0.054);
+  border: 1px solid rgba(13, 21, 41, 0.108);
   border-radius: 14px;
   padding: 0.55rem 0.75rem;
   backdrop-filter: blur(14px) saturate(160%);
   -webkit-backdrop-filter: blur(14px) saturate(160%);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  box-shadow: inset 0 1px 0 rgba(13, 21, 41, 0.072);
 }
 
 .wf__item--escala .wf__card { border-color: rgba(243, 71, 0, 0.55); }
@@ -526,8 +526,8 @@ $overlap: 44px;
 .wf__dato {
   font-size: 0.7rem;
   color: var(--ink);
-  background: rgba(255, 255, 255, 0.07);
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(13, 21, 41, 0.063);
+  border: 1px solid rgba(13, 21, 41, 0.09);
   border-radius: 999px;
   padding: 0.14rem 0.55rem;
   max-width: 100%;
@@ -541,7 +541,7 @@ $overlap: 44px;
 
 .wf__card--fantasma {
   background: transparent;
-  border: 1px dashed rgba(255, 255, 255, 0.16);
+  border: 1px dashed rgba(13, 21, 41, 0.12);
   backdrop-filter: none;
   -webkit-backdrop-filter: none;
   box-shadow: none;
@@ -589,7 +589,7 @@ $overlap: 44px;
   width: 44px;
   height: 48px;
   clip-path: url(#hexCell);
-  background: linear-gradient(135deg, color-mix(in srgb, var(--secondary) 45%, transparent), rgba(255, 255, 255, 0.06));
+  background: linear-gradient(135deg, color-mix(in srgb, var(--secondary) 45%, transparent), rgba(13, 21, 41, 0.054));
   animation: wf-respira 2.4s ease-in-out infinite;
 }
 
@@ -860,7 +860,7 @@ $overlap: 44px;
     border: 1px solid var(--chat-border);
     border-radius: 999px;
     padding: 0.2rem 0.75rem;
-    box-shadow: 0 2px 8px rgba(15, 23, 42, 0.07);
+    box-shadow: 0 2px 8px rgba(13, 21, 41, 0.021);
   }
 }
 
@@ -912,7 +912,7 @@ $overlap: 44px;
 
 .msg__avatar {
   box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.35),
+    inset 0 1px 0 rgba(13, 21, 41, 0.12),
     0 3px 8px -2px rgba(24, 58, 110, 0.35);
   width: 30px;
   height: 30px;
@@ -988,7 +988,7 @@ $overlap: 44px;
   border: 1px solid rgba(255, 255, 255, 0.7);
   box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 0.8),
-    0 1px 2px rgba(15, 23, 42, 0.08),
+    0 1px 2px rgba(13, 21, 41, 0.024),
     0 7px 18px -7px rgba(24, 58, 110, 0.28);
 }
 
@@ -1008,7 +1008,7 @@ $overlap: 44px;
   transform: translateY(-1px);
   box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 0.65),
-    0 2px 3px rgba(15, 23, 42, 0.06),
+    0 2px 3px rgba(13, 21, 41, 0.018),
     0 12px 26px -8px rgba(24, 58, 110, 0.3);
 }
 
@@ -1214,7 +1214,7 @@ $overlap: 44px;
   align-items: center;
   gap: 0.6rem;
   cursor: pointer;
-  background: linear-gradient(135deg, #14284a, #0e1b33);
+  background: linear-gradient(135deg, var(--panel-2), var(--panel));
   color: #fff;
   transition: filter 0.15s;
 
@@ -1232,7 +1232,7 @@ $overlap: 44px;
   place-items: center;
   border: 0;
   border-radius: 999px;
-  background: rgba(255, 255, 255, 0.14);
+  background: rgba(13, 21, 41, 0.12);
   color: #fff;
   font: inherit;
   font-size: 0.68rem;
@@ -1249,7 +1249,7 @@ $overlap: 44px;
   opacity: 0.3;
   cursor: default;
 
-  &:hover { background: rgba(255, 255, 255, 0.14); color: #fff; }
+  &:hover { background: rgba(13, 21, 41, 0.12); color: #fff; }
 }
 
 .wave {
@@ -1380,7 +1380,7 @@ $overlap: 44px;
    son 58 nodos y sería ilegible.
 
    Las formas y los colores son los MISMOS del panal de Agentes —fondo
-   #1a1f2b dormido, --panel-2 encendido, borde --border / --secondary /
+   var(--panel-2) dormido, --panel-2 encendido, borde --border / --secondary /
    --primary— para que un hexágono signifique lo mismo en toda la app. */
 .arb {
   display: block;
@@ -1427,7 +1427,7 @@ $overlap: 44px;
 
 /* La rama que el flujo descartó: sigue ahí, apagada. */
 .arb__via--muerta {
-  stroke: rgba(255, 255, 255, 0.06);
+  stroke: rgba(13, 21, 41, 0.054);
   stroke-dasharray: 2 6;
   marker-end: none;
 }
@@ -1468,7 +1468,7 @@ $overlap: 44px;
  * todavía no se usan en Agentes.
  */
 .arb__forma {
-  fill: #1a1f2b;
+  fill: var(--panel-2);
   stroke: var(--border);
   stroke-width: 1.6;
   transition: fill 0.35s, stroke 0.35s, stroke-width 0.35s, filter 0.35s;
@@ -1526,7 +1526,7 @@ $overlap: 44px;
 /* La rama descartada: se ve, y se ve que no se tomó. */
 .arb__n--descartado .arb__forma {
   fill: transparent;
-  stroke: rgba(255, 255, 255, 0.09);
+  stroke: rgba(13, 21, 41, 0.081);
   stroke-dasharray: 3 4;
 }
 .arb__n--descartado .arb__txt { fill: var(--ink-soft); opacity: 0.32; }

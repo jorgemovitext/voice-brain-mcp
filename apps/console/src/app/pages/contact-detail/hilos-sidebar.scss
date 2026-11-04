@@ -19,7 +19,7 @@
   scrollbar-color: transparent transparent;
   transition: scrollbar-color 0.2s;
 
-  &:hover { scrollbar-color: rgba(255, 255, 255, 0.18) transparent; }
+  &:hover { scrollbar-color: rgba(13, 21, 41, 0.12) transparent; }
 
   &::-webkit-scrollbar { width: 8px; }
   &::-webkit-scrollbar-track { background: transparent; }
@@ -29,7 +29,7 @@
     border: 2px solid transparent;
     background-clip: content-box;
   }
-  &:hover::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.18); background-clip: content-box; }
+  &:hover::-webkit-scrollbar-thumb { background: rgba(13, 21, 41, 0.12); background-clip: content-box; }
 }
 
 .threads {
@@ -120,7 +120,7 @@
   gap: 0;
   align-items: stretch;
   border-radius: 16px;
-  background: rgba(255, 255, 255, 0.035);
+  background: rgba(13, 21, 41, 0.032);
   color: var(--ink);
   /*
    * Lo que impedía que la lista scrolleara. Los hijos de un flex column se
@@ -138,7 +138,7 @@
   transition: border-color 0.15s, background 0.15s, transform 0.15s;
 
   &:hover {
-    border-color: rgba(255, 255, 255, 0.16);
+    border-color: rgba(13, 21, 41, 0.12);
     transform: translateX(2px);
   }
 
@@ -164,13 +164,16 @@
  * cian sólido no depende del fondo y se distingue de una.
  */
 .thread--active {
-  background: color-mix(in srgb, var(--secondary) 16%, #16233a);
+  background: color-mix(in srgb, var(--secondary) 16%, var(--panel-2));
   border-color: var(--secondary);
 
-  .thread__name { color: #fff; }
-  .thread__preview { color: var(--ink); }
+  /* Sobre el tinte CLARO del seleccionado, la tinta va oscura: con el blanco
+     que llevaba en el tema oscuro, el hilo elegido era el único ilegible de
+     la lista — justo el que se está mirando. */
+  .thread__name { color: var(--ink); font-weight: 800; }
+  .thread__preview { color: var(--ink-soft); }
   .thread__time,
-  .thread__canal { color: color-mix(in srgb, var(--secondary) 70%, #fff); }
+  .thread__canal { color: color-mix(in srgb, var(--secondary) 60%, var(--ink)); }
 }
 
 /*
@@ -197,7 +200,7 @@
   /* 34% y no más: los colores de canal ya son apagados de por sí (#729B26,
      #2196CC, #D9532C), así que por debajo de eso el bloque se vuelve barro y
      por encima vuelve a gritar. */
-  background: color-mix(in srgb, var(--canal, #8a8f98) 34%, #131a29);
+  background: color-mix(in srgb, var(--canal, #8a8f98) 34%, var(--panel-2));
   color: color-mix(in srgb, var(--canal, #8a8f98) 40%, #fff);
 }
 

@@ -5,26 +5,26 @@ export const routes: Routes = [
   {
     path: 'login',
     loadComponent: () => import('./pages/login/login').then((m) => m.LoginPage),
-    title: 'Acceso · Brain',
+    title: 'Acceso · Hive',
   },
   { path: '', pathMatch: 'full', redirectTo: 'home' },
   {
     path: 'home',
     canActivate: [authGuard],
     loadComponent: () => import('./pages/home/home').then((m) => m.HomePage),
-    title: 'La colmena · Brain',
+    title: 'La colmena · Hive',
   },
   {
     path: 'contacts',
     canActivate: [authGuard],
     loadComponent: () => import('./pages/contacts/contacts').then((m) => m.ContactsPage),
-    title: 'Contactos · Brain',
+    title: 'Contactos · Hive',
   },
   {
     path: 'contacts/:id',
     canActivate: [authGuard],
     loadComponent: () => import('./pages/contact-detail/contact-detail').then((m) => m.ContactDetailPage),
-    title: 'Conversación · Brain',
+    title: 'Conversación · Hive',
   },
   {
     path: 'conversations',
@@ -32,7 +32,7 @@ export const routes: Routes = [
     canActivate: [authGuard],
     loadComponent: () =>
       import('./pages/conversations/conversations-index').then((m) => m.ConversationsIndexPage),
-    title: 'Conversaciones · Brain',
+    title: 'Conversaciones · Hive',
   },
   {
     path: 'conversations/:id',
@@ -40,7 +40,7 @@ export const routes: Routes = [
     loadComponent: () => import('./pages/contact-detail/contact-detail').then((m) => m.ContactDetailPage),
     // withComponentInputBinding también bindea route.data → input withThreads
     data: { withThreads: true },
-    title: 'Conversaciones · Brain',
+    title: 'Conversaciones · Hive',
   },
   {
     path: 'canales',
@@ -53,7 +53,7 @@ export const routes: Routes = [
     pathMatch: 'full',
     canActivate: [authGuard],
     loadComponent: () => import('./pages/agentes/agentes').then((m) => m.AgentesPage),
-    title: 'Agentes · Brain',
+    title: 'Agentes · Hive',
   },
   /* Antes de `agentes/:id`: si no, "nuevo" se leería como el id de un agente. */
   {
@@ -61,25 +61,25 @@ export const routes: Routes = [
     pathMatch: 'full',
     canActivate: [authGuard],
     loadComponent: () => import('./pages/agentes/agente-nuevo').then((m) => m.AgenteNuevoPage),
-    title: 'Crear agente · Brain',
+    title: 'Crear agente · Hive',
   },
   {
     path: 'agentes/nuevo/flujo',
     canActivate: [authGuard],
     loadComponent: () => import('./pages/agentes/agente-asistente').then((m) => m.AgenteAsistentePage),
-    title: 'Crear con flujo · Brain',
+    title: 'Crear con flujo · Hive',
   },
   {
     path: 'agentes/:id/flujo',
     canActivate: [authGuard],
     loadComponent: () => import('./pages/agentes/agente-flujo').then((m) => m.AgenteFlujoPage),
-    title: 'Flujo · Brain',
+    title: 'Flujo · Hive',
   },
   {
     path: 'agentes/:id',
     canActivate: [authGuard],
     loadComponent: () => import('./pages/agentes/agente-detalle').then((m) => m.AgenteDetallePage),
-    title: 'Agente · Brain',
+    title: 'Agente · Hive',
   },
   /* El panal de NL Pearl vivía acá. Tras el cambio de motor leía de una API
      que ya no responde —era una pantalla de error con forma de panal—, así
@@ -90,7 +90,7 @@ export const routes: Routes = [
     path: 'actividad',
     canActivate: [authGuard],
     loadComponent: () => import('./pages/integrations/integrations').then((m) => m.IntegrationsPage),
-    title: 'Actividad · Brain',
+    title: 'Actividad · Hive',
   },
   /* La ruta vieja sigue viva: hay enlaces guardados y la usaban otras vistas. */
   { path: 'integrations', pathMatch: 'full', redirectTo: 'actividad' },
@@ -98,13 +98,13 @@ export const routes: Routes = [
     path: 'perfil',
     canActivate: [authGuard],
     loadComponent: () => import('./pages/profile/profile').then((m) => m.ProfilePage),
-    title: 'Tu cuenta · Brain',
+    title: 'Tu cuenta · Hive',
   },
   {
     path: 'demo',
     canActivate: [authGuard],
     loadComponent: () => import('./pages/demo/demo').then((m) => m.DemoPage),
-    title: 'Demo del flujo · Brain',
+    title: 'Demo del flujo · Hive',
   },
   { path: '**', redirectTo: 'home' },
 ];
