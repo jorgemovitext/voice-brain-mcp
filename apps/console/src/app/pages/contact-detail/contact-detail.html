@@ -333,7 +333,10 @@
                       <i [style.height.px]="h"></i>
                     }
                   </span>
-                  <span class="bubble__dur" (click)="toggleTranscript(m.interaction.id)">📞 Llamada</span>
+                  <span class="bubble__dur" (click)="toggleTranscript(m.interaction.id)">
+                    Llamada
+                    @if (duracionDe(m.interaction); as d) { <em>{{ d }}</em> }
+                  </span>
                 </div>
                 @if (m.interaction.summary) {
                   <div class="bubble bubble--caption">

@@ -1208,17 +1208,54 @@ $overlap: 44px;
    El `.msg--out` va explícito porque el degradado claro del lado saliente
    (dos clases) le ganaba a este por especificidad: el turno del agente salía
    con burbuja blanca y el ▶ blanco encima, invisible. */
+/*
+ * La llamada va en una barra OSCURA, como en el diseño.
+ *
+ * Y de paso arregla lo que dejó el giro al tema claro: la burbuja conservó
+ * `color: #fff` sobre un fondo que pasó a ser claro, así que el rótulo de la
+ * llamada quedó blanco sobre blanco. Oscura, el texto vuelve a leerse y la
+ * grabación se distingue de un mensaje de texto de un vistazo — que es lo
+ * que el diseño buscaba al separarla.
+ */
 .bubble--voice,
 .msg--out .bubble--voice {
   display: inline-flex;
   align-items: center;
-  gap: 0.6rem;
+  gap: 0.7rem;
+  padding: 0.6rem 0.9rem;
+  border-radius: 16px;
   cursor: pointer;
-  background: linear-gradient(135deg, var(--panel-2), var(--panel));
-  color: #fff;
-  transition: filter 0.15s;
+  background: var(--oscuro);
+  color: var(--oscuro-ink);
+  border: 0;
+  box-shadow: var(--sombra-tarjeta);
+  transition: transform 0.14s, box-shadow 0.18s;
 
-  &:hover { filter: brightness(1.18); }
+  &:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 10px 22px -10px rgba(13, 21, 41, 0.5);
+  }
+}
+
+/* La onda, sobre oscuro: barras claras y la que suena en naranja. */
+.bubble--voice .wave i { background: rgba(255, 255, 255, 0.55); }
+.bubble--sonando .wave i { background: var(--primary); }
+
+.bubble--voice .bubble__dur {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.2;
+  font-size: 0.82rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.bubble--voice .bubble__play {
+  background: rgba(255, 255, 255, 0.16);
+  color: #fff;
+  border: 0;
+
+  &:hover { background: rgba(255, 255, 255, 0.28); }
 }
 
 /* El ▶ es un botón de verdad: antes era un span decorativo y el audio no
@@ -1610,4 +1647,12 @@ $overlap: 44px;
     font-size: 0.85rem;
     color: var(--ink-soft);
   }
+}
+
+.bubble--voice .bubble__dur em {
+  font-style: normal;
+  font-size: 0.72rem;
+  font-weight: 500;
+  color: rgba(255, 255, 255, 0.6);
+  font-variant-numeric: tabular-nums;
 }

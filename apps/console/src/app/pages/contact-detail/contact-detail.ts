@@ -1096,6 +1096,19 @@ export class ContactDetailPage implements OnDestroy {
   readonly sonando = signal<string | null>(null);
 
   /** De qué llamada es un turno, si lo sabemos. */
+  /**
+   * Cuánto duró la llamada, si el proveedor lo dijo.
+   *
+   * Devuelve null cuando no se sabe y la barra no muestra nada: inventar
+   * «0:00» haría parecer que la grabación está vacía.
+   */
+  duracionDe(i: Interaction): string | null {
+    const info = i.collectedInfo as { duracionSegundos?: number } | undefined;
+    const seg = info?.duracionSegundos;
+    if (typeof seg !== 'number' || seg <= 0) return null;
+    return `${Math.floor(seg / 60)}:${String(Math.round(seg % 60)).padStart(2, '0')}`;
+  }
+
   private llamadaDe(i: Interaction): { conversationId: string; desdeSegundo: number } | null {
     const info = i.collectedInfo as { conversationId?: string; desdeSegundo?: number } | undefined;
     if (info?.conversationId) {

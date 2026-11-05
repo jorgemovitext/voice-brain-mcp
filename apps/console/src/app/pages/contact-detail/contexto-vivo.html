@@ -28,17 +28,23 @@
     <!-- El estado dice lo que SABEMOS. No se anuncia "finalizada" cuando solo
          se dejó de observar: la transcripción llega por el webhook de cierre y
          puede tardar más que nuestra espera. -->
-    <div class="voice__status">
-      @if (aviso(); as a) {
-        {{ a }}
-      } @else {
-        @switch (estado()) {
-          @case ('calling') { Llamando con el agente de voz… }
-          @case ('ended') { Llamada terminada — la transcripción está en el hilo. }
-          @default { Agente de voz disponible. }
+    <!-- El estado dice lo que SABEMOS. Con el agente ya anunciado arriba,
+         «Agente de voz disponible» sobra y encima se contradice: dos
+         renglones diciendo cosas distintas sobre lo mismo. Solo se muestra
+         cuando aporta — un aviso, o que la llamada está en curso. -->
+    @if (aviso() || estado() !== 'idle' || !agente()) {
+      <div class="voice__status">
+        @if (aviso(); as a) {
+          {{ a }}
+        } @else {
+          @switch (estado()) {
+            @case ('calling') { Llamando con el agente de voz… }
+            @case ('ended') { Llamada terminada — la transcripción está en el hilo. }
+            @default { Agente de voz disponible. }
+          }
         }
-      }
-    </div>
+      </div>
+    }
     <div class="voice__controls">
       <button class="vbtn vbtn--muted" title="Silenciar (decorativo)" disabled>
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0"/><path d="M12 18v3"/></svg>

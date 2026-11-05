@@ -35,7 +35,23 @@ export class OrganizacionesService {
    * negaría el alta a la segunda por un motivo que no entiende.
    */
   async crear(nombre: string): Promise<string> {
-    const pool = this.exigirBase();
+    /*
+     * Sin base, UNA organización fija de desarrollo.
+     *
+     * Las organizaciones existen para aislar datos entre empresas, y el
+     * aislamiento vive en el SQL: sin Postgres, el Brain usa el almacén de
+     * archivo, que no filtra por nadie. Exigir base acá no agregaba
+     * seguridad —no hay nada que separar— y dejaba el alta rota en local,
+     * o sea imposible abrir la app recién clonada.
+     *
+     * En producción siempre hay base, así que este camino no se toma.
+     */
+    if (!this.pool) {
+      this.logger.warn(`Sin DATABASE_URL: «${nombre}» entra a la organización local de desarrollo`);
+      return 'org-local';
+    }
+
+    const pool = this.pool;
     await ensureSchema(pool);
 
     const id = `org-${randomUUID()}`;
