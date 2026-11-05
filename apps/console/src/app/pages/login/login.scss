@@ -1,233 +1,409 @@
-/* Pantalla de acceso: la tarjeta blanca de Hive sobre el lienzo claro, con
-   dos halos del naranja de marca muy diluidos — lo justo para que el fondo
-   no sea una pared plana. */
+/* ===== Acceso a Hive =====
+   Panel partido: a la izquierda qué es esto y por qué se puede confiar; a la
+   derecha, el formulario y nada más.
+
+   No es decoración: un login a secas no dice en qué está entrando uno, y acá
+   adentro hay teléfonos, reportes y conversaciones de ciudadanos. El panel
+   izquierdo es lo que convierte «una pantalla de clave» en «la puerta de una
+   consola de operación». */
 .auth {
   min-height: 100dvh;
   display: grid;
-  place-items: center;
-  padding: 24px;
-  background:
-    radial-gradient(680px 460px at 12% 8%, rgba(243, 71, 0, 0.09), transparent 62%),
-    radial-gradient(720px 520px at 88% 92%, rgba(0, 186, 254, 0.08), transparent 62%),
-    var(--bg);
+  grid-template-columns: minmax(0, 420px) minmax(0, 1fr);
+  background: var(--bg);
+
+  /* En angosto el panel de marca se va: en un teléfono lo que hace falta es
+     entrar, no leer la propuesta de valor. */
+  @media (max-width: 860px) {
+    grid-template-columns: minmax(0, 1fr);
+  }
 }
 
-.auth__card {
-  width: min(420px, 100%);
-  padding: 30px;
+/* ===== Panel de marca ===== */
+.marca {
   display: flex;
   flex-direction: column;
-  gap: 20px;
-  background: var(--panel);
-  border: 1px solid var(--border);
-  border-radius: 26px;
-  box-shadow: var(--sombra-avatar);
-  /* Entra flotando: es la primera impresión de la app. */
-  animation: auth-entra 0.4s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+  padding: 2.4rem 2.2rem;
+  color: #fff;
+  background:
+    radial-gradient(520px 380px at 15% 12%, rgba(255, 138, 76, 0.5), transparent 68%),
+    radial-gradient(460px 420px at 85% 88%, rgba(0, 186, 254, 0.3), transparent 66%),
+    linear-gradient(155deg, #c23700, #8f2800 55%, #0d1529);
+
+  @media (max-width: 860px) { display: none; }
 }
 
-@keyframes auth-entra {
-  from { opacity: 0; transform: translateY(14px) scale(0.98); }
-  to { opacity: 1; transform: none; }
-}
-
-.auth__brand {
+.marca__top {
   display: flex;
   align-items: center;
-  gap: 14px;
+  gap: 0.7rem;
 
   h1 {
     margin: 0;
-    font-size: 1.6rem;
+    font-size: 1.5rem;
     font-weight: 800;
     letter-spacing: -0.03em;
-    span { color: var(--primary); }
-  }
-  p {
-    margin: 2px 0 0;
-    color: var(--ink-soft);
-    font-size: 0.82rem;
+    color: #fff;
   }
 }
 
-/* Misma celda de panal que el logo del rail: la marca es una celda del enjambre.
-   El resplandor va en drop-shadow para que siga el hexágono (box-shadow lo
-   recortaría el clip-path). */
-.auth__orb {
-  width: 40px;
-  height: 40px;
-  clip-path: url(#hexCell);
-  flex-shrink: 0;
+/* La celda del panal, hueca, en blanco sobre el naranja. */
+.marca__orb {
   position: relative;
-  background: var(--primary);
-  filter: drop-shadow(0 6px 14px rgba(243, 71, 0, 0.35));
+  width: 36px;
+  height: 36px;
+  flex-shrink: 0;
+  clip-path: url(#hexCell);
+  background: #fff;
 
-  /* El hueco del hexágono: la misma marca que el riel. */
   &::after {
     content: '';
     position: absolute;
     inset: 5px;
     clip-path: url(#hexCell);
-    background: var(--panel);
+    background: #c23700;
   }
 }
 
-.auth__tabs {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 6px;
-  background: var(--panel-2);
-  border: 1px solid var(--border);
-  border-radius: 12px;
-  padding: 5px;
+.marca__centro {
+  margin-top: auto;
+  margin-bottom: auto;
+  padding: 2rem 0;
 }
 
-.auth__tab {
-  border: 0;
-  background: transparent;
-  color: var(--ink-soft);
-  font: inherit;
-  font-weight: 600;
-  padding: 9px 10px;
-  border-radius: 8px;
-  cursor: pointer;
+.marca__claim {
+  margin: 0;
+  font-size: 1.9rem;
+  font-weight: 700;
+  line-height: 1.2;
+  letter-spacing: -0.03em;
+}
 
-  &--active {
-    background: var(--panel);
-    color: var(--ink);
-    box-shadow: inset 0 0 0 1px var(--border);
+.marca__bajada {
+  margin: 0.7rem 0 0;
+  font-size: 0.95rem;
+  line-height: 1.55;
+  color: rgba(255, 255, 255, 0.8);
+  max-width: 34ch;
+}
+
+/* Los sellos son afirmaciones verificables, no insignias de adorno: cada
+   una describe algo que el código hace de verdad. */
+.marca__sellos {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+
+  li {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    font-size: 0.84rem;
+    color: rgba(255, 255, 255, 0.85);
+  }
+
+  i {
+    display: grid;
+    place-items: center;
+    width: 28px;
+    height: 28px;
+    flex-shrink: 0;
+    border-radius: 9px;
+    background: rgba(255, 255, 255, 0.14);
+    color: #fff;
+
+    svg { width: 15px; height: 15px; }
+  }
+}
+
+.marca__pie {
+  margin: 1.6rem 0 0;
+  font-size: 0.76rem;
+  color: rgba(255, 255, 255, 0.55);
+}
+
+/* ===== Formulario ===== */
+.forma {
+  display: grid;
+  place-items: center;
+  padding: 2rem 1.5rem;
+}
+
+.forma__caja {
+  width: min(400px, 100%);
+  animation: forma-entra 0.42s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+
+@keyframes forma-entra {
+  from { opacity: 0; transform: translateY(12px); }
+  to { opacity: 1; transform: none; }
+}
+
+.forma__cabeza {
+  margin-bottom: 1.4rem;
+
+  h2 {
+    margin: 0;
+    font-size: 1.65rem;
+    font-weight: 700;
+    letter-spacing: -0.025em;
+  }
+
+  p {
+    margin: 0.35rem 0 0;
+    font-size: 0.88rem;
+    color: var(--ink-soft);
   }
 }
 
 form {
   display: flex;
   flex-direction: column;
-  gap: 14px;
+  gap: 0.9rem;
 }
 
-.auth__field {
+/* ===== Campos ===== */
+.campo {
   display: flex;
   flex-direction: column;
-  gap: 6px;
-
-  span {
-    font-size: 0.78rem;
-    font-weight: 600;
-    color: var(--ink-soft);
-  }
-
-  input {
-    background: var(--panel-2);
-    border: 1.5px solid var(--border);
-    border-radius: 12px;
-    color: var(--ink);
-    padding: 11px 14px;
-    font: inherit;
-    outline: none;
-    transition: border-color 0.15s;
-
-    &:focus {
-      outline: none;
-      border-color: var(--primary);
-      box-shadow: 0 0 0 3px var(--primary-suave);
-    }
-    &::placeholder { color: color-mix(in srgb, var(--ink-soft) 60%, transparent); }
-  }
+  gap: 0.35rem;
 }
 
-.auth__submit {
-  margin-top: 4px;
-  justify-content: center;
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.auth__error {
-  margin: 0;
-  color: var(--negative);
-  font-size: 0.84rem;
-}
-
-/** Pista para las cuentas anteriores al login por usuario. */
-
-.auth__otp {
+.campo__rotulo {
   display: flex;
-  flex-direction: column;
-  gap: 12px;
-
-  h2 { margin: 0; font-size: 1.05rem; }
-  p { margin: 0; color: var(--ink-soft); font-size: 0.88rem; line-height: 1.5; }
+  align-items: baseline;
+  gap: 0.5rem;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--ink);
 }
 
-.auth__code {
-  background: var(--panel-2);
-  border: 1.5px solid var(--border);
+.campo__input {
+  width: 100%;
+  padding: 0.72rem 0.9rem;
   border-radius: 12px;
+  border: 1px solid var(--border);
+  background: var(--panel);
   color: var(--ink);
   font: inherit;
-  font-size: 1.6rem;
-  letter-spacing: 0.55em;
-  text-align: center;
-  padding: 12px 8px 12px calc(8px + 0.55em);
-  outline: none;
+  font-size: 0.92rem;
+  transition: border-color 0.15s, box-shadow 0.18s;
+
+  &::placeholder { color: color-mix(in srgb, var(--ink-soft) 70%, transparent); }
+
+  &:hover { border-color: color-mix(in srgb, var(--ink-soft) 45%, var(--border)); }
 
   &:focus {
-      outline: none;
-      border-color: var(--primary);
-      box-shadow: 0 0 0 3px var(--primary-suave);
-    }
+    outline: none;
+    border-color: var(--primary);
+    box-shadow: 0 0 0 3.5px var(--primary-suave);
+  }
 }
 
-.auth__links {
-  display: flex;
-  justify-content: space-between;
+/* El código de invitación se dicta por teléfono: monoespaciado y espaciado
+   para que no se confundan los caracteres al leerlo en voz alta. */
+.campo__input--codigo {
+  font-family: 'Inter', ui-monospace, monospace;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
 }
 
-.auth__link {
+.campo__conBoton {
+  position: relative;
+  display: block;
+
+  .campo__input { padding-right: 2.9rem; }
+}
+
+.campo__ojo {
+  position: absolute;
+  top: 50%;
+  right: 0.45rem;
+  transform: translateY(-50%);
+  width: 32px;
+  height: 32px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--ink-soft);
+  font-size: 0.95rem;
+  cursor: pointer;
+  transition: background 0.14s, color 0.14s;
+
+  &:hover { background: var(--panel-2); color: var(--ink); }
+}
+
+.campo__ayuda {
+  font-size: 0.76rem;
+  color: var(--ink-soft);
+  line-height: 1.4;
+}
+
+.campo__ayuda--ojo { color: #b45309; font-weight: 600; }
+
+.campo__enlace {
+  margin-left: auto;
   border: 0;
   background: transparent;
   color: var(--primary);
   font: inherit;
-  font-size: 0.82rem;
+  font-size: 0.76rem;
+  font-weight: 600;
   cursor: pointer;
-  padding: 4px 0;
+  padding: 0;
 
-  &:disabled { color: var(--ink-soft); cursor: default; }
-  &:hover:not(:disabled) { text-decoration: underline; }
+  &:hover { text-decoration: underline; }
+  &:disabled { color: var(--ink-soft); cursor: default; text-decoration: none; }
+}
+
+/* ===== Fuerza de la contraseña ===== */
+.fuerza {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  margin-top: 0.1rem;
+
+  em { font-style: normal; font-size: 0.74rem; color: var(--ink-soft); }
+}
+
+.fuerza__barra {
+  flex: 1;
+  height: 4px;
+  border-radius: 999px;
+  background: var(--border);
+  overflow: hidden;
+
+  i {
+    display: block;
+    height: 100%;
+    border-radius: 999px;
+    transition: width 0.25s ease, background 0.25s;
+  }
+}
+
+.fuerza__relleno--floja { background: var(--negative); }
+.fuerza__relleno--media { background: #f59e0b; }
+.fuerza__relleno--buena { background: var(--positive); }
+
+/* ===== Primera cuenta ===== */
+.primera {
+  margin: 0;
+  padding: 0.7rem 0.85rem;
+  border-radius: 12px;
+  background: var(--primary-suave);
+  border: 1px solid color-mix(in srgb, var(--primary) 25%, transparent);
+  font-size: 0.8rem;
+  line-height: 1.45;
+  color: #9a2d00;
+
+  strong { display: block; }
+}
+
+/* ===== Error ===== */
+.alerta {
+  margin: 0;
+  padding: 0.65rem 0.8rem;
+  border-radius: 12px;
+  background: rgba(248, 40, 52, 0.08);
+  border: 1px solid rgba(248, 40, 52, 0.2);
+  color: #b42318;
+  font-size: 0.83rem;
+  line-height: 1.45;
+  animation: alerta-entra 0.26s ease-out both;
+}
+
+@keyframes alerta-entra {
+  from { opacity: 0; transform: translateY(-4px); }
+  to { opacity: 1; transform: none; }
+}
+
+/* ===== Botón ===== */
+.enviar {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  margin-top: 0.2rem;
+  padding: 0.8rem 1.2rem;
+  border: 0;
+  border-radius: 12px;
+  background: var(--primary);
+  color: var(--primary-ink);
+  font: inherit;
+  font-size: 0.95rem;
+  font-weight: 700;
+  cursor: pointer;
+  box-shadow: 0 8px 20px -8px rgba(243, 71, 0, 0.75);
+  transition: transform 0.12s, box-shadow 0.18s, filter 0.15s;
+
+  &:hover:not(:disabled) {
+    transform: translateY(-1px);
+    box-shadow: 0 12px 26px -10px rgba(243, 71, 0, 0.9);
+  }
+  &:active:not(:disabled) { transform: translateY(0); }
+  &:disabled { opacity: 0.55; cursor: default; box-shadow: none; }
+}
+
+/* ===== Código OTP ===== */
+.codigo {
+  width: 100%;
+  padding: 0.9rem;
+  border-radius: 14px;
+  border: 1px solid var(--border);
+  background: var(--panel);
+  color: var(--ink);
+  font-family: 'Inter', ui-monospace, monospace;
+  font-size: 1.7rem;
+  font-weight: 700;
+  letter-spacing: 0.45em;
+  text-align: center;
+  text-indent: 0.45em;
+
+  &::placeholder { color: var(--border); letter-spacing: 0.45em; }
+  &:focus {
+    outline: none;
+    border-color: var(--primary);
+    box-shadow: 0 0 0 3.5px var(--primary-suave);
+  }
+}
+
+/* ===== Enlaces ===== */
+.enlace {
+  border: 0;
+  background: transparent;
+  color: var(--primary);
+  font: inherit;
+  font-size: inherit;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 0;
+
+  &:hover { text-decoration: underline; }
+  &:disabled { color: var(--ink-soft); cursor: default; text-decoration: none; }
+}
+
+.forma__pie {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-top: 1.1rem;
+  font-size: 0.83rem;
 }
 
 .spinner--sm {
-  width: 14px;
-  height: 14px;
+  width: 15px;
+  height: 15px;
+  margin: 0;
   border-width: 2px;
-}
-
-/* La salida cuando la contraseña no aparece. Va alineada a la izquierda y
-   discreta: es un recurso, no la acción principal del formulario. */
-.auth__link--suelto {
-  align-self: flex-start;
-  font-size: 0.78rem;
-  margin-top: -0.2rem;
+  border-top-color: currentColor;
+  border-color: rgba(255, 255, 255, 0.35);
+  border-top-color: #fff;
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .auth__card { animation: none; }
-}
-
-/* Nota bajo el campo de invitación: explica de dónde sale el código sin
-   convertirse en un párrafo que nadie lee. */
-.auth__nota {
-  margin: -8px 0 0;
-  font-size: 0.78rem;
-  color: var(--ink-soft);
-  line-height: 1.45;
-}
-
-.auth__nota--primera {
-  padding: 0.6rem 0.8rem;
-  border-radius: 12px;
-  background: var(--primary-suave);
-  color: #c23700;
-  font-weight: 600;
+  .forma__caja, .alerta { animation: none; }
+  .enviar:hover { transform: none; }
 }

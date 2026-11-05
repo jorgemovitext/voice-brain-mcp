@@ -171,6 +171,22 @@ export class AuthService {
     return (await this.users.contar()) === 0;
   }
 
+  /**
+   * Cierra TODAS las sesiones de una cuenta, ya.
+   *
+   * Es la revocación: adelanta la marca y cualquier token emitido antes deja
+   * de valer. Se usa al cambiar la contraseña —si alguien te la robó, su
+   * sesión tiene que morir con el cambio— y está disponible para cuando un
+   * operador pierda el teléfono.
+   */
+  async cerrarSesiones(userId: string): Promise<void> {
+    const user = await this.users.findById(userId);
+    if (!user) return;
+    user.tokensDesde = new Date().toISOString();
+    await this.users.save(user);
+    this.logger.warn(`Sesiones cerradas para ${user.username ?? userId}`);
+  }
+
   /** El equipo con acceso a la consola. Nunca sale un hash de acá. */
   async equipo(): Promise<Array<{ id: string; username?: string; name?: string; phone: string; creada: string }>> {
     const todos = await this.users.listar();

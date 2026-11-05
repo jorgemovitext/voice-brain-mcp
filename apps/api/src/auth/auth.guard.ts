@@ -1,9 +1,10 @@
-import { CanActivate, ExecutionContext, Injectable, UnauthorizedException } from '@nestjs/common';
+import { CanActivate, ExecutionContext, Inject, Injectable, UnauthorizedException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 import { Reflector } from '@nestjs/core';
 import { FastifyReply, FastifyRequest } from 'fastify';
 import { IS_PUBLIC_KEY } from './public.decorator';
+import { USERS_REPOSITORY, UsersRepository } from './users.repository';
 
 /** Nombre de la cookie de sesión (httpOnly: el JS del navegador no la ve). */
 export const SESSION_COOKIE = 'vb_session';
@@ -18,9 +19,24 @@ export class AuthGuard implements CanActivate {
   private readonly sessionHours: number;
   private readonly secureCookies: boolean;
 
+  /**
+   * Cuentas ya comprobadas, por un rato corto.
+   *
+   * Comprobar contra la base en CADA petición sería lo más estricto, pero la
+   * consola hace varias por pantalla y cada una sumaría un viaje a Neon. Con
+   * 30 segundos, una sesión revocada muere en medio minuto como mucho —
+   * contra las 12 horas que vivía antes— y la navegación no se arrastra.
+   *
+   * El número es la decisión: más alto ahorra viajes y alarga la ventana en
+   * que un echado sigue adentro; más bajo es más estricto y más lento.
+   */
+  private static readonly CACHE_MS = 30_000;
+  private readonly comprobadas = new Map<string, { hasta: number; tokensDesde: number }>();
+
   constructor(
     private readonly reflector: Reflector,
     private readonly jwt: JwtService,
+    @Inject(USERS_REPOSITORY) private readonly users: UsersRepository,
     config: ConfigService,
   ) {
     this.sessionHours = config.get<number>('AUTH_SESSION_HOURS', 12);
@@ -38,14 +54,59 @@ export class AuthGuard implements CanActivate {
     const token = this.extractToken(req);
     if (!token) throw new UnauthorizedException('Sesión requerida');
 
+    let payload: { sub: string; username?: string; exp: number; iat: number };
     try {
-      const payload = await this.jwt.verifyAsync<{ sub: string; username?: string; exp: number }>(token);
-      req.user = payload;
-      await this.renovarSiCorresponde(context, payload);
-      return true;
+      payload = await this.jwt.verifyAsync(token);
     } catch {
       throw new UnauthorizedException('Sesión inválida o expirada');
     }
+
+    /*
+     * La firma dice que el token es NUESTRO; no dice que la cuenta siga
+     * existiendo. Un JWT no se puede revocar —vive hasta que expira—, así
+     * que a alguien a quien le quitaron la cuenta le quedaban hasta 12 horas
+     * de acceso con el token que ya tenía en el navegador. Acá se cierra.
+     */
+    if (!(await this.sigueValiendo(payload.sub, payload.iat))) {
+      throw new UnauthorizedException('Sesión cerrada: volvé a entrar');
+    }
+
+    req.user = payload;
+    await this.renovarSiCorresponde(context, payload);
+    return true;
+  }
+
+  /**
+   * ¿La cuenta sigue existiendo y este token sigue siendo suyo?
+   *
+   * Si el repositorio falla se deja pasar: una base caída no puede echar a
+   * todo el mundo de la consola. El token ya demostró estar firmado por
+   * nosotros y no haber expirado, que es el piso que había antes de esto.
+   */
+  private async sigueValiendo(userId: string, emitido: number): Promise<boolean> {
+    const ahora = Date.now();
+    const guardado = this.comprobadas.get(userId);
+    if (guardado && guardado.hasta > ahora) {
+      return emitido * 1000 >= guardado.tokensDesde;
+    }
+
+    let user;
+    try {
+      user = await this.users.findById(userId);
+    } catch {
+      return true;
+    }
+
+    if (!user) {
+      this.comprobadas.delete(userId);
+      return false;
+    }
+
+    const tokensDesde = user.tokensDesde ? new Date(user.tokensDesde).getTime() : 0;
+    this.comprobadas.set(userId, { hasta: ahora + AuthGuard.CACHE_MS, tokensDesde });
+    // `iat` viene en segundos; el margen de 1 s cubre el redondeo de firmar
+    // y revocar dentro del mismo segundo.
+    return emitido * 1000 + 1000 >= tokensDesde;
   }
 
   /**

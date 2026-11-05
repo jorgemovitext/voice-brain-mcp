@@ -221,6 +221,17 @@ export class AuthController {
     return this.auth.me(req.user?.sub ?? '');
   }
 
+  /** Cierra la sesión en TODOS los dispositivos, no solo en este navegador. */
+  @Post('cerrar-todo')
+  async cerrarTodo(
+    @Req() req: FastifyRequest & { user?: { sub: string } },
+    @Res({ passthrough: true }) res: FastifyReply,
+  ) {
+    await this.auth.cerrarSesiones(req.user?.sub ?? '');
+    res.clearCookie(SESSION_COOKIE, { path: '/' });
+    return { ok: true };
+  }
+
   @Post('logout')
   logout(@Res({ passthrough: true }) res: FastifyReply) {
     res.clearCookie(SESSION_COOKIE, { path: '/' });

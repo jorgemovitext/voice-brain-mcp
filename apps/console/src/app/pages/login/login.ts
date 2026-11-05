@@ -15,111 +15,177 @@ type Paso = 'credenciales' | 'otp';
   selector: 'app-login',
   template: `
     <div class="auth">
-      <div class="auth__card card">
-        <div class="auth__brand">
-          <span class="auth__orb"></span>
-          <div>
-            <h1><span>Hive</span></h1>
-            <p>Tus agentes atendiendo WhatsApp, de Movitext</p>
-          </div>
+      <!-- Panel izquierdo: qué es esto y por qué se puede confiar. Un login a
+           secas no dice en qué está entrando uno; en una consola con datos de
+           ciudadanos, eso importa. -->
+      <aside class="marca">
+        <div class="marca__top">
+          <span class="marca__orb"></span>
+          <h1>Hive</h1>
         </div>
 
-        @if (paso() === 'credenciales') {
-          <div class="auth__tabs">
-            <button class="auth__tab" [class.auth__tab--active]="modo() === 'login'" (click)="cambiarModo('login')">
-              Iniciar sesión
-            </button>
-            <button class="auth__tab" [class.auth__tab--active]="modo() === 'register'" (click)="cambiarModo('register')">
-              Crear cuenta
-            </button>
-          </div>
+        <div class="marca__centro">
+          <p class="marca__claim">Tus agentes atendiendo WhatsApp.</p>
+          <p class="marca__bajada">
+            Contestan en segundos, agendan, registran y pasan a una persona cuando hace falta.
+          </p>
+        </div>
 
-          <form (submit)="enviarCredenciales($event)">
-            @if (modo() === 'register') {
-              <label class="auth__field">
-                <span>Nombre</span>
-                <input type="text" autocomplete="name" [value]="name()" (input)="name.set(asValue($event))" placeholder="Tu nombre" />
-              </label>
-            }
-            <!-- El teléfono sigue sirviendo como identificador para las
-                 cuentas viejas, pero no se anuncia: pedir "usuario o
-                 teléfono" hacía dudar de cuál poner en el caso normal. -->
-            <label class="auth__field">
-              <span>Usuario</span>
-              <input type="text" autocomplete="username" spellcheck="false"
-                     [value]="username()" (input)="username.set(asValue($event))"
-                     placeholder="tu.usuario" required />
-            </label>
-            @if (modo() === 'login') {
-              <!-- El código dejó de ser obligatorio, pero sigue siendo la
-                   salida cuando la contraseña no aparece. -->
-              <button class="auth__link auth__link--suelto" type="button"
-                      (click)="entrarConCodigo()" [disabled]="busy() || !username().trim()">
-                No me acuerdo la contraseña, mandame un código
-              </button>
-            }
-            @if (modo() === 'register') {
-              <label class="auth__field">
-                <span>Teléfono (WhatsApp)</span>
-                <input type="tel" autocomplete="tel" [value]="phone()" (input)="phone.set(asValue($event))" placeholder="+50499998888" required />
-              </label>
-              <!-- El alta es por invitación. Solo la PRIMERA cuenta de la
-                   instalación se crea sin código; por eso se pregunta antes
-                   en vez de pedirlo siempre. -->
-              @if (conInvitacion()) {
-                <label class="auth__field">
-                  <span>Código de invitación</span>
-                  <input [value]="invitacion()" (input)="invitacion.set(asValue($event))"
-                         placeholder="ABCD-EFGH-JKLM" autocapitalize="characters" spellcheck="false" required />
+        <!-- Trazo, no emoji: el emoji cambia de forma en cada sistema y a
+             este tamaño se lee como un adorno pegado, no como parte del
+             diseño. -->
+        <ul class="marca__sellos">
+          <li>
+            <i><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="10" width="16" height="11" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg></i>
+            Sesión cifrada y firmada
+          </li>
+          <li>
+            <i><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><path d="m3.5 7.5 8.5 6 8.5-6"/></svg></i>
+            El alta es solo por invitación
+          </li>
+          <li>
+            <i><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg></i>
+            La sesión se cierra sola por inactividad
+          </li>
+        </ul>
+        <p class="marca__pie">Movitext · Centroamérica</p>
+      </aside>
+
+      <!-- Panel derecho: el formulario y nada más. -->
+      <main class="forma">
+        <div class="forma__caja">
+          @if (paso() === 'credenciales') {
+            <header class="forma__cabeza">
+              <h2>{{ modo() === 'login' ? 'Entrar a la consola' : 'Crear tu cuenta' }}</h2>
+              <p>
+                @if (modo() === 'login') {
+                  ¿No tenés cuenta?
+                  <button class="enlace" type="button" (click)="cambiarModo('register')">Creala con tu invitación</button>
+                } @else {
+                  ¿Ya tenés una?
+                  <button class="enlace" type="button" (click)="cambiarModo('login')">Iniciá sesión</button>
+                }
+              </p>
+            </header>
+
+            <form (submit)="enviarCredenciales($event)" novalidate>
+              @if (modo() === 'register') {
+                <label class="campo">
+                  <span class="campo__rotulo">Tu nombre</span>
+                  <input class="campo__input" type="text" autocomplete="name" placeholder="Jorge Murcia"
+                         [value]="name()" (input)="name.set(asValue($event))" />
                 </label>
-                <p class="auth__nota">Te lo pasa alguien del equipo desde Equipo → Invitar.</p>
-              } @else {
-                <p class="auth__nota auth__nota--primera">
-                  Esta es la primera cuenta de la consola: se crea sin invitación y desde ella
-                  se invita al resto.
-                </p>
               }
-            }
-            <label class="auth__field">
-              <span>Contraseña</span>
-              <input type="password" [attr.autocomplete]="modo() === 'login' ? 'current-password' : 'new-password'"
-                     [value]="password()" (input)="password.set(asValue($event))"
-                     placeholder="Mínimo 8 caracteres, letras y números" required />
-            </label>
 
-            @if (error()) {
-              <p class="auth__error">{{ error() }}</p>
-            }
+              <!-- El teléfono sigue sirviendo como identificador para las
+                   cuentas viejas, pero no se anuncia: pedir "usuario o
+                   teléfono" hacía dudar de cuál poner en el caso normal. -->
+              <label class="campo">
+                <span class="campo__rotulo">Usuario</span>
+                <input class="campo__input" type="text" autocomplete="username" spellcheck="false"
+                       autocapitalize="none" placeholder="tu.usuario"
+                       [value]="username()" (input)="username.set(asValue($event))" />
+              </label>
 
-            <button class="btn btn--primary auth__submit" type="submit" [disabled]="busy()">
-              @if (busy()) { <span class="spinner spinner--sm"></span> }
-              {{ modo() === 'login' ? 'Continuar' : 'Crear cuenta' }}
-            </button>
-          </form>
-        } @else {
-          <div class="auth__otp">
-            <h2>Revisá tu WhatsApp</h2>
-            <p>Te enviamos un código de 6 dígitos a <strong>{{ destino() }}</strong>. Vence en 5 minutos.</p>
-            <form (submit)="enviarOtp($event)">
-              <input class="auth__code" type="text" inputmode="numeric" maxlength="6" autocomplete="one-time-code"
-                     [value]="code()" (input)="code.set(soloDigitos($event))" placeholder="••••••" />
+              @if (modo() === 'register') {
+                <label class="campo">
+                  <span class="campo__rotulo">Teléfono (WhatsApp)</span>
+                  <input class="campo__input" type="tel" autocomplete="tel" placeholder="+504 9999-8888"
+                         [value]="phone()" (input)="phone.set(asValue($event))" />
+                  <span class="campo__ayuda">Solo para recuperar el acceso. No es tu usuario.</span>
+                </label>
+
+                @if (conInvitacion()) {
+                  <label class="campo">
+                    <span class="campo__rotulo">Código de invitación</span>
+                    <input class="campo__input campo__input--codigo" placeholder="ABCD-EFGH-JKLM"
+                           autocapitalize="characters" spellcheck="false"
+                           [value]="invitacion()" (input)="invitacion.set(asValue($event))" />
+                    <span class="campo__ayuda">Te lo pasa alguien del equipo desde Equipo → Invitar.</span>
+                  </label>
+                } @else {
+                  <p class="primera">
+                    <strong>Primera cuenta de la consola.</strong>
+                    Se crea sin invitación, y desde ella se invita al resto.
+                  </p>
+                }
+              }
+
+              <label class="campo">
+                <span class="campo__rotulo">
+                  Contraseña
+                  @if (modo() === 'login') {
+                    <button class="campo__enlace" type="button" (click)="entrarConCodigo()"
+                            [disabled]="busy() || !username().trim()">No la recuerdo</button>
+                  }
+                </span>
+                <span class="campo__conBoton">
+                  <input class="campo__input" [type]="verClave() ? 'text' : 'password'"
+                         [attr.autocomplete]="modo() === 'login' ? 'current-password' : 'new-password'"
+                         [placeholder]="modo() === 'login' ? 'Tu contraseña' : 'Mínimo 8, con letras y números'"
+                         [value]="password()" (input)="password.set(asValue($event))"
+                         (keyup)="mirarMayusculas($event)" />
+                  <button class="campo__ojo" type="button" (click)="verClave.set(!verClave())"
+                          [attr.aria-label]="verClave() ? 'Ocultar la contraseña' : 'Ver la contraseña'">
+                    {{ verClave() ? '◡' : '◉' }}
+                  </button>
+                </span>
+
+                <!-- Bloq Mayús es la causa más común de «la contraseña no me
+                     funciona» y el navegador no avisa dentro del campo. -->
+                @if (mayusculas()) {
+                  <span class="campo__ayuda campo__ayuda--ojo">⚠ Tenés Bloq Mayús activado.</span>
+                }
+
+                @if (modo() === 'register' && password()) {
+                  <span class="fuerza">
+                    <span class="fuerza__barra">
+                      <i [style.width.%]="fuerza().pct" [class]="'fuerza__relleno fuerza__relleno--' + fuerza().nivel"></i>
+                    </span>
+                    <em>{{ fuerza().texto }}</em>
+                  </span>
+                }
+              </label>
+
               @if (error()) {
-                <p class="auth__error">{{ error() }}</p>
+                <p class="alerta" role="alert">{{ error() }}</p>
               }
-              <button class="btn btn--primary auth__submit" type="submit" [disabled]="busy() || code().length !== 6">
+
+              <button class="enviar" type="submit" [disabled]="busy()">
+                @if (busy()) { <span class="spinner spinner--sm"></span> }
+                {{ busy() ? 'Verificando…' : modo() === 'login' ? 'Entrar' : 'Crear cuenta' }}
+              </button>
+            </form>
+          } @else {
+            <!-- Paso del código -->
+            <header class="forma__cabeza">
+              <h2>Revisá tu WhatsApp</h2>
+              <p>Te mandamos un código de 6 dígitos a <strong>{{ destino() }}</strong>. Vence en 5 minutos.</p>
+            </header>
+
+            <form (submit)="enviarOtp($event)" novalidate>
+              <input class="codigo" type="text" inputmode="numeric" maxlength="6" autocomplete="one-time-code"
+                     placeholder="000000" [value]="code()" (input)="code.set(soloDigitos($event))" />
+
+              @if (error()) {
+                <p class="alerta" role="alert">{{ error() }}</p>
+              }
+
+              <button class="enviar" type="submit" [disabled]="busy() || code().length !== 6">
                 @if (busy()) { <span class="spinner spinner--sm"></span> }
                 Verificar código
               </button>
             </form>
-            <div class="auth__links">
-              <button class="auth__link" (click)="reenviar()" [disabled]="busy() || reenviado()">
+
+            <div class="forma__pie">
+              <button class="enlace" type="button" (click)="reenviar()" [disabled]="busy() || reenviado()">
                 {{ reenviado() ? 'Código reenviado' : 'Reenviar código' }}
               </button>
-              <button class="auth__link" (click)="volver()">Usar otro usuario</button>
+              <button class="enlace" type="button" (click)="volver()">Usar otro usuario</button>
             </div>
-          </div>
-        }
-      </div>
+          }
+        </div>
+      </main>
     </div>
   `,
   styleUrl: './login.scss',
@@ -147,12 +213,42 @@ export class LoginPage {
   }
   readonly password = signal('');
   readonly code = signal('');
+  readonly verClave = signal(false);
+  readonly mayusculas = signal(false);
   readonly busy = signal(false);
   readonly error = signal('');
   readonly reenviado = signal(false);
 
   /** Al registrarse se conoce el número; al iniciar sesión no se revela. */
   readonly destino = computed(() => this.phone().trim() || 'tu WhatsApp registrado');
+
+  /** Bloq Mayús: la causa más común de «la contraseña no me funciona». */
+  mirarMayusculas(ev: KeyboardEvent): void {
+    if (typeof ev.getModifierState === 'function') {
+      this.mayusculas.set(ev.getModifierState('CapsLock'));
+    }
+  }
+
+  /**
+   * Fuerza de la contraseña, al crear la cuenta.
+   *
+   * Mide longitud y variedad, no reglas de composición: obligar a un símbolo
+   * produce «Password1!» en todas las cuentas, que es peor que una frase
+   * larga. Es una guía, no una barrera — el mínimo real lo valida el servidor.
+   */
+  readonly fuerza = computed(() => {
+    const p = this.password();
+    let puntos = 0;
+    if (p.length >= 8) puntos++;
+    if (p.length >= 14) puntos++;
+    if (/[a-z]/.test(p) && /[A-Z]/.test(p)) puntos++;
+    if (/\d/.test(p)) puntos++;
+    if (/[^\w\s]/.test(p)) puntos++;
+
+    if (puntos <= 2) return { nivel: 'floja', pct: 33, texto: 'Floja: hacela más larga' };
+    if (puntos === 3) return { nivel: 'media', pct: 66, texto: 'Aceptable' };
+    return { nivel: 'buena', pct: 100, texto: 'Buena' };
+  });
 
   asValue(ev: Event): string {
     return (ev.target as HTMLInputElement).value;

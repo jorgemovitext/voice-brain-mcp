@@ -20,6 +20,14 @@ export interface AuthUser {
   otpAttempts: number;
   otpLastSentAt?: string;
   createdAt: string;
+  /**
+   * Desde cuándo valen los tokens de esta cuenta.
+   *
+   * Un JWT no se puede revocar: una vez firmado vale hasta que expira, y
+   * con sesiones de 12 h eso es medio día de acceso para alguien a quien ya
+   * le quitaron la cuenta. Adelantar esta marca mata todos sus tokens.
+   */
+  tokensDesde?: string;
 }
 
 export interface UsersRepository {
@@ -63,6 +71,7 @@ export class PgUsersRepository implements UsersRepository {
       otpAttempts: r['otp_attempts'] as number,
       otpLastSentAt: iso(r['otp_last_sent_at']),
       createdAt: iso(r['created_at']) ?? new Date().toISOString(),
+      tokensDesde: iso(r['tokens_desde']),
     };
   }
 
@@ -88,8 +97,9 @@ export class PgUsersRepository implements UsersRepository {
     const db = await this.db();
     await db.query(
       `INSERT INTO users (id, username, phone, name, password_hash, verified, failed_logins, locked_until,
-                          otp_hash, otp_expires_at, otp_attempts, otp_last_sent_at, created_at)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
+                          otp_hash, otp_expires_at, otp_attempts, otp_last_sent_at, created_at,
+                          tokens_desde)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
        ON CONFLICT (id) DO UPDATE SET
          username = EXCLUDED.username,
          phone = EXCLUDED.phone,
@@ -101,7 +111,8 @@ export class PgUsersRepository implements UsersRepository {
          otp_hash = EXCLUDED.otp_hash,
          otp_expires_at = EXCLUDED.otp_expires_at,
          otp_attempts = EXCLUDED.otp_attempts,
-         otp_last_sent_at = EXCLUDED.otp_last_sent_at`,
+         otp_last_sent_at = EXCLUDED.otp_last_sent_at,
+         tokens_desde = EXCLUDED.tokens_desde`,
       [
         user.id,
         user.username ?? null,
@@ -116,6 +127,7 @@ export class PgUsersRepository implements UsersRepository {
         user.otpAttempts,
         user.otpLastSentAt ?? null,
         user.createdAt,
+        user.tokensDesde ?? null,
       ],
     );
     return user;

@@ -15,6 +15,9 @@ describe('AuthGuard (sesión deslizante)', () => {
   const jwt = new JwtService({ secret: SECRETO, signOptions: { expiresIn: `${HORAS}h` } });
   const config = { get: (k: string, def?: unknown) => (k === 'AUTH_SESSION_HOURS' ? HORAS : def) };
 
+  /** La cuenta tal como la ve el guard. `null` = fue dada de baja. */
+  let usuarios: { findById: (id: string) => Promise<unknown> };
+
   function build(expEnMs: number) {
     const cookies: Array<{ name: string; value: string }> = [];
     const req = {
@@ -30,6 +33,8 @@ describe('AuthGuard (sesión deslizante)', () => {
       switchToHttp: () => ({ getRequest: () => req, getResponse: () => res }),
     } as unknown as ExecutionContext;
 
+    usuarios = usuarios ?? { findById: async () => ({ id: 'u1', tokensDesde: undefined }) };
+
     const exp = Math.floor((Date.now() + expEnMs) / 1000);
     // Sin `expiresIn`: el `exp` va en el payload, que es lo que se quiere fijar.
     req.cookies[SESSION_COOKIE] = new JwtService({ secret: SECRETO }).sign({
@@ -41,6 +46,7 @@ describe('AuthGuard (sesión deslizante)', () => {
     const guard = new AuthGuard(
       { getAllAndOverride: () => false } as unknown as Reflector,
       jwt,
+      usuarios as never,
       config as unknown as ConfigService,
     );
     return { guard, context, cookies };

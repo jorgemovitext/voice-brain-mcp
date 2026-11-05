@@ -124,6 +124,11 @@ export function ensureSchema(pool: Pool): Promise<void> {
           otp_last_sent_at timestamptz,
           created_at timestamptz NOT NULL DEFAULT now()
         );
+        -- Desde cuándo valen los tokens de esta cuenta.
+        -- Un JWT no se puede revocar: vive hasta que expira. Esta marca es
+        -- la revocación — se adelanta y todo token emitido antes muere.
+        ALTER TABLE users ADD COLUMN IF NOT EXISTS tokens_desde timestamptz;
+
         -- Tabla creada cuando el login era por teléfono: ahora identifica el usuario.
         ALTER TABLE users ADD COLUMN IF NOT EXISTS username text;
         CREATE UNIQUE INDEX IF NOT EXISTS users_username_key ON users (username);
