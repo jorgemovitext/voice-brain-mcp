@@ -175,6 +175,11 @@ export function ensureSchema(pool: Pool): Promise<void> {
         -- entregarle a cualquiera los contactos y las conversaciones de los
         -- ciudadanos de otro cliente.
         ALTER TABLE users ADD COLUMN IF NOT EXISTS organizacion_id text;
+
+        -- Qué puede tocar cada quien. El primero de una empresa es su
+        -- administrador: alguien tiene que poder invitar y configurar, y si
+        -- nadie pudiera, la cuenta nace muerta.
+        ALTER TABLE users ADD COLUMN IF NOT EXISTS rol text NOT NULL DEFAULT 'operador';
         ALTER TABLE contacts ADD COLUMN IF NOT EXISTS organizacion_id text;
         ALTER TABLE interactions ADD COLUMN IF NOT EXISTS organizacion_id text;
         ALTER TABLE signals ADD COLUMN IF NOT EXISTS organizacion_id text;

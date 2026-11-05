@@ -30,6 +30,12 @@ export interface AuthUser {
   tokensDesde?: string;
   /** La empresa a la que pertenece. Varios usuarios comparten una. */
   organizacionId?: string;
+  /**
+   * Qué puede tocar. El primero de una empresa es su administrador: alguien
+   * tiene que poder invitar y configurar, y si nadie pudiera, la cuenta
+   * nace muerta.
+   */
+  rol?: 'admin' | 'supervisor' | 'operador';
 }
 
 export interface UsersRepository {
@@ -75,6 +81,7 @@ export class PgUsersRepository implements UsersRepository {
       createdAt: iso(r['created_at']) ?? new Date().toISOString(),
       tokensDesde: iso(r['tokens_desde']),
       organizacionId: (r['organizacion_id'] as string | null) ?? undefined,
+      rol: (r['rol'] as AuthUser['rol'] | null) ?? 'operador',
     };
   }
 
@@ -101,8 +108,8 @@ export class PgUsersRepository implements UsersRepository {
     await db.query(
       `INSERT INTO users (id, username, phone, name, password_hash, verified, failed_logins, locked_until,
                           otp_hash, otp_expires_at, otp_attempts, otp_last_sent_at, created_at,
-                          tokens_desde, organizacion_id)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
+                          tokens_desde, organizacion_id, rol)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)
        ON CONFLICT (id) DO UPDATE SET
          username = EXCLUDED.username,
          phone = EXCLUDED.phone,
@@ -116,7 +123,8 @@ export class PgUsersRepository implements UsersRepository {
          otp_attempts = EXCLUDED.otp_attempts,
          otp_last_sent_at = EXCLUDED.otp_last_sent_at,
          tokens_desde = EXCLUDED.tokens_desde,
-         organizacion_id = EXCLUDED.organizacion_id`,
+         organizacion_id = EXCLUDED.organizacion_id,
+         rol = EXCLUDED.rol`,
       [
         user.id,
         user.username ?? null,
@@ -133,6 +141,7 @@ export class PgUsersRepository implements UsersRepository {
         user.createdAt,
         user.tokensDesde ?? null,
         user.organizacionId ?? null,
+        user.rol ?? 'operador',
       ],
     );
     return user;

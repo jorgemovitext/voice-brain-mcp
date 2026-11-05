@@ -14,7 +14,9 @@ import type { FastifyRequest } from 'fastify';
 import { ElevenLabsVozService } from '../elevenlabs/elevenlabs-voz.service';
 import { ElevenLabsClient } from '../elevenlabs/elevenlabs.client';
 import { AgenteActivoService } from '../shared/agente-activo.service';
+import { OrganizacionesService } from '../auth/organizaciones.service';
 import { BrainService } from '../brain/brain.service';
+import { ConfigDerivacion, DerivacionService } from './derivacion.service';
 import { ReparoAgente } from '../shared/agente-activo.service';
 import { AgentesService, AristaFlujo, ConfigCanales, NodoFlujo } from './agentes.service';
 import { plantillas as listaDePlantillas } from './plantillas';
@@ -59,6 +61,8 @@ export class AgentesController {
     private readonly cliente: ElevenLabsClient,
     private readonly asistenteAgentes: AsistenteAgentesService,
     private readonly brain: BrainService,
+    private readonly derivacionSvc: DerivacionService,
+    private readonly organizaciones: OrganizacionesService,
     private readonly documentos: DocumentosService,
     private readonly agenteActivo: AgenteActivoService,
     private readonly voz: ElevenLabsVozService,
@@ -327,6 +331,63 @@ export class AgentesController {
   ) {
     const nuevos = await this.agentes.engancharDocumentos(id, body?.documentos ?? []);
     return { enganchados: nuevos };
+  }
+
+  /* --- Cambio de agente --- */
+
+  /**
+   * La configuración del cambio, con lo que el plan y el rol permiten.
+   *
+   * Los permisos se devuelven JUNTO al dato y no se calculan en la consola:
+   * la pantalla tiene que poder bloquear campos sin adivinar reglas de
+   * negocio, y una restricción que solo vive en el navegador no es una
+   * restricción.
+   */
+  @Get('derivacion')
+  async derivacion(@Req() req: FastifyRequest & { user?: { org?: string; rol?: string } }) {
+    const config = await this.derivacionSvc.leer(req.user?.org);
+    const org = await this.organizaciones.leer(req.user?.org ?? '');
+    const plan = org?.plan ?? 'prueba';
+    const rol = req.user?.rol ?? 'operador';
+
+    /*
+     * En el plan básico el cambio viene fijo y solo se mira; elegir modo,
+     * mover el umbral o editar reglas es del institucional. El rol manda
+     * aparte: una operadora no configura esto ni en el plan que sea.
+     */
+    const planLoPermite = plan === 'institucional' || plan === 'interno';
+    return {
+      config,
+      plan,
+      rol,
+      puedeEditar: planLoPermite && rol === 'admin',
+      /** Qué exactamente está bloqueado, para que la pantalla lo explique. */
+      motivo: !planLoPermite
+        ? 'plan'
+        : rol !== 'admin'
+          ? 'rol'
+          : null,
+    };
+  }
+
+  @Patch('derivacion')
+  async guardarDerivacion(
+    @Body() body: Partial<ConfigDerivacion>,
+    @Req() req: FastifyRequest & { user?: { org?: string; rol?: string } },
+  ) {
+    const org = await this.organizaciones.leer(req.user?.org ?? '');
+    const plan = org?.plan ?? 'prueba';
+    const planLoPermite = plan === 'institucional' || plan === 'interno';
+
+    // La comprobación va en el SERVIDOR aunque la pantalla ya bloquee los
+    // campos: un plan que solo se respeta en el navegador no se respeta.
+    if (!planLoPermite) {
+      throw new BadRequestException('Cambiar esta configuración es del plan Institucional.');
+    }
+    if ((req.user?.rol ?? 'operador') !== 'admin') {
+      throw new BadRequestException('Solo la administradora puede cambiar esto.');
+    }
+    return this.derivacionSvc.guardar(body ?? {}, req.user?.org);
   }
 
   /* --- Canales y horario (paso 3) --- */

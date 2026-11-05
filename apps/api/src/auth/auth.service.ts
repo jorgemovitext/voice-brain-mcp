@@ -150,10 +150,16 @@ export class AuthService {
     if (invitacion?.trim()) {
       const destino = await this.invitaciones.canjear(invitacion.trim(), user.id);
       user.organizacionId = destino.organizacion;
+      // Quien llega con código entra como operador: el que invita decide
+      // después si le sube el rol. Nadie se autoasciende al registrarse.
+      user.rol = 'operador';
     } else {
       user.organizacionId = await this.organizaciones.crear(
         empresa?.trim() || name?.trim() || username,
       );
+      // El que estrena la empresa es su administrador. Si no, la cuenta
+      // nacería sin nadie que pueda invitar ni configurar: muerta.
+      user.rol = 'admin';
       this.logger.log(`Alta nueva: ${username} estrena la organización ${user.organizacionId}`);
     }
 
@@ -169,6 +175,7 @@ export class AuthService {
       sub: user.id,
       username: user.username,
       org: user.organizacionId,
+      rol: user.rol ?? 'operador',
     });
     return { token, user: sessionUser };
   }
@@ -296,6 +303,7 @@ export class AuthService {
       sub: user.id,
       username: user.username,
       org: user.organizacionId,
+      rol: user.rol ?? 'operador',
     });
     return { otpRequired: false, token, user: sessionUser };
   }

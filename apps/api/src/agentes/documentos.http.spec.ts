@@ -3,7 +3,9 @@ import { Test } from '@nestjs/testing';
 import { ElevenLabsVozService } from '../elevenlabs/elevenlabs-voz.service';
 import { ElevenLabsClient } from '../elevenlabs/elevenlabs.client';
 import { AgenteActivoService } from '../shared/agente-activo.service';
+import { OrganizacionesService } from '../auth/organizaciones.service';
 import { BrainService } from '../brain/brain.service';
+import { DerivacionService } from './derivacion.service';
 import { AgentesController } from './agentes.controller';
 import { AgentesService } from './agentes.service';
 import { AsistenteAgentesService } from './asistente.service';
@@ -41,6 +43,10 @@ describe('POST /api/agentes/documentos', () => {
         // El controller lo usa solo para las estadísticas de la grilla; esta
         // prueba sube archivos y no lo toca.
         { provide: BrainService, useValue: { listInteractions: async () => [] } },
+        // El controller los inyecta para el cambio de agente; esta prueba
+        // sube archivos y no los toca.
+        { provide: DerivacionService, useValue: {} },
+        { provide: OrganizacionesService, useValue: {} },
         { provide: AgenteActivoService, useValue: {} },
         { provide: ElevenLabsVozService, useValue: {} },
       ],

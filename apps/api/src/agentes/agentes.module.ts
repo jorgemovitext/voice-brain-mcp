@@ -3,7 +3,9 @@ import { HttpAdapterHost } from '@nestjs/core';
 import { BrainModule } from '../brain/brain.module';
 import { ElevenLabsModule } from '../elevenlabs/elevenlabs.module';
 import { AgentesController } from './agentes.controller';
+import { OrganizacionesService } from '../auth/organizaciones.service';
 import { AgentesService } from './agentes.service';
+import { DerivacionService } from './derivacion.service';
 import { AsistenteAgentesService } from './asistente.service';
 import { aceptarArchivosCrudos, DocumentosService } from './documentos.service';
 
@@ -17,7 +19,7 @@ import { aceptarArchivosCrudos, DocumentosService } from './documentos.service';
 @Module({
   imports: [ElevenLabsModule, BrainModule],
   controllers: [AgentesController],
-  providers: [AgentesService, AsistenteAgentesService, DocumentosService],
+  providers: [AgentesService, AsistenteAgentesService, DocumentosService, DerivacionService, OrganizacionesService],
   exports: [AgentesService],
 })
 export class AgentesModule implements OnModuleInit {
