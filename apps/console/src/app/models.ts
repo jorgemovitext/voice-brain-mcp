@@ -308,6 +308,14 @@ export interface AgenteResumen {
   herramientas: string[];
   /** Nombres de lo que puede consultar, nunca las llaves del proveedor. */
   documentos: string[];
+  /**
+   * Tiene guion escrito: lo que distingue un agente de un nombre reservado.
+   *
+   * Opcional porque la consola se despliega antes que la API: durante esa
+   * ventana el campo no viene, y tratarlo como `false` marcaría borradores
+   * a todos los agentes que están atendiendo.
+   */
+  conGuion?: boolean;
   /** Es el que atiende WhatsApp hoy: no se puede borrar. */
   enUso: boolean;
 }

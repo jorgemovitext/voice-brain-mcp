@@ -1,5 +1,6 @@
 import { Module, OnModuleInit } from '@nestjs/common';
 import { HttpAdapterHost } from '@nestjs/core';
+import { BrainModule } from '../brain/brain.module';
 import { ElevenLabsModule } from '../elevenlabs/elevenlabs.module';
 import { AgentesController } from './agentes.controller';
 import { AgentesService } from './agentes.service';
@@ -14,7 +15,7 @@ import { aceptarArchivosCrudos, DocumentosService } from './documentos.service';
  * contexto) va por REST y no comparte nada con el motor que atiende WhatsApp.
  */
 @Module({
-  imports: [ElevenLabsModule],
+  imports: [ElevenLabsModule, BrainModule],
   controllers: [AgentesController],
   providers: [AgentesService, AsistenteAgentesService, DocumentosService],
   exports: [AgentesService],

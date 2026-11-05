@@ -1,110 +1,118 @@
 <div class="pagina">
   <header class="cabecera">
-    <!-- El botón de crear va acá arriba y flotando sobre el título: es la
-         acción de la pantalla, y colgada del encabezado se encuentra sin
-         buscarla. Antes era un campo de texto con el nombre, que pedía lo
-         único que da igual y dejaba todo el trabajo real por delante. -->
-    <a class="crear" routerLink="/agentes/nuevo" title="Crear un agente">
-      <span class="crear__mas">+</span> Crear agente
-    </a>
     <div>
       <h1>Agentes</h1>
-      <p>Quién atiende, qué dice y qué puede hacer.</p>
+      <p>{{ pulso() }}</p>
     </div>
+    <a class="crear" routerLink="/agentes/nuevo">
+      Crear agente <span class="crear__mas">+</span>
+    </a>
   </header>
 
-  @if (datos.isLoading()) {
-    <div class="state"><div class="spinner"></div>Cargando agentes…</div>
-  } @else if (!valorDe(datos)?.configurado) {
-    <!-- Sin credencial no hay nada que administrar, y decirlo claro evita que
-         alguien crea que la cuenta está vacía. -->
-    <div class="state state--error">
-      Falta la credencial del proveedor de agentes en el entorno.
+  <!-- Buscador y filtros, como el diseño: la píldora activa va oscura. -->
+  <div class="barra">
+    <label class="buscar">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+      <input placeholder="Buscar agente" [value]="busqueda()" (input)="escribirBusqueda($event)" />
+    </label>
+    <div class="filtros">
+      @for (f of [['todos','Todos'],['atendiendo','Atendiendo'],['configurados','Configurados'],['borradores','Borradores']]; track f[0]) {
+        <button class="filtro" [class.filtro--on]="filtro() === f[0]" (click)="filtro.set($any(f[0]))">
+          {{ f[1] }}
+        </button>
+      }
     </div>
-  } @else {
-    <div class="tablero">
-      <!-- ===== El panal ===== -->
-      <section class="panal">
-        <h2 class="panal__title">
-          <span class="panal__pulse"></span>
-          En el panal <em>{{ armados().length }}</em>
-          @if (borradores().length) {
-            <span class="panal__resto">· {{ borradores().length }} en borrador</span>
-          }
-        </h2>
+  </div>
 
-        @if (!agentes().length) {
-          <p class="panal__aviso">Todavía no hay agentes. Creá el primero con el botón de arriba.</p>
-        }
+  <div class="tablero">
+    <!-- ===== Grilla de agentes ===== -->
+    <section class="grilla">
+      @if (datos.isLoading() && !agentes().length) {
+        @for (s of [1, 2, 3, 4]; track s) { <div class="carta carta--hueso"></div> }
+      } @else if (!tarjetas().length) {
+        <p class="vacio">
+          @if (busqueda()) { Ningún agente coincide con «{{ busqueda() }}». }
+          @else { Todavía no hay agentes acá. Creá el primero y empieza a atender. }
+        </p>
+      } @else {
+        @for (t of tarjetas(); track t.agente.id; let i = $index) {
+          <article
+            class="carta"
+            [class.carta--atendiendo]="t.estado === 'atendiendo'"
+            [class.carta--borrador]="t.estado === 'borrador'"
+            [class.carta--abierta]="seleccionado() === t.agente.id"
+            [style.--entrada]="i"
+            (click)="seleccionado.set(t.agente.id)">
 
-        <svg class="panal__svg" [attr.viewBox]="panal().box" preserveAspectRatio="xMidYMid meet"
-             role="group" aria-label="Panal de agentes">
-          <defs>
-            <!-- El resplandor de las celdas armadas. En sRGB: en linearRGB los
-                 filtros lavan los tonos medios y el naranja se vuelve rosa. -->
-            <filter id="panalBrillo" x="-60%" y="-60%" width="220%" height="220%"
-                    color-interpolation-filters="sRGB">
-              <feGaussianBlur stdDeviation="7" />
-            </filter>
-            <radialGradient id="panalNucleo" cx="50%" cy="50%" r="50%">
-              <stop offset="0%" stop-color="#F34700" stop-opacity="0.28" />
-              <stop offset="70%" stop-color="#F34700" stop-opacity="0.06" />
-              <stop offset="100%" stop-color="#F34700" stop-opacity="0" />
-            </radialGradient>
-          </defs>
+            <header class="carta__cabeza">
+              <span class="carta__icono" [class.carta__icono--vivo]="t.estado === 'atendiendo'">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="7" width="14" height="11" rx="3"/><path d="M12 7V4"/><circle cx="12" cy="3" r="1"/><path d="M9 12h.01M15 12h.01"/><path d="M9.5 15.5c.8.6 4.2.6 5 0"/></svg>
+              </span>
+              <span class="carta__quien">
+                <strong>{{ t.agente.nombre }}</strong>
+                <em>{{ t.herramientas }} {{ t.herramientas === 1 ? 'acción' : 'acciones' }} · {{ t.agente.idioma }}</em>
+              </span>
+              @switch (t.estado) {
+                @case ('atendiendo') { <span class="marca marca--viva">● Atendiendo</span> }
+                @case ('configurado') { <span class="marca">Configurado</span> }
+                @default { <span class="marca marca--borrador">Borrador</span> }
+              }
+            </header>
 
-          <!-- Primero el halo de las grandes, para que se funda por debajo. -->
-          @for (c of panal().celdas; track c.item.id) {
-            @if (c.grande) {
-              <path class="hex__halo" [class.hex__halo--mia]="c.item.enUso"
-                    [attr.d]="c.d" filter="url(#panalBrillo)" />
+            @if (t.estado === 'borrador') {
+              <!-- El borrador muestra qué le falta, no una cifra en cero:
+                   «0 conversaciones» parece un agente que fracasa, y lo que
+                   pasa es que todavía no salió. -->
+              <div class="pasos">
+                <span class="pasos__texto">{{ t.listos }} de 4 pasos listos</span>
+                <span class="pasos__barra">
+                  @for (p of [1, 2, 3, 4]; track p) {
+                    <i [class.pasos__hecho]="p <= t.listos"></i>
+                  }
+                </span>
+              </div>
+            } @else {
+              <div class="carta__cifras">
+                <span class="cifra">
+                  <b>{{ t.conversaciones }}</b>
+                  <em>conversaciones</em>
+                </span>
+
+                <!-- Palabra cumplida: de lo que dijo que iba a hacer, cuánto
+                     hizo de verdad. Sin acciones todavía no se dibuja — un
+                     100 % sin haber hecho nada sería una nota regalada. -->
+                @if (t.palabraCumplida !== null) {
+                  <span class="dona" [title]="t.acciones + ' acciones ejecutadas'">
+                    <svg viewBox="0 0 40 40">
+                      <circle class="dona__pista" cx="20" cy="20" r="16" />
+                      <circle class="dona__arco" cx="20" cy="20" r="16"
+                              [attr.stroke]="colorDe(t.palabraCumplida)"
+                              [attr.stroke-dasharray]="arco(t.palabraCumplida)" />
+                    </svg>
+                    <b>{{ t.palabraCumplida }}%</b>
+                  </span>
+                  <span class="cifra cifra--texto">
+                    <b>Palabra cumplida</b>
+                    <em>{{ t.acciones }} {{ t.acciones === 1 ? 'acción' : 'acciones' }} · {{ t.agente.documentos.length }} doc.</em>
+                  </span>
+                }
+              </div>
             }
-          }
 
-          @for (c of panal().celdas; track c.item.id) {
-            <g class="hex" [class.hex--activo]="c.grande" [class.hex--mia]="c.item.enUso"
-               [class.hex--abierta]="seleccionado() === c.item.id"
-               [style.--luz]="c.luz"
-               (click)="seleccionar(c.item.id)" (keydown.enter)="seleccionar(c.item.id)"
-               tabindex="0" role="button" [attr.aria-label]="'Agente ' + c.item.nombre">
-              <title>{{ c.item.nombre }} · {{ canalDe(c.item) }}</title>
+            <footer class="carta__pie">
+              <span class="canales">
+                @for (c of t.canales; track c) { <span class="canal">{{ c }}</span> }
+              </span>
+              <a class="abrir" [routerLink]="['/agentes', t.agente.id]" (click)="$event.stopPropagation()">
+                {{ t.estado === 'borrador' ? 'Terminar' : 'Abrir' }} ›
+              </a>
+            </footer>
+          </article>
+        }
+      }
+    </section>
 
-              <path class="hex__fondo" [attr.d]="c.d" />
-              @if (c.grande) {
-                <path class="hex__nucleo" [attr.d]="c.d" fill="url(#panalNucleo)" />
-              }
-              <path class="hex__borde" [attr.d]="c.d" />
-
-              @if (c.grande) {
-                @for (linea of c.lineas; track $index) {
-                  <text class="hex__nombre" [attr.x]="c.x" text-anchor="middle"
-                        [attr.y]="c.y - (c.lineas.length === 2 ? 24 : 8) + $index * 17">
-                    {{ linea }}
-                  </text>
-                }
-                <text class="hex__canal" [attr.x]="c.x" [attr.y]="c.y + 12" text-anchor="middle">
-                  {{ canalDe(c.item) }}
-                </text>
-                <text class="hex__dato" [attr.x]="c.x" [attr.y]="c.y + 30" text-anchor="middle">
-                  {{ propias(c.item) }} {{ propias(c.item) === 1 ? 'herramienta' : 'herramientas' }}
-                </text>
-                @if (c.item.enUso) {
-                  <text class="hex__uso" [attr.x]="c.x" [attr.y]="c.y - 58" text-anchor="middle">EN USO</text>
-                }
-              } @else {
-                <text class="hex__iniciales" [attr.x]="c.x" [attr.y]="c.y + 5" text-anchor="middle">
-                  {{ c.iniciales }}
-                </text>
-              }
-            </g>
-          }
-        </svg>
-
-        <p class="panal__pie">El grande es el que contesta hoy; los chicos, borradores.</p>
-      </section>
-
-      <!-- ===== Detalle de la celda abierta ===== -->
-      <aside class="lateral">
+    <aside class="lateral">
         @if (agente(); as a) {
           <section class="detalle">
             <div class="detalle__head">
@@ -234,10 +242,9 @@
         } @else {
           <div class="lateral__vacio">
             <span class="lateral__icono">⬡</span>
-            <p>Tocá una celda del panal para ver qué dice y qué puede hacer ese agente.</p>
+            <p>Elegí un agente para ver qué dice, qué puede hacer y cómo le fue.</p>
           </div>
         }
       </aside>
     </div>
-  }
 </div>

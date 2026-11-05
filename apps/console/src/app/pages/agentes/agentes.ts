@@ -23,6 +23,26 @@ const DE_SISTEMA = ['end_call', 'language_detection'];
  * chicos alrededor—, que es justo lo que una rejilla de tarjetas iguales no
  * puede decir.
  */
+/** Lo que la tarjeta de un agente necesita, ya resuelto. */
+interface Tarjeta {
+  agente: AgenteResumen;
+  estado: 'atendiendo' | 'configurado' | 'borrador';
+  conversaciones: number;
+  palabraCumplida: number | null;
+  acciones: number;
+  herramientas: number;
+  canales: string[];
+  listos: number;
+}
+
+interface Estadistica {
+  conversaciones: number;
+  mensajes: number;
+  palabraCumplida: number | null;
+  acciones: number;
+  ultima?: string;
+}
+
 @Component({
   selector: 'app-agentes',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -47,6 +67,101 @@ export class AgentesPage {
    */
   readonly armados = computed(() => this.agentes().filter((a) => this.propias(a) > 0 || a.enUso));
   readonly borradores = computed(() => this.agentes().filter((a) => !this.propias(a) && !a.enUso));
+
+  /** Las cifras de cada agente, en una sola lectura. */
+  readonly stats = httpResource<Record<string, Estadistica>>(() => '/api/agentes/estadisticas');
+
+  /** Qué subconjunto se muestra. El del diseño. */
+  readonly filtro = signal<'todos' | 'atendiendo' | 'configurados' | 'borradores'>('todos');
+  readonly busqueda = signal('');
+
+  /**
+   * Las tarjetas, ya con todo lo que la grilla necesita.
+   *
+   * El estado sale de lo que el agente TIENE, no de una bandera: atiende el
+   * que está en uso; está configurado el que tiene herramientas propias; es
+   * borrador el que no tiene ninguna. Una bandera aparte se desincroniza
+   * con la realidad el día que alguien edita el agente desde el proveedor.
+   */
+  readonly tarjetas = computed<Tarjeta[]>(() => {
+    const cifras = valorDe(this.stats) ?? {};
+    const texto = this.busqueda().trim().toLowerCase();
+
+    return this.agentes()
+      .map((a) => {
+        const propias = this.propias(a);
+        /*
+         * Borrador es el que NO tiene guion. Las herramientas no sirven para
+         * decidirlo: un recepcionista que solo informa legítimamente no
+         * ejecuta nada, y marcarlo borrador sería mentir sobre un agente que
+         * está atendiendo bien.
+         *
+         * Si la API todavía no manda el campo —la consola se despliega
+         * antes—, se cae a lo que SÍ llega. En la duda, configurado: marcar
+         * borrador a un agente que atiende es el error que se nota.
+         */
+        const armado = a.conGuion ?? (propias > 0 || a.documentos.length > 0 || a.enUso);
+        const estado: Tarjeta['estado'] = a.enUso ? 'atendiendo' : armado ? 'configurado' : 'borrador';
+        const c = cifras[a.id];
+        return {
+          agente: a,
+          estado,
+          conversaciones: c?.conversaciones ?? 0,
+          palabraCumplida: c?.palabraCumplida ?? null,
+          acciones: c?.acciones ?? 0,
+          herramientas: propias,
+          canales: a.soloTexto ? ['WhatsApp'] : ['WhatsApp', 'Voz'],
+          /*
+           * Cuántos de los cuatro pasos del alta tiene resueltos. Se mide
+           * sobre lo que el agente TIENE —nombre, acciones, documentos,
+           * atendiendo— y no sobre un progreso guardado, que se queda viejo
+           * en cuanto alguien edita el agente por fuera del asistente.
+           */
+          listos: [armado, propias > 0, a.documentos.length > 0, a.enUso].filter(Boolean).length,
+        };
+      })
+      .filter((t) => {
+        if (this.filtro() === 'atendiendo') return t.estado === 'atendiendo';
+        if (this.filtro() === 'configurados') return t.estado === 'configurado';
+        if (this.filtro() === 'borradores') return t.estado === 'borrador';
+        return true;
+      })
+      .filter((t) => !texto || t.agente.nombre.toLowerCase().includes(texto));
+  });
+
+  /** El encabezado: «6 agentes · 1 atendiendo ahora · 4 configurados · 1 borrador». */
+  readonly pulso = computed(() => {
+    const todas = this.agentes();
+    if (!todas.length) return 'Todavía no hay agentes';
+    const atendiendo = todas.filter((a) => a.enUso).length;
+    const armado = (a: AgenteResumen) =>
+      a.conGuion ?? (this.propias(a) > 0 || a.documentos.length > 0 || a.enUso);
+    const config = todas.filter((a) => !a.enUso && armado(a)).length;
+    const borr = todas.filter((a) => !a.enUso && !armado(a)).length;
+
+    const p = [`${todas.length} ${todas.length === 1 ? 'agente' : 'agentes'}`];
+    if (atendiendo) p.push(`${atendiendo} atendiendo ahora`);
+    if (config) p.push(`${config} configurado${config === 1 ? '' : 's'}`);
+    if (borr) p.push(`${borr} borrador${borr === 1 ? '' : 'es'}`);
+    return p.join(' · ');
+  });
+
+  escribirBusqueda(e: Event): void {
+    this.busqueda.set((e.target as HTMLInputElement).value);
+  }
+
+  /** El arco de la dona, en una circunferencia de radio 16 (≈100,5). */
+  arco(pct: number): string {
+    const largo = 2 * Math.PI * 16;
+    return `${((pct / 100) * largo).toFixed(1)} ${largo.toFixed(1)}`;
+  }
+
+  /** Verde si cumple, ámbar si flaquea, rojo si no. */
+  colorDe(pct: number): string {
+    if (pct >= 90) return 'var(--positive)';
+    if (pct >= 70) return '#f59e0b';
+    return 'var(--negative)';
+  }
 
   readonly panal = computed(() =>
     armarPanal(this.agentes(), {

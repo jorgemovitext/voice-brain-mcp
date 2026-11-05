@@ -28,6 +28,15 @@ export interface AgenteResumen {
   herramientas: string[];
   /** Nombres de lo que el agente puede consultar. Nunca las llaves del proveedor. */
   documentos: string[];
+  /**
+   * Tiene guion escrito.
+   *
+   * Es la señal de «esto ya es un agente» y no «alguien reservó el nombre».
+   * Las herramientas no sirven para eso: un recepcionista que solo informa
+   * legítimamente no ejecuta nada, y llamarlo borrador sería mentir sobre
+   * algo que está atendiendo bien.
+   */
+  conGuion: boolean;
   /** Es el que atiende WhatsApp hoy: no se puede borrar sin romper producción. */
   enUso: boolean;
 }
@@ -216,6 +225,7 @@ export class AgentesService {
       documentos: ((prompt['knowledge_base'] ?? []) as Array<{ name?: string }>).map(
         (d) => d.name ?? 'documento',
       ),
+      conGuion: (prompt['prompt'] ?? '').trim().length > 40,
       enUso: id === (await this.activo.id()),
       instrucciones: prompt['prompt'] ?? '',
       primerMensaje: agente['first_message'] ?? '',

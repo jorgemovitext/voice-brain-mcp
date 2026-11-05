@@ -520,3 +520,319 @@
   font-size: 0.78rem;
   line-height: 1.45;
 }
+
+
+/* ===== Grilla de agentes (diseño Hive) ===== */
+.barra {
+  display: flex;
+  align-items: center;
+  gap: 0.8rem;
+  flex-wrap: wrap;
+  margin-bottom: 0.9rem;
+}
+
+.buscar {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex: 1;
+  min-width: 220px;
+  max-width: 420px;
+  padding: 0.55rem 0.9rem;
+  border-radius: 999px;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  box-shadow: var(--sombra-pildora);
+
+  svg { width: 16px; height: 16px; color: var(--ink-soft); flex-shrink: 0; }
+
+  input {
+    flex: 1;
+    min-width: 0;
+    border: 0;
+    background: transparent;
+    color: var(--ink);
+    font: inherit;
+    font-size: 0.88rem;
+    &:focus { outline: none; }
+    &::placeholder { color: var(--ink-soft); }
+  }
+}
+
+.filtros {
+  margin-left: auto;
+  display: flex;
+  gap: 0.25rem;
+  padding: 0.25rem;
+  border-radius: 999px;
+  background: var(--panel);
+  box-shadow: var(--sombra-pildora);
+}
+
+.filtro {
+  padding: 0.4rem 0.9rem;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--ink-soft);
+  font: inherit;
+  font-size: 0.82rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: color 0.15s, background 0.15s;
+
+  &:hover { color: var(--ink); }
+}
+
+/* El filtro activo es la píldora OSCURA del diseño. */
+.filtro--on {
+  background: var(--oscuro);
+  color: var(--oscuro-ink);
+  &:hover { color: var(--oscuro-ink); }
+}
+
+.grilla {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 0.85rem;
+  align-content: start;
+  min-height: 0;
+  overflow-y: auto;
+}
+
+.carta {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  padding: 1rem 1.1rem;
+  border-radius: 18px;
+  background: var(--panel);
+  border: 1.5px solid var(--border);
+  box-shadow: var(--sombra-tarjeta);
+  cursor: pointer;
+  animation: carta-entra 0.32s ease-out both;
+  animation-delay: calc(var(--entrada, 0) * 60ms);
+  transition: transform 0.16s, border-color 0.16s, box-shadow 0.2s;
+
+  &:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 16px 34px -16px rgba(13, 21, 41, 0.35);
+  }
+}
+
+@keyframes carta-entra {
+  from { opacity: 0; transform: translateY(12px); }
+  to { opacity: 1; transform: none; }
+}
+
+/* El que atiende lleva el borde naranja: es el único que está en vivo. */
+.carta--atendiendo { border-color: var(--primary); }
+
+/* El borrador va punteado: todavía no es algo que exista para nadie. */
+.carta--borrador {
+  border-style: dashed;
+  background: var(--panel-2);
+}
+
+.carta--abierta { border-color: var(--secondary); }
+
+.carta--hueso {
+  min-height: 170px;
+  border-style: solid;
+  background: linear-gradient(100deg, var(--panel) 40%, var(--panel-2) 50%, var(--panel) 60%);
+  background-size: 200% 100%;
+  animation: respira 1.3s ease-in-out infinite;
+}
+
+@keyframes respira {
+  from { background-position: 120% 0; }
+  to { background-position: -80% 0; }
+}
+
+.carta__cabeza {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+.carta__icono {
+  display: grid;
+  place-items: center;
+  width: 38px;
+  height: 38px;
+  flex-shrink: 0;
+  border-radius: 12px;
+  background: var(--primary-suave);
+  color: var(--primary);
+
+  svg { width: 20px; height: 20px; }
+}
+
+/* El que atiende: ícono lleno y latiendo. */
+.carta__icono--vivo {
+  background: var(--primary);
+  color: var(--primary-ink);
+  animation: icono-late 2.6s ease-out infinite;
+}
+
+@keyframes icono-late {
+  0% { box-shadow: 0 0 0 0 rgba(243, 71, 0, 0.45); }
+  70% { box-shadow: 0 0 0 10px transparent; }
+  100% { box-shadow: 0 0 0 0 transparent; }
+}
+
+.carta__quien {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  line-height: 1.25;
+
+  strong { font-size: 0.97rem; font-weight: 700; }
+  em { font-style: normal; font-size: 0.75rem; color: var(--ink-soft); }
+}
+
+.marca {
+  margin-left: auto;
+  flex-shrink: 0;
+  padding: 0.22rem 0.65rem;
+  border-radius: 999px;
+  background: var(--panel-2);
+  border: 1px solid var(--border);
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: var(--ink-soft);
+  white-space: nowrap;
+}
+
+.marca--viva {
+  background: var(--oscuro);
+  border-color: transparent;
+  color: var(--oscuro-ink);
+}
+
+.marca--borrador { background: rgba(245, 158, 11, 0.14); border-color: transparent; color: #b45309; }
+
+/* ===== Cifras ===== */
+.carta__cifras {
+  display: flex;
+  align-items: center;
+  gap: 0.9rem;
+}
+
+.cifra {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.15;
+
+  b { font-size: 1.75rem; font-weight: 700; letter-spacing: -0.03em; font-variant-numeric: tabular-nums; }
+  em { font-style: normal; font-size: 0.72rem; color: var(--ink-soft); }
+}
+
+.cifra--texto b { font-size: 0.82rem; font-weight: 700; letter-spacing: 0; }
+
+/* La dona de «Palabra cumplida». El arco arranca arriba y crece a la
+   derecha, como se lee un reloj. */
+.dona {
+  position: relative;
+  margin-left: auto;
+  display: grid;
+  place-items: center;
+  width: 46px;
+  height: 46px;
+  flex-shrink: 0;
+
+  svg { width: 46px; height: 46px; transform: rotate(-90deg); }
+
+  b {
+    position: absolute;
+    font-size: 0.7rem;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+  }
+}
+
+.dona__pista {
+  fill: none;
+  stroke: var(--border);
+  stroke-width: 4;
+}
+
+.dona__arco {
+  fill: none;
+  stroke-width: 4;
+  stroke-linecap: round;
+  transition: stroke-dasharray 0.5s ease;
+}
+
+/* ===== Pasos del borrador ===== */
+.pasos {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.pasos__texto { font-size: 0.82rem; font-weight: 600; color: var(--ink-soft); }
+
+.pasos__barra {
+  display: flex;
+  gap: 4px;
+
+  i {
+    flex: 1;
+    height: 5px;
+    border-radius: 999px;
+    background: var(--border);
+    transition: background 0.3s;
+  }
+}
+
+.pasos__hecho { background: var(--primary); }
+
+/* ===== Pie ===== */
+.carta__pie {
+  margin-top: auto;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.canales { display: flex; flex-wrap: wrap; gap: 0.3rem; }
+
+.canal {
+  padding: 0.18rem 0.6rem;
+  border-radius: 999px;
+  background: var(--panel-2);
+  border: 1px solid var(--border);
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--ink-soft);
+}
+
+.abrir {
+  margin-left: auto;
+  padding: 0.3rem 0.8rem;
+  border-radius: 999px;
+  background: var(--panel-2);
+  border: 1px solid var(--border);
+  color: var(--ink);
+  font-size: 0.8rem;
+  font-weight: 700;
+  text-decoration: none;
+  transition: background 0.15s, border-color 0.15s;
+
+  &:hover { background: var(--primary-suave); border-color: var(--primary); color: #c23700; }
+}
+
+.vacio {
+  grid-column: 1 / -1;
+  padding: 2.5rem 1rem;
+  text-align: center;
+  color: var(--ink-soft);
+  font-size: 0.88rem;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .carta { animation: none; }
+  .carta:hover { transform: none; }
+  .carta__icono--vivo, .carta--hueso { animation: none; }
+}

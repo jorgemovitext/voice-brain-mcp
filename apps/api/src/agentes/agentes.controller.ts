@@ -14,6 +14,7 @@ import type { FastifyRequest } from 'fastify';
 import { ElevenLabsVozService } from '../elevenlabs/elevenlabs-voz.service';
 import { ElevenLabsClient } from '../elevenlabs/elevenlabs.client';
 import { AgenteActivoService } from '../shared/agente-activo.service';
+import { BrainService } from '../brain/brain.service';
 import { ReparoAgente } from '../shared/agente-activo.service';
 import { AgentesService, AristaFlujo, ConfigCanales, NodoFlujo } from './agentes.service';
 import { plantillas as listaDePlantillas } from './plantillas';
@@ -57,6 +58,7 @@ export class AgentesController {
     private readonly agentes: AgentesService,
     private readonly cliente: ElevenLabsClient,
     private readonly asistenteAgentes: AsistenteAgentesService,
+    private readonly brain: BrainService,
     private readonly documentos: DocumentosService,
     private readonly agenteActivo: AgenteActivoService,
     private readonly voz: ElevenLabsVozService,
@@ -137,6 +139,64 @@ export class AgentesController {
       throw new BadRequestException('Mandá el archivo como cuerpo de la petición.');
     }
     return this.documentos.subir(nombre ?? 'Documento', cuerpo);
+  }
+
+  /**
+   * Las cifras de TODOS los agentes de una vez, para la grilla.
+   *
+   * Sale del Brain y no del proveedor: una tarjeta por agente pidiéndole
+   * sus conversaciones a ElevenLabs serían seis viajes de red para pintar
+   * una pantalla, y la lista ya cuesta uno por agente.
+   *
+   * «Palabra cumplida» es lo que el agente dijo que iba a hacer y de verdad
+   * hizo: de las acciones que ejecutó —abrir el ticket, avisar a la
+   * cuadrilla—, cuántas salieron bien. No es una métrica inventada para la
+   * tarjeta: es el dato que ya se guarda en cada acción, mirado en conjunto.
+   */
+  @Get('estadisticas')
+  async estadisticas() {
+    const interacciones = await this.brain.listInteractions();
+
+    const por = new Map<
+      string,
+      { conversaciones: Set<string>; mensajes: number; acciones: number; cumplidas: number; ultima?: string }
+    >();
+
+    for (const i of interacciones) {
+      if (!i.agente) continue;
+      const e =
+        por.get(i.agente) ??
+        { conversaciones: new Set<string>(), mensajes: 0, acciones: 0, cumplidas: 0, ultima: undefined };
+      e.conversaciones.add(i.contactId);
+      e.mensajes++;
+      if (i.accion) {
+        e.acciones++;
+        if (i.accion.ok) e.cumplidas++;
+      }
+      if (!e.ultima || i.occurredAt > e.ultima) e.ultima = i.occurredAt;
+      por.set(i.agente, e);
+    }
+
+    const salida: Record<string, {
+      conversaciones: number;
+      mensajes: number;
+      // null cuando el agente todavía no ejecutó NADA: un 100 % sin acciones
+      // sería una nota perfecta por no haber hecho nada.
+      palabraCumplida: number | null;
+      acciones: number;
+      ultima?: string;
+    }> = {};
+
+    for (const [agente, e] of por) {
+      salida[agente] = {
+        conversaciones: e.conversaciones.size,
+        mensajes: e.mensajes,
+        palabraCumplida: e.acciones ? Math.round((e.cumplidas / e.acciones) * 100) : null,
+        acciones: e.acciones,
+        ultima: e.ultima,
+      };
+    }
+    return salida;
   }
 
   /** El catálogo de roles del asistente (paso 1). Son datos, no agentes. */
