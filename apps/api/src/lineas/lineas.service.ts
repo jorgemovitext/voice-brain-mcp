@@ -11,6 +11,7 @@ import { ConfigService } from '@nestjs/config';
 import { randomUUID } from 'node:crypto';
 import { Pool } from 'pg';
 import { AgenteActivoService } from '../shared/agente-activo.service';
+import { ORG_HISTORICA, orgActual } from '../shared/contexto-org';
 import { ensureSchema, PG_POOL } from '../shared/database.module';
 
 /**
@@ -70,7 +71,21 @@ export class LineasService {
   async listar(): Promise<Linea[]> {
     if (!this.pool) return [];
     await this.prepararTabla();
-    const r = await this.pool!.query('SELECT * FROM lineas ORDER BY creado ASC');
+    /*
+     * Solo las de la empresa de la sesión. Sin el filtro, la pantalla de
+     * Canales de un cliente nuevo mostraba los números de todos los demás —
+     * y con ellos, a qué agente atiende cada uno.
+     *
+     * Sin organización en contexto (un cron, el servidor MCP) no devuelve
+     * nada en vez de devolver todo: el peor caso tiene que ser «no se ve
+     * nada», nunca «se ve lo de todos».
+     */
+    const org = orgActual();
+    if (!org) return [];
+    const r = await this.pool!.query(
+      'SELECT * FROM lineas WHERE organizacion_id = $1 ORDER BY creado ASC',
+      [org],
+    );
     return r.rows.map(LineasService.aLinea);
   }
 
@@ -83,20 +98,30 @@ export class LineasService {
    * siguen funcionando aunque nadie haya dado de alta su línea todavía.
    * Una línea PAUSADA no atiende: devuelve null a propósito.
    */
-  async agenteDe(destino?: string): Promise<{ agente: string; linea: string } | null> {
+  async agenteDe(
+    destino?: string,
+  ): Promise<{ agente: string; linea: string; organizacion?: string } | null> {
     if (!this.pool || !destino?.trim()) return null;
     await this.prepararTabla();
 
     const digitos = destino.replace(/\D/g, '');
     const r = await this.pool!.query(
-      `SELECT id, agente FROM lineas
+      `SELECT id, agente, organizacion_id FROM lineas
         WHERE estado = 'activa'
           AND (destino = $1 OR ($2 <> '' AND regexp_replace(numero, '\\D', '', 'g') = $2))
         LIMIT 1`,
       [destino.trim(), digitos],
     );
     const fila = r.rows[0];
-    return fila ? { agente: fila.agente, linea: fila.id } : null;
+    /*
+     * La organización viaja con la línea porque un webhook no tiene sesión
+     * de dónde sacarla: el proveedor no sabe de nuestras empresas. Sin esto,
+     * todo lo que entra por WhatsApp se guarda y se cobra sin dueño — y el
+     * mes cierra con mensajes que no se le pueden facturar a nadie.
+     */
+    return fila
+      ? { agente: fila.agente, linea: fila.id, organizacion: fila.organizacion_id ?? undefined }
+      : null;
   }
 
   async crear(input: {
@@ -146,9 +171,22 @@ export class LineasService {
 
     try {
       await this.pool!.query(
-        `INSERT INTO lineas (id, cliente, nombre, numero, destino, agente, estado, creado)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
-        [linea.id, cliente, nombre, numero, linea.destino ?? null, agente, linea.estado, linea.creado],
+        `INSERT INTO lineas (id, cliente, nombre, numero, destino, agente, estado, creado, organizacion_id)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
+        [
+          linea.id,
+          cliente,
+          nombre,
+          numero,
+          linea.destino ?? null,
+          agente,
+          linea.estado,
+          linea.creado,
+          // Del contexto de la petición, nunca del cuerpo: la empresa dueña
+          // de un número no es algo que el navegador pueda declarar. Es
+          // también a quién se le facturan los mensajes de esa línea.
+          orgActual() ?? null,
+        ],
       );
     } catch (err) {
       if ((err as { code?: string }).code === '23505') {
@@ -167,7 +205,17 @@ export class LineasService {
   ): Promise<void> {
     if (!this.pool) throw new ServiceUnavailableException('Sin base de datos (falta DATABASE_URL).');
     await this.prepararTabla();
-    const actual = await this.pool.query('SELECT * FROM lineas WHERE id = $1', [id]);
+    /*
+     * El id viaja en la URL y es adivinable: sin el filtro por empresa,
+     * cualquier cliente podía repuntar el número de otro a su propio agente
+     * y quedarse con sus conversaciones. «No existe» y no «no es tuya» a
+     * propósito: la respuesta no confirma que el id exista.
+     */
+    const org = orgActual();
+    const actual = await this.pool.query(
+      'SELECT * FROM lineas WHERE id = $1 AND ($2::text IS NULL OR organizacion_id = $2)',
+      [id, org ?? null],
+    );
     if (!actual.rows[0]) throw new NotFoundException('Esa línea no existe.');
 
     if (cambios.estado && !['activa', 'pausada'].includes(cambios.estado)) {
@@ -196,7 +244,11 @@ export class LineasService {
   async eliminar(id: string): Promise<void> {
     if (!this.pool) throw new ServiceUnavailableException('Sin base de datos (falta DATABASE_URL).');
     await this.prepararTabla();
-    const r = await this.pool!.query('DELETE FROM lineas WHERE id = $1', [id]);
+    const org = orgActual();
+    const r = await this.pool!.query(
+      'DELETE FROM lineas WHERE id = $1 AND ($2::text IS NULL OR organizacion_id = $2)',
+      [id, org ?? null],
+    );
     if (!r.rowCount) throw new NotFoundException('Esa línea no existe.');
     this.logger.warn(`Línea ${id} eliminada`);
   }
@@ -225,8 +277,14 @@ export class LineasService {
         if (!agente) return;
 
         await pool.query(
-          `INSERT INTO lineas (id, cliente, nombre, numero, destino, agente, estado, creado)
-           VALUES ($1, $2, $3, $4, $5, $6, 'activa', now())
+          /*
+           * Con dueño explícito desde el primer día: la migración que le pone
+           * organización a lo histórico ya corrió cuando esto se siembra, así
+           * que una fila en NULL acá se quedaría en NULL — invisible para
+           * todos y con sus mensajes sin facturar.
+           */
+          `INSERT INTO lineas (id, cliente, nombre, numero, destino, agente, estado, creado, organizacion_id)
+           VALUES ($1, $2, $3, $4, $5, $6, 'activa', now(), $7)
            ON CONFLICT (numero) DO NOTHING`,
           [
             randomUUID(),
@@ -235,6 +293,7 @@ export class LineasService {
             numero.startsWith('+') ? numero : `+${numero}`,
             this.config.get<string>('GUPSHUP_APP_NAME', '').trim() || null,
             agente,
+            ORG_HISTORICA,
           ],
         );
         this.logger.log('Línea 100 sembrada desde la configuración existente');

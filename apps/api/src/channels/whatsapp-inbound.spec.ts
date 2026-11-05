@@ -98,6 +98,8 @@ describe('WhatsappInboundService', () => {
 
     /** El motor de traspaso, con su memoria de hilo en una variable. */
     const traspasos: Array<{ contactId: string; agente: string }> = [];
+    const cortados: string[] = [];
+    const inscritos: string[] = [];
     const propuestas: Array<{ contactId: string; agente: string }> = [];
     let delHilo = derivacion?.delHilo ?? null;
     let propuestaViva = derivacion?.propuesta ?? null;
@@ -120,6 +122,22 @@ describe('WhatsappInboundService', () => {
     };
     const agentesSvc = { nombreDe: async (id: string) => `Nombre de ${id}` };
 
+    /*
+     * El seguimiento, con lo que importa acá: a quién se cortó y a quién se
+     * inscribió. Es lo que deja comprobar que contestar mata la secuencia —
+     * el freno sin el cual el módulo se vuelve acoso.
+     */
+    const seguimientoSvc = {
+      cortar: async (contacto: string) => {
+        cortados.push(contacto);
+        return 1;
+      },
+      inscribirAutomaticas: async (contacto: string) => {
+        inscritos.push(contacto);
+        return 1;
+      },
+    };
+
     const service = new WhatsappInboundService(
       brain as unknown as BrainService,
       atencion as unknown as AtencionService,
@@ -129,9 +147,10 @@ describe('WhatsappInboundService', () => {
       derivacionSvc as never,
       agentesSvc as never,
       ACTIVO_DE_PRUEBA,
+      seguimientoSvc as never,
       canal as unknown as ChannelPort,
     );
-    return { service, guardadas, bitacora, enviados, atendidoPor, traspasos, propuestas };
+    return { service, guardadas, bitacora, enviados, atendidoPor, traspasos, propuestas, cortados, inscritos };
   }
 
   it('la respuesta del ciudadano entra al hilo que un operador tomó', async () => {

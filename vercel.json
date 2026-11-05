@@ -11,9 +11,27 @@
     }
   },
   "rewrites": [
-    { "source": "/api/(.*)", "destination": "/api/index" },
-    { "source": "/precall", "destination": "/api/index" },
-    { "source": "/webhooks/(.*)", "destination": "/api/index" },
-    { "source": "/(.*)", "destination": "/index.html" }
+    {
+      "source": "/api/(.*)",
+      "destination": "/api/index"
+    },
+    {
+      "source": "/precall",
+      "destination": "/api/index"
+    },
+    {
+      "source": "/webhooks/(.*)",
+      "destination": "/api/index"
+    },
+    {
+      "source": "/(.*)",
+      "destination": "/index.html"
+    }
+  ],
+  "crons": [
+    {
+      "path": "/api/seguimiento/tick",
+      "schedule": "0 * * * *"
+    }
   ]
 }

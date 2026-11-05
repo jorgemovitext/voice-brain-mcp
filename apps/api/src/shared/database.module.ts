@@ -179,7 +179,13 @@ export function ensureSchema(pool: Pool): Promise<void> {
         -- Qué puede tocar cada quien. El primero de una empresa es su
         -- administrador: alguien tiene que poder invitar y configurar, y si
         -- nadie pudiera, la cuenta nace muerta.
-        ALTER TABLE users ADD COLUMN IF NOT EXISTS rol text NOT NULL DEFAULT 'operador';
+        ALTER TABLE users ADD COLUMN IF NOT EXISTS rol text NOT NULL DEFAULT 'usuario';
+
+        -- Dos roles y no tres. «Supervisor» y «operador» se distinguían en el
+        -- tipo y en ningún permiso: nombres distintos para la misma persona.
+        -- Quien ya estaba queda como usuario; los administradores no se tocan.
+        ALTER TABLE users ALTER COLUMN rol SET DEFAULT 'usuario';
+        UPDATE users SET rol = 'usuario' WHERE rol IN ('operador', 'supervisor');
         ALTER TABLE contacts ADD COLUMN IF NOT EXISTS organizacion_id text;
         ALTER TABLE interactions ADD COLUMN IF NOT EXISTS organizacion_id text;
         ALTER TABLE signals ADD COLUMN IF NOT EXISTS organizacion_id text;
@@ -201,6 +207,64 @@ export function ensureSchema(pool: Pool): Promise<void> {
           creado timestamptz NOT NULL DEFAULT now()
         );
         CREATE INDEX IF NOT EXISTS idx_agentes_org ON agentes_org (organizacion_id);
+
+        -- CONSUMO: una fila por mensaje que sale. Es la base de la factura.
+        --
+        -- La columna precio_micros guarda el precio CONGELADO del momento del envío y
+        -- no se recalcula al leer. Si la factura se armara con la tarifa
+        -- vigente, subir un precio reescribiría los meses ya cobrados — y el
+        -- cliente que reclama tendría razón.
+        --
+        -- La columna periodo ('YYYY-MM') va escrita y no derivado de la fecha para
+        -- poder agrupar el mes sin recorrer la tabla ni depender de la zona
+        -- horaria del servidor, que en serverless no es la del cliente.
+        CREATE TABLE IF NOT EXISTS consumo (
+          id text PRIMARY KEY,
+          organizacion_id text NOT NULL,
+          periodo text NOT NULL,
+          agente text,
+          contacto text,
+          canal text NOT NULL DEFAULT 'whatsapp',
+          pais text NOT NULL,
+          categoria text NOT NULL,
+          motivo text,
+          cantidad integer NOT NULL DEFAULT 1,
+          precio_micros bigint NOT NULL,
+          referencia text,
+          ocurrido timestamptz NOT NULL DEFAULT now()
+        );
+        CREATE INDEX IF NOT EXISTS idx_consumo_org_periodo ON consumo (organizacion_id, periodo);
+        CREATE INDEX IF NOT EXISTS idx_consumo_ocurrido ON consumo (organizacion_id, ocurrido DESC);
+        -- El id del proveedor, cuando lo hay: un webhook reintentado no puede
+        -- cobrar dos veces el mismo mensaje. Parcial porque el stub de
+        -- desarrollo no devuelve id y esas filas sí pueden repetirse.
+        CREATE UNIQUE INDEX IF NOT EXISTS consumo_referencia_key
+          ON consumo (referencia) WHERE referencia IS NOT NULL;
+
+        -- SEGUIMIENTO: a quién le falta un mensaje y cuándo le toca.
+        --
+        -- Vive en la base y no en memoria porque cada webhook en serverless
+        -- es una invocación nueva: un temporizador en proceso se muere con la
+        -- instancia y el recordatorio de la cita no sale nunca.
+        CREATE TABLE IF NOT EXISTS seguimientos (
+          id text PRIMARY KEY,
+          organizacion_id text NOT NULL,
+          contacto text NOT NULL,
+          agente text,
+          secuencia text NOT NULL,
+          paso integer NOT NULL DEFAULT 0,
+          toca timestamptz NOT NULL,
+          estado text NOT NULL DEFAULT 'pendiente',
+          motivo_fin text,
+          creado timestamptz NOT NULL DEFAULT now(),
+          actualizado timestamptz NOT NULL DEFAULT now()
+        );
+        -- Un contacto no puede estar dos veces en la misma secuencia: sin
+        -- esto, dos mensajes seguidos lo inscriben dos veces y recibe todo
+        -- duplicado (y se le cobra dos veces al cliente).
+        CREATE UNIQUE INDEX IF NOT EXISTS seguimientos_unico
+          ON seguimientos (organizacion_id, contacto, secuencia) WHERE estado = 'pendiente';
+        CREATE INDEX IF NOT EXISTS idx_seguimientos_toca ON seguimientos (estado, toca);
 
         -- La historia anterior a las organizaciones tiene dueño explícito.
         -- En NULL se escondería de todos y parecería perdida; visible para

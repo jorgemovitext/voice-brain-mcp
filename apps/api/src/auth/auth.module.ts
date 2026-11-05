@@ -8,6 +8,7 @@ import { IntegrationsModule } from '../integrations/integrations.module';
 import { AuthController } from './auth.controller';
 import { AuthGuard } from './auth.guard';
 import { AuthService } from './auth.service';
+import { PermisosGuard } from './permisos.guard';
 import { InvitacionesService } from './invitaciones.service';
 import { OrganizacionesService } from './organizaciones.service';
 import { OtpSender } from './otp.sender';
@@ -57,6 +58,12 @@ import { JsonUsersRepository, PgUsersRepository, USERS_REPOSITORY } from './user
     },
     // Deny-by-default para toda la app.
     { provide: APP_GUARD, useClass: AuthGuard },
+    /*
+     * Después del de sesión y no antes: este decide si PUEDE, y para eso
+     * necesita que el otro ya haya dicho quién es. El orden lo da el orden
+     * de registro.
+     */
+    { provide: APP_GUARD, useClass: PermisosGuard },
   ],
   exports: [AuthService],
 })

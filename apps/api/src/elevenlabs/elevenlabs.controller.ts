@@ -6,6 +6,7 @@ import { createHmac, timingSafeEqual } from 'crypto';
 import { Public } from '../auth/public.decorator';
 import { WebhookLogService } from '../shared/webhook-log.service';
 import { ElevenLabsVozService } from './elevenlabs-voz.service';
+import { Requiere } from '../auth/permisos.guard';
 
 /**
  * Lo que la consola y ElevenLabs necesitan del canal de voz: disparar una
@@ -34,6 +35,7 @@ export class ElevenLabsController {
   }
 
   /** Llama al contacto con el agente de voz. Lo dispara la consola. */
+  @Requiere('conversar')
   @Post('api/contacts/:id/llamar')
   async llamar(@Param('id') id: string, @Req() req: FastifyRequest & { user?: { username?: string } }) {
     const quien = req.user?.username ?? 'un operador';
@@ -41,6 +43,7 @@ export class ElevenLabsController {
   }
 
   /** Reintento manual, por si el webhook de cierre no llegó. */
+  @Requiere('conversar')
   @Post('api/voz/transcripcion/:conversationId')
   traer(@Param('conversationId') conversationId: string) {
     return this.voz.traerTranscripcion(conversationId);

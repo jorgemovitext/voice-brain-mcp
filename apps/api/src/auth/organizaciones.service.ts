@@ -78,6 +78,25 @@ export class OrganizacionesService {
       : null;
   }
 
+  /**
+   * Cambia el plan de una organización.
+   *
+   * Queda activo ya mismo, sin pasar por una pasarela: todavía no hay una,
+   * y el cobro se emite por factura. Es deliberado — un checkout de mentira
+   * que diga «pago aprobado» sin cobrar nada es peor que no tenerlo, porque
+   * el cliente cree que pagó.
+   *
+   * Bajar de plan también es inmediato. Lo que ya se consumió del mes no se
+   * devuelve: se midió con el precio de ese momento y esa fila no se toca.
+   */
+  async cambiarPlan(id: string, plan: string): Promise<void> {
+    const pool = this.exigirBase();
+    await ensureSchema(pool);
+    const r = await pool.query('UPDATE organizaciones SET plan = $2 WHERE id = $1', [id, plan]);
+    if (!r.rowCount) throw new ServiceUnavailableException('No se encontró la empresa de tu cuenta.');
+    this.logger.log(`Plan de ${id}: ${plan}`);
+  }
+
   async renombrar(id: string, nombre: string): Promise<void> {
     const pool = this.exigirBase();
     await pool.query('UPDATE organizaciones SET nombre = $2 WHERE id = $1', [

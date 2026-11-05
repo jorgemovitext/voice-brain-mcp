@@ -8,6 +8,7 @@ import { HandoffService } from './handoff.service';
 import { NlpearlActivityStore } from './activity.store';
 import { BrainService } from '../brain/brain.service';
 import { AgenteToolsService } from '../elevenlabs/agente-tools.service';
+import { Requiere } from '../auth/permisos.guard';
 
 /**
  * GET /api/contacts/:id/expediente — resumen real del hilo y su caso en el CRM.
@@ -40,6 +41,7 @@ export class ExpedienteController {
    * El operador sale del token de sesión, no del cuerpo: quién atiende un
    * hilo no es algo que el cliente pueda declarar por su cuenta.
    */
+  @Requiere('conversar')
   @Post(':id/atencion')
   async atender(
     @Param('id') id: string,
@@ -95,6 +97,7 @@ export class ExpedienteController {
    * lo está, así que la respuesta lo dice con todas las letras en vez de
    * fingir que la conversación ya es tuya.
    */
+  @Requiere('conversar')
   @Post(':id/takeover')
   async takeover(
     @Param('id') id: string,
@@ -133,6 +136,7 @@ export class ExpedienteController {
    * está atendiendo el agente, su flujo hace estas mismas cosas y ejecutarlas
    * acá crearía el ticket dos veces.
    */
+  @Requiere('conversar')
   @Post(':id/acciones/:accion')
   async ejecutar(
     @Param('id') id: string,

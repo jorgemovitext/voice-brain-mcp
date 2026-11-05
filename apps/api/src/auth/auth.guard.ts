@@ -54,7 +54,7 @@ export class AuthGuard implements CanActivate {
     const token = this.extractToken(req);
     if (!token) throw new UnauthorizedException('Sesión requerida');
 
-    let payload: { sub: string; username?: string; exp: number; iat: number };
+    let payload: { sub: string; username?: string; org?: string; rol?: string; exp: number; iat: number };
     try {
       payload = await this.jwt.verifyAsync(token);
     } catch {
@@ -120,7 +120,7 @@ export class AuthGuard implements CanActivate {
    */
   private async renovarSiCorresponde(
     context: ExecutionContext,
-    payload: { sub: string; username?: string; exp: number },
+    payload: { sub: string; username?: string; org?: string; rol?: string; exp: number },
   ): Promise<void> {
     const restanteMs = payload.exp * 1000 - Date.now();
     if (restanteMs > (this.sessionHours * 3600_000) / 2) return;
@@ -129,7 +129,21 @@ export class AuthGuard implements CanActivate {
     // Bearer (herramientas/API) no usa cookie: no hay nada que renovar.
     if (typeof res?.setCookie !== 'function') return;
 
-    const token = await this.jwt.signAsync({ sub: payload.sub, username: payload.username });
+    /*
+     * El token renovado lleva TODO lo que llevaba el original.
+     *
+     * Antes se firmaba solo con `sub` y `username`: a las seis horas de uso
+     * la renovación le borraba la organización y el rol a quien estaba
+     * trabajando. Sin organización, el aislamiento devuelve vacío —la
+     * consola se quedaba en blanco sola— y sin rol, un administrador pasaba
+     * a ser usuario común. Pasaba callado y a mitad de jornada.
+     */
+    const token = await this.jwt.signAsync({
+      sub: payload.sub,
+      username: payload.username,
+      org: payload.org,
+      rol: payload.rol,
+    });
     res.setCookie(SESSION_COOKIE, token, {
       httpOnly: true,
       secure: this.secureCookies,

@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { AgenteActivoService } from '../shared/agente-activo.service';
 import { BrainService } from './brain.service';
 import { UnificacionService } from './unificacion.service';
+import { Requiere } from '../auth/permisos.guard';
 
 /** Alta de contacto por teléfono: la llave de identidad es E.164. */
 const newContactSchema = z.object({
@@ -36,6 +37,7 @@ export class BrainController {
    * Corre sola al arrancar la API, pero con una ventana de 5 minutos entre
    * instancias; esto es la corrida a pedido, para no tener que esperarla.
    */
+  @Requiere('conversar')
   @Post('contacts/unificar')
   async unificar() {
     const hechas = await this.unificacion.ahora();
@@ -59,6 +61,7 @@ export class BrainController {
    * Inicia una conversación con un número: resuelve identidad (crea el
    * contacto si no existía) y devuelve el contacto listo para chatear.
    */
+  @Requiere('conversar')
   @Post('contacts')
   async createContact(@Body() body: unknown) {
     const parsed = newContactSchema.safeParse(body ?? {});

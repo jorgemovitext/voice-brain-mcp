@@ -1,10 +1,18 @@
-import { ConflictException, Inject, Injectable, Logger, UnauthorizedException } from '@nestjs/common';
+import {
+  ConflictException,
+  Inject,
+  Injectable,
+  Logger,
+  NotFoundException,
+  UnauthorizedException,
+} from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 import { createHash, randomBytes, randomInt, randomUUID, scrypt as scryptCb, timingSafeEqual } from 'crypto';
 import { promisify } from 'util';
 import { InvitacionesService } from './invitaciones.service';
 import { OrganizacionesService } from './organizaciones.service';
+import { Permiso, permisosDe, Rol, rolValido } from './permisos';
 import { OtpSender } from './otp.sender';
 import { AuthUser, USERS_REPOSITORY, UsersRepository } from './users.repository';
 
@@ -32,6 +40,21 @@ export interface SessionUser {
   username?: string;
   phone: string;
   name?: string;
+  /**
+   * Qué puede hacer, resuelto en el servidor.
+   *
+   * Va junto con la sesión y no se calcula en la consola: la pantalla tiene
+   * que poder esconder lo que no corresponde sin reimplementar la matriz de
+   * permisos, y una regla que vive en dos lados se desincroniza en la
+   * primera semana. Esconder NO es proteger —eso lo hace el guard—, pero
+   * mostrar un botón que va a devolver 403 es una trampa para el usuario.
+   */
+  rol?: Rol;
+  permisos?: Permiso[];
+  /** La empresa a la que pertenece y en qué plan está. */
+  organizacion?: string;
+  empresa?: string;
+  plan?: string;
 }
 
 @Injectable()
@@ -150,9 +173,9 @@ export class AuthService {
     if (invitacion?.trim()) {
       const destino = await this.invitaciones.canjear(invitacion.trim(), user.id);
       user.organizacionId = destino.organizacion;
-      // Quien llega con código entra como operador: el que invita decide
+      // Quien llega con código entra como usuario: el que invita decide
       // después si le sube el rol. Nadie se autoasciende al registrarse.
-      user.rol = 'operador';
+      user.rol = 'usuario';
     } else {
       user.organizacionId = await this.organizaciones.crear(
         empresa?.trim() || name?.trim() || username,
@@ -175,7 +198,7 @@ export class AuthService {
       sub: user.id,
       username: user.username,
       org: user.organizacionId,
-      rol: user.rol ?? 'operador',
+      rol: user.rol ?? 'usuario',
     });
     return { token, user: sessionUser };
   }
@@ -202,12 +225,15 @@ export class AuthService {
   }
 
   /** El equipo con acceso a la consola. Nunca sale un hash de acá. */
-  async equipo(org?: string): Promise<Array<{ id: string; username?: string; name?: string; phone: string; creada: string }>> {
+  async equipo(
+    org?: string,
+  ): Promise<Array<{ id: string; username?: string; name?: string; phone: string; rol: Rol; creada: string }>> {
     const todos = await this.users.listar(org);
     return todos.map((u) => ({
       id: u.id,
       username: u.username,
       name: u.name,
+      rol: rolValido(u.rol),
       // Enmascarado: el equipo se reconoce por el nombre, no por el número
       // completo de alguien más.
       phone: u.phone.replace(/^(\+\d{3})\d+(\d{4})$/, '$1••••$2'),
@@ -303,7 +329,7 @@ export class AuthService {
       sub: user.id,
       username: user.username,
       org: user.organizacionId,
-      rol: user.rol ?? 'operador',
+      rol: user.rol ?? 'usuario',
     });
     return { otpRequired: false, token, user: sessionUser };
   }
@@ -452,7 +478,64 @@ export class AuthService {
   async me(userId: string): Promise<SessionUser> {
     const user = await this.users.findById(userId);
     if (!user) throw new UnauthorizedException('Sesión inválida');
-    return { id: user.id, username: user.username, phone: user.phone, name: user.name };
+
+    /*
+     * La empresa y el plan se leen acá y no se guardan en el token: el plan
+     * cambia en medio de una sesión —alguien pasa a Institucional— y un
+     * token firmado con el plan viejo dejaría la cuenta pagando por
+     * funciones que la consola le sigue escondiendo hasta que vuelva a
+     * entrar.
+     */
+    const empresa = user.organizacionId
+      ? await this.organizaciones.leer(user.organizacionId).catch(() => null)
+      : null;
+
+    const rol = rolValido(user.rol);
+    return {
+      id: user.id,
+      username: user.username,
+      phone: user.phone,
+      name: user.name,
+      rol,
+      permisos: permisosDe(rol),
+      organizacion: user.organizacionId,
+      empresa: empresa?.nombre,
+      plan: empresa?.plan ?? 'prueba',
+    };
+  }
+
+  /**
+   * Cambia el rol de alguien del equipo.
+   *
+   * Dos frenos, y los dos existen por el mismo motivo —que la cuenta no
+   * quede sin nadie que pueda configurarla:
+   *
+   *  - Nadie se baja a sí mismo de administrador. Si fuera el único, la
+   *    empresa quedaría sin quien invite, cambie el plan o toque un agente,
+   *    y la única salida sería que nosotros editemos la base a mano.
+   *  - Solo se toca a gente de la MISMA empresa. El id viaja en la URL y es
+   *    adivinable: sin esta comprobación, un administrador podría ascenderse
+   *    un cómplice en la cuenta de otro cliente.
+   */
+  async cambiarRol(id: string, rol: Rol, quienPide: string, org?: string): Promise<void> {
+    if (id === quienPide) {
+      throw new ConflictException('No podés cambiar tu propio rol: pedíselo a otro administrador.');
+    }
+    const user = await this.users.findById(id);
+    if (!user || (org && user.organizacionId !== org)) {
+      throw new NotFoundException('Esa cuenta no es de tu empresa.');
+    }
+    user.rol = rolValido(rol);
+    await this.users.save(user);
+
+    /*
+     * El rol viaja dentro del token, así que bajarlo no surte efecto hasta
+     * que la sesión se renueve: alguien a quien le quitan el rol de
+     * administrador seguiría configurando por horas con el token que ya
+     * tiene. Se le cierran las sesiones y vuelve a entrar con el rol nuevo.
+     */
+    await this.cerrarSesiones(id);
+    this.logger.log(`Rol de ${user.username ?? id}: ${user.rol}`);
   }
 
   /** Hash fijo para igualar tiempos cuando el usuario no existe. */

@@ -1,11 +1,13 @@
 import { Inject, Injectable, Logger } from '@nestjs/common';
 import { AgenteActivoService } from '../shared/agente-activo.service';
 import { AtencionService } from '../shared/atencion.service';
+import { conContexto, ORG_HISTORICA } from '../shared/contexto-org';
 import { BrainService } from '../brain/brain.service';
 import { WebhookLogService } from '../shared/webhook-log.service';
 import { ElevenLabsService } from '../elevenlabs/elevenlabs.service';
 import { AgentesService } from '../agentes/agentes.service';
 import { DerivacionService } from '../agentes/derivacion.service';
+import { SeguimientoService } from '../seguimiento/seguimiento.service';
 import { LineasService } from '../lineas/lineas.service';
 import { ChannelPort, WHATSAPP_CHANNEL } from '../ports/channel.port';
 
@@ -82,6 +84,7 @@ export class WhatsappInboundService {
     private readonly derivacion: DerivacionService,
     private readonly agentes: AgentesService,
     private readonly activo: AgenteActivoService,
+    private readonly seguimiento: SeguimientoService,
     @Inject(WHATSAPP_CHANNEL) private readonly whatsapp: ChannelPort,
   ) {}
 
@@ -104,64 +107,117 @@ export class WhatsappInboundService {
       const linea = await this.lineas.agenteDe(m.destino).catch(() => null);
       const agenteId = linea?.agente ?? (await this.activo.id());
 
-      const quien = m.profileName ?? m.from;
-      const puerta = await this.hiloTomado(m.from);
-      if (puerta.estado !== 'tomado') {
-        /*
-         * Nadie tomó el hilo. Antes eso era el final del camino y el mensaje
-         * moría en la bitácora; ahora es el turno del agente — si está
-         * configurado. Un hilo TOMADO no pasa por acá a propósito: lo atiende
-         * una persona, y el agente encima sería una segunda voz contestando.
-         */
-        if (await this.atendioElAgente(m, origen, agenteId)) continue;
+      /*
+       * De acá para adelante, todo corre DENTRO de la empresa dueña de la
+       * línea.
+       *
+       * Un webhook no trae sesión: el proveedor no sabe que existen nuestras
+       * empresas. Sin fijar el contexto, lo que entra por WhatsApp se guarda
+       * sin dueño —invisible en la consola del cliente— y los mensajes que
+       * el agente contesta no se le pueden facturar a nadie. El número
+       * histórico, que no tiene línea dada de alta, cae en la organización
+       * histórica y no en «ninguna».
+       */
+      const duena = linea?.organizacion ?? ORG_HISTORICA;
+      await conContexto({ org: duena }, () => this.procesarMensaje(m, origen, agenteId));
+    }
+  }
 
-        /*
-         * Sin agente configurado se conserva el comportamiento de siempre, y
-         * se dice CUÁL de las dos puertas lo frenó, porque se arreglan al
-         * revés: "nadie lo tomó" lo resuelve el operador con un clic, y "no
-         * conocemos el número" es un problema de emparejado de teléfonos que
-         * hay que corregir en el código.
-         */
-        const motivo =
-          puerta.estado === 'desconocido'
-            ? `no hay ninguna conversación con ese número (${m.from})`
-            : 'nadie tomó esa conversación todavía — el operador tiene que pulsar "Tomar"';
-        this.logger.log(`← ${origen} de ${m.from}: "${m.text}" (solo bitácora: ${puerta.estado})`);
-        this.webhookLog.push(origen, `Mensaje de ${quien}: “${m.text}” — no entra al Brain: ${motivo}`, true, {
-          from: m.from,
-          estado: puerta.estado,
-        });
-        continue;
-      }
-      const contactId = puerta.contactId;
+  /**
+   * Corta los seguimientos de este número.
+   *
+   * Por TODOS sus contactos y no por uno: el mismo teléfono llegó a tener
+   * varios —los duplicados que dejó el emparejado por texto exacto—, y
+   * cortar solo el primero dejaría viva la secuencia del otro. La persona
+   * contestó una vez y seguiría recibiendo los recordatorios del duplicado.
+   */
+  private async cortarSeguimientos(telefono: string): Promise<void> {
+    try {
+      const contactos = await this.brain.findAllByPhone(telefono);
+      for (const c of contactos) await this.seguimiento.cortar(c.id, 'la persona contestó');
+    } catch (err) {
+      this.logger.warn(`No se pudo cortar el seguimiento de ${telefono}: ${(err as Error).message}`);
+    }
+  }
+
+  /** Un mensaje, ya con la empresa dueña fijada en el contexto. */
+  private async procesarMensaje(
+    m: MensajeNormalizado,
+    origen: 'gupshup' | 'whatsapp-cloud',
+    agenteId: string,
+  ): Promise<void> {
+    const quien = m.profileName ?? m.from;
+
+    /*
+     * Contestó: se cortan sus seguimientos antes que nada.
+     *
+     * Va primero y no al final porque todo lo de abajo puede terminar en un
+     * `return` —el hilo lo tiene una persona, el agente no está
+     * configurado—, y en cualquiera de esos casos el seguimiento igual
+     * tiene que morir. Si no, alguien responde «ya me resolvieron, gracias»
+     * y al día siguiente recibe el recordatorio.
+     *
+     * Falla sin ruido: cortar un seguimiento es una mejora sobre atender el
+     * mensaje, nunca un requisito para atenderlo.
+     */
+    await this.cortarSeguimientos(m.from);
+
+    const puerta = await this.hiloTomado(m.from);
+    if (puerta.estado !== 'tomado') {
+      /*
+       * Nadie tomó el hilo. Antes eso era el final del camino y el mensaje
+       * moría en la bitácora; ahora es el turno del agente — si está
+       * configurado. Un hilo TOMADO no pasa por acá a propósito: lo atiende
+       * una persona, y el agente encima sería una segunda voz contestando.
+       */
+      if (await this.atendioElAgente(m, origen, agenteId)) return;
 
       /*
-       * Entra como mensaje del ciudadano en el hilo que el operador atiende.
-       * NO se auto-responde: el hilo lo tiene una persona, y una respuesta
-       * automática encima sería una segunda voz contestando.
+       * Sin agente configurado se conserva el comportamiento de siempre, y
+       * se dice CUÁL de las dos puertas lo frenó, porque se arreglan al
+       * revés: "nadie lo tomó" lo resuelve el operador con un clic, y "no
+       * conocemos el número" es un problema de emparejado de teléfonos que
+       * hay que corregir en el código.
        */
-      await this.brain.appendInteraction({
-        contactId,
-        channel: 'whatsapp',
-        direction: 'inbound',
-        occurredAt: new Date().toISOString(),
-        summary: m.text,
-        source: 'own',
-        // El espacio donde ocurrió: la pregunta del vecino no la escribió
-        // ningún agente, pero es parte de la conversación de ESTE.
-        agente: agenteId,
-        attachment: m.attachment,
-        attachmentUrl: m.attachmentUrl,
+      const motivo =
+        puerta.estado === 'desconocido'
+          ? `no hay ninguna conversación con ese número (${m.from})`
+          : 'nadie tomó esa conversación todavía — el operador tiene que pulsar "Tomar"';
+      this.logger.log(`← ${origen} de ${m.from}: "${m.text}" (solo bitácora: ${puerta.estado})`);
+      this.webhookLog.push(origen, `Mensaje de ${quien}: “${m.text}” — no entra al Brain: ${motivo}`, true, {
+        from: m.from,
+        estado: puerta.estado,
       });
-      const clase = m.attachment ? `[${m.attachment}] ` : '';
-      this.logger.log(`← ${origen} de ${m.from}: ${clase}"${m.text}" → hilo tomado`);
-      this.webhookLog.push(
-        origen,
-        `Respuesta de ${m.profileName ?? m.from} en un hilo tomado: ${clase}“${m.text}”`,
-        true,
-        { from: m.from },
-      );
+      return;
     }
+    const contactId = puerta.contactId;
+
+    /*
+     * Entra como mensaje del ciudadano en el hilo que el operador atiende.
+     * NO se auto-responde: el hilo lo tiene una persona, y una respuesta
+     * automática encima sería una segunda voz contestando.
+     */
+    await this.brain.appendInteraction({
+      contactId,
+      channel: 'whatsapp',
+      direction: 'inbound',
+      occurredAt: new Date().toISOString(),
+      summary: m.text,
+      source: 'own',
+      // El espacio donde ocurrió: la pregunta del vecino no la escribió
+      // ningún agente, pero es parte de la conversación de ESTE.
+      agente: agenteId,
+      attachment: m.attachment,
+      attachmentUrl: m.attachmentUrl,
+    });
+    const clase = m.attachment ? `[${m.attachment}] ` : '';
+    this.logger.log(`← ${origen} de ${m.from}: ${clase}"${m.text}" → hilo tomado`);
+    this.webhookLog.push(
+      origen,
+      `Respuesta de ${m.profileName ?? m.from} en un hilo tomado: ${clase}“${m.text}”`,
+      true,
+      { from: m.from },
+    );
   }
 
   /**
@@ -230,7 +286,17 @@ export class WhatsappInboundService {
         return true;
       }
 
-      const envio = await this.whatsapp.send(contactId, respuesta);
+      /*
+       * El envío declara POR QUÉ sale: la medición cobra distinto una
+       * respuesta dentro de la ventana de 24 h que un aviso de mañana, y
+       * sin esto todo se cobraría al precio más bajo — el error que no se
+       * nota hasta cerrar el mes.
+       */
+      const envio = await this.whatsapp.send(contactId, respuesta, {
+        motivo: 'respuesta',
+        categoria: 'servicio',
+        agente: quienContesta.agente,
+      });
       await this.brain.appendInteraction({
         contactId,
         channel: 'whatsapp',
@@ -244,6 +310,16 @@ export class WhatsappInboundService {
         agente: quienContesta.agente,
         collectedInfo: envio.providerId ? { providerId: envio.providerId } : undefined,
       });
+
+      /*
+       * Y queda inscrito para el seguimiento, con el reloj desde ESTA
+       * respuesta: el mensaje entrante de arriba cortó la inscripción
+       * anterior, así que el seguimiento solo sale si la persona se queda
+       * callada a partir de ahora.
+       */
+      await this.seguimiento
+        .inscribirAutomaticas(contactId, quienContesta.agente)
+        .catch((err) => this.logger.warn(`No se pudo inscribir el seguimiento: ${(err as Error).message}`));
 
       this.logger.log(`← ${origen} de ${m.from}: "${m.text}" → el agente respondió`);
       this.webhookLog.push(
@@ -315,7 +391,11 @@ export class WhatsappInboundService {
       await this.derivacion.proponer(contactId, decision.agente, decision.tema);
 
       const pregunta = `Eso lo atiende ${nombre}. ¿Querés que te pase con ese agente?`;
-      const envio = await this.whatsapp.send(contactId, pregunta);
+      const envio = await this.whatsapp.send(contactId, pregunta, {
+        motivo: 'traspaso',
+        categoria: 'servicio',
+        agente: actual,
+      });
       await this.brain.appendInteraction({
         contactId,
         channel: 'whatsapp',

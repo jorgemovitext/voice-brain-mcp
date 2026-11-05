@@ -6,6 +6,7 @@ import { AgenteActivoService } from '../shared/agente-activo.service';
 import { BrainService } from '../brain/brain.service';
 import { FollowupService } from '../channels/followup.service';
 import { DemoService } from './demo.service';
+import { Requiere } from '../auth/permisos.guard';
 
 const triggerSchema = z.object({
   contactId: z.string().min(1),
@@ -33,12 +34,14 @@ export class DemoController {
     private readonly activo: AgenteActivoService,
   ) {}
 
+  @Requiere('conversar')
   @Post('demo/run')
   run() {
     return this.demo.run();
   }
 
   /** Práctica: llamada entrante + WhatsApp entrante del mismo número. */
+  @Requiere('conversar')
   @Post('demo/run-inbound')
   runInbound() {
     return this.demo.runInbound();
@@ -50,6 +53,7 @@ export class DemoController {
   }
 
   /** Botón "Llamar (demo)" — dispara addLead para un contacto existente. */
+  @Requiere('conversar')
   @Post('calls/trigger')
   trigger(@Body() body: unknown) {
     const parsed = triggerSchema.safeParse(body ?? {});
@@ -63,6 +67,7 @@ export class DemoController {
    * el hilo para el equipo y no sale por ningún canal. Se firma con el
    * teléfono de la sesión para saber quién la dejó.
    */
+  @Requiere('conversar')
   @Post('contacts/:id/notes')
   async addNote(
     @Param('id') id: string,
@@ -75,6 +80,7 @@ export class DemoController {
   }
 
   /** Botón "Enviar seguimiento por WhatsApp" de la vista de contexto. */
+  @Requiere('conversar')
   @Post('contacts/:id/followup')
   sendFollowup(@Param('id') id: string, @Body() body: unknown) {
     const parsed = followupSchema.safeParse(body ?? {});
@@ -95,6 +101,7 @@ export class DemoController {
    * nunca nos escribió a él, el proveedor lo rechaza y el motivo se muestra
    * tal cual en la consola.
    */
+  @Requiere('conversar')
   @Post('contacts/:id/mensaje')
   async sendMessage(
     @Param('id') id: string,

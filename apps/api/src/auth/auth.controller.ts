@@ -5,6 +5,7 @@ import {
   Delete,
   Get,
   Param,
+  Patch,
   Post,
   Req,
   Res,
@@ -16,6 +17,8 @@ import { z } from 'zod';
 import { AuthService } from './auth.service';
 import { InvitacionesService } from './invitaciones.service';
 import { SESSION_COOKIE } from './auth.guard';
+import { DESCRIPCION_ROL, matriz, NOMBRE_ROL, ROLES } from './permisos';
+import { Requiere } from './permisos.guard';
 import { Public } from './public.decorator';
 import { RateLimitGuard } from './rate-limit.guard';
 
@@ -86,6 +89,8 @@ const otpSchema = z.object({
 });
 const resendSchema = z.object({ username: identificadorSchema });
 const setUsernameSchema = z.object({ username: usernameSchema, password: z.string().min(1).max(200) });
+/** Solo los dos roles que existen: un valor libre acá sería un rol inventado. */
+const rolSchema = z.object({ rol: z.enum(['admin', 'usuario']) });
 
 @Controller('api/auth')
 export class AuthController {
@@ -149,6 +154,7 @@ export class AuthController {
     return this.auth.equipo(req.user?.org);
   }
 
+  @Requiere('equipo:editar')
   @Delete('equipo/:id')
   async quitarDelEquipo(
     @Param('id') id: string,
@@ -156,6 +162,31 @@ export class AuthController {
   ) {
     await this.auth.eliminarCuenta(id, req.user?.sub ?? '');
     return { ok: true };
+  }
+
+  /**
+   * Sube o baja a alguien del equipo. Solo hay dos roles: administrador y
+   * usuario (ver `permisos.ts`).
+   */
+  @Requiere('equipo:editar')
+  @Patch('equipo/:id/rol')
+  async cambiarRol(
+    @Param('id') id: string,
+    @Body() body: unknown,
+    @Req() req: FastifyRequest & { user?: { sub: string; org?: string } },
+  ) {
+    const { rol } = this.parse(rolSchema, body);
+    // La organización sale del TOKEN: con el id en la URL y la empresa en el
+    // cuerpo, un administrador podría ascender a alguien en la cuenta de otro
+    // cliente.
+    await this.auth.cambiarRol(id, rol, req.user?.sub ?? '', req.user?.org);
+    return { ok: true };
+  }
+
+  /** La matriz de permisos, para que la pantalla de equipo la explique. */
+  @Get('permisos')
+  permisos() {
+    return { roles: ROLES.map((r) => ({ id: r, nombre: NOMBRE_ROL[r], descripcion: DESCRIPCION_ROL[r] })), matriz: matriz() };
   }
 
   @Public()
@@ -201,6 +232,7 @@ export class AuthController {
    * Fija el usuario de acceso de la cuenta con sesión. Protegido por el guard
    * global y, además, por la contraseña actual (ver AuthService.setUsername).
    */
+  @Requiere('cuenta-propia')
   @Post('username')
   setUsername(@Body() body: unknown, @Req() req: FastifyRequest & { user?: { sub: string } }) {
     const { username, password } = this.parse(setUsernameSchema, body);
@@ -214,6 +246,7 @@ export class AuthController {
   }
 
   /** Cierra la sesión en TODOS los dispositivos, no solo en este navegador. */
+  @Requiere('cuenta-propia')
   @Post('cerrar-todo')
   async cerrarTodo(
     @Req() req: FastifyRequest & { user?: { sub: string } },
@@ -224,6 +257,7 @@ export class AuthController {
     return { ok: true };
   }
 
+  @Requiere('cuenta-propia')
   @Post('logout')
   logout(@Res({ passthrough: true }) res: FastifyReply) {
     res.clearCookie(SESSION_COOKIE, { path: '/' });

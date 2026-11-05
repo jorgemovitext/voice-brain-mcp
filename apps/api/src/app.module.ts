@@ -8,10 +8,12 @@ import { HubspotModule } from './hubspot/hubspot.module';
 import { ChannelsModule } from './channels/channels.module';
 import { AgentesModule } from './agentes/agentes.module';
 import { ElevenLabsModule } from './elevenlabs/elevenlabs.module';
+import { FacturacionModule } from './facturacion/facturacion.module';
 import { DemoModule } from './demo/demo.module';
 import { IntegrationsModule } from './integrations/integrations.module';
 import { LineasModule } from './lineas/lineas.module';
 import { NlpearlModule } from './nlpearl/nlpearl.module';
+import { SeguimientoModule } from './seguimiento/seguimiento.module';
 import { DatabaseModule } from './shared/database.module';
 import { OrgInterceptor } from './shared/org.interceptor';
 import { SharedModule } from './shared/flow-log.service';
@@ -33,12 +35,14 @@ import { SharedModule } from './shared/flow-log.service';
     AuthModule,
     BrainModule,
     IntegrationsModule,
+    FacturacionModule,
     HubspotModule,
     ChannelsModule,
     ElevenLabsModule,
     AgentesModule,
     LineasModule,
     NlpearlModule,
+    SeguimientoModule,
     DemoModule,
   ],
   providers: [

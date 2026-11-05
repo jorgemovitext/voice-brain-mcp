@@ -4,6 +4,7 @@ import { promises as fs } from 'fs';
 import { dirname } from 'path';
 import { Pool } from 'pg';
 import { ensureSchema, PG_POOL } from '../shared/database.module';
+import { Rol } from './permisos';
 
 export interface AuthUser {
   id: string;
@@ -33,9 +34,9 @@ export interface AuthUser {
   /**
    * Qué puede tocar. El primero de una empresa es su administrador: alguien
    * tiene que poder invitar y configurar, y si nadie pudiera, la cuenta
-   * nace muerta.
+   * nace muerta. Los demás entran como usuarios — ver `permisos.ts`.
    */
-  rol?: 'admin' | 'supervisor' | 'operador';
+  rol?: Rol;
 }
 
 export interface UsersRepository {
@@ -81,7 +82,9 @@ export class PgUsersRepository implements UsersRepository {
       createdAt: iso(r['created_at']) ?? new Date().toISOString(),
       tokensDesde: iso(r['tokens_desde']),
       organizacionId: (r['organizacion_id'] as string | null) ?? undefined,
-      rol: (r['rol'] as AuthUser['rol'] | null) ?? 'operador',
+      // Un rol que no reconocemos cae en el más limitado, nunca en admin:
+      // una fila vieja o escrita a mano no puede ascender a nadie.
+      rol: r['rol'] === 'admin' ? 'admin' : 'usuario',
     };
   }
 
@@ -141,7 +144,7 @@ export class PgUsersRepository implements UsersRepository {
         user.createdAt,
         user.tokensDesde ?? null,
         user.organizacionId ?? null,
-        user.rol ?? 'operador',
+        user.rol ?? 'usuario',
       ],
     );
     return user;
