@@ -1,6 +1,7 @@
 import { Inject, Injectable, Logger, Optional } from '@nestjs/common';
 import { digitosDe } from './telefono';
 import { Pool } from 'pg';
+import { orgActual } from '../shared/contexto-org';
 import { ensureSchema, PG_POOL } from '../shared/database.module';
 import { BrainRepository } from './brain.repository';
 import { Contact, Interaction, Signal } from './types';
@@ -18,6 +19,24 @@ export class PgBrainRepository implements BrainRepository {
   constructor(@Optional() @Inject(PG_POOL) private readonly pool: Pool | null) {}
 
   /** El módulo solo selecciona este repo cuando hay pool; el assert es defensa. */
+  /**
+   * La organización de la petición en curso.
+   *
+   * Si no hay contexto devuelve una llave IMPOSIBLE en vez de `undefined`.
+   * Es la decisión central del aislamiento: con `undefined`, un
+   * `WHERE organizacion_id = NULL` no falla — devuelve cero filas en las
+   * lecturas, pero un bug futuro que arme la consulta de otra forma podría
+   * devolverlas todas. Con una llave que no existe, el peor caso posible
+   * sigue siendo «no se ve nada», nunca «se ve lo de todos».
+   *
+   * Pasa cuando algo corre fuera de una petición HTTP: el servidor MCP, un
+   * cron, un script. Esos caminos deben resolver la organización por el
+   * recurso con el que trabajan, no heredarla.
+   */
+  private org(): string {
+    return orgActual() ?? 'sin-organizacion';
+  }
+
   private async db(): Promise<Pool> {
     if (!this.pool) throw new Error('PgBrainRepository sin DATABASE_URL configurada');
     await ensureSchema(this.pool);
@@ -38,13 +57,19 @@ export class PgBrainRepository implements BrainRepository {
 
   async listContacts(): Promise<Contact[]> {
     const db = await this.db();
-    const res = await db.query('SELECT * FROM contacts ORDER BY display_name NULLS LAST, id');
+    const res = await db.query(
+      'SELECT * FROM contacts WHERE organizacion_id = $1 ORDER BY display_name NULLS LAST, id',
+      [this.org()],
+    );
     return res.rows.map((r) => this.rowToContact(r));
   }
 
   async getContact(id: string): Promise<Contact | undefined> {
     const db = await this.db();
-    const res = await db.query('SELECT * FROM contacts WHERE id = $1', [id]);
+    const res = await db.query('SELECT * FROM contacts WHERE id = $1 AND organizacion_id = $2', [
+      id,
+      this.org(),
+    ]);
     return res.rows[0] ? this.rowToContact(res.rows[0]) : undefined;
   }
 
@@ -52,9 +77,10 @@ export class PgBrainRepository implements BrainRepository {
     const db = await this.db();
 
     // Camino rápido: el formato tal cual vino. Cubre la enorme mayoría.
-    const exacto = await db.query('SELECT * FROM contacts WHERE phones @> $1::jsonb LIMIT 1', [
-      JSON.stringify([phone]),
-    ]);
+    const exacto = await db.query(
+      'SELECT * FROM contacts WHERE phones @> $1::jsonb AND organizacion_id = $2 LIMIT 1',
+      [JSON.stringify([phone]), this.org()],
+    );
     if (exacto.rows[0]) return this.rowToContact(exacto.rows[0]);
 
     /*
@@ -72,12 +98,13 @@ export class PgBrainRepository implements BrainRepository {
     try {
       const res = await db.query(
         `SELECT * FROM contacts
-           WHERE EXISTS (
-             SELECT 1 FROM jsonb_array_elements_text(phones) AS p
-              WHERE regexp_replace(p, '\\D', '', 'g') = $1
-           )
+           WHERE organizacion_id = $2
+             AND EXISTS (
+               SELECT 1 FROM jsonb_array_elements_text(phones) AS p
+                WHERE regexp_replace(p, '\\D', '', 'g') = $1
+             )
            LIMIT 1`,
-        [digitos],
+        [digitos, this.org()],
       );
       return res.rows[0] ? this.rowToContact(res.rows[0]) : undefined;
     } catch (err) {
@@ -88,29 +115,31 @@ export class PgBrainRepository implements BrainRepository {
 
   async findContactByExternalId(system: string, externalId: string): Promise<Contact | undefined> {
     const db = await this.db();
-    const res = await db.query('SELECT * FROM contacts WHERE external_ids->>$1 = $2 LIMIT 1', [
-      system,
-      externalId,
-    ]);
+    const res = await db.query(
+      'SELECT * FROM contacts WHERE external_ids->>$1 = $2 AND organizacion_id = $3 LIMIT 1',
+      [system, externalId, this.org()],
+    );
     return res.rows[0] ? this.rowToContact(res.rows[0]) : undefined;
   }
 
   async saveContact(contact: Contact): Promise<Contact> {
     const db = await this.db();
     await db.query(
-      `INSERT INTO contacts (id, display_name, phones, external_ids, kycm_status)
-       VALUES ($1, $2, $3::jsonb, $4::jsonb, $5)
+      `INSERT INTO contacts (id, display_name, phones, external_ids, kycm_status, organizacion_id)
+       VALUES ($1, $2, $3::jsonb, $4::jsonb, $5, $6)
        ON CONFLICT (id) DO UPDATE SET
          display_name = EXCLUDED.display_name,
          phones = EXCLUDED.phones,
          external_ids = EXCLUDED.external_ids,
-         kycm_status = EXCLUDED.kycm_status`,
+         kycm_status = EXCLUDED.kycm_status
+       WHERE contacts.organizacion_id = EXCLUDED.organizacion_id`,
       [
         contact.id,
         contact.displayName ?? null,
         JSON.stringify(contact.phones ?? []),
         JSON.stringify(contact.externalIds ?? {}),
         contact.kycmStatus ?? null,
+        this.org(),
       ],
     );
     return contact;
@@ -142,14 +171,23 @@ export class PgBrainRepository implements BrainRepository {
   async listInteractions(contactId?: string): Promise<Interaction[]> {
     const db = await this.db();
     const res = contactId
-      ? await db.query('SELECT * FROM interactions WHERE contact_id = $1 ORDER BY occurred_at ASC', [contactId])
-      : await db.query('SELECT * FROM interactions ORDER BY occurred_at ASC');
+      ? await db.query(
+          'SELECT * FROM interactions WHERE contact_id = $1 AND organizacion_id = $2 ORDER BY occurred_at ASC',
+          [contactId, this.org()],
+        )
+      : await db.query(
+          'SELECT * FROM interactions WHERE organizacion_id = $1 ORDER BY occurred_at ASC',
+          [this.org()],
+        );
     return res.rows.map((r) => this.rowToInteraction(r));
   }
 
   async findInteraction(id: string): Promise<Interaction | undefined> {
     const db = await this.db();
-    const res = await db.query('SELECT * FROM interactions WHERE id = $1', [id]);
+    const res = await db.query('SELECT * FROM interactions WHERE id = $1 AND organizacion_id = $2', [
+      id,
+      this.org(),
+    ]);
     return res.rows[0] ? this.rowToInteraction(res.rows[0]) : undefined;
   }
 
@@ -183,8 +221,8 @@ export class PgBrainRepository implements BrainRepository {
   private async guardar(interaction: Interaction, alConflicto: string): Promise<Interaction> {
     const db = await this.db();
     await db.query(
-      `INSERT INTO interactions (id, contact_id, channel, direction, occurred_at, summary, transcript, sentiment, collected_info, source, handled_by, agente, attachment, attachment_url, accion, ficha)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9::jsonb, $10, $11, $12, $13, $14, $15::jsonb, $16::jsonb)
+      `INSERT INTO interactions (id, contact_id, channel, direction, occurred_at, summary, transcript, sentiment, collected_info, source, handled_by, agente, attachment, attachment_url, accion, ficha, organizacion_id)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9::jsonb, $10, $11, $12, $13, $14, $15::jsonb, $16::jsonb, $17)
        ON CONFLICT (id) ${alConflicto}`,
       [
         interaction.id,
@@ -203,6 +241,7 @@ export class PgBrainRepository implements BrainRepository {
         interaction.attachmentUrl ?? null,
         interaction.accion ? JSON.stringify(interaction.accion) : null,
         interaction.ficha ? JSON.stringify(interaction.ficha) : null,
+        this.org(),
       ],
     );
     return interaction;
@@ -225,16 +264,19 @@ export class PgBrainRepository implements BrainRepository {
   async listSignals(contactId?: string): Promise<Signal[]> {
     const db = await this.db();
     const res = contactId
-      ? await db.query('SELECT * FROM signals WHERE contact_id = $1', [contactId])
-      : await db.query('SELECT * FROM signals');
+      ? await db.query('SELECT * FROM signals WHERE contact_id = $1 AND organizacion_id = $2', [
+          contactId,
+          this.org(),
+        ])
+      : await db.query('SELECT * FROM signals WHERE organizacion_id = $1', [this.org()]);
     return res.rows.map((r) => this.rowToSignal(r));
   }
 
   async saveSignal(signal: Signal): Promise<Signal> {
     const db = await this.db();
     await db.query(
-      `INSERT INTO signals (id, contact_id, type, amount, due_date, status, body)
-       VALUES ($1, $2, $3, $4, $5, $6, $7)
+      `INSERT INTO signals (id, contact_id, type, amount, due_date, status, body, organizacion_id)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
        ON CONFLICT (id) DO UPDATE SET
          amount = EXCLUDED.amount,
          due_date = EXCLUDED.due_date,
@@ -248,6 +290,7 @@ export class PgBrainRepository implements BrainRepository {
         signal.dueDate ?? null,
         signal.status ?? null,
         signal.text ?? null,
+        this.org(),
       ],
     );
     return signal;
@@ -266,7 +309,10 @@ export class PgBrainRepository implements BrainRepository {
       await cliente.query('BEGIN');
       await cliente.query('UPDATE interactions SET contact_id = $1 WHERE contact_id = ANY($2)', [keepId, dropIds]);
       await cliente.query('UPDATE signals SET contact_id = $1 WHERE contact_id = ANY($2)', [keepId, dropIds]);
-      await cliente.query('DELETE FROM contacts WHERE id = ANY($1)', [dropIds]);
+      await cliente.query('DELETE FROM contacts WHERE id = ANY($1) AND organizacion_id = $2', [
+        dropIds,
+        this.org(),
+      ]);
       await cliente.query('COMMIT');
     } catch (err) {
       await cliente.query('ROLLBACK').catch(() => undefined);

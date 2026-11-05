@@ -69,9 +69,11 @@ export function ensureSchema(pool: Pool): Promise<void> {
         -- descartaba en silencio y el riel se quedaba con el dato viejo.
         ALTER TABLE interactions ADD COLUMN IF NOT EXISTS ficha jsonb;
 
-        -- Invitaciones: la ÚNICA puerta de alta a la consola.
+        -- Invitaciones: suman gente a TU organización, no a la consola.
         -- Se guarda el hash del código, nunca el código: una filtración de
         -- esta tabla no debe habilitar a nadie a entrar.
+        -- Con el alta pública, dejan de ser la puerta y pasan a ser lo que
+        -- son en cualquier SaaS: sumar un colega a tu espacio.
         CREATE TABLE IF NOT EXISTS invitations (
           id text PRIMARY KEY,
           code_hash text NOT NULL,
@@ -83,6 +85,7 @@ export function ensureSchema(pool: Pool): Promise<void> {
           usada timestamptz,
           usada_por text
         );
+        ALTER TABLE invitations ADD COLUMN IF NOT EXISTS organizacion_id text;
 
         -- Una LÍNEA: el número de WhatsApp de un cliente y el agente que lo
         -- atiende. Es la unidad de Hive: cada cliente configura un número por
@@ -157,6 +160,55 @@ export function ensureSchema(pool: Pool): Promise<void> {
         );
         CREATE INDEX IF NOT EXISTS idx_nlpearl_activity_pearl ON nlpearl_activity (pearl_id, occurred_at DESC);
         CREATE INDEX IF NOT EXISTS idx_nlpearl_activity_phone ON nlpearl_activity (phone);
+
+        -- Una ORGANIZACIÓN: el negocio dueño de todo lo que ve una cuenta.
+        -- Es lo que hace seguro el registro público: cada quien se registra
+        -- y recibe SU espacio, vacío, sin ver el de nadie más.
+        CREATE TABLE IF NOT EXISTS organizaciones (
+          id text PRIMARY KEY,
+          nombre text NOT NULL,
+          plan text NOT NULL DEFAULT 'prueba',
+          creada timestamptz NOT NULL DEFAULT now()
+        );
+
+        -- La organización de cada fila. Sin esto, abrir el registro sería
+        -- entregarle a cualquiera los contactos y las conversaciones de los
+        -- ciudadanos de otro cliente.
+        ALTER TABLE users ADD COLUMN IF NOT EXISTS organizacion_id text;
+        ALTER TABLE contacts ADD COLUMN IF NOT EXISTS organizacion_id text;
+        ALTER TABLE interactions ADD COLUMN IF NOT EXISTS organizacion_id text;
+        ALTER TABLE signals ADD COLUMN IF NOT EXISTS organizacion_id text;
+        ALTER TABLE lineas ADD COLUMN IF NOT EXISTS organizacion_id text;
+
+        -- Los filtros son por organización: sin índice, cada listado de la
+        -- consola recorre la tabla entera.
+        CREATE INDEX IF NOT EXISTS idx_contacts_org ON contacts (organizacion_id);
+        CREATE INDEX IF NOT EXISTS idx_interactions_org ON interactions (organizacion_id, occurred_at DESC);
+        CREATE INDEX IF NOT EXISTS idx_signals_org ON signals (organizacion_id);
+        CREATE INDEX IF NOT EXISTS idx_users_org ON users (organizacion_id);
+
+        -- Qué organización es dueña de cada agente del proveedor. Los agentes
+        -- viven en ElevenLabs, que no sabe de organizaciones: sin esta tabla,
+        -- una cuenta nueva vería los agentes de todos los clientes.
+        CREATE TABLE IF NOT EXISTS agentes_org (
+          agente text PRIMARY KEY,
+          organizacion_id text NOT NULL,
+          creado timestamptz NOT NULL DEFAULT now()
+        );
+        CREATE INDEX IF NOT EXISTS idx_agentes_org ON agentes_org (organizacion_id);
+
+        -- La historia anterior a las organizaciones tiene dueño explícito.
+        -- En NULL se escondería de todos y parecería perdida; visible para
+        -- cualquiera sería la fuga que esto evita.
+        INSERT INTO organizaciones (id, nombre, plan)
+          VALUES ('org-movitext', 'Movitext', 'interno')
+          ON CONFLICT (id) DO NOTHING;
+        UPDATE users SET organizacion_id = 'org-movitext' WHERE organizacion_id IS NULL;
+        UPDATE contacts SET organizacion_id = 'org-movitext' WHERE organizacion_id IS NULL;
+        UPDATE interactions SET organizacion_id = 'org-movitext' WHERE organizacion_id IS NULL;
+        UPDATE signals SET organizacion_id = 'org-movitext' WHERE organizacion_id IS NULL;
+        UPDATE lineas SET organizacion_id = 'org-movitext' WHERE organizacion_id IS NULL;
+
         `,
       )
       .then(() => undefined);

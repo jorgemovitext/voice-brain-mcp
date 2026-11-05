@@ -40,8 +40,8 @@ type Paso = 'credenciales' | 'otp';
             Sesión cifrada y firmada
           </li>
           <li>
-            <i><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><path d="m3.5 7.5 8.5 6 8.5-6"/></svg></i>
-            El alta es solo por invitación
+            <i><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3 4 6v6c0 4.5 3.2 8.3 8 9 4.8-.7 8-4.5 8-9V6z"/><path d="m9 12 2 2 4-4"/></svg></i>
+            Cada empresa ve solo lo suyo
           </li>
           <li>
             <i><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg></i>
@@ -95,20 +95,28 @@ type Paso = 'credenciales' | 'otp';
                   <span class="campo__ayuda">Solo para recuperar el acceso. No es tu usuario.</span>
                 </label>
 
-                @if (conInvitacion()) {
+                <!-- La empresa, salvo que venga con invitación: en ese caso
+                     entra a la de quien lo invitó y no crea una nueva. -->
+                @if (!conCodigo()) {
+                  <label class="campo">
+                    <span class="campo__rotulo">Tu empresa</span>
+                    <input class="campo__input" placeholder="Clínica San Jorge"
+                           [value]="empresa()" (input)="empresa.set(asValue($event))" />
+                    <span class="campo__ayuda">Tu espacio arranca vacío. Después sumás a tu equipo.</span>
+                  </label>
+                } @else {
                   <label class="campo">
                     <span class="campo__rotulo">Código de invitación</span>
                     <input class="campo__input campo__input--codigo" placeholder="ABCD-EFGH-JKLM"
                            autocapitalize="characters" spellcheck="false"
                            [value]="invitacion()" (input)="invitacion.set(asValue($event))" />
-                    <span class="campo__ayuda">Te lo pasa alguien del equipo desde Equipo → Invitar.</span>
+                    <span class="campo__ayuda">Vas a entrar a la empresa de quien te invitó.</span>
                   </label>
-                } @else {
-                  <p class="primera">
-                    <strong>Primera cuenta de la consola.</strong>
-                    Se crea sin invitación, y desde ella se invita al resto.
-                  </p>
                 }
+
+                <button class="campo__alternar" type="button" (click)="conCodigo.set(!conCodigo())">
+                  {{ conCodigo() ? '‹ Prefiero crear mi propia empresa' : '¿Te invitó un colega? Usá tu código ›' }}
+                </button>
               }
 
               <label class="campo">
@@ -200,17 +208,16 @@ export class LoginPage {
   readonly username = signal('');
   readonly phone = signal('');
   readonly invitacion = signal('');
-  /** Si ya hay alguien registrado, el alta exige código. */
-  readonly conInvitacion = signal(true);
-
-  constructor() {
-    // Por defecto SÍ se pide: si la consulta falla, el formulario pide el
-    // código de más y no de menos.
-    void this.auth
-      .requiereInvitacion()
-      .then((hace) => this.conInvitacion.set(hace))
-      .catch(() => this.conInvitacion.set(true));
-  }
+  readonly empresa = signal('');
+  /**
+   * El alta por invitación es el camino SECUNDARIO.
+   *
+   * Lo normal es que alguien llegue a probar el producto y cree su empresa;
+   * sumarse a una que ya existe es el caso del colega, y arranca oculto
+   * detrás de un enlace para no hacerle llenar un campo de más al que viene
+   * de la calle.
+   */
+  readonly conCodigo = signal(false);
   readonly password = signal('');
   readonly code = signal('');
   readonly verClave = signal(false);
@@ -283,6 +290,7 @@ export class LoginPage {
           this.phone().trim(),
           this.name().trim() || undefined,
           this.invitacion().trim() || undefined,
+          this.empresa().trim() || undefined,
         );
         await this.router.navigate(['/home']);
         return;

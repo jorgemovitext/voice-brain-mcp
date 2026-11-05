@@ -8,7 +8,7 @@
     "start": "nest start",
     "start:dev": "nest start --watch",
     "mcp": "ts-node -P tsconfig.json src/mcp/mcp.bootstrap.ts",
-    "test": "jest"
+    "test": "NODE_OPTIONS=--experimental-vm-modules jest"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.120.0",

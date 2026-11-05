@@ -42,6 +42,7 @@ export class AuthService {
     phone: string,
     name?: string,
     invitacion?: string,
+    empresa?: string,
   ): Promise<void> {
     const { user } = await firstValueFrom(
       this.http.post<{ user: SessionUser }>('/api/auth/register', {
@@ -50,23 +51,10 @@ export class AuthService {
         phone,
         name,
         invitacion,
+        empresa,
       }),
     );
     this.user.set(user);
-  }
-
-  /**
-   * ¿Esta instalación ya tiene dueño?
-   *
-   * La pantalla de alta lo pregunta ANTES de dibujar el formulario: pedir un
-   * código que no hace falta —o no pedir el que sí— es la diferencia entre
-   * que alguien pueda registrarse o se quede trabado sin saber por qué.
-   */
-  async requiereInvitacion(): Promise<boolean> {
-    const r = await firstValueFrom(
-      this.http.get<{ requiereInvitacion: boolean }>('/api/auth/alta'),
-    );
-    return r.requiereInvitacion;
   }
 
   async login(username: string, password: string): Promise<{ otpRequired: boolean }> {

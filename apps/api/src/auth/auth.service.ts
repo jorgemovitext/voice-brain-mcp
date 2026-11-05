@@ -4,6 +4,7 @@ import { JwtService } from '@nestjs/jwt';
 import { createHash, randomBytes, randomInt, randomUUID, scrypt as scryptCb, timingSafeEqual } from 'crypto';
 import { promisify } from 'util';
 import { InvitacionesService } from './invitaciones.service';
+import { OrganizacionesService } from './organizaciones.service';
 import { OtpSender } from './otp.sender';
 import { AuthUser, USERS_REPOSITORY, UsersRepository } from './users.repository';
 
@@ -42,6 +43,7 @@ export class AuthService {
   constructor(
     @Inject(USERS_REPOSITORY) private readonly users: UsersRepository,
     private readonly invitaciones: InvitacionesService,
+    private readonly organizaciones: OrganizacionesService,
     private readonly jwt: JwtService,
     private readonly otpSender: OtpSender,
     config: ConfigService,
@@ -75,12 +77,18 @@ export class AuthService {
    * verificar se crea/actualiza y se envía OTP; si ya están tomados, nada.
    */
   /**
-   * Alta de una cuenta de consola. SOLO con invitación.
+   * Alta de una cuenta. Pública: Hive se vende a cualquiera.
    *
-   * La excepción es el arranque: con la tabla vacía, la primera cuenta se
-   * crea sin código, porque si no no habría forma de crear la primera. Esa
-   * puerta se cierra sola en cuanto existe un usuario — no es una bandera de
-   * configuración que alguien pueda dejar encendida sin darse cuenta.
+   * Lo que hace segura el alta abierta NO es una puerta, es el aislamiento:
+   * quien se registra crea SU organización y la estrena vacía. Nunca ve un
+   * contacto, una conversación ni un agente de otro. Sin eso, registrarse
+   * sería leer los datos de los ciudadanos de otro cliente — el agujero que
+   * ya estuvo abierto una vez y que esto cierra de raíz en vez de con un
+   * código de invitación.
+   *
+   * Con `invitacion`, en cambio, NO se crea organización: la persona entra a
+   * la de quien la invitó. Es el camino para sumar un colega, que es lo que
+   * una invitación significa en cualquier SaaS.
    */
   async register(
     username: string,
@@ -88,13 +96,8 @@ export class AuthService {
     phone: string,
     name?: string,
     invitacion?: string,
+    empresa?: string,
   ): Promise<{ token: string; user: SessionUser }> {
-    const arranque = (await this.users.contar()) === 0;
-    if (!arranque && !invitacion?.trim()) {
-      throw new UnauthorizedException(
-        'Para crear una cuenta hace falta una invitación. Pedísela a alguien del equipo.',
-      );
-    }
     const porUsuario = await this.users.findByUsername(username);
     const porTelefono = await this.users.findByPhone(phone);
 
@@ -129,30 +132,30 @@ export class AuthService {
      * el registro se abre a cualquiera, esto se revierte.
      */
     /*
-     * `verified` lo da la INVITACIÓN, no el OTP.
-     *
-     * El OTP viaja por WhatsApp y WhatsApp solo entrega texto libre dentro de
-     * la ventana de 24 h: exigirlo para entrar deja a un operador afuera por
-     * una regla de Meta, y ya pasó. Lo que acredita el alta es que alguien de
-     * adentro la autorizó; el OTP queda para recuperar el acceso, donde su
-     * demora no bloquea a nadie.
+     * `verified` en true sin OTP: el OTP viaja por WhatsApp y WhatsApp solo
+     * entrega texto libre dentro de la ventana de 24 h. Exigirlo para entrar
+     * deja a alguien afuera por una regla de Meta —ya pasó— y para un alta
+     * pública sería perder a la mitad de los que prueban el producto. Queda
+     * para recuperar el acceso, donde su demora no bloquea a nadie.
      */
     user.verified = true;
     user.failedLogins = 0;
 
     /*
-     * El canje va ANTES de guardar, y no después.
-     *
-     * Guardando primero, un código inválido dejaba la cuenta ya creada y
-     * verificada: la petición devolvía error, pero la cuenta existía y
-     * entraba por el login. O sea, la invitación no filtraba nada. Lo
-     * encontró el test del código inventado, no la lectura del código.
-     *
-     * El canje es atómico (UPDATE condicional): si dos personas usan el
-     * mismo código a la vez, solo una se lo lleva.
+     * Con código entra a la organización de quien invitó; sin código, crea
+     * la suya. El canje va ANTES de guardar: al revés, un código inválido
+     * devolvía error pero dejaba la cuenta creada y lista para entrar por el
+     * login — o sea, no filtraba nada. Lo encontró un test, no la lectura.
      */
-    if (!arranque) await this.invitaciones.canjear(invitacion!, user.id);
-    else this.logger.warn(`Alta de ARRANQUE: ${username} es la primera cuenta de la consola`);
+    if (invitacion?.trim()) {
+      const destino = await this.invitaciones.canjear(invitacion.trim(), user.id);
+      user.organizacionId = destino.organizacion;
+    } else {
+      user.organizacionId = await this.organizaciones.crear(
+        empresa?.trim() || name?.trim() || username,
+      );
+      this.logger.log(`Alta nueva: ${username} estrena la organización ${user.organizacionId}`);
+    }
 
     await this.users.save(user);
 
@@ -162,7 +165,11 @@ export class AuthService {
       phone: user.phone,
       name: user.name,
     };
-    const token = await this.jwt.signAsync({ sub: user.id, username: user.username });
+    const token = await this.jwt.signAsync({
+      sub: user.id,
+      username: user.username,
+      org: user.organizacionId,
+    });
     return { token, user: sessionUser };
   }
 
@@ -188,8 +195,8 @@ export class AuthService {
   }
 
   /** El equipo con acceso a la consola. Nunca sale un hash de acá. */
-  async equipo(): Promise<Array<{ id: string; username?: string; name?: string; phone: string; creada: string }>> {
-    const todos = await this.users.listar();
+  async equipo(org?: string): Promise<Array<{ id: string; username?: string; name?: string; phone: string; creada: string }>> {
+    const todos = await this.users.listar(org);
     return todos.map((u) => ({
       id: u.id,
       username: u.username,
@@ -285,7 +292,11 @@ export class AuthService {
       phone: user.phone,
       name: user.name,
     };
-    const token = await this.jwt.signAsync({ sub: user.id, username: user.username });
+    const token = await this.jwt.signAsync({
+      sub: user.id,
+      username: user.username,
+      org: user.organizacionId,
+    });
     return { otpRequired: false, token, user: sessionUser };
   }
 

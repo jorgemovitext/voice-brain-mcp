@@ -4,20 +4,16 @@ import { Pool } from 'pg';
 import { ensureSchema, PG_POOL } from '../shared/database.module';
 
 /**
- * Invitaciones: la única puerta de alta a la consola.
+ * Invitaciones: sumar un colega a TU organización.
  *
- * Hasta acá, `register` era público y entregaba sesión al instante. Eso no
- * era «un registro simple»: era una consola con datos de ciudadanos —
- * teléfonos, reportes, transcripciones— abierta a cualquiera que supiera la
- * URL. Se verificó contra producción: una cuenta creada desde afuera leía
- * /api/contacts sin más.
+ * Ya no son la puerta de la consola —el alta es pública y cada quien crea su
+ * propia empresa—, sino lo que significan en cualquier SaaS: traer gente al
+ * espacio que ya tenés. Una empresa tiene varios usuarios y todos ven lo
+ * mismo; eso es lo que la invitación otorga.
  *
- * El control es la INVITACIÓN y no el OTP, a propósito. El OTP viaja por
- * WhatsApp y WhatsApp solo entrega texto libre dentro de la ventana de 24 h:
- * exigirlo para entrar deja a un operador afuera por una regla de Meta, que
- * es exactamente lo que ya pasó. La invitación prueba que alguien de adentro
- * autorizó el alta; la contraseña prueba quién sos. El OTP queda para
- * recuperar el acceso, que es donde su demora no bloquea a nadie.
+ * Por eso la organización viaja en la invitación y no se elige al
+ * registrarse: quien tiene el código entra a la empresa de quien lo generó,
+ * y no a una que pueda nombrar él.
  */
 
 /** Horas de vida de una invitación sin usar. */
@@ -63,7 +59,12 @@ export class InvitacionesService {
    * No se puede volver a leer: solo guardamos su hash. Si se pierde, se
    * genera otra — es más barato que guardar códigos en claro.
    */
-  async crear(input: { phone?: string; nota?: string; creadaPor: string }): Promise<{ codigo: string; invitacion: Invitacion }> {
+  async crear(input: {
+    phone?: string;
+    nota?: string;
+    creadaPor: string;
+    organizacion: string;
+  }): Promise<{ codigo: string; invitacion: Invitacion }> {
     const pool = this.exigirBase();
     await ensureSchema(pool);
 
@@ -72,9 +73,17 @@ export class InvitacionesService {
     const expira = new Date(Date.now() + VIGENCIA_HORAS * 3_600_000).toISOString();
 
     await pool.query(
-      `INSERT INTO invitations (id, code_hash, phone, nota, creada_por, expira)
-       VALUES ($1, $2, $3, $4, $5, $6)`,
-      [id, InvitacionesService.hash(codigo), input.phone ?? null, input.nota ?? null, input.creadaPor, expira],
+      `INSERT INTO invitations (id, code_hash, phone, nota, creada_por, expira, organizacion_id)
+       VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+      [
+        id,
+        InvitacionesService.hash(codigo),
+        input.phone ?? null,
+        input.nota ?? null,
+        input.creadaPor,
+        expira,
+        input.organizacion,
+      ],
     );
 
     this.logger.log(`Invitación creada por ${input.creadaPor}${input.phone ? ` para ${input.phone}` : ''}`);
@@ -84,10 +93,13 @@ export class InvitacionesService {
     };
   }
 
-  async listar(): Promise<Invitacion[]> {
-    if (!this.pool) return [];
+  async listar(org?: string): Promise<Invitacion[]> {
+    if (!this.pool || !org) return [];
     await ensureSchema(this.pool);
-    const r = await this.pool.query('SELECT * FROM invitations ORDER BY creada DESC LIMIT 50');
+    const r = await this.pool.query(
+      'SELECT * FROM invitations WHERE organizacion_id = $1 ORDER BY creada DESC LIMIT 50',
+      [org],
+    );
     const ahora = Date.now();
     return r.rows.map((f: Record<string, unknown>) => ({
       id: String(f['id']),
@@ -100,11 +112,17 @@ export class InvitacionesService {
     }));
   }
 
-  async revocar(id: string): Promise<void> {
+  async revocar(id: string, org: string): Promise<void> {
     const pool = this.exigirBase();
     await ensureSchema(pool);
+    // Con la organización en el WHERE: sin eso, el id de una invitación
+    // ajena —que se puede adivinar— revocaría la de otra empresa.
     // Se marca usada en vez de borrarla: queda el rastro de que existió.
-    await pool.query(`UPDATE invitations SET usada = now(), usada_por = 'revocada' WHERE id = $1 AND usada IS NULL`, [id]);
+    await pool.query(
+      `UPDATE invitations SET usada = now(), usada_por = 'revocada'
+        WHERE id = $1 AND organizacion_id = $2 AND usada IS NULL`,
+      [id, org],
+    );
   }
 
   /**
@@ -115,7 +133,7 @@ export class InvitacionesService {
    * la lleva. Comprobar y después marcar dejaría la ventana para que el
    * segundo entrara también.
    */
-  async canjear(codigo: string, usuarioId: string): Promise<string> {
+  async canjear(codigo: string, usuarioId: string): Promise<{ id: string; organizacion: string }> {
     const pool = this.exigirBase();
     await ensureSchema(pool);
 
@@ -125,7 +143,7 @@ export class InvitacionesService {
     const r = await pool.query(
       `UPDATE invitations SET usada = now(), usada_por = $2
         WHERE code_hash = $1 AND usada IS NULL AND expira > now()
-        RETURNING id`,
+        RETURNING id, organizacion_id`,
       [InvitacionesService.hash(limpio), usuarioId],
     );
     if (!r.rows[0]) {
@@ -133,7 +151,7 @@ export class InvitacionesService {
       // le diría a quien prueba códigos cuáles existen.
       throw new BadRequestException('El código de invitación no es válido o ya venció.');
     }
-    return String(r.rows[0].id);
+    return { id: String(r.rows[0].id), organizacion: String(r.rows[0].organizacion_id) };
   }
 
   /** Comparación en tiempo constante, por si algún día se compara en memoria. */

@@ -1,4 +1,5 @@
 import { Module } from '@nestjs/common';
+import { APP_INTERCEPTOR } from '@nestjs/core';
 import { ConfigModule } from '@nestjs/config';
 import { validateConfig } from './config/configuration';
 import { AuthModule } from './auth/auth.module';
@@ -12,6 +13,7 @@ import { IntegrationsModule } from './integrations/integrations.module';
 import { LineasModule } from './lineas/lineas.module';
 import { NlpearlModule } from './nlpearl/nlpearl.module';
 import { DatabaseModule } from './shared/database.module';
+import { OrgInterceptor } from './shared/org.interceptor';
 import { SharedModule } from './shared/flow-log.service';
 
 /**
@@ -38,6 +40,14 @@ import { SharedModule } from './shared/flow-log.service';
     LineasModule,
     NlpearlModule,
     DemoModule,
+  ],
+  providers: [
+    /*
+     * Global: pone la organización de la sesión al alcance de toda la
+     * petición. Va acá y no en cada controller porque olvidarlo en uno solo
+     * sería una consulta sin filtro — y una consulta sin filtro es la fuga.
+     */
+    { provide: APP_INTERCEPTOR, useClass: OrgInterceptor },
   ],
 })
 export class AppModule {}

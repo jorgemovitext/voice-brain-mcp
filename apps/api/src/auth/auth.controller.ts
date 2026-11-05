@@ -74,8 +74,10 @@ const registerSchema = z.object({
   /** Solo para recibir el código: no es el identificador de acceso. */
   phone: phoneSchema,
   name: z.string().trim().min(2).max(80).optional(),
-  /** Obligatoria salvo en el alta de arranque (primera cuenta del sistema). */
+  /** Con código se entra a una empresa existente; sin código se crea una. */
   invitacion: z.string().trim().max(40).optional(),
+  /** El nombre de la empresa, cuando el alta la crea. */
+  empresa: z.string().trim().max(120).optional(),
 });
 const loginSchema = z.object({ username: identificadorSchema, password: z.string().min(1).max(200) });
 const otpSchema = z.object({
@@ -108,23 +110,10 @@ export class AuthController {
   @UseGuards(RateLimitGuard)
   @Post('register')
   async register(@Body() body: unknown, @Res({ passthrough: true }) res: FastifyReply) {
-    const { username, password, phone, name, invitacion } = this.parse(registerSchema, body);
-    const { token, user } = await this.auth.register(username, password, phone, name, invitacion);
+    const { username, password, phone, name, invitacion, empresa } = this.parse(registerSchema, body);
+    const { token, user } = await this.auth.register(username, password, phone, name, invitacion, empresa);
     this.abrirSesion(res, token);
     return { user };
-  }
-
-  /**
-   * ¿Hace falta invitación para registrarse?
-   *
-   * Público y a propósito: la pantalla de alta tiene que saber si pedir el
-   * código ANTES de que alguien llene el formulario entero. Solo dice sí o
-   * no — no filtra cuántas cuentas hay ni quiénes son.
-   */
-  @Public()
-  @Get('alta')
-  async comoEsElAlta() {
-    return { requiereInvitacion: !(await this.auth.esArranque()) };
   }
 
   /* --- Equipo e invitaciones (con sesión) --- */
@@ -132,29 +121,32 @@ export class AuthController {
   @Post('invitaciones')
   async invitar(
     @Body() body: { phone?: string; nota?: string },
-    @Req() req: FastifyRequest & { user?: { sub: string; username?: string } },
+    @Req() req: FastifyRequest & { user?: { sub: string; username?: string; org?: string } },
   ) {
     return this.invitaciones.crear({
       phone: body?.phone?.trim() || undefined,
       nota: body?.nota?.trim() || undefined,
       creadaPor: req.user?.username ?? req.user?.sub ?? 'desconocido',
+      // Del TOKEN y no del cuerpo: una organización que el cliente puede
+      // elegir es una invitación para entrar a la empresa de otro.
+      organizacion: req.user?.org ?? '',
     });
   }
 
   @Get('invitaciones')
-  listarInvitaciones() {
-    return this.invitaciones.listar();
+  listarInvitaciones(@Req() req: FastifyRequest & { user?: { org?: string } }) {
+    return this.invitaciones.listar(req.user?.org);
   }
 
   @Delete('invitaciones/:id')
-  async revocar(@Param('id') id: string) {
-    await this.invitaciones.revocar(id);
+  async revocar(@Param('id') id: string, @Req() req: FastifyRequest & { user?: { org?: string } }) {
+    await this.invitaciones.revocar(id, req.user?.org ?? '');
     return { ok: true };
   }
 
   @Get('equipo')
-  equipo() {
-    return this.auth.equipo();
+  equipo(@Req() req: FastifyRequest & { user?: { org?: string } }) {
+    return this.auth.equipo(req.user?.org);
   }
 
   @Delete('equipo/:id')

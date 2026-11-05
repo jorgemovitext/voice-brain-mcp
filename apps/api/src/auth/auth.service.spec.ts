@@ -45,11 +45,23 @@ class MemoryUsers implements UsersRepository {
 class InvitacionesFalsas {
   validos = new Set<string>();
   canjeados: string[] = [];
+  /** La invitación dice a QUÉ empresa se entra. */
+  organizacion = 'org-de-quien-invita';
   async canjear(codigo: string, usuarioId: string) {
     if (!this.validos.has(codigo)) throw new Error('El código de invitación no es válido o ya venció.');
     this.validos.delete(codigo);
     this.canjeados.push(`${codigo}:${usuarioId}`);
-    return 'inv-1';
+    return { id: 'inv-1', organizacion: this.organizacion };
+  }
+}
+
+/** Cada alta sin código estrena su propia empresa. */
+class OrganizacionesFalsas {
+  creadas: string[] = [];
+  async crear(nombre: string) {
+    const id = `org-${this.creadas.length + 1}`;
+    this.creadas.push(nombre);
+    return id;
   }
 }
 
@@ -75,14 +87,16 @@ function build() {
       ({ AUTH_OTP_TTL_MIN: 5, AUTH_SESSION_HOURS: 12 } as Record<string, unknown>)[key] ?? def,
   };
   const invitaciones = new InvitacionesFalsas();
+  const organizaciones = new OrganizacionesFalsas();
   const service = new AuthService(
     users,
     invitaciones as never,
+    organizaciones as never,
     new JwtService({ secret: 'test-secret', signOptions: { expiresIn: '1h' } }),
     otp as unknown as OtpSender,
     config as never,
   );
-  return { service, users, otp, invitaciones };
+  return { service, users, otp, invitaciones, organizaciones };
 }
 
 /** Deja un usuario listo para entrar. El registro ya abre sesión. */
@@ -119,27 +133,46 @@ describe('AuthService (seguridad)', () => {
     expect(ctx.users.users[0].passwordHash).toBe(hashOriginal);
   });
 
-  it('la PRIMERA cuenta se crea sin invitación; la segunda ya no', async () => {
+  it('el alta es pública y cada quien ESTRENA su propia empresa', async () => {
     /*
-     * Esto es el agujero que estuvo abierto en producción: `register` era
-     * público y entregaba sesión al instante, así que cualquiera con la URL
-     * se creaba una cuenta y leía los datos de los ciudadanos. Se comprobó
-     * contra el dominio real antes de cerrarlo.
+     * Hive se vende a cualquiera, así que registrarse no pide permiso. Lo
+     * que hace segura el alta abierta no es una puerta sino el aislamiento:
+     * dos cuentas creadas por separado caen en organizaciones distintas y
+     * ninguna ve lo de la otra.
      *
-     * La puerta de arranque se cierra SOLA en cuanto existe una cuenta: no
-     * es una bandera de configuración que alguien pueda dejar encendida.
+     * Esto es lo que reemplaza al código de invitación como control. Si
+     * algún día dos altas independientes compartieran organización, sería
+     * la misma fuga que ya estuvo abierta una vez.
      */
     const ctx = build();
-    await ctx.service.register(USER, PASSWORD, PHONE);
-    expect(ctx.users.users).toHaveLength(1);
+    await ctx.service.register(USER, PASSWORD, PHONE, 'Jorge', undefined, 'Clínica San Jorge');
+    await ctx.service.register('otra', PASSWORD, '+50455556666', 'Ana', undefined, 'Taller Ana');
 
-    await expect(
-      ctx.service.register('colado', PASSWORD, '+50455556666'),
-    ).rejects.toBeInstanceOf(UnauthorizedException);
-    expect(ctx.users.users).toHaveLength(1);
+    expect(ctx.users.users).toHaveLength(2);
+    const [a, b] = ctx.users.users;
+    expect(a.organizacionId).toBeTruthy();
+    expect(b.organizacionId).toBeTruthy();
+    expect(a.organizacionId).not.toBe(b.organizacionId);
+    expect(ctx.organizaciones.creadas).toEqual(['Clínica San Jorge', 'Taller Ana']);
   });
 
-  it('con invitación válida sí entra, y el código se canjea una sola vez', async () => {
+  it('con invitación NO se crea empresa: se entra a la de quien invitó', async () => {
+    // Es la diferencia entre «traje un colega» y «alguien más se dio de
+    // alta»: una empresa tiene varios usuarios y todos ven lo mismo.
+    const ctx = build();
+    await registered(ctx);
+    ctx.invitaciones.validos.add('CODE');
+    ctx.invitaciones.organizacion = 'org-de-jorge';
+
+    await ctx.service.register('colega', PASSWORD, '+50477776666', 'Colega', 'CODE');
+
+    const colega = ctx.users.users.find((u) => u.username === 'colega')!;
+    expect(colega.organizacionId).toBe('org-de-jorge');
+    // Y no se creó una empresa nueva por él.
+    expect(ctx.organizaciones.creadas).toHaveLength(1);
+  });
+
+  it('el código se canjea UNA sola vez', async () => {
     const ctx = build();
     await registered(ctx);
     ctx.invitaciones.validos.add('BUENA');
@@ -154,7 +187,13 @@ describe('AuthService (seguridad)', () => {
     ).rejects.toThrow(/no es válido o ya venció/i);
   });
 
-  it('un código inventado no abre la puerta', async () => {
+  it('un código inventado no mete a nadie en una empresa ajena', async () => {
+    /*
+     * El alta es pública, así que el código ya no es la puerta — pero sigue
+     * siendo la llave de UNA empresa. Un código inválido no puede dejar la
+     * cuenta creada: antes se guardaba primero y se canjeaba después, y el
+     * error devolvía 400 con la cuenta ya adentro.
+     */
     const ctx = build();
     await registered(ctx);
 

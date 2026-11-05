@@ -407,3 +407,20 @@ form {
   .forma__caja, .alerta { animation: none; }
   .enviar:hover { transform: none; }
 }
+
+/* El cambio de camino: crear mi empresa ↔ entrar con código. Discreto a
+   propósito — es el caso secundario. */
+.campo__alternar {
+  align-self: flex-start;
+  border: 0;
+  background: transparent;
+  color: var(--primary);
+  font: inherit;
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 0;
+  margin-top: -0.2rem;
+
+  &:hover { text-decoration: underline; }
+}
