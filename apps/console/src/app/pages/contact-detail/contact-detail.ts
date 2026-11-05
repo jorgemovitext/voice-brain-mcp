@@ -872,6 +872,30 @@ export class ContactDetailPage implements OnDestroy {
     return historico ? { nombre: historico.handledBy!, channel: historico.channel } : null;
   });
 
+  /**
+   * Qué está haciendo el agente en este hilo, ahora.
+   *
+   * Sale de lo ÚLTIMO que ocurrió y no de un estado inventado: si el último
+   * turno lo escribió el agente, está esperando; si lo escribió la persona,
+   * le está contestando. Cuando no se puede afirmar nada, no dice nada —
+   * un «trabajando…» permanente deja de significar algo a los dos minutos.
+   */
+  readonly haciendoAhora = computed(() => {
+    const turnos = [...(valorDe(this.context)?.recentInteractions ?? [])]
+      .filter((i) => !i.ficha)
+      .sort((a, b) => a.occurredAt.localeCompare(b.occurredAt));
+    const ultimo = turnos[turnos.length - 1];
+    if (!ultimo) return null;
+
+    // Más de diez minutos sin nada: ya no está «haciendo» algo.
+    const minutos = (Date.now() - new Date(ultimo.occurredAt).getTime()) / 60_000;
+    if (minutos > 10) return null;
+
+    if (this.tomada()) return null;
+    const quien = valorDe(this.context)?.contact.displayName?.split(' ')[0] ?? 'la persona';
+    return ultimo.direction === 'inbound' ? `escribiendo a ${quien}…` : `esperando a ${quien}…`;
+  });
+
   readonly chat = computed<ChatItem[]>(() => {
     const interactions = [...(valorDe(this.context)?.recentInteractions ?? [])]
       // Las fichas son estado del caso, no conversación: viven en el riel

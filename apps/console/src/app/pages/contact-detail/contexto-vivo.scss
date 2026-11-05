@@ -456,3 +456,62 @@
   0%, 100% { opacity: 1; }
   50% { opacity: 0.3; }
 }
+
+
+/* ===== Movi está atendiendo ===== */
+/* Los tres puntos laten en secuencia: es la señal de que hay algo
+   ocurriendo AHORA, no un estado guardado. */
+.trabajando {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  margin-top: 0.25rem;
+  font-size: 0.8rem;
+  color: var(--ink-soft);
+}
+
+.trabajando__puntos {
+  display: inline-flex;
+  gap: 3px;
+
+  i {
+    width: 4px;
+    height: 4px;
+    border-radius: 50%;
+    background: var(--primary);
+    animation: punto-late 1.3s ease-in-out infinite;
+  }
+
+  i:nth-child(2) { animation-delay: 0.18s; }
+  i:nth-child(3) { animation-delay: 0.36s; }
+}
+
+@keyframes punto-late {
+  0%, 60%, 100% { opacity: 0.25; transform: translateY(0); }
+  30% { opacity: 1; transform: translateY(-2px); }
+}
+
+.sellos {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 0.35rem;
+  margin-top: 0.5rem;
+}
+
+/* Por qué hizo lo que hizo: el porcentaje y la regla son lo que deja al
+   operador confiar o intervenir con criterio, en vez de adivinar. */
+.sello {
+  padding: 0.2rem 0.6rem;
+  border-radius: 999px;
+  background: var(--panel-2);
+  border: 1px solid var(--border);
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--ink-soft);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .trabajando__puntos i { animation: none; opacity: 0.6; }
+}

@@ -4,8 +4,27 @@
   }
 
   <div class="voice__top">
-    <voice-nebula [size]="104" [active]="estado() === 'calling'" />
-    <div class="voice__name">{{ nombre() }}</div>
+    <voice-nebula [size]="104" [active]="estado() === 'calling' || !!haciendo()" />
+
+    <!-- Quién atiende y en qué anda. Con varios agentes conviviendo, ese es
+         el dato que decide si el operador toma el caso o lo deja seguir. -->
+    @if (agente(); as quien) {
+      <div class="voice__name">{{ quien }} está atendiendo</div>
+      @if (haciendo(); as tarea) {
+        <div class="trabajando">
+          <span class="trabajando__puntos"><i></i><i></i><i></i></span>
+          {{ tarea }}
+        </div>
+      }
+      @if (confianza() !== null || regla()) {
+        <div class="sellos">
+          @if (confianza(); as c) { <span class="sello">{{ c }} % seguro</span> }
+          @if (regla(); as r) { <span class="sello">Regla «{{ r }}»</span> }
+        </div>
+      }
+    } @else {
+      <div class="voice__name">{{ nombre() }}</div>
+    }
     <!-- El estado dice lo que SABEMOS. No se anuncia "finalizada" cuando solo
          se dejó de observar: la transcripción llega por el webhook de cierre y
          puede tardar más que nuestra espera. -->

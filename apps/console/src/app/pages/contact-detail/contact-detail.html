@@ -508,6 +508,8 @@
       [ficha]="fichaDelCaso()"
       [hitos]="hitos()"
       [resumen]="resumenAgente()"
+      [agente]="agente()?.nombre ?? null"
+      [haciendo]="haciendoAhora()"
       (llamar)="startCall()"
       (colgar)="endCall()" />
   </div>

@@ -87,6 +87,21 @@ export class ContextoVivo {
   readonly hitos = input<HitoFlujo[]>([]);
   readonly resumen = input<ResumenConversacion | null>(null);
 
+  /**
+   * El agente que atiende este hilo y lo que está haciendo ahora.
+   *
+   * El riel decía «Agente de voz disponible», que habla de NUESTRA
+   * capacidad. El operador necesita lo contrario: quién está atendiendo y
+   * en qué anda — es lo que decide si toma el caso o lo deja seguir.
+   */
+  readonly agente = input<string | null>(null);
+  /** Lo que el agente está haciendo en este instante, si se sabe. */
+  readonly haciendo = input<string | null>(null);
+  /** Qué tan seguro está de su última decisión, 0–100. */
+  readonly confianza = input<number | null>(null);
+  /** La regla que aplicó, en palabras. */
+  readonly regla = input<string | null>(null);
+
   readonly llamar = output<void>();
   readonly colgar = output<void>();
 
