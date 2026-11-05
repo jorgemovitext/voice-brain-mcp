@@ -1591,3 +1591,23 @@ $overlap: 44px;
 @media (prefers-reduced-motion: reduce) {
   .bubble--sonando .wave i { animation: none; }
 }
+
+
+/* ===== Cabecera de la bandeja ===== */
+.bandeja {
+  flex-shrink: 0;
+  padding: 0 0 0.9rem;
+
+  h1 {
+    margin: 0;
+    font-size: 1.9rem;
+    font-weight: 700;
+    letter-spacing: -0.025em;
+  }
+
+  p {
+    margin: 0.2rem 0 0;
+    font-size: 0.85rem;
+    color: var(--ink-soft);
+  }
+}

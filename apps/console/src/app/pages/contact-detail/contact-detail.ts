@@ -880,6 +880,27 @@ export class ContactDetailPage implements OnDestroy {
    * le está contestando. Cuando no se puede afirmar nada, no dice nada —
    * un «trabajando…» permanente deja de significar algo a los dos minutos.
    */
+  /**
+   * El pulso de la bandeja: abiertas, cuántas esperan y si hay una llamada.
+   *
+   * Va en la cabecera y no dentro de la lista porque es el estado del TURNO,
+   * no de un hilo: es lo primero que mira quien se sienta a atender.
+   * «Esperan respuesta» cuenta los hilos cuyo último mensaje lo puso la
+   * persona — nadie le contestó todavía, que es lo accionable.
+   */
+  readonly pulso = computed(() => {
+    const hilos = this.hilos();
+    const esperan = hilos.filter(
+      (h) => h.lastInteraction && h.lastInteraction.direction === 'inbound',
+    ).length;
+    const enLlamada = this.callState() === 'calling' ? 1 : 0;
+
+    const partes = [`${hilos.length} ${hilos.length === 1 ? 'abierta' : 'abiertas'}`];
+    if (esperan) partes.push(`${esperan} ${esperan === 1 ? 'espera' : 'esperan'} respuesta`);
+    if (enLlamada) partes.push('1 llamada en curso');
+    return partes.join(' · ');
+  });
+
   readonly haciendoAhora = computed(() => {
     const turnos = [...(valorDe(this.context)?.recentInteractions ?? [])]
       .filter((i) => !i.ficha)

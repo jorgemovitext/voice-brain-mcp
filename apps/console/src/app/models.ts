@@ -67,7 +67,7 @@ export interface UnifiedContext {
 }
 
 export interface ContactListItem extends Contact {
-  lastInteraction?: Pick<Interaction, 'channel' | 'occurredAt' | 'summary' | 'sentiment'>;
+  lastInteraction?: Pick<Interaction, 'channel' | 'occurredAt' | 'summary' | 'sentiment' | 'direction'>;
   activePromise?: Signal;
 }
 

@@ -110,7 +110,7 @@ export interface UnifiedContext {
 
 /** Item enriquecido para el listado de contactos de la consola. */
 export interface ContactListItem extends Contact {
-  lastInteraction?: Pick<Interaction, 'channel' | 'occurredAt' | 'summary' | 'sentiment'>;
+  lastInteraction?: Pick<Interaction, 'channel' | 'occurredAt' | 'summary' | 'sentiment' | 'direction'>;
   activePromise?: Signal;
 }
 

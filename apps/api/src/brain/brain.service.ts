@@ -165,7 +165,16 @@ export class BrainService {
         return {
           ...contact,
           lastInteraction: last
-            ? { channel: last.channel, occurredAt: last.occurredAt, summary: last.summary, sentiment: last.sentiment }
+            ? {
+              channel: last.channel,
+              occurredAt: last.occurredAt,
+              summary: last.summary,
+              sentiment: last.sentiment,
+              // QUIÉN habló último. Es lo que distingue «conversación abierta»
+              // de «alguien esperando»: sin esto, la bandeja no puede decir
+              // cuántas requieren atención, que es su razón de existir.
+              direction: last.direction,
+            }
             : undefined,
           activePromise: promesa.get(contact.id),
         };

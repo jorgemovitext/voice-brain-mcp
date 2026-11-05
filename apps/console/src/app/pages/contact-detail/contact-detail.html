@@ -21,6 +21,19 @@
        pantalla en blanco. -->
   <div class="state"><div class="spinner"></div>Cargando conversación…</div>
 } @else if (valorDe(context); as ctx) {
+  <!-- ===== Cabecera de la bandeja =====
+       El estado del TURNO, no de un hilo: es lo primero que mira quien se
+       sienta a atender. Solo en /conversations — abriendo un contacto desde
+       el directorio, esta cifra no viene al caso. -->
+  @if (withThreads()) {
+    <header class="bandeja">
+      <div>
+        <h1>Conversaciones</h1>
+        <p>{{ pulso() }}</p>
+      </div>
+    </header>
+  }
+
   <div class="convo" [class.convo--threads]="withThreads()">
     <!-- ===== Sidebar de conversaciones (solo en /conversations) ===== -->
     @if (withThreads()) {
