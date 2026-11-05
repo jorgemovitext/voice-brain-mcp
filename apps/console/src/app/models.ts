@@ -33,7 +33,7 @@ export interface Interaction {
    * un ticket, avisar a una autoridad). Va entre los mensajes porque el
    * momento en que ocurrió es parte de la conversación.
    */
-  accion?: { tipo: 'ticket' | 'aviso' | 'escalamiento'; ok: boolean; detalle?: string };
+  accion?: { tipo: 'ticket' | 'aviso' | 'escalamiento' | 'traspaso'; ok: boolean; detalle?: string };
   /**
    * Parcial de lo que el agente entendió del caso: solo los campos que cambiaron
    * en ese turno. La ficha completa se arma acumulando en orden — ver

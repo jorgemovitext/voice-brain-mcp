@@ -62,8 +62,16 @@ export interface Interaction {
    * convertiría en un registro que nadie mira.
    */
   accion?: {
-    /** Qué se hizo. `ticket` = CRM; `aviso` = se notificó a alguien. */
-    tipo: 'ticket' | 'aviso' | 'escalamiento';
+    /**
+     * Qué se hizo. `ticket` = CRM; `aviso` = se notificó a alguien;
+     * `escalamiento` = pasó a una persona; `traspaso` = pasó a OTRO AGENTE.
+     *
+     * El traspaso es su propio tipo y no un escalamiento: escalar saca la
+     * conversación del sistema y la pone en manos de alguien; traspasar la
+     * deja adentro con otro agente. Quien lee el hilo después necesita
+     * distinguirlos — uno implica que había una persona esperando.
+     */
+    tipo: 'ticket' | 'aviso' | 'escalamiento' | 'traspaso';
     /** `false` deja ver el intento fallido en vez de esconderlo. */
     ok: boolean;
     /** Lo que el operador necesita para actuar: folio, a quién se avisó, el error. */

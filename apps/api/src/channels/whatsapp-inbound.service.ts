@@ -4,6 +4,8 @@ import { AtencionService } from '../shared/atencion.service';
 import { BrainService } from '../brain/brain.service';
 import { WebhookLogService } from '../shared/webhook-log.service';
 import { ElevenLabsService } from '../elevenlabs/elevenlabs.service';
+import { AgentesService } from '../agentes/agentes.service';
+import { DerivacionService } from '../agentes/derivacion.service';
 import { LineasService } from '../lineas/lineas.service';
 import { ChannelPort, WHATSAPP_CHANNEL } from '../ports/channel.port';
 
@@ -77,6 +79,8 @@ export class WhatsappInboundService {
     private readonly webhookLog: WebhookLogService,
     private readonly agente: ElevenLabsService,
     private readonly lineas: LineasService,
+    private readonly derivacion: DerivacionService,
+    private readonly agentes: AgentesService,
     private readonly activo: AgenteActivoService,
     @Inject(WHATSAPP_CHANNEL) private readonly whatsapp: ChannelPort,
   ) {}
@@ -202,7 +206,17 @@ export class WhatsappInboundService {
         attachmentUrl: m.attachmentUrl,
       });
 
-      const respuesta = await this.agente.responderEnHilo(contactId, m.text, agenteId);
+      /*
+       * ¿Este mensaje es tema de otro agente?
+       *
+       * Va DESPUÉS de guardar lo que dijo la persona y ANTES de contestar:
+       * si el traspaso falla, el mensaje ya quedó en el hilo y lo contesta
+       * quien lo recibió — nunca se pierde por intentar mejorarlo.
+       */
+      const quienContesta = await this.resolverTraspaso(contactId, m.text, agenteId, origen);
+      if (quienContesta.yaRespondido) return true;
+
+      const respuesta = await this.agente.responderEnHilo(contactId, m.text, quienContesta.agente);
       if (!respuesta) {
         // El motor está encendido pero no contestó. No se inventa una
         // respuesta: queda el mensaje del ciudadano y el aviso para que un
@@ -227,7 +241,7 @@ export class WhatsappInboundService {
         handledBy: 'agente',
         // CUÁL agente: es lo que deja que la bandeja y el tablero separen lo
         // de la Línea 100 de lo de Movi cuando se cambia el que atiende.
-        agente: agenteId,
+        agente: quienContesta.agente,
         collectedInfo: envio.providerId ? { providerId: envio.providerId } : undefined,
       });
 
@@ -246,6 +260,119 @@ export class WhatsappInboundService {
       this.webhookLog.push(origen, `El agente falló atendiendo a ${m.from}: ${(err as Error).message}`, false);
       return false;
     }
+  }
+
+  /**
+   * Decide quién contesta este mensaje, y traspasa si corresponde.
+   *
+   * Devuelve el agente que debe responder. `yaRespondido` es true cuando el
+   * propio traspaso ya mandó el mensaje —al proponer un cambio— y no hay
+   * que contestar dos veces.
+   *
+   * Todo el método está envuelto en un try: el traspaso es una MEJORA sobre
+   * contestar. Si algo falla —la configuración no carga, el agente destino
+   * ya no existe—, contesta quien recibió, que es el comportamiento de
+   * siempre. Un error acá no puede dejar a alguien sin respuesta.
+   */
+  private async resolverTraspaso(
+    contactId: string,
+    texto: string,
+    agenteDeLaLinea: string,
+    origen: 'gupshup' | 'whatsapp-cloud',
+  ): Promise<{ agente: string; yaRespondido: boolean }> {
+    try {
+      // El hilo manda sobre la línea: un traspaso anterior sigue en pie.
+      const delHilo = await this.derivacion.agenteDelHilo(contactId);
+      const actual = delHilo || agenteDeLaLinea;
+
+      // ¿Veníamos de proponer un cambio y esto es la respuesta?
+      const propuesta = await this.derivacion.propuesta(contactId);
+      if (propuesta) {
+        await this.derivacion.olvidarPropuesta(contactId);
+        if (DerivacionService.esSi(texto)) {
+          await this.traspasar(contactId, propuesta.agente, propuesta.tema, actual);
+          return { agente: propuesta.agente, yaRespondido: false };
+        }
+        /*
+         * Dijo que no, o dijo otra cosa. Se sigue con quien está y NO se
+         * vuelve a proponer en este turno: insistir con el cambio después
+         * de un «no» es exactamente lo que molesta de los bots.
+         */
+        return { agente: actual, yaRespondido: false };
+      }
+
+      const decision = await this.derivacion.decidir(texto, actual);
+      if (!decision) return { agente: actual, yaRespondido: false };
+
+      if (decision.accion === 'cambiar') {
+        await this.traspasar(contactId, decision.agente, decision.tema, actual);
+        return { agente: decision.agente, yaRespondido: false };
+      }
+
+      // Proponer: se pregunta y se espera. El agente destino todavía no
+      // atiende, así que la pregunta la hace el que está.
+      const nombre = (await this.agentes.nombreDe(decision.agente)) ?? 'otro agente';
+      await this.derivacion.proponer(contactId, decision.agente, decision.tema);
+
+      const pregunta = `Eso lo atiende ${nombre}. ¿Querés que te pase con ese agente?`;
+      const envio = await this.whatsapp.send(contactId, pregunta);
+      await this.brain.appendInteraction({
+        contactId,
+        channel: 'whatsapp',
+        direction: 'outbound',
+        occurredAt: new Date().toISOString(),
+        summary: pregunta,
+        source: 'own',
+        handledBy: 'agente',
+        agente: actual,
+        collectedInfo: envio.providerId ? { providerId: envio.providerId } : undefined,
+      });
+      this.webhookLog.push(origen, `Propuso pasar el caso a ${nombre} (${decision.confianza} % seguro)`, true);
+      return { agente: actual, yaRespondido: true };
+    } catch (err) {
+      this.logger.warn(`El traspaso falló, contesta quien recibió: ${(err as Error).message}`);
+      return { agente: agenteDeLaLinea, yaRespondido: false };
+    }
+  }
+
+  /**
+   * Deja el traspaso HECHO: pega el agente al hilo, lo anota en la
+   * conversación y suma el contador de la regla.
+   *
+   * La anotación va al hilo como una acción y no como un mensaje: es algo
+   * que el sistema HIZO, y quien lea después tiene que ver en qué punto
+   * cambió de manos sin confundirlo con algo que alguien dijo.
+   */
+  private async traspasar(
+    contactId: string,
+    destino: string,
+    tema: string,
+    desde: string,
+  ): Promise<void> {
+    await this.derivacion.fijarAgenteDelHilo(contactId, destino);
+    await this.derivacion.anotarCambio(destino);
+
+    const [nombreDestino, nombreDesde] = await Promise.all([
+      this.agentes.nombreDe(destino).catch(() => null),
+      this.agentes.nombreDe(desde).catch(() => null),
+    ]);
+
+    await this.brain.appendInteraction({
+      contactId,
+      channel: 'whatsapp',
+      direction: 'outbound',
+      occurredAt: new Date().toISOString(),
+      summary: `Pasó el caso a ${nombreDestino ?? 'otro agente'}`,
+      source: 'own',
+      handledBy: 'agente',
+      agente: destino,
+      accion: {
+        tipo: 'traspaso',
+        ok: true,
+        detalle: `${nombreDesde ?? 'El agente'} → ${nombreDestino ?? 'otro agente'} · ${tema}`,
+      },
+    });
+    this.logger.log(`Traspaso en ${contactId}: ${nombreDesde} → ${nombreDestino} (${tema})`);
   }
 
   /**

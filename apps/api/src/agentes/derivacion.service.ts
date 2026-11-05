@@ -150,6 +150,71 @@ export class DerivacionService {
     return { agente: mejor.regla.agente, tema: mejor.regla.tema, confianza: mejor.confianza, accion };
   }
 
+  /* ===== Memoria del hilo ===== */
+
+  /**
+   * A qué agente quedó esta conversación después de un traspaso.
+   *
+   * Sin esto, el cambio dura UN mensaje: el siguiente vuelve a resolverse
+   * por el número de la línea y el ciudadano queda rebotando entre dos
+   * agentes, repitiendo el caso en cada turno. El traspaso tiene que
+   * pegarse al hilo, no al mensaje.
+   */
+  async agenteDelHilo(contactId: string, org?: string): Promise<string | null> {
+    return (await this.settings.get<string>(`hilo:${contactId}:agente`)) ?? null;
+  }
+
+  async fijarAgenteDelHilo(contactId: string, agente: string): Promise<void> {
+    await this.settings.set(`hilo:${contactId}:agente`, agente);
+  }
+
+  /** Deshacer: el hilo vuelve al agente de la línea. */
+  async soltarAgenteDelHilo(contactId: string): Promise<void> {
+    await this.settings.set(`hilo:${contactId}:agente`, '');
+  }
+
+  /* ===== Confirmación pendiente (modo «preguntar») ===== */
+
+  /**
+   * Lo propuesto y todavía sin respuesta.
+   *
+   * En modo «preguntar» el cambio ocurre en DOS mensajes: uno propone y el
+   * siguiente confirma. Entre los dos no hay nada en memoria —cada webhook
+   * es una invocación distinta en serverless—, así que la propuesta se
+   * guarda o se pierde.
+   */
+  async proponer(contactId: string, agente: string, tema: string): Promise<void> {
+    await this.settings.set(`hilo:${contactId}:propuesta`, { agente, tema, cuando: new Date().toISOString() });
+  }
+
+  async propuesta(contactId: string): Promise<{ agente: string; tema: string } | null> {
+    const p = await this.settings.get<{ agente: string; tema: string; cuando: string }>(
+      `hilo:${contactId}:propuesta`,
+    );
+    if (!p?.agente) return null;
+
+    // Vence a la hora: un «sí» suelto al día siguiente no es la respuesta a
+    // una pregunta que la persona ya olvidó.
+    if (Date.now() - new Date(p.cuando).getTime() > 3_600_000) return null;
+    return { agente: p.agente, tema: p.tema };
+  }
+
+  async olvidarPropuesta(contactId: string): Promise<void> {
+    await this.settings.set(`hilo:${contactId}:propuesta`, null);
+  }
+
+  /**
+   * ¿La persona dijo que sí?
+   *
+   * Se busca una afirmación clara y nada más: ante la duda NO se cambia,
+   * porque cambiar sin que lo hayan pedido es justo lo que el modo
+   * «preguntar» viene a evitar.
+   */
+  static esSi(texto: string): boolean {
+    const t = DerivacionService.normalizar(texto).trim().replace(/[.!¡]/g, '');
+    return /^(si|sí|dale|ok|okay|bueno|claro|por favor|porfa|sip|correcto|afirmativo|pasame|pasame con el|si por favor)$/.test(t);
+  }
+
   /** Suma uno al contador de la regla que se aplicó. */
   async anotarCambio(agenteDestino: string, org?: string): Promise<void> {
     const config = await this.leer(org);

@@ -44,11 +44,30 @@ describe('Aislamiento entre organizaciones', () => {
   let repo: PgBrainRepository;
   let db: PGlite;
 
-  beforeEach(async () => {
+  /*
+   * UNA base para toda la suite, no una por caso.
+   *
+   * Levantar el Postgres embebido cuesta cerca de un segundo: hacerlo siete
+   * veces pasaba el tiempo límite de Jest cuando la máquina estaba ocupada,
+   * y la suite fallaba de forma intermitente —casos distintos en cada
+   * corrida—, que parece un bug del código y es falta de recursos.
+   *
+   * Entre casos se vacían las tablas, que da el mismo aislamiento por una
+   * fracción del costo.
+   */
+  beforeAll(async () => {
     db = new PGlite();
     const pool = poolDe(db);
     await ensureSchema(pool);
     repo = new PgBrainRepository(pool);
+  }, 30_000);
+
+  afterAll(async () => {
+    await db.close();
+  });
+
+  beforeEach(async () => {
+    await db.exec('TRUNCATE contacts, interactions, signals');
   });
 
   /** Siembra un contacto con una conversación dentro de una organización. */
@@ -160,3 +179,4 @@ describe('Aislamiento entre organizaciones', () => {
     expect(r.rows[0].organizacion_id).toBe('org-movitext');
   });
 });
+

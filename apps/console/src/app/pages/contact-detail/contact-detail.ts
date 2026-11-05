@@ -77,6 +77,9 @@ type CallState = 'idle' | 'calling' | 'ended';
  *  - /conversations/:id  → 3 columnas: agrega el sidebar de hilos (withThreads),
  *                          el módulo de Conversaciones para alternar entre chats
  */
+/** Lo que el sistema HIZO durante la conversación, no lo que dijo. */
+type TipoAccion = 'ticket' | 'aviso' | 'escalamiento' | 'traspaso';
+
 @Component({
   selector: 'app-contact-detail',
   imports: [RouterLink, VoiceNebula, Icon, HilosSidebar, ContextoVivo],
@@ -555,16 +558,21 @@ export class ContactDetailPage implements OnDestroy {
    * el CRM"), no como una etiqueta técnica: quien mira el hilo tiene que
    * entender qué pasó sin saber cómo está construido.
    */
-  accionTitulo(tipo: 'ticket' | 'aviso' | 'escalamiento', ok: boolean): string {
+  accionTitulo(tipo: TipoAccion, ok: boolean): string {
     if (!ok) {
-      return tipo === 'ticket' ? 'No se pudo abrir el ticket' : 'No se pudo avisar';
+      if (tipo === 'ticket') return 'No se pudo abrir el ticket';
+      if (tipo === 'traspaso') return 'No se pudo pasar el caso';
+      return 'No se pudo avisar';
     }
     if (tipo === 'ticket') return 'Ticket abierto en el CRM';
     if (tipo === 'aviso') return 'Aviso enviado a la cuadrilla';
+    // El traspaso trae en el detalle de quién a quién y por qué tema, así
+    // que el título no lo repite: diría dos veces lo mismo en dos renglones.
+    if (tipo === 'traspaso') return 'Pasó el caso a otro agente';
     return 'Escalado';
   }
 
-  accionIcono(tipo: 'ticket' | 'aviso' | 'escalamiento', ok: boolean): 'check' | 'alerta' | 'zap' | 'inbox' {
+  accionIcono(tipo: TipoAccion, ok: boolean): 'check' | 'alerta' | 'zap' | 'inbox' {
     if (!ok) return 'alerta';
     if (tipo === 'ticket') return 'inbox';
     return 'zap';

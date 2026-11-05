@@ -47,6 +47,7 @@ describe('WhatsappInboundService', () => {
     contactos = ['c1'],
     respuestaAgente = null,
     lineas = {},
+    derivacion,
   }: {
     operador: Record<string, string | null>;
     contactos?: string[];
@@ -54,6 +55,12 @@ describe('WhatsappInboundService', () => {
     respuestaAgente?: string | null;
     /** destino → agente de la línea, para probar el routing multi-cliente. */
     lineas?: Record<string, string>;
+    /** Qué decide el motor de traspaso para este caso. */
+    derivacion?: {
+      decision?: { agente: string; tema: string; confianza: number; accion: 'cambiar' | 'preguntar' } | null;
+      delHilo?: string | null;
+      propuesta?: { agente: string; tema: string } | null;
+    };
   }) {
     const guardadas: Array<Record<string, unknown>> = [];
     const bitacora: string[] = [];
@@ -89,16 +96,42 @@ describe('WhatsappInboundService', () => {
     };
     const atencion = { de: async (id: string) => ({ operador: operador[id] ?? null }) };
 
+    /** El motor de traspaso, con su memoria de hilo en una variable. */
+    const traspasos: Array<{ contactId: string; agente: string }> = [];
+    const propuestas: Array<{ contactId: string; agente: string }> = [];
+    let delHilo = derivacion?.delHilo ?? null;
+    let propuestaViva = derivacion?.propuesta ?? null;
+
+    const derivacionSvc = {
+      agenteDelHilo: async () => delHilo,
+      fijarAgenteDelHilo: async (c: string, a: string) => {
+        delHilo = a;
+        traspasos.push({ contactId: c, agente: a });
+      },
+      anotarCambio: async () => undefined,
+      decidir: async () => derivacion?.decision ?? null,
+      propuesta: async () => propuestaViva,
+      proponer: async (c: string, a: string) => {
+        propuestas.push({ contactId: c, agente: a });
+      },
+      olvidarPropuesta: async () => {
+        propuestaViva = null;
+      },
+    };
+    const agentesSvc = { nombreDe: async (id: string) => `Nombre de ${id}` };
+
     const service = new WhatsappInboundService(
       brain as unknown as BrainService,
       atencion as unknown as AtencionService,
       { push: (_o: string, texto: string) => bitacora.push(texto) } as unknown as WebhookLogService,
       agente as unknown as ElevenLabsService,
       lineasService as unknown as LineasService,
+      derivacionSvc as never,
+      agentesSvc as never,
       ACTIVO_DE_PRUEBA,
       canal as unknown as ChannelPort,
     );
-    return { service, guardadas, bitacora, enviados, atendidoPor };
+    return { service, guardadas, bitacora, enviados, atendidoPor, traspasos, propuestas };
   }
 
   it('la respuesta del ciudadano entra al hilo que un operador tomó', async () => {
@@ -306,6 +339,130 @@ describe('WhatsappInboundService', () => {
     await service.process({ app: 'OtraApp', ...mensaje('Hola', 'm9') }, 'gupshup');
 
     expect(atendidoPor).toEqual(['ag-1']);
+  });
+
+  describe('traspaso entre agentes', () => {
+    const DECISION_CAMBIAR = {
+      agente: 'ag-obras',
+      tema: 'Baches',
+      confianza: 100,
+      accion: 'cambiar' as const,
+    };
+
+    it('contesta el agente NUEVO y el traspaso queda en el hilo', async () => {
+      /*
+       * Es el punto de todo: el vecino escribe por un bache al agente de
+       * aseo y le contesta el de obras, sin repetir nada.
+       */
+      const { service, atendidoPor, traspasos, guardadas } = build({
+        operador: {},
+        contactos: [],
+        respuestaAgente: 'Con gusto, ¿en qué calle?',
+        derivacion: { decision: DECISION_CAMBIAR },
+      });
+
+      await service.process(mensaje('Hay un bache en la 3ra calle'), 'gupshup');
+
+      expect(atendidoPor).toEqual(['ag-obras']);
+      expect(traspasos).toHaveLength(1);
+
+      // Y queda anotado como ACCIÓN, no como un mensaje: quien lea después
+      // tiene que ver en qué punto cambió de manos.
+      const traspaso = guardadas.find((g) => (g['accion'] as { tipo?: string })?.tipo === 'traspaso');
+      expect(traspaso).toBeTruthy();
+      expect(traspaso!['agente']).toBe('ag-obras');
+    });
+
+    it('el traspaso se PEGA al hilo: el mensaje siguiente no vuelve atrás', async () => {
+      /*
+       * Sin esto el cambio dura un mensaje y el ciudadano queda rebotando
+       * entre dos agentes, repitiendo el caso en cada turno.
+       */
+      const { service, atendidoPor } = build({
+        operador: {},
+        contactos: [],
+        respuestaAgente: 'Listo',
+        derivacion: { decision: null, delHilo: 'ag-obras' },
+      });
+
+      await service.process(mensaje('¿Y cuándo lo arreglan?', 'm2'), 'gupshup');
+
+      expect(atendidoPor).toEqual(['ag-obras']);
+    });
+
+    it('en modo preguntar NO cambia: propone y espera', async () => {
+      const { service, atendidoPor, traspasos, propuestas, enviados } = build({
+        operador: {},
+        contactos: [],
+        respuestaAgente: 'no debería contestar',
+        derivacion: {
+          decision: { ...DECISION_CAMBIAR, accion: 'preguntar', confianza: 75 },
+        },
+      });
+
+      await service.process(mensaje('Hay un bache'), 'gupshup');
+
+      expect(traspasos).toHaveLength(0);
+      expect(propuestas).toHaveLength(1);
+      // Se mandó la pregunta y NO la respuesta del agente: contestar las dos
+      // cosas sería hablarle encima a la persona.
+      expect(enviados).toHaveLength(1);
+      expect(enviados[0].texto).toMatch(/¿Querés que te pase/);
+      expect(atendidoPor).toHaveLength(0);
+    });
+
+    it('un «sí» a la propuesta ejecuta el cambio', async () => {
+      const { service, atendidoPor, traspasos } = build({
+        operador: {},
+        contactos: [],
+        respuestaAgente: 'Contame del bache',
+        derivacion: { decision: null, propuesta: { agente: 'ag-obras', tema: 'Baches' } },
+      });
+
+      await service.process(mensaje('sí'), 'gupshup');
+
+      expect(traspasos).toHaveLength(1);
+      expect(atendidoPor).toEqual(['ag-obras']);
+    });
+
+    it('un «no» deja la conversación donde está y no vuelve a insistir', async () => {
+      // Insistir con el cambio después de un «no» es lo que molesta de los
+      // bots; la propuesta se olvida y contesta quien estaba.
+      const { service, atendidoPor, traspasos, propuestas } = build({
+        operador: {},
+        contactos: [],
+        respuestaAgente: 'Dale, seguimos',
+        derivacion: { decision: null, propuesta: { agente: 'ag-obras', tema: 'Baches' } },
+      });
+
+      await service.process(mensaje('no, mejor seguí vos'), 'gupshup');
+
+      expect(traspasos).toHaveLength(0);
+      expect(propuestas).toHaveLength(0);
+      expect(atendidoPor).toEqual(['ag-1']);
+    });
+
+    it('si el traspaso REVIENTA, igual se contesta', async () => {
+      /*
+       * El traspaso es una mejora sobre contestar. Un error ahí no puede
+       * dejar a alguien sin respuesta: contesta quien recibió, que es el
+       * comportamiento de siempre.
+       */
+      const { service, atendidoPor } = build({
+        operador: {},
+        contactos: [],
+        respuestaAgente: 'Buenas, contame',
+      });
+      // El motor falla en la primera consulta que hace el camino.
+      const roto = service as unknown as { derivacion: { agenteDelHilo: () => Promise<string> } };
+      roto.derivacion.agenteDelHilo = async () => {
+        throw new Error('config caída');
+      };
+
+      await service.process(mensaje('Hay un bache'), 'gupshup');
+
+      expect(atendidoPor).toEqual(['ag-1']);
+    });
   });
 
   it('un acuse de entrega no es un mensaje del ciudadano', async () => {
