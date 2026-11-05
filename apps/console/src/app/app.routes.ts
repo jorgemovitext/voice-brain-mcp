@@ -70,6 +70,13 @@ export const routes: Routes = [
     title: 'Crear agente · Hive',
   },
   {
+    path: 'agentes/cambio',
+    pathMatch: 'full',
+    canActivate: [authGuard],
+    loadComponent: () => import('./pages/agentes/cambio-agente').then((m) => m.CambioAgentePage),
+    title: 'Cambio de agente · Hive',
+  },
+  {
     path: 'agentes/nuevo/asistente',
     pathMatch: 'full',
     canActivate: [authGuard],

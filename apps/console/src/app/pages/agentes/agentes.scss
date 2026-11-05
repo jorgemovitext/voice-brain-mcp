@@ -836,3 +836,28 @@
   .carta:hover { transform: none; }
   .carta__icono--vivo, .carta--hueso { animation: none; }
 }
+
+.cabecera__acciones {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.secundaria {
+  padding: 0.5rem 1rem;
+  border-radius: 999px;
+  background: var(--panel);
+  box-shadow: var(--sombra-pildora);
+  color: var(--ink);
+  font-size: 0.82rem;
+  font-weight: 700;
+  text-decoration: none;
+  transition: transform 0.12s, color 0.15s;
+
+  &:hover { transform: translateY(-1px); color: var(--primary); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .secundaria:hover { transform: none; }
+}

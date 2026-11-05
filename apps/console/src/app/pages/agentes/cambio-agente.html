@@ -1,0 +1,236 @@
+<div class="pagina">
+  <header class="cabecera">
+    <div>
+      <h1>Cambio de agente</h1>
+      <p>Cómo decide Hive quién atiende cuando el tema no es del agente que recibió</p>
+    </div>
+
+    <div class="cabecera__estado">
+      <span class="chip-plan">Plan {{ plan() === 'institucional' || plan() === 'interno' ? 'Institucional' : 'Básico' }}</span>
+      <span class="chip-rol">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></svg>
+        Rol: {{ rol() === 'admin' ? 'Administradora' : rol() === 'supervisor' ? 'Supervisora' : 'Operadora' }}
+      </span>
+      @if (puedeEditar()) {
+        <button class="guardar" [disabled]="guardando()" (click)="guardar()">
+          {{ guardando() ? 'Guardando…' : 'Guardar cambios' }} ✓
+        </button>
+      } @else {
+        <a class="ver-planes" routerLink="/integraciones">Ver planes ›</a>
+      }
+    </div>
+  </header>
+
+  @if (error(); as e) { <p class="aviso aviso--mal">⚠ {{ e }}</p> }
+  @if (guardado()) { <p class="aviso aviso--bien">✓ Guardado. Se aplica desde el próximo mensaje.</p> }
+
+  <div class="tablero">
+    <!-- ===== Cómo se decide ===== -->
+    <section class="panel">
+      <h2 class="panel__titulo">
+        Cómo se decide
+        <em>Qué hace Hive cuando alguien le escribe a un agente sobre un tema de otro</em>
+      </h2>
+
+      <!-- El aviso del plan va ARRIBA de los controles: explicar por qué
+           están en gris después de que alguien intentó tocarlos es tarde. -->
+      @if (motivo() === 'plan') {
+        <div class="bloqueo">
+          <span class="bloqueo__icono">⚠</span>
+          <span class="bloqueo__texto">
+            <strong>En tu plan el cambio de agente viene fijo: {{ modo() === 'automatico' ? 'Automático' : modo() }} al {{ umbral() }} %</strong>
+            Hive ya cambia de agente solo y tus operadoras pueden deshacerlo en el chat. Elegir el modo,
+            mover el umbral o editar las reglas es del plan Institucional.
+          </span>
+          <a class="bloqueo__accion" routerLink="/integraciones">Pasar a Institucional ›</a>
+        </div>
+      } @else if (motivo() === 'rol') {
+        <div class="bloqueo">
+          <span class="bloqueo__icono">⚠</span>
+          <span class="bloqueo__texto">
+            <strong>Solo la administradora cambia esta configuración</strong>
+            Podés ver cómo está configurado y qué reglas hay, pero no modificarlas.
+          </span>
+        </div>
+      }
+
+      <div class="modos" [class.modos--fijos]="!puedeEditar()">
+        @for (m of MODOS; track m.id) {
+          <button
+            class="modo"
+            [class.modo--on]="modo() === m.id"
+            [disabled]="!puedeEditar()"
+            (click)="modo.set(m.id)">
+            <span class="modo__cabeza">
+              <span class="modo__icono">
+                @switch (m.id) {
+                  @case ('automatico') { <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12h4l3 8 4-16 3 8h4"/></svg> }
+                  @case ('preguntar') { <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21 12a9 9 0 0 1-13.5 7.8L3 21l1.2-4.5A9 9 0 1 1 21 12"/></svg> }
+                  @default { <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></svg> }
+                }
+              </span>
+              <strong>{{ m.nombre }}</strong>
+              <span class="modo__radio" [class.modo__radio--on]="modo() === m.id">
+                @if (modo() === m.id) { ✓ }
+              </span>
+            </span>
+            <span class="modo__texto">{{ m.texto }}</span>
+            @if (m.id === 'automatico') {
+              @if (!puedeEditar() && modo() === 'automatico') {
+                <span class="modo__sello">Fijo en tu plan</span>
+              } @else {
+                <span class="modo__sello modo__sello--sugerido">Recomendado</span>
+              }
+            }
+          </button>
+        }
+      </div>
+
+      <!-- ===== Umbral ===== -->
+      <div class="umbral" [class.umbral--fijo]="!puedeEditar()">
+        <div class="umbral__cabeza">
+          <span class="umbral__texto">
+            <strong>Cambia solo cuando está seguro al menos un</strong>
+            Por debajo de ese número, pregunta primero. Por debajo de 70 %, no cambia.
+          </span>
+          <span class="umbral__valor">{{ umbral() }} %</span>
+        </div>
+        <!-- El relleno va por variable: 70 es el mínimo, así que el
+             recorrido útil son 30 puntos y no 100. -->
+        <input
+          class="umbral__barra"
+          type="range"
+          min="70"
+          max="100"
+          step="1"
+          [style.--pct]="((umbral() - 70) / 30) * 100"
+          [value]="umbral()"
+          [disabled]="!puedeEditar()"
+          (input)="moverUmbral($event)" />
+        <div class="umbral__escala">
+          <span>70 %</span><span>80 %</span><span>90 %</span><span>100 %</span>
+        </div>
+      </div>
+
+      <!-- ===== Reglas por tema ===== -->
+      <div class="reglas__cabeza">
+        <h3 class="panel__sub">Reglas por tema</h3>
+        @if (puedeEditar()) {
+          <button class="agregar" (click)="agregarRegla()">Agregar regla +</button>
+        } @else {
+          <span class="fijas">Fijas en tu plan</span>
+        }
+      </div>
+      <p class="reglas__nota">
+        @if (puedeEditar()) { Podés apagarlas o cambiar el destino. }
+        @else { Se pueden ver, no cambiar. }
+      </p>
+
+      @if (!reglas().length) {
+        <p class="vacio">
+          Todavía no hay reglas. Sin ellas, cada agente contesta solo lo suyo y no deriva nada.
+        </p>
+      }
+
+      @for (r of reglas(); track r.id; let i = $index) {
+        <div class="regla" [style.--entrada]="i">
+          @if (puedeEditar()) {
+            <input class="regla__tema" placeholder="Baches, obras y postes"
+                   [value]="r.tema" (input)="cambiarTema(r.id, $event)" />
+          } @else {
+            <span class="regla__tema regla__tema--fijo">{{ r.tema }}</span>
+          }
+
+          <span class="regla__flecha">›</span>
+
+          @if (puedeEditar()) {
+            <select class="regla__destino" [value]="r.agente" (change)="cambiarDestino(r.id, $event)">
+              @for (a of catalogo(); track a.id) { <option [value]="a.id">{{ a.nombre }}</option> }
+            </select>
+          } @else {
+            <span class="regla__destino regla__destino--fijo">{{ nombreDe()(r.agente) }}</span>
+          }
+
+          <span class="regla__cuenta">{{ r.cambios }} cambios este mes</span>
+
+          @if (puedeEditar()) {
+            <button class="interruptor" [class.interruptor--on]="r.activa"
+                    [attr.aria-label]="r.activa ? 'Apagar la regla' : 'Encender la regla'"
+                    (click)="alternarRegla(r.id)">
+              <i></i>
+            </button>
+            <button class="regla__quitar" title="Quitar la regla" (click)="quitarRegla(r.id)">×</button>
+          } @else {
+            <span class="estado-fijo">{{ r.activa ? 'Activa' : 'Apagada' }}</span>
+          }
+        </div>
+      }
+    </section>
+
+    <!-- ===== Así lo ve el ciudadano ===== -->
+    <aside class="riel">
+      <h2 class="riel__titulo">Así lo ve el ciudadano</h2>
+      <p class="riel__bajada">Lo que aparece en el chat cuando Hive cambia</p>
+
+      <div class="chat">
+        <p class="chat__burbuja">Buenas, hay un bache grande frente a la pulpería de la 3ra calle.</p>
+
+        <!-- La burbuja de traspaso, igual que en la conversación real. -->
+        <div class="traspaso">
+          <span class="traspaso__cabeza">
+            <span class="traspaso__iconos">◉ › ◉</span>
+            Hive pasó el caso a {{ reglas().length ? nombreDe()(reglas()[0].agente) : 'otro agente' }}
+          </span>
+          <p class="traspaso__dicho">«{{ muestra() }}»</p>
+        </div>
+      </div>
+
+      <!-- El mensaje, editable con sus variables. -->
+      <div class="bloque">
+        <span class="bloque__rotulo">
+          Mensaje al ciudadano
+          @if (!puedeEditar()) { <em>Fijo</em> }
+        </span>
+        <textarea
+          class="bloque__texto"
+          rows="3"
+          [value]="mensaje()"
+          [disabled]="!puedeEditar()"
+          (input)="escribirMensaje($event)"></textarea>
+        <div class="variables">
+          @for (v of ['{agente}', '{tema}', '{ciudadano}']; track v) {
+            <span class="variable">{{ v }}</span>
+          }
+        </div>
+      </div>
+
+      <!-- Lo que de verdad pasó, no una proyección. -->
+      <div class="bloque">
+        <span class="bloque__rotulo">Este mes</span>
+        <div class="cifras">
+          <span class="cifra"><b>{{ cambiosDelMes() }}</b><em>cambios</em></span>
+          <span class="cifra"><b>{{ reglasActivas() }}</b><em>reglas activas</em></span>
+          <span class="cifra"><b>{{ umbral() }}%</b><em>umbral</em></span>
+        </div>
+      </div>
+
+      <div class="bloque">
+        <span class="bloque__rotulo">Quién puede tocar esto</span>
+        <div class="quien">
+          <span class="quien__fila">
+            <strong>Administradora</strong>
+            <em>Todo: modo, umbral y reglas</em>
+          </span>
+          <span class="quien__fila">
+            <strong>Supervisora</strong>
+            <em>Solo ver</em>
+          </span>
+          <span class="quien__fila">
+            <strong>Operadora</strong>
+            <em>Solo deshacer un cambio en el chat</em>
+          </span>
+        </div>
+      </div>
+    </aside>
+  </div>
+</div>

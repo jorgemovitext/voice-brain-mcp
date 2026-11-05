@@ -4,9 +4,14 @@
       <h1>Agentes</h1>
       <p>{{ pulso() }}</p>
     </div>
-    <a class="crear" routerLink="/agentes/nuevo">
-      Crear agente <span class="crear__mas">+</span>
-    </a>
+    <span class="cabecera__acciones">
+      <!-- Vive acá porque es una regla ENTRE agentes: desde la ficha de uno
+           solo no se entiende que la decisión los cruza a todos. -->
+      <a class="secundaria" routerLink="/agentes/cambio">Cambio de agente</a>
+      <a class="crear" routerLink="/agentes/nuevo">
+        Crear agente <span class="crear__mas">+</span>
+      </a>
+    </span>
   </header>
 
   <!-- Buscador y filtros, como el diseño: la píldora activa va oscura. -->

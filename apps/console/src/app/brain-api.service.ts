@@ -151,6 +151,16 @@ export class BrainApiService {
 
   /* --- Módulo de Agentes --- */
 
+  /** Guarda el cambio de agente. El servidor vuelve a comprobar plan y rol. */
+  guardarDerivacion(config: {
+    modo: string;
+    umbral: number;
+    mensaje: string;
+    reglas: Array<{ id: string; tema: string; agente: string; activa: boolean; cambios: number }>;
+  }): Promise<unknown> {
+    return firstValueFrom(this.http.patch('/api/agentes/derivacion', config));
+  }
+
   /* --- Asistente de alta de agentes --- */
 
   crearAgenteDesdePlantilla(input: {

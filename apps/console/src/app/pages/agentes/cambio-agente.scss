@@ -1,0 +1,643 @@
+/* Cambio de agente. Dos columnas: cómo se decide, y lo que el ciudadano
+   acaba viendo. El riel no es un adorno — con tres tarjetas y un deslizador
+   es fácil configurar algo que suena distinto de lo que uno imaginaba, y
+   acá se lee la frase exacta antes de guardar. */
+.pagina {
+  height: 100%;
+  box-sizing: border-box;
+  overflow-y: auto;
+  padding: 1.3rem 1.6rem 2rem;
+  color: var(--ink);
+}
+
+.cabecera {
+  display: flex;
+  align-items: flex-start;
+  gap: 1rem;
+  flex-wrap: wrap;
+  margin-bottom: 1rem;
+
+  h1 { margin: 0; font-size: 1.9rem; font-weight: 700; letter-spacing: -0.025em; }
+  p { margin: 0.2rem 0 0; font-size: 0.85rem; color: var(--ink-soft); }
+}
+
+.cabecera__estado {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.chip-plan {
+  padding: 0.45rem 0.9rem;
+  border-radius: 999px;
+  background: var(--oscuro);
+  color: var(--oscuro-ink);
+  font-size: 0.8rem;
+  font-weight: 700;
+}
+
+.chip-rol {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.45rem 0.9rem;
+  border-radius: 999px;
+  background: var(--panel);
+  box-shadow: var(--sombra-pildora);
+  font-size: 0.8rem;
+  font-weight: 700;
+
+  svg { width: 15px; height: 15px; color: var(--ink-soft); }
+}
+
+.guardar {
+  padding: 0.5rem 1.1rem;
+  border: 0;
+  border-radius: 999px;
+  background: var(--primary);
+  color: var(--primary-ink);
+  font: inherit;
+  font-size: 0.84rem;
+  font-weight: 700;
+  cursor: pointer;
+  box-shadow: 0 6px 18px -8px rgba(243, 71, 0, 0.8);
+  transition: transform 0.12s;
+
+  &:hover:not(:disabled) { transform: translateY(-1px); }
+  &:disabled { opacity: 0.55; cursor: default; }
+}
+
+.ver-planes {
+  padding: 0.5rem 1.1rem;
+  border-radius: 999px;
+  background: var(--panel);
+  box-shadow: var(--sombra-pildora);
+  color: var(--ink);
+  font-size: 0.84rem;
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.aviso {
+  margin: 0 0 0.8rem;
+  padding: 0.6rem 0.9rem;
+  border-radius: 12px;
+  font-size: 0.84rem;
+  font-weight: 600;
+}
+
+.aviso--mal { background: rgba(248, 40, 52, 0.08); color: #b42318; }
+.aviso--bien { background: rgba(22, 163, 74, 0.1); color: #15803d; }
+
+/* ===== Dos columnas ===== */
+.tablero {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) clamp(320px, 30vw, 440px);
+  gap: 1rem;
+  align-items: start;
+
+  @media (max-width: 1080px) { grid-template-columns: minmax(0, 1fr); }
+}
+
+.panel,
+.riel {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--sombra-tarjeta);
+  padding: 1.2rem 1.3rem;
+}
+
+.panel__titulo {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  margin: 0 0 1rem;
+  font-size: 1.1rem;
+  font-weight: 700;
+
+  em { font-style: normal; font-size: 0.82rem; font-weight: 500; color: var(--ink-soft); }
+}
+
+.panel__sub { margin: 0; font-size: 1.05rem; font-weight: 700; }
+
+/* ===== Aviso de plan ===== */
+.bloqueo {
+  display: flex;
+  align-items: center;
+  gap: 0.8rem;
+  padding: 0.85rem 1rem;
+  margin-bottom: 1rem;
+  border-radius: 16px;
+  background: var(--primary-suave);
+  border: 1px solid color-mix(in srgb, var(--primary) 28%, transparent);
+}
+
+.bloqueo__icono {
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  flex-shrink: 0;
+  border-radius: 10px;
+  background: var(--panel);
+  color: var(--primary);
+}
+
+.bloqueo__texto {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  font-size: 0.8rem;
+  line-height: 1.45;
+  color: #9a2d00;
+
+  strong { font-size: 0.86rem; }
+}
+
+.bloqueo__accion {
+  margin-left: auto;
+  flex-shrink: 0;
+  padding: 0.5rem 1rem;
+  border-radius: 999px;
+  background: var(--primary);
+  color: var(--primary-ink);
+  font-size: 0.82rem;
+  font-weight: 700;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+/* ===== Modos ===== */
+.modos {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+  gap: 0.7rem;
+  margin-bottom: 1.3rem;
+}
+
+.modo {
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+  padding: 0.9rem;
+  border: 1.5px solid var(--border);
+  border-radius: 16px;
+  background: var(--panel-2);
+  text-align: left;
+  font: inherit;
+  color: var(--ink);
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s, transform 0.14s;
+
+  &:hover:not(:disabled) { transform: translateY(-2px); border-color: color-mix(in srgb, var(--primary) 40%, var(--border)); }
+  &:disabled { cursor: default; }
+}
+
+/* Los que el plan no deja elegir se apagan, pero el elegido se sigue
+   leyendo: hay que poder ver CÓMO está configurado aunque no se toque. */
+.modos--fijos .modo:not(.modo--on) { opacity: 0.45; }
+
+.modo--on {
+  border-color: var(--oscuro);
+  background: var(--panel);
+}
+
+.modo__cabeza {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+
+  strong { font-size: 0.92rem; }
+}
+
+.modo__icono {
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 10px;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  color: var(--ink);
+
+  svg { width: 16px; height: 16px; }
+}
+
+.modo--on .modo__icono {
+  background: var(--oscuro);
+  border-color: transparent;
+  color: var(--oscuro-ink);
+}
+
+.modo__radio {
+  margin-left: auto;
+  display: grid;
+  place-items: center;
+  width: 20px;
+  height: 20px;
+  flex-shrink: 0;
+  border-radius: 50%;
+  border: 1.5px solid var(--border);
+  font-size: 0.7rem;
+}
+
+.modo__radio--on {
+  background: var(--oscuro);
+  border-color: var(--oscuro);
+  color: var(--oscuro-ink);
+}
+
+.modo__texto { font-size: 0.78rem; line-height: 1.45; color: var(--ink-soft); }
+
+.modo__sello {
+  align-self: flex-start;
+  padding: 0.15rem 0.6rem;
+  border-radius: 999px;
+  background: var(--panel-2);
+  border: 1px solid var(--border);
+  font-size: 0.7rem;
+  font-weight: 700;
+  color: var(--ink-soft);
+}
+
+.modo__sello--sugerido {
+  background: var(--primary-suave);
+  border-color: transparent;
+  color: #c23700;
+}
+
+/* ===== Umbral ===== */
+.umbral {
+  padding: 0.95rem 1.05rem;
+  border-radius: 16px;
+  background: var(--panel-2);
+  margin-bottom: 1.3rem;
+}
+
+.umbral--fijo { opacity: 0.6; }
+
+.umbral__cabeza {
+  display: flex;
+  align-items: flex-start;
+  gap: 1rem;
+  margin-bottom: 0.7rem;
+}
+
+.umbral__texto {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  font-size: 0.78rem;
+  color: var(--ink-soft);
+  line-height: 1.4;
+
+  strong { font-size: 0.9rem; color: var(--ink); }
+}
+
+.umbral__valor {
+  margin-left: auto;
+  flex-shrink: 0;
+  padding: 0.35rem 0.85rem;
+  border-radius: 999px;
+  background: var(--oscuro);
+  color: var(--oscuro-ink);
+  font-size: 0.92rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+/* El recorrido en naranja hasta el pulgar: el deslizador nativo no lo
+   pinta, y sin eso no se ve de un vistazo dónde está parado. */
+.umbral__barra {
+  width: 100%;
+  appearance: none;
+  height: 6px;
+  border-radius: 999px;
+  background: linear-gradient(
+    to right,
+    var(--primary) 0%,
+    var(--primary) calc((var(--pct, 66)) * 1%),
+    var(--border) calc((var(--pct, 66)) * 1%)
+  );
+  cursor: pointer;
+
+  &::-webkit-slider-thumb {
+    appearance: none;
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    background: #fff;
+    border: 3px solid var(--primary);
+    cursor: grab;
+    box-shadow: var(--sombra-tarjeta);
+  }
+
+  &::-moz-range-thumb {
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    background: #fff;
+    border: 3px solid var(--primary);
+    cursor: grab;
+  }
+
+  &:disabled { cursor: default; }
+}
+
+.umbral__escala {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 0.35rem;
+  font-size: 0.7rem;
+  color: var(--ink-soft);
+}
+
+/* ===== Reglas ===== */
+.reglas__cabeza {
+  display: flex;
+  align-items: center;
+  gap: 0.8rem;
+}
+
+.agregar {
+  margin-left: auto;
+  padding: 0.4rem 0.9rem;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--panel);
+  color: var(--ink);
+  font: inherit;
+  font-size: 0.8rem;
+  font-weight: 700;
+  cursor: pointer;
+
+  &:hover { border-color: var(--primary); color: #c23700; }
+}
+
+.fijas {
+  margin-left: auto;
+  padding: 0.3rem 0.8rem;
+  border-radius: 999px;
+  background: var(--panel-2);
+  font-size: 0.76rem;
+  font-weight: 700;
+  color: var(--ink-soft);
+}
+
+.reglas__nota { margin: 0.25rem 0 0.7rem; font-size: 0.78rem; color: var(--ink-soft); }
+
+.regla {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.65rem 0.8rem;
+  margin-bottom: 0.45rem;
+  border-radius: 14px;
+  background: var(--panel-2);
+  animation: regla-entra 0.28s ease-out both;
+  animation-delay: calc(var(--entrada, 0) * 45ms);
+}
+
+@keyframes regla-entra {
+  from { opacity: 0; transform: translateX(-6px); }
+  to { opacity: 1; transform: none; }
+}
+
+.regla__tema {
+  flex: 1;
+  min-width: 0;
+  padding: 0.35rem 0.6rem;
+  border-radius: 10px;
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--ink);
+  font: inherit;
+  font-size: 0.87rem;
+  font-weight: 600;
+
+  &:focus { outline: none; border-color: var(--primary); background: var(--panel); }
+}
+
+.regla__tema--fijo { border: 0; }
+
+.regla__flecha { color: var(--ink-soft); flex-shrink: 0; }
+
+.regla__destino {
+  flex-shrink: 0;
+  max-width: 170px;
+  padding: 0.3rem 0.6rem;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: var(--panel);
+  color: var(--ink);
+  font: inherit;
+  font-size: 0.8rem;
+  font-weight: 600;
+}
+
+.regla__destino--fijo { border-color: transparent; }
+
+.regla__cuenta {
+  flex-shrink: 0;
+  font-size: 0.74rem;
+  color: var(--ink-soft);
+  white-space: nowrap;
+}
+
+/* El interruptor: naranja encendido, como el diseño. */
+.interruptor {
+  flex-shrink: 0;
+  width: 42px;
+  height: 24px;
+  padding: 0;
+  border: 0;
+  border-radius: 999px;
+  background: var(--border);
+  cursor: pointer;
+  transition: background 0.2s;
+  position: relative;
+
+  i {
+    position: absolute;
+    top: 3px;
+    left: 3px;
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    background: #fff;
+    box-shadow: var(--sombra-pildora);
+    transition: transform 0.2s;
+  }
+}
+
+.interruptor--on {
+  background: var(--primary);
+  i { transform: translateX(18px); }
+}
+
+.regla__quitar {
+  flex-shrink: 0;
+  width: 24px;
+  height: 24px;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--ink-soft);
+  font-size: 1rem;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.15s, color 0.15s;
+
+  .regla:hover & { opacity: 1; }
+  &:hover { color: var(--negative); }
+}
+
+.estado-fijo {
+  flex-shrink: 0;
+  padding: 0.25rem 0.7rem;
+  border-radius: 999px;
+  background: var(--oscuro);
+  color: var(--oscuro-ink);
+  font-size: 0.74rem;
+  font-weight: 700;
+}
+
+.vacio { margin: 0.5rem 0; font-size: 0.83rem; color: var(--ink-soft); line-height: 1.5; }
+
+/* ===== Riel ===== */
+.riel { display: flex; flex-direction: column; gap: 0.9rem; }
+
+.riel__titulo { margin: 0; font-size: 1.1rem; font-weight: 700; }
+.riel__bajada { margin: -0.7rem 0 0; font-size: 0.8rem; color: var(--ink-soft); }
+
+.chat {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  padding: 0.8rem;
+  border-radius: 16px;
+  background: var(--panel-2);
+}
+
+.chat__burbuja {
+  margin: 0;
+  padding: 0.6rem 0.8rem;
+  border-radius: 14px 14px 14px 4px;
+  background: var(--panel);
+  font-size: 0.83rem;
+  line-height: 1.45;
+}
+
+/* El traspaso se dibuja con el borde naranja del diseño: es el momento en
+   que la app tomó una decisión por su cuenta, y tiene que verse distinto
+   de un mensaje cualquiera. */
+.traspaso {
+  padding: 0.7rem 0.85rem;
+  border-radius: 14px;
+  background: var(--panel);
+  border: 1.5px solid color-mix(in srgb, var(--primary) 45%, transparent);
+}
+
+.traspaso__cabeza {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  font-size: 0.82rem;
+  font-weight: 700;
+}
+
+.traspaso__iconos { color: var(--primary); letter-spacing: 0.1em; }
+
+.traspaso__dicho {
+  margin: 0.4rem 0 0;
+  font-size: 0.81rem;
+  line-height: 1.5;
+  color: var(--ink-soft);
+}
+
+.bloque {
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+  padding: 0.8rem 0.9rem;
+  border-radius: 16px;
+  background: var(--panel-2);
+}
+
+.bloque__rotulo {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.66rem;
+  font-weight: 700;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: var(--ink-soft);
+
+  em {
+    margin-left: auto;
+    font-style: normal;
+    letter-spacing: 0;
+    text-transform: none;
+    font-size: 0.72rem;
+  }
+}
+
+.bloque__texto {
+  width: 100%;
+  box-sizing: border-box;
+  resize: vertical;
+  padding: 0.6rem 0.75rem;
+  border-radius: 12px;
+  border: 1px solid var(--border);
+  background: var(--panel);
+  color: var(--ink);
+  font: inherit;
+  font-size: 0.84rem;
+  line-height: 1.45;
+
+  &:focus { outline: none; border-color: var(--primary); }
+  &:disabled { color: var(--ink-soft); }
+}
+
+.variables { display: flex; flex-wrap: wrap; gap: 0.3rem; }
+
+.variable {
+  padding: 0.18rem 0.55rem;
+  border-radius: 999px;
+  background: var(--oscuro);
+  color: var(--oscuro-ink);
+  font-family: 'Inter', ui-monospace, monospace;
+  font-size: 0.72rem;
+  font-weight: 600;
+}
+
+.cifras { display: flex; gap: 1.2rem; }
+
+.cifra {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.15;
+
+  b { font-size: 1.5rem; font-weight: 700; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; }
+  em { font-style: normal; font-size: 0.72rem; color: var(--ink-soft); }
+}
+
+.quien { display: flex; flex-direction: column; gap: 0.5rem; }
+
+.quien__fila {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.3;
+
+  strong { font-size: 0.83rem; }
+  em { font-style: normal; font-size: 0.75rem; color: var(--ink-soft); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .regla { animation: none; }
+  .modo:hover, .guardar:hover { transform: none; }
+}
