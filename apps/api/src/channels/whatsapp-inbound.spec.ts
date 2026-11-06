@@ -6,6 +6,7 @@ import { LineasService } from '../lineas/lineas.service';
 import { WhatsappInboundService } from './whatsapp-inbound.service';
 import { ElevenLabsService } from '../elevenlabs/elevenlabs.service';
 import { ChannelPort } from '../ports/channel.port';
+import { ORG_HISTORICA, orgActual } from '../shared/contexto-org';
 
 /**
  * Qué entra al hilo y qué no.
@@ -47,6 +48,7 @@ describe('WhatsappInboundService', () => {
     contactos = ['c1'],
     respuestaAgente = null,
     lineas = {},
+    duenas = {},
     derivacion,
   }: {
     operador: Record<string, string | null>;
@@ -55,6 +57,8 @@ describe('WhatsappInboundService', () => {
     respuestaAgente?: string | null;
     /** destino → agente de la línea, para probar el routing multi-cliente. */
     lineas?: Record<string, string>;
+    /** destino → empresa dueña de esa línea. A ella se le factura. */
+    duenas?: Record<string, string>;
     /** Qué decide el motor de traspaso para este caso. */
     derivacion?: {
       decision?: { agente: string; tema: string; confianza: number; accion: 'cambiar' | 'preguntar' } | null;
@@ -65,14 +69,16 @@ describe('WhatsappInboundService', () => {
     const guardadas: Array<Record<string, unknown>> = [];
     const bitacora: string[] = [];
 
-    const enviados: Array<{ contactId: string; texto: string }> = [];
+    const enviados: Array<{ contactId: string; texto: string; org?: string }> = [];
     const brain = {
       // No crea: preguntar por un número no debe dar de alta a nadie.
       findAllByPhone: async () => contactos.map((id) => ({ id })),
       // El agente SÍ da de alta, porque ahí sí hay una conversación real.
       resolveIdentity: async () => ({ contactId: 'nuevo', created: true }),
       appendInteraction: async (i: Record<string, unknown>) => {
-        guardadas.push(i);
+        // Se anota la empresa VIGENTE en el momento de guardar: es lo que
+        // decide de quién son los datos y a quién se le cobra.
+        guardadas.push({ ...i, __org: orgActual() });
         return i;
       },
     };
@@ -86,11 +92,13 @@ describe('WhatsappInboundService', () => {
     };
     const lineasService = {
       agenteDe: async (destino?: string) =>
-        destino && lineas[destino] ? { agente: lineas[destino], linea: `linea-${destino}` } : null,
+        destino && lineas[destino]
+          ? { agente: lineas[destino], linea: `linea-${destino}`, organizacion: duenas[destino] }
+          : null,
     };
     const canal = {
       send: async (contactId: string, texto: string) => {
-        enviados.push({ contactId, texto });
+        enviados.push({ contactId, texto, org: orgActual() });
         return { delivered: true, providerId: 'p1' };
       },
     };
@@ -282,8 +290,11 @@ describe('WhatsappInboundService', () => {
       summary: 'Claro, contame en qué te ayudo.',
       handledBy: 'agente',
     });
-    // Y salió de verdad por el canal.
-    expect(enviados).toEqual([{ contactId: 'nuevo', texto: 'Claro, contame en qué te ayudo.' }]);
+    // Y salió de verdad por el canal, dentro de una empresa: un envío sin
+    // dueño es un mensaje que no se le puede facturar a nadie.
+    expect(enviados).toEqual([
+      { contactId: 'nuevo', texto: 'Claro, contame en qué te ayudo.', org: ORG_HISTORICA },
+    ]);
   });
 
   it('el agente NO se mete en un hilo que ya tomó una persona', async () => {
@@ -481,6 +492,91 @@ describe('WhatsappInboundService', () => {
       await service.process(mensaje('Hay un bache'), 'gupshup');
 
       expect(atendidoPor).toEqual(['ag-1']);
+    });
+  });
+
+  /*
+   * De quién es lo que entra por el webhook.
+   *
+   * Un webhook no trae sesión: el proveedor no sabe que existen nuestras
+   * empresas. Sin fijar la empresa de la línea, todo lo que entra se guarda
+   * sin dueño —invisible en la consola del cliente— y los mensajes que el
+   * agente contesta no se le pueden facturar a nadie. Es la diferencia
+   * entre un SaaS multi-cliente y una base compartida.
+   */
+  describe('A qué empresa pertenece lo que entra', () => {
+    it('lo guardado y lo enviado quedan DENTRO de la empresa de la línea', async () => {
+      const { service, guardadas, enviados } = build({
+        operador: {},
+        respuestaAgente: 'Listo, queda registrado.',
+        lineas: { 'app-clinica': 'ag-clinica' },
+        duenas: { 'app-clinica': 'org-clinica' },
+      });
+
+      await service.process(
+        {
+          type: 'message',
+          payload: { id: 'm-1', type: 'text', source: '+50499998888', payload: { text: 'Hola' } },
+          app: 'app-clinica',
+        },
+        'gupshup',
+      );
+
+      expect(guardadas.length).toBeGreaterThan(0);
+      for (const g of guardadas) expect(g['__org']).toBe('org-clinica');
+      expect(enviados[0].org).toBe('org-clinica');
+    });
+
+    it('dos líneas de empresas distintas no se mezclan', async () => {
+      // Es LA propiedad del multi-cliente: el mismo webhook recibe mensajes
+      // de clientes que no deben verse entre sí.
+      const { service, guardadas } = build({
+        operador: {},
+        respuestaAgente: 'Listo.',
+        lineas: { 'app-clinica': 'ag-clinica', 'app-taller': 'ag-taller' },
+        duenas: { 'app-clinica': 'org-clinica', 'app-taller': 'org-taller' },
+      });
+
+      for (const [app, tel] of [
+        ['app-clinica', '+50499998888'],
+        ['app-taller', '+50477776666'],
+      ]) {
+        await service.process(
+          {
+            type: 'message',
+            payload: { id: `m-${app}`, type: 'text', source: tel, payload: { text: 'Hola' } },
+            app,
+          },
+          'gupshup',
+        );
+      }
+
+      const orgs = new Set(guardadas.map((g) => g['__org']));
+      expect(orgs).toEqual(new Set(['org-clinica', 'org-taller']));
+    });
+
+    it('el número histórico, sin línea dada de alta, cae en la organización histórica', async () => {
+      /*
+       * La Línea 100 atiende desde antes de que existieran las empresas. Si
+       * cayera en «ninguna», sus mensajes se guardarían sin dueño y
+       * desaparecerían de la consola que los viene mostrando hace meses.
+       */
+      const { service, guardadas } = build({
+        operador: {},
+        respuestaAgente: 'Listo.',
+      });
+
+      await service.process(
+        {
+          type: 'message',
+          payload: { id: 'm-viejo', type: 'text', source: '+50497616546', payload: { text: 'Hola' } },
+          app: 'app-sin-dar-de-alta',
+        },
+        'gupshup',
+      );
+
+      expect(guardadas.length).toBeGreaterThan(0);
+      for (const g of guardadas) expect(g['__org']).toBe(ORG_HISTORICA);
     });
   });
 
