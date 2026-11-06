@@ -6,6 +6,20 @@ import { Pool } from 'pg';
 import { ensureSchema, PG_POOL } from '../shared/database.module';
 import { Rol } from './permisos';
 
+/**
+ * Los dígitos de un teléfono, sin nada más.
+ *
+ * El número se busca por dígitos y no por texto exacto porque la gente lo
+ * escribe como lo sabe: «+504 9761-6546», «50497616546», «504-9761-6546».
+ * Con la comparación exacta, la misma persona no entraba con su propio
+ * número salvo que lo tecleara igualito a como quedó guardado — y el error
+ * que recibía era «credenciales inválidas», que le echa la culpa a la
+ * contraseña.
+ */
+export function soloDigitos(telefono: string): string {
+  return (telefono ?? '').replace(/\D/g, '');
+}
+
 export interface AuthUser {
   id: string;
   /** Identificador de acceso. El teléfono ya no identifica: solo recibe el OTP. */
@@ -96,7 +110,12 @@ export class PgUsersRepository implements UsersRepository {
 
   async findByPhone(phone: string): Promise<AuthUser | undefined> {
     const db = await this.db();
-    const res = await db.query('SELECT * FROM users WHERE phone = $1', [phone]);
+    // Por DÍGITOS: lo guardado está en E.164 con «+», pero lo que llega de
+    // un formulario viene como la persona lo escribe.
+    const res = await db.query(
+      `SELECT * FROM users WHERE regexp_replace(phone, '\\D', '', 'g') = $1 LIMIT 1`,
+      [soloDigitos(phone)],
+    );
     return res.rows[0] ? this.rowToUser(res.rows[0]) : undefined;
   }
 
@@ -208,7 +227,8 @@ export class JsonUsersRepository implements UsersRepository {
   }
 
   async findByPhone(phone: string): Promise<AuthUser | undefined> {
-    return (await this.load()).find((u) => u.phone === phone);
+    const buscado = soloDigitos(phone);
+    return (await this.load()).find((u) => soloDigitos(u.phone) === buscado);
   }
 
   async findById(id: string): Promise<AuthUser | undefined> {

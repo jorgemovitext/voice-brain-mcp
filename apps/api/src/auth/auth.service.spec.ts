@@ -2,7 +2,7 @@ import { ConflictException, UnauthorizedException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { AuthService } from './auth.service';
 import { OtpSender } from './otp.sender';
-import { AuthUser, UsersRepository } from './users.repository';
+import { AuthUser, soloDigitos, UsersRepository } from './users.repository';
 
 /**
  * Pruebas de seguridad del flujo register/login/OTP:
@@ -16,7 +16,9 @@ class MemoryUsers implements UsersRepository {
     return this.users.find((u) => u.username === username);
   }
   async findByPhone(phone: string) {
-    return this.users.find((u) => u.phone === phone);
+    // Por dígitos, igual que el repositorio real: si el doble comparara
+    // texto exacto, la prueba pasaría y producción seguiría rota.
+    return this.users.find((u) => soloDigitos(u.phone) === soloDigitos(phone));
   }
   async findById(id: string) {
     return this.users.find((u) => u.id === id);
@@ -362,5 +364,77 @@ describe('AuthService (seguridad)', () => {
     ctx.users.users[0].verified = false;
 
     await expect(ctx.service.login(USER, PASSWORD)).rejects.toBeInstanceOf(UnauthorizedException);
+  });
+
+  /*
+   * Entrar con el propio número.
+   *
+   * Es el caso que dejó a alguien afuera de su propia cuenta: el número se
+   * buscaba en E.164 estricto, y quien lo escribía como lo sabe recibía
+   * «credenciales inválidas» — un mensaje que le echa la culpa a la
+   * contraseña y manda a buscar donde no es.
+   */
+  describe('Entrar con el teléfono, escrito como lo escribe la gente', () => {
+    const FORMAS = [
+      '+50499990000',
+      '50499990000',
+      '+504 9999-0000',
+      '504 9999 0000',
+      '99990000',
+      '9999-0000',
+    ];
+
+    for (const forma of FORMAS) {
+      it(`entra escribiendo «${forma}»`, async () => {
+        const ctx = build();
+        await registered(ctx);
+
+        const { user } = await ctx.service.login(forma.replace(/[\s-]/g, ''), PASSWORD);
+        expect(user.phone).toBe(PHONE);
+      });
+    }
+
+    it('con la contraseña mal NO entra, por más que el número esté bien', async () => {
+      const ctx = build();
+      await registered(ctx);
+      await expect(ctx.service.login('99990000', 'otracosa1')).rejects.toThrow(UnauthorizedException);
+    });
+
+    it('un número que no existe sigue dando el mismo error de siempre', async () => {
+      // Sin enumeración: la respuesta no puede delatar si el número existe.
+      const ctx = build();
+      await registered(ctx);
+      await expect(ctx.service.login('98887777', PASSWORD)).rejects.toThrow(UnauthorizedException);
+    });
+  });
+
+  describe('Recuperar el acceso con el código', () => {
+    it('la sesión del código lleva empresa y rol, como la del login', async () => {
+      /*
+       * Salía sin las dos. Quien entraba por acá —el camino de recuperar el
+       * acceso— quedaba con sesión válida y sin organización: la consola le
+       * mostraba todo vacío, que parece que se le borraron los datos.
+       */
+      const ctx = build();
+      await registered(ctx);
+      await conCodigo(ctx);
+
+      const { token } = await ctx.service.verifyOtp(USER, ctx.otp.last);
+      const payload = JSON.parse(Buffer.from(token.split('.')[1], 'base64').toString()) as {
+        org?: string;
+        rol?: string;
+      };
+
+      expect(payload.org).toBe('org-1');
+      expect(payload.rol).toBe('admin');
+    });
+
+    it('el código también se pide escribiendo el teléfono', async () => {
+      const ctx = build();
+      await registered(ctx);
+
+      await ctx.service.resendOtp('99990000');
+      expect(ctx.otp.sent.at(-1)?.phone).toBe(PHONE);
+    });
   });
 });

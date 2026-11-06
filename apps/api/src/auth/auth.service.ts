@@ -14,7 +14,7 @@ import { InvitacionesService } from './invitaciones.service';
 import { OrganizacionesService } from './organizaciones.service';
 import { Permiso, permisosDe, Rol, rolValido } from './permisos';
 import { OtpSender } from './otp.sender';
-import { AuthUser, USERS_REPOSITORY, UsersRepository } from './users.repository';
+import { AuthUser, soloDigitos, USERS_REPOSITORY, UsersRepository } from './users.repository';
 
 const scrypt = promisify(scryptCb) as (password: string, salt: Buffer, keylen: number, options: object) => Promise<Buffer>;
 
@@ -61,6 +61,8 @@ export interface SessionUser {
 export class AuthService {
   private readonly logger = new Logger(AuthService.name);
   private readonly otpTtlMin: number;
+  /** Código de país que se asume cuando alguien escribe solo su número local. */
+  private readonly codigoPais: string;
   readonly sessionHours: number;
 
   constructor(
@@ -72,6 +74,8 @@ export class AuthService {
     config: ConfigService,
   ) {
     this.otpTtlMin = config.get<number>('AUTH_OTP_TTL_MIN', 5);
+    // Honduras. Es de dónde son los clientes, y se cambia con una variable.
+    this.codigoPais = config.get<string>('AUTH_CODIGO_PAIS', '504');
     this.sessionHours = config.get<number>('AUTH_SESSION_HOURS', 12);
   }
 
@@ -265,10 +269,33 @@ export class AuthService {
    * en E.164, para no dejar afuera a las cuentas creadas antes de que el login
    * fuera por usuario.
    */
+  /**
+   * La cuenta de quien dice ser `identificador`: su usuario o su teléfono.
+   *
+   * Antes el teléfono solo se reconocía en E.164 estricto, con «+» y código
+   * de país. O sea que quien se registró con su número y al volver escribía
+   * «97616546» —como lo sabe de memoria— recibía «credenciales inválidas»:
+   * el mensaje le echaba la culpa a la contraseña y la cuenta quedaba
+   * inalcanzable para su propio dueño.
+   *
+   * Ahora se prueba por dígitos, y si vienen solo los locales se les
+   * antepone el código del país de la cuenta. No es adivinar: es que un
+   * número sin código de país, en un producto que se vende en Honduras, es
+   * un número hondureño.
+   */
   private async buscarCuenta(identificador: string): Promise<AuthUser | undefined> {
     const porUsuario = await this.users.findByUsername(identificador);
     if (porUsuario) return porUsuario;
-    return /^\+[1-9]\d{7,14}$/.test(identificador) ? this.users.findByPhone(identificador) : undefined;
+
+    const digitos = soloDigitos(identificador);
+    // Un usuario puede llevar números; lo que NO lleva es solo números.
+    if (!digitos || digitos.length !== identificador.replace(/^\+/, '').length) return undefined;
+
+    const porTelefono = await this.users.findByPhone(digitos);
+    if (porTelefono) return porTelefono;
+
+    // Sin código de país: se prueba con el de casa.
+    return digitos.length <= 8 ? this.users.findByPhone(`${this.codigoPais}${digitos}`) : undefined;
   }
 
   // =============== Login (password + OTP como segundo factor) ===============
@@ -422,7 +449,20 @@ export class AuthService {
       phone: user.phone,
       name: user.name,
     };
-    const token = await this.jwt.signAsync({ sub: user.id, username: user.username });
+    /*
+     * El token lleva la empresa y el rol, igual que el del login.
+     *
+     * Salía sin las dos: quien entraba por este camino —el de recuperar el
+     * acceso— quedaba con sesión válida y SIN organización. La consola le
+     * mostraba todo vacío, que es peor que no dejarlo entrar, porque parece
+     * que se le borraron los datos.
+     */
+    const token = await this.jwt.signAsync({
+      sub: user.id,
+      username: user.username,
+      org: user.organizacionId,
+      rol: user.rol ?? 'usuario',
+    });
     return { token, user: sessionUser };
   }
 

@@ -136,6 +136,12 @@ export function ensureSchema(pool: Pool): Promise<void> {
         ALTER TABLE users ADD COLUMN IF NOT EXISTS username text;
         CREATE UNIQUE INDEX IF NOT EXISTS users_username_key ON users (username);
 
+        -- El login busca la cuenta por los DÍGITOS del teléfono, porque la
+        -- gente lo escribe como lo sabe. Sin este índice, cada intento
+        -- recorre la tabla entera.
+        CREATE INDEX IF NOT EXISTS idx_users_phone_digits
+          ON users ((regexp_replace(phone, '\\D', '', 'g')));
+
         -- Espejo NL Pearl: catálogo de pearls y actividad raw a detalle.
         CREATE TABLE IF NOT EXISTS nlpearl_pearls (
           id text PRIMARY KEY,

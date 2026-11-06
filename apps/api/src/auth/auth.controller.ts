@@ -32,11 +32,33 @@ import { RateLimitGuard } from './rate-limit.guard';
  * cross-site (anti-CSRF para POSTs de terceros).
  */
 
-/** E.164: +50499998888 (8 a 15 dígitos, sin espacios). */
+/**
+ * Código de país que se asume cuando alguien escribe solo su número local.
+ * Honduras por defecto; se cambia con una variable de entorno.
+ */
+const CODIGO_PAIS = process.env.AUTH_CODIGO_PAIS ?? '504';
+
+/**
+ * El teléfono, escrito como lo escribe la gente.
+ *
+ * Se guarda en E.164 con «+», pero exigirlo en el formulario era rechazar
+ * «9761-6546» y «504 9761 6546», que es como se dicta un número acá. El que
+ * se registraba lo acomodaba; el que no, se iba.
+ */
 const phoneSchema = z
   .string()
-  .transform((s) => s.replace(/[\s-]/g, ''))
-  .pipe(z.string().regex(/^\+[1-9]\d{7,14}$/, 'Teléfono inválido: usá formato E.164, ej. +50499998888'));
+  .transform((s) => {
+    const digitos = s.replace(/\D/g, '');
+    if (!digitos) return s.trim();
+    // Solo el número local: le falta el país y se le pone el de casa.
+    if (!s.trim().startsWith('+') && digitos.length <= 8) return `+${CODIGO_PAIS}${digitos}`;
+    return `+${digitos}`;
+  })
+  .pipe(
+    z
+      .string()
+      .regex(/^\+[1-9]\d{7,14}$/, 'Ese teléfono no parece válido. Probá así: 9761-6546 o +504 9761-6546'),
+  );
 
 /** Usuario: 3–32 caracteres, letras/números/._- Se normaliza a minúsculas. */
 const usernameSchema = z
