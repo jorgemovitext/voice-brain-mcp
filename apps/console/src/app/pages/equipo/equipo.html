@@ -2,7 +2,10 @@
   <header class="cabecera">
     <div>
       <h1>Equipo</h1>
-      <p>Quién puede entrar a la consola. El alta es solo por invitación.</p>
+      <p>
+        @if (empresa(); as e) { Quién entra a {{ e }} y qué puede hacer cada uno }
+        @else { Quién entra a tu consola y qué puede hacer cada uno }
+      </p>
     </div>
   </header>
 
@@ -26,9 +29,24 @@
               <strong>{{ m.name || m.username }}</strong>
               <em>{{ m.username }} · {{ m.phone }}</em>
             </span>
+            <!-- El rol va ANTES de la fecha de alta: es lo que alguien viene a
+                 revisar cuando abre esta pantalla. -->
+            @if (puedeEditar() && m.id !== miId()) {
+              <button
+                class="rol rol--editable"
+                [class.rol--admin]="m.rol === 'admin'"
+                [title]="m.rol === 'admin' ? 'Pasar a usuario' : 'Hacer administrador'"
+                (click)="cambiarRol(m)">
+                {{ nombreRol(m.rol) }}
+              </button>
+            } @else {
+              <span class="rol" [class.rol--admin]="m.rol === 'admin'">{{ nombreRol(m.rol) }}</span>
+            }
             <span class="fila__desde">desde {{ cuando(m.creada) }}</span>
             @if (m.username !== yo()) {
-              <button class="fila__quitar" title="Quitar el acceso" (click)="quitar(m)">×</button>
+              @if (puedeEditar()) {
+                <button class="fila__quitar" title="Quitar el acceso" (click)="quitar(m)">×</button>
+              }
             } @else {
               <span class="fila__vos">vos</span>
             }
@@ -41,7 +59,13 @@
     <section class="bloque">
       <h2 class="bloque__titulo">Invitar a alguien</h2>
 
-      <div class="invitar">
+      @if (!puedeEditar()) {
+        <p class="solo-lectura">
+          Invitar y cambiar roles es del administrador de la cuenta. Podés ver quién tiene acceso.
+        </p>
+      }
+
+      <div class="invitar" [class.invitar--bloqueada]="!puedeEditar()">
         <label class="campo">
           <span>Para quién (opcional)</span>
           <input placeholder="Nombre o para qué es" [value]="nota()" (input)="escribir('nota', $event)" />
@@ -50,7 +74,7 @@
           <span>Su WhatsApp (opcional)</span>
           <input placeholder="+504 8888-7777" [value]="telefono()" (input)="escribir('telefono', $event)" />
         </label>
-        <button class="btn btn--primary" [disabled]="generando()" (click)="invitar()">
+        <button class="btn btn--primary" [disabled]="generando() || !puedeEditar()" (click)="invitar()">
           {{ generando() ? 'Generando…' : 'Generar código' }}
         </button>
       </div>
@@ -66,6 +90,33 @@
             </button>
           </div>
           <span class="codigo__pie">Con él se registra en la pantalla de acceso. Vale 72 horas y una sola vez.</span>
+        </div>
+      }
+
+      @if (matriz().length) {
+        <h3 class="bloque__sub">Qué puede cada rol</h3>
+        <p class="matriz__nota">
+          Esto lo comprueba el servidor en cada petición, no la pantalla. Quien invita entra como
+          usuario; el administrador decide después si lo sube.
+        </p>
+
+        <div class="matriz" role="table">
+          <div class="matriz__cabeza" role="row">
+            <span role="columnheader">Permiso</span>
+            <span role="columnheader">Admin</span>
+            <span role="columnheader">Usuario</span>
+          </div>
+          @for (f of matriz(); track f.permiso) {
+            <div class="matriz__fila" role="row">
+              <span role="cell">{{ f.nombre }}</span>
+              <span role="cell" class="matriz__celda" [class.matriz__celda--si]="f.admin">
+                @if (f.admin) { ✓ } @else { — }
+              </span>
+              <span role="cell" class="matriz__celda" [class.matriz__celda--si]="f.usuario">
+                @if (f.usuario) { ✓ } @else { — }
+              </span>
+            </div>
+          }
         </div>
       }
 

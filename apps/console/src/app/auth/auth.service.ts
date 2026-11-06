@@ -8,6 +8,19 @@ export interface SessionUser {
   username?: string;
   phone: string;
   name?: string;
+  /**
+   * Qué puede hacer, resuelto en el servidor.
+   *
+   * La consola NO calcula permisos: los recibe. Una regla que vive en dos
+   * lados se desincroniza en la primera semana, y la que manda es la del
+   * servidor. Esconder un botón no protege nada —eso lo hace el guard—, pero
+   * mostrar uno que va a devolver 403 es una trampa para el usuario.
+   */
+  rol?: 'admin' | 'usuario';
+  permisos?: string[];
+  organizacion?: string;
+  empresa?: string;
+  plan?: string;
 }
 
 /**
@@ -91,6 +104,13 @@ export class AuthService {
     await firstValueFrom(this.http.post('/api/auth/logout', {})).catch(() => undefined);
     this.user.set(null);
   }
+
+  /** ¿Puede hacer esto? Lo dice el servidor; acá solo se consulta. */
+  puede(permiso: string): boolean {
+    return this.user()?.permisos?.includes(permiso) ?? false;
+  }
+
+  readonly esAdmin = () => this.user()?.rol === 'admin';
 
   /** El interceptor la llama ante un 401: fuerza re-chequeo en el próximo guard. */
   sessionExpired(): void {

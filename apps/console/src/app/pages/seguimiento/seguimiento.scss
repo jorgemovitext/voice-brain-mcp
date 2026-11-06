@@ -1,0 +1,448 @@
+/* Seguimiento.
+
+   El orden de la pantalla es una decisión: primero los frenos, después el
+   costo, y recién al final los interruptores. Encender una secuencia cuesta
+   plata y puede molestar a gente; las dos cosas se dicen ANTES de que la
+   mano llegue al interruptor, no en una ayuda escondida. */
+
+.pagina {
+  height: 100%;
+  box-sizing: border-box;
+  overflow-y: auto;
+  padding: 1.3rem 1.6rem 2.5rem;
+  color: var(--ink);
+}
+
+.cabecera {
+  display: flex;
+  align-items: flex-start;
+  gap: 1rem;
+  flex-wrap: wrap;
+  margin-bottom: 1.1rem;
+
+  h1 { margin: 0; font-size: 1.9rem; font-weight: 700; letter-spacing: -0.025em; }
+  p { margin: 0.2rem 0 0; font-size: 0.85rem; color: var(--ink-soft); }
+}
+
+.cabecera__estado { margin-left: auto; display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; }
+
+.chip-costo {
+  padding: 0.45rem 0.9rem;
+  border-radius: 999px;
+  background: var(--oscuro);
+  color: var(--oscuro-ink);
+  font-size: 0.78rem;
+
+  strong { font-weight: 800; }
+}
+
+.btn-plano {
+  padding: 0.5rem 1rem;
+  border: 0;
+  border-radius: 999px;
+  background: var(--panel);
+  box-shadow: var(--sombra-pildora);
+  color: var(--ink);
+  font: inherit;
+  font-size: 0.82rem;
+  font-weight: 700;
+  cursor: pointer;
+  text-decoration: none;
+  transition: transform 0.12s;
+
+  &:hover { transform: translateY(-1px); }
+}
+
+.mini {
+  padding: 0.2rem 0.6rem;
+  border: 0;
+  border-radius: 999px;
+  background: var(--panel-2);
+  box-shadow: var(--sombra-pildora);
+  font: inherit;
+  font-size: 0.72rem;
+  font-weight: 700;
+  cursor: pointer;
+
+  &:disabled { opacity: 0.5; cursor: default; }
+}
+
+/* ===== Tarjetas ===== */
+.tarjeta {
+  background: var(--panel);
+  border-radius: var(--radius);
+  box-shadow: var(--sombra-tarjeta);
+  padding: 1.1rem 1.3rem 1.2rem;
+  margin-bottom: 1rem;
+
+  h2 { margin: 0; font-size: 1rem; font-weight: 700; }
+}
+
+.sub { margin: 0.2rem 0 0; font-size: 0.8rem; color: var(--ink-soft); max-width: 62ch; }
+
+/* ===== Frenos ===== */
+.frenos {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.4fr);
+  gap: 1.3rem;
+  align-items: start;
+}
+
+.frenos__lista {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 0.6rem;
+
+  li {
+    position: relative;
+    padding-left: 1.5rem;
+    font-size: 0.82rem;
+    color: var(--ink-soft);
+    line-height: 1.5;
+
+    /* Un visto, no un punto: estos no son requisitos pendientes, son cosas
+       que ya están puestas. */
+    &::before {
+      content: '✓';
+      position: absolute;
+      left: 0;
+      top: 0;
+      color: var(--positive);
+      font-weight: 800;
+    }
+  }
+
+  strong { color: var(--ink); }
+}
+
+.frenos__bajar { display: inline-flex; gap: 0.3rem; margin-left: 0.4rem; }
+
+/* ===== Cuánta gente ===== */
+.calculo {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 1.3rem;
+  align-items: center;
+}
+
+.calculo__control { display: flex; flex-direction: column; gap: 0.3rem; }
+
+.calculo__valor {
+  font-size: 1.6rem;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  font-variant-numeric: tabular-nums;
+}
+
+/* El deslizador con relleno: sin él no se ve cuánto del recorrido se usó. */
+input[type='range'] {
+  appearance: none;
+  width: 100%;
+  height: 6px;
+  border-radius: 999px;
+  background: linear-gradient(
+    to right,
+    var(--primary) calc(var(--pct, 0) * 1%),
+    var(--panel-2) calc(var(--pct, 0) * 1%)
+  );
+  cursor: pointer;
+
+  &::-webkit-slider-thumb {
+    appearance: none;
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    background: var(--panel);
+    box-shadow: var(--sombra-avatar);
+    border: 3px solid var(--primary);
+  }
+
+  &::-moz-range-thumb {
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    background: var(--panel);
+    border: 3px solid var(--primary);
+  }
+}
+
+.calculo__escala {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.7rem;
+  color: var(--ink-soft);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ===== Secuencias ===== */
+.secuencias {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(23rem, 1fr));
+  gap: 1rem;
+}
+
+.sec {
+  display: flex;
+  flex-direction: column;
+  gap: 0.7rem;
+  padding: 1.1rem 1.2rem 1rem;
+  border-radius: var(--radius);
+  background: var(--panel);
+  box-shadow: var(--sombra-tarjeta);
+  transition: transform 0.16s cubic-bezier(0.22, 1, 0.36, 1), box-shadow 0.16s;
+
+  animation: entrar 0.34s cubic-bezier(0.22, 1, 0.36, 1) both;
+  animation-delay: calc(var(--entrada, 0) * 70ms);
+
+  &:hover { transform: translateY(-2px); box-shadow: var(--sombra-avatar); }
+
+  /* Encendida: borde naranja. Es la única señal que hace falta — el color de
+     fondo cambiaría el contraste de todo el texto adentro. */
+  &--on { outline: 2px solid var(--primary); outline-offset: -2px; }
+}
+
+.sec__cabeza {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.8rem;
+
+  h2 { margin: 0; font-size: 1.05rem; font-weight: 800; letter-spacing: -0.02em; }
+}
+
+.sec__resumen { margin: 0.15rem 0 0; font-size: 0.8rem; color: var(--ink-soft); }
+
+.interruptor {
+  margin-left: auto;
+  flex-shrink: 0;
+  width: 42px;
+  height: 24px;
+  border: 0;
+  border-radius: 999px;
+  background: var(--panel-2);
+  box-shadow: inset 0 0 0 1px var(--border);
+  cursor: pointer;
+  padding: 3px;
+  transition: background 0.18s;
+
+  i {
+    display: block;
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    background: var(--panel);
+    box-shadow: var(--sombra-pildora);
+    transition: transform 0.18s cubic-bezier(0.22, 1, 0.36, 1);
+  }
+
+  &--on {
+    background: var(--primary);
+    box-shadow: none;
+    i { transform: translateX(18px); }
+  }
+
+  &:disabled { opacity: 0.45; cursor: default; }
+}
+
+.sec__etiquetas { display: flex; gap: 0.35rem; flex-wrap: wrap; }
+
+.etiqueta {
+  padding: 0.22rem 0.6rem;
+  border-radius: 999px;
+  background: var(--panel-2);
+  font-size: 0.7rem;
+  font-weight: 700;
+  color: var(--ink-soft);
+
+  &--auto { background: rgba(0, 186, 254, 0.14); color: #0a6f94; }
+  &--manual { background: var(--panel-2); }
+
+  &--vivo {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    background: rgba(22, 163, 74, 0.12);
+    color: var(--positive);
+  }
+}
+
+/* El punto que late: hay gente adentro de la secuencia ahora mismo. */
+.pulso {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--positive);
+  animation: latir 1.8s ease-in-out infinite;
+}
+
+.sec__disparador {
+  margin: 0;
+  padding: 0.55rem 0.7rem;
+  border-radius: 10px;
+  background: var(--panel-2);
+  font-size: 0.78rem;
+  color: var(--ink-soft);
+}
+
+/* ===== Pasos ===== */
+.pasos {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 0.5rem;
+}
+
+.paso {
+  position: relative;
+  display: grid;
+  grid-template-columns: 6.5rem minmax(0, 1fr) 5rem 4.5rem;
+  gap: 0.5rem;
+  align-items: start;
+  padding: 0.5rem 0 0.5rem 0.9rem;
+  border-left: 2px solid var(--border);
+
+  /* El punto de la línea de tiempo: los pasos son una secuencia, y se lee
+     mejor como línea que como lista de viñetas. */
+  &::before {
+    content: '';
+    position: absolute;
+    left: -5px;
+    top: 0.85rem;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--primary);
+  }
+}
+
+.paso__cuando {
+  font-size: 0.74rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--primary);
+}
+
+.paso__cuerpo { display: flex; flex-direction: column; gap: 0.15rem; min-width: 0; }
+
+.paso__texto { font-size: 0.8rem; line-height: 1.45; }
+.paso__intencion { font-size: 0.72rem; color: var(--ink-soft); }
+
+.paso__tipo {
+  font-size: 0.7rem;
+  font-weight: 700;
+  color: var(--ink-soft);
+  text-align: right;
+}
+
+.paso__costo {
+  font-size: 0.78rem;
+  font-weight: 700;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.sec__pie {
+  display: flex;
+  align-items: baseline;
+  gap: 0.6rem;
+  margin-top: auto;
+  padding-top: 0.7rem;
+  border-top: 1px solid var(--border);
+  font-size: 0.8rem;
+  color: var(--ink-soft);
+
+  strong { color: var(--ink); }
+}
+
+.sec__total {
+  margin-left: auto;
+  font-size: 1.05rem;
+  font-weight: 800;
+  color: var(--ink);
+  letter-spacing: -0.02em;
+}
+
+/* ===== Bloqueo y avisos ===== */
+.bloqueo {
+  display: flex;
+  align-items: center;
+  gap: 0.8rem;
+  margin-bottom: 1rem;
+  padding: 0.85rem 1rem;
+  border-radius: 14px;
+  background: var(--primary-suave);
+  border: 1px solid rgba(243, 71, 0, 0.3);
+}
+
+.bloqueo__icono { font-size: 1.1rem; }
+
+.bloqueo__texto {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  font-size: 0.8rem;
+  color: var(--ink-soft);
+
+  strong { font-size: 0.86rem; color: var(--ink); }
+}
+
+.bloqueo__accion {
+  margin-left: auto;
+  flex-shrink: 0;
+  padding: 0.45rem 0.9rem;
+  border-radius: 999px;
+  background: var(--oscuro);
+  color: var(--oscuro-ink);
+  font-size: 0.8rem;
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.aviso {
+  margin: 0 0 0.9rem;
+  padding: 0.6rem 0.9rem;
+  border-radius: 12px;
+  font-size: 0.82rem;
+}
+
+.aviso--mal { background: rgba(248, 40, 52, 0.08); color: var(--negative); }
+
+.nota {
+  margin: 1.2rem 0 0;
+  font-size: 0.78rem;
+  color: var(--ink-soft);
+  max-width: 78ch;
+  line-height: 1.6;
+}
+
+@keyframes entrar {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: none; }
+}
+
+@keyframes latir {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.45; transform: scale(0.8); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sec { animation: none; }
+  .sec:hover,
+  .btn-plano:hover { transform: none; }
+  .pulso { animation: none; }
+  .interruptor i { transition: none; }
+}
+
+@media (max-width: 1000px) {
+  .frenos,
+  .calculo { grid-template-columns: 1fr; }
+}
+
+@media (max-width: 620px) {
+  .paso { grid-template-columns: 5.5rem minmax(0, 1fr); }
+  .paso__tipo,
+  .paso__costo { text-align: left; grid-column: 2; }
+}

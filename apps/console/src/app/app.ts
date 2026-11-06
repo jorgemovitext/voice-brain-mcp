@@ -40,6 +40,16 @@ export class App {
     return sesion?.name?.trim() || sesion?.username?.trim() || 'Operador';
   });
 
+  /**
+   * El rol, para la barra. Decía «Operador» cableado para todo el mundo —
+   * incluso para el administrador de la cuenta, que es el único que puede
+   * configurar algo.
+   */
+  readonly miRol = computed(() => (this.auth.user()?.rol === 'admin' ? 'Administrador' : 'Usuario'));
+
+  /** Solo el administrador ve lo de plata: el consumo y el plan son del dueño. */
+  readonly veFacturacion = computed(() => this.auth.puede('facturacion:ver'));
+
   /** Cuentas anteriores al login por usuario: el rail lo señala. */
   readonly sinUsuario = computed(() => !!this.auth.user() && !this.auth.user()?.username);
 

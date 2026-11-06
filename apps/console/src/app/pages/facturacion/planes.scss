@@ -1,0 +1,274 @@
+/* Planes, en tarjetas como el Figma.
+
+   El plan actual se marca con el fondo oscuro y no con un borde de color:
+   es la única tarjeta sobre la que no hay nada que decidir, y tiene que
+   leerse como «esta ya está» de un vistazo. */
+
+.pagina {
+  height: 100%;
+  box-sizing: border-box;
+  overflow-y: auto;
+  padding: 1.3rem 1.6rem 2.5rem;
+  color: var(--ink);
+}
+
+.cabecera {
+  display: flex;
+  align-items: flex-start;
+  gap: 1rem;
+  flex-wrap: wrap;
+  margin-bottom: 1.2rem;
+
+  h1 { margin: 0; font-size: 1.9rem; font-weight: 700; letter-spacing: -0.025em; }
+  p { margin: 0.2rem 0 0; font-size: 0.85rem; color: var(--ink-soft); max-width: 60ch; }
+
+  a { margin-left: auto; }
+}
+
+.btn {
+  padding: 0.5rem 1.1rem;
+  border: 0;
+  border-radius: 999px;
+  background: var(--primary);
+  color: var(--primary-ink);
+  font: inherit;
+  font-size: 0.84rem;
+  font-weight: 700;
+  cursor: pointer;
+  box-shadow: 0 6px 18px -8px rgba(243, 71, 0, 0.8);
+
+  &:disabled { opacity: 0.55; cursor: default; }
+}
+
+.btn-plano {
+  padding: 0.5rem 1rem;
+  border: 0;
+  border-radius: 999px;
+  background: var(--panel);
+  box-shadow: var(--sombra-pildora);
+  color: var(--ink);
+  font: inherit;
+  font-size: 0.82rem;
+  font-weight: 700;
+  cursor: pointer;
+  text-decoration: none;
+  transition: transform 0.12s;
+
+  &:hover { transform: translateY(-1px); }
+}
+
+/* ===== Tarjetas de plan ===== */
+.tarjetas {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr));
+  gap: 1rem;
+  margin-bottom: 1.2rem;
+}
+
+.plan {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  padding: 1.3rem 1.3rem 1.2rem;
+  border-radius: var(--radius);
+  background: var(--panel);
+  box-shadow: var(--sombra-tarjeta);
+  transition: transform 0.16s cubic-bezier(0.22, 1, 0.36, 1), box-shadow 0.16s;
+
+  animation: entrar 0.34s cubic-bezier(0.22, 1, 0.36, 1) both;
+  animation-delay: calc(var(--entrada, 0) * 70ms);
+
+  &:hover {
+    transform: translateY(-3px);
+    box-shadow: var(--sombra-avatar);
+  }
+
+  h2 { margin: 0; font-size: 1.25rem; font-weight: 800; letter-spacing: -0.02em; }
+
+  /* El destacado se levanta un poco siempre: es el que queremos que miren. */
+  &--destacado { outline: 2px solid var(--primary); outline-offset: -2px; }
+
+  &--actual {
+    background: var(--oscuro);
+    color: var(--oscuro-ink);
+    outline: 0;
+
+    .plan__resumen,
+    .plan__precio span,
+    .plan__cupos li { color: rgba(255, 255, 255, 0.72); }
+    .plan__cupos strong { color: var(--oscuro-ink); }
+    .plan__cupos li + li { border-top-color: rgba(255, 255, 255, 0.12); }
+  }
+}
+
+.plan__sello {
+  position: absolute;
+  top: -0.6rem;
+  right: 1rem;
+  padding: 0.25rem 0.7rem;
+  border-radius: 999px;
+  background: var(--oscuro);
+  color: var(--oscuro-ink);
+  font-size: 0.68rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+
+  &--sugerido { background: var(--primary); color: var(--primary-ink); }
+}
+
+.plan__resumen { margin: 0; font-size: 0.82rem; color: var(--ink-soft); min-height: 2.4em; }
+
+.plan__precio {
+  display: flex;
+  align-items: baseline;
+  gap: 0.4rem;
+  margin: 0.3rem 0 0.2rem;
+
+  strong { font-size: 2rem; font-weight: 800; letter-spacing: -0.04em; }
+  span { font-size: 0.78rem; color: var(--ink-soft); }
+}
+
+.plan__cupos {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  font-size: 0.82rem;
+
+  li {
+    padding: 0.45rem 0;
+    color: var(--ink-soft);
+  }
+  li + li { border-top: 1px solid var(--border); }
+  strong { color: var(--ink); font-weight: 700; }
+}
+
+.plan__exceso { font-size: 0.76rem; line-height: 1.35; }
+
+.plan__boton {
+  margin-top: auto;
+  padding: 0.6rem 1rem;
+  border: 0;
+  border-radius: 999px;
+  background: var(--primary);
+  color: var(--primary-ink);
+  font: inherit;
+  font-size: 0.85rem;
+  font-weight: 700;
+  cursor: pointer;
+  text-align: center;
+  transition: transform 0.12s;
+
+  &:hover { transform: translateY(-1px); }
+
+  &--quieto {
+    background: rgba(255, 255, 255, 0.14);
+    color: var(--oscuro-ink);
+    cursor: default;
+    &:hover { transform: none; }
+  }
+}
+
+.plan__confirmar {
+  margin-top: auto;
+  padding: 0.8rem;
+  border-radius: 14px;
+  background: var(--panel-2);
+
+  p { margin: 0 0 0.6rem; font-size: 0.78rem; color: var(--ink-soft); }
+}
+
+.plan__confirmar-botones { display: flex; gap: 0.4rem; flex-wrap: wrap; }
+
+/* ===== Matriz de funciones ===== */
+.tarjeta {
+  background: var(--panel);
+  border-radius: var(--radius);
+  box-shadow: var(--sombra-tarjeta);
+  padding: 1.1rem 1.3rem 1.3rem;
+
+  h2 { margin: 0; font-size: 1rem; font-weight: 700; }
+}
+
+.sub { margin: 0.2rem 0 0.9rem; font-size: 0.8rem; color: var(--ink-soft); }
+
+.matriz { display: flex; flex-direction: column; }
+
+.matriz__cabeza,
+.matriz__fila {
+  display: grid;
+  grid-template-columns: minmax(0, 2fr) repeat(3, minmax(5rem, 1fr));
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.matriz__cabeza {
+  padding-bottom: 0.55rem;
+  border-bottom: 1px solid var(--border);
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  font-weight: 700;
+  color: var(--ink-soft);
+}
+
+.matriz__plan {
+  text-align: center;
+  &--on { color: var(--primary); }
+}
+
+.matriz__fila {
+  padding: 0.55rem 0;
+  border-bottom: 1px solid var(--border);
+  font-size: 0.84rem;
+
+  &:last-child { border-bottom: 0; }
+  &:hover { background: var(--panel-2); }
+}
+
+.matriz__celda {
+  text-align: center;
+  color: var(--ink-soft);
+  font-weight: 700;
+
+  &--si { color: var(--positive); }
+}
+
+/* ===== Avisos ===== */
+.aviso {
+  margin: 0 0 0.9rem;
+  padding: 0.6rem 0.9rem;
+  border-radius: 12px;
+  font-size: 0.82rem;
+}
+
+.aviso--mal { background: rgba(248, 40, 52, 0.08); color: var(--negative); }
+.aviso--bien { background: rgba(22, 163, 74, 0.1); color: var(--positive); }
+.aviso--nota { background: var(--panel-2); color: var(--ink-soft); }
+
+.nota {
+  margin: 1.2rem 0 0;
+  font-size: 0.78rem;
+  color: var(--ink-soft);
+  max-width: 78ch;
+  line-height: 1.6;
+}
+
+@keyframes entrar {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: none; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .plan { animation: none; }
+  .plan:hover,
+  .plan__boton:hover,
+  .btn-plano:hover { transform: none; }
+}
+
+@media (max-width: 760px) {
+  .matriz { overflow-x: auto; }
+  .matriz__cabeza,
+  .matriz__fila { min-width: 26rem; }
+}

@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { HttpModule } from '@nestjs/axios';
+import { AgentesModule } from '../agentes/agentes.module';
 import { BrainModule } from '../brain/brain.module';
 import { ElevenLabsModule } from '../elevenlabs/elevenlabs.module';
 import { IntegrationsModule } from '../integrations/integrations.module';
@@ -18,7 +19,17 @@ import { WhatsappInboundService } from './whatsapp-inbound.service';
  * Los adaptadores concretos los provee IntegrationsModule.
  */
 @Module({
-  imports: [HttpModule, BrainModule, IntegrationsModule, ElevenLabsModule, LineasModule, SeguimientoModule],
+  imports: [
+    HttpModule,
+    BrainModule,
+    IntegrationsModule,
+    ElevenLabsModule,
+    LineasModule,
+    SeguimientoModule,
+    // El agente que atiende y a quién se le traspasa el caso: los dos los
+    // decide el webhook, y los dos viven en AgentesModule.
+    AgentesModule,
+  ],
   controllers: [ChannelInboundController, WhatsappWebhookController, GupshupWebhookController, MediaController],
   providers: [FollowupService, WhatsappInboundService, GupshupWebhookGuard],
   // Se re-exporta el módulo (no los tokens): los canales los provee él.

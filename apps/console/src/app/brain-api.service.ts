@@ -7,9 +7,11 @@ import {
   Atencion,
   Contact,
   DemoStatus,
+  EstadoLimites,
   FlowStep,
   NlpearlTestResult,
   NodoFlujo,
+  Rol,
 } from './models';
 
 /**
@@ -433,5 +435,38 @@ export class BrainApiService {
    */
   reconciliarLlamadas(): Promise<unknown> {
     return firstValueFrom(this.http.post('/api/voz/reconciliar', {}));
+  }
+
+  /* --- Uso, planes y facturación --- */
+
+  /**
+   * Cambia el plan. Se aplica ya, sin pasarela: el cobro va por factura.
+   *
+   * No hay checkout a propósito — uno de mentira que diga «pago aprobado»
+   * sin cobrar nada es peor que no tenerlo, porque el cliente cree que pagó.
+   */
+  cambiarPlan(plan: string): Promise<EstadoLimites> {
+    return firstValueFrom(this.http.patch<EstadoLimites>('/api/facturacion/plan', { plan }));
+  }
+
+  /** El tope de gasto del mes, en dólares. `null` lo quita. */
+  fijarTope(dolares: number | null): Promise<EstadoLimites> {
+    return firstValueFrom(this.http.patch<EstadoLimites>('/api/facturacion/tope', { dolares }));
+  }
+
+  /* --- Seguimiento --- */
+
+  guardarSeguimiento(cambios: {
+    activas?: Record<string, boolean>;
+    maxPorPersonaSemana?: number;
+  }): Promise<unknown> {
+    return firstValueFrom(this.http.patch('/api/seguimiento', cambios));
+  }
+
+  /* --- Equipo --- */
+
+  /** Sube o baja a alguien del equipo. Le cierra las sesiones abiertas. */
+  cambiarRol(id: string, rol: Rol): Promise<{ ok: boolean }> {
+    return firstValueFrom(this.http.patch<{ ok: boolean }>(`/api/auth/equipo/${id}/rol`, { rol }));
   }
 }

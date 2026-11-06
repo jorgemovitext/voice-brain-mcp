@@ -1,0 +1,129 @@
+<div class="pagina">
+  <header class="cabecera">
+    <div>
+      <h1>Planes</h1>
+      <p>
+        El plan paga el agente trabajando. Los mensajes se cobran aparte, por unidad y según el país
+        de destino.
+      </p>
+    </div>
+    <a class="btn-plano" routerLink="/uso">Ver mi consumo ›</a>
+  </header>
+
+  @if (error(); as e) { <p class="aviso aviso--mal">⚠ {{ e }}</p> }
+  @if (listo(); as n) {
+    <p class="aviso aviso--bien">
+      ✓ Ya estás en el plan {{ n }}. El cobro va en la factura del mes.
+    </p>
+  }
+  @if (datos.error()) {
+    <p class="aviso aviso--mal">
+      ⚠ No se pudieron leer los planes. Si sos usuario y no administrador, esto es del administrador
+      de la cuenta.
+    </p>
+  }
+
+  @if (fueraDeLista()) {
+    <p class="aviso aviso--nota">
+      Tu empresa está en un plan a medida. Cambiarlo desde acá te pasaría a uno de la lista.
+    </p>
+  }
+
+  <!-- ===== Las tarjetas ===== -->
+  <section class="tarjetas">
+    @for (p of planes(); track p.id; let i = $index) {
+      <article
+        class="plan"
+        [class.plan--actual]="esActual(p)"
+        [class.plan--destacado]="p.id === 'negocio'"
+        [style.--entrada]="i">
+        @if (esActual(p)) { <span class="plan__sello">Tu plan</span> }
+        @else if (p.id === 'negocio') { <span class="plan__sello plan__sello--sugerido">El más elegido</span> }
+
+        <h2>{{ p.nombre }}</h2>
+        <p class="plan__resumen">{{ p.resumen }}</p>
+
+        <div class="plan__precio">
+          <strong>{{ p.precioMensual ? dolares(p.precioMensual) : 'Gratis' }}</strong>
+          @if (p.precioMensual) { <span>por mes</span> }
+        </div>
+
+        <ul class="plan__cupos">
+          <li>
+            <strong>{{ p.mensajesIncluidos }}</strong> mensajes incluidos
+          </li>
+          <li><strong>{{ tope(p.agentes) }}</strong> {{ p.agentes === 1 ? 'agente' : 'agentes' }}</li>
+          <li><strong>{{ tope(p.usuarios) }}</strong> {{ p.usuarios === 1 ? 'usuario' : 'usuarios' }}</li>
+          <li class="plan__exceso">
+            @if (p.permiteExceso) {
+              Podés pasarte de los incluidos: lo de más se cobra por tarifa del país.
+            } @else {
+              Al terminarse los incluidos, el agente deja de contestar.
+            }
+          </li>
+        </ul>
+
+        @if (esActual(p)) {
+          <span class="plan__boton plan__boton--quieto">En uso</span>
+        } @else if (confirmando()?.id === p.id) {
+          <div class="plan__confirmar">
+            <p>
+              @if (direccion(p) === 'baja') {
+                Bajás a {{ p.nombre }}. Lo que ya consumiste este mes se cobra igual.
+              } @else {
+                Pasás a {{ p.nombre }}. Se aplica ya y el cobro va en la factura del mes.
+              }
+            </p>
+            <div class="plan__confirmar-botones">
+              <button class="btn" [disabled]="!!cambiando()" (click)="cambiar(p)">
+                {{ cambiando() === p.id ? 'Cambiando…' : 'Confirmar' }}
+              </button>
+              <button class="btn-plano" (click)="confirmando.set(null)">Cancelar</button>
+            </div>
+          </div>
+        } @else {
+          <button class="plan__boton" (click)="confirmando.set(p)">
+            {{ direccion(p) === 'baja' ? 'Bajar a ' + p.nombre : 'Pasar a ' + p.nombre }}
+          </button>
+        }
+      </article>
+    }
+  </section>
+
+  <!-- ===== Qué trae cada uno ===== -->
+  @if (planes().length) {
+    <section class="tarjeta comparar">
+      <h2>Qué puede hacer cada plan</h2>
+      <p class="sub">Esto lo comprueba el servidor, no la pantalla.</p>
+
+      <div class="matriz" role="table">
+        <div class="matriz__cabeza" role="row">
+          <span role="columnheader">Función</span>
+          @for (p of planes(); track p.id) {
+            <span role="columnheader" class="matriz__plan" [class.matriz__plan--on]="esActual(p)">
+              {{ p.nombre }}
+            </span>
+          }
+        </div>
+
+        @for (f of funciones(); track f.id) {
+          <div class="matriz__fila" role="row">
+            <span role="cell">{{ f.nombre }}</span>
+            @for (p of planes(); track p.id) {
+              <span role="cell" class="matriz__celda" [class.matriz__celda--si]="tiene(p, f.id)">
+                @if (tiene(p, f.id)) { ✓ } @else { — }
+              </span>
+            }
+          </div>
+        }
+      </div>
+    </section>
+  }
+
+  <p class="nota">
+    Los mensajes se cobran por país de destino: a Honduras no cuesta lo mismo que a España, y
+    contestar a alguien que te escribió cuesta menos que iniciarle una conversación. El detalle de
+    tarifas y tu consumo están en <a routerLink="/uso">Uso y facturación</a>. Todavía no hay pasarela
+    de pago: el cambio se aplica y el cobro se emite por factura.
+  </p>
+</div>

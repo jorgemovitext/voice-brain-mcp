@@ -1,0 +1,236 @@
+<div class="pagina">
+  <header class="cabecera">
+    <div>
+      <h1>Uso y facturación</h1>
+      <p>Qué mandaron tus agentes este mes, a qué países, y cuánto cuesta</p>
+    </div>
+    <div class="cabecera__acciones">
+      <a class="btn-plano" routerLink="/planes">Ver planes ›</a>
+    </div>
+  </header>
+
+  @if (datos.error()) {
+    <p class="aviso aviso--mal">⚠ No se pudo leer el consumo. Probá recargar.</p>
+  }
+  @if (error(); as e) { <p class="aviso aviso--mal">⚠ {{ e }}</p> }
+
+  @if (estado(); as est) {
+    <!-- ===== Lo único que el cliente vino a ver ===== -->
+    <section class="resumen">
+      <div class="resumen__total">
+        <span class="resumen__etiqueta">Va del mes</span>
+        <strong class="resumen__cifra">{{ dolares(est.totalMicros) }}</strong>
+        <span class="resumen__pie">
+          Plan {{ est.plan.nombre }} ({{ dolares(est.plan.precioMensual) }})
+          @if (est.exceso > 0) {
+            + {{ est.exceso }} mensajes por encima del plan
+          } @else {
+            · sin mensajes de más
+          }
+        </span>
+      </div>
+
+      <div class="resumen__proyeccion">
+        <span class="resumen__etiqueta">Al ritmo que va, cierra en</span>
+        <strong>{{ dolares(est.proyeccionMicros) }}</strong>
+        <span class="resumen__pie">Es un estimado: depende de lo que pase el resto del mes.</span>
+      </div>
+    </section>
+
+    <!-- ===== La bolsa de mensajes ===== -->
+    <section class="tarjeta bolsa">
+      <div class="bolsa__cabeza">
+        <h2>Mensajes del plan</h2>
+        <span class="bolsa__cuenta">
+          <strong>{{ est.mensajes }}</strong> de {{ est.incluidos }}
+        </span>
+      </div>
+
+      <div class="barra" [class.barra--lleno]="consumido() >= 100">
+        <i [style.width.%]="consumido()"></i>
+      </div>
+
+      <p class="bolsa__pie">
+        @if (est.exceso > 0) {
+          Pasaste la bolsa por {{ est.exceso }} mensajes. Lo de más se cobra por tarifa de cada país.
+        } @else {
+          Te quedan <strong>{{ est.restantes }}</strong> mensajes incluidos.
+        }
+      </p>
+
+      @if (est.motivo === 'bolsa-agotada') {
+        <div class="bloqueo">
+          <span class="bloqueo__icono">⚠</span>
+          <span class="bloqueo__texto">
+            <strong>Tu agente dejó de contestar</strong>
+            Se acabaron los {{ est.incluidos }} mensajes del plan {{ est.plan.nombre }} y este plan no
+            permite pasarse. Quien te escriba no va a recibir respuesta.
+          </span>
+          <a class="bloqueo__accion" routerLink="/planes">Cambiar de plan ›</a>
+        </div>
+      } @else if (est.motivo === 'tope-alcanzado') {
+        <div class="bloqueo bloqueo--aviso">
+          <span class="bloqueo__icono">⚠</span>
+          <span class="bloqueo__texto">
+            <strong>Se alcanzó tu tope de gasto</strong>
+            El agente sigue contestando a quien le escribe —eso no se corta nunca por un tope—, pero
+            no se inician conversaciones nuevas ni salen seguimientos.
+          </span>
+          <button class="bloqueo__accion" (click)="abrirTope()">Subir el tope ›</button>
+        </div>
+      }
+    </section>
+
+    <!-- ===== Tope de gasto ===== -->
+    <section class="tarjeta tope">
+      <div class="tope__texto">
+        <h2>Tope de gasto del mes</h2>
+        <p>
+          Frena lo que <strong>nosotros</strong> iniciamos: seguimientos, recordatorios, promociones.
+          Nunca frena una respuesta a alguien que te escribió.
+        </p>
+      </div>
+
+      @if (editandoTope()) {
+        <div class="tope__editar">
+          <label>
+            US$
+            <input type="number" min="0" step="5" [value]="topeBorrador()" (input)="escribirTope($event)" />
+          </label>
+          <button class="btn" [disabled]="guardando()" (click)="guardarTope()">
+            {{ guardando() ? 'Guardando…' : 'Guardar' }}
+          </button>
+          <button class="btn-plano" (click)="guardarTope(true)">Sin tope</button>
+          <button class="btn-plano" (click)="editandoTope.set(false)">Cancelar</button>
+        </div>
+      } @else {
+        <div class="tope__valor">
+          <strong>{{ est.topeMicros === null ? 'Sin tope' : dolares(est.topeMicros) }}</strong>
+          <button class="btn-plano" (click)="abrirTope()">
+            {{ est.topeMicros === null ? 'Poner un tope' : 'Cambiar' }}
+          </button>
+        </div>
+      }
+    </section>
+  }
+
+  <!-- ===== Períodos ===== -->
+  @if (periodos().length > 1) {
+    <nav class="meses">
+      @for (p of periodos(); track p.periodo) {
+        <button
+          class="mes"
+          [class.mes--on]="p.periodo === (periodo() || detalle()?.periodo)"
+          (click)="verPeriodo(p.periodo)">
+          <strong>{{ mes(p.periodo) }}</strong>
+          <span>{{ p.mensajes }} mensajes · {{ dolares(p.micros) }}</span>
+        </button>
+      }
+    </nav>
+  }
+
+  @if (detalle(); as det) {
+    @if (!enElMesActual()) {
+      <p class="aviso aviso--cerrado">
+        Mes cerrado. Los precios son los que tenía cada mensaje cuando salió, no los de hoy.
+      </p>
+    }
+
+    @if (!det.mensajes) {
+      <p class="vacio">
+        Todavía no salió ningún mensaje este mes. Cuando tu agente conteste, acá aparece a qué país
+        fue y cuánto costó.
+      </p>
+    } @else {
+      <div class="columnas">
+        <!-- ===== Por país ===== -->
+        <section class="tarjeta">
+          <h2>A qué países</h2>
+          <p class="sub">El precio lo fija el país de destino. Es la diferencia más grande de la factura.</p>
+
+          <div class="tabla" role="table">
+            <div class="tabla__cabeza" role="row">
+              <span role="columnheader">País</span>
+              <span role="columnheader">Tipo</span>
+              <span role="columnheader" class="num">Mensajes</span>
+              <span role="columnheader" class="num">Por mensaje</span>
+              <span role="columnheader" class="num">Total</span>
+            </div>
+            @for (p of det.porPais; track p.pais + p.categoria; let i = $index) {
+              <div class="fila" role="row" [style.--entrada]="i">
+                <span role="cell" class="fila__nombre">
+                  <i class="punto"></i>{{ p.nombrePais }}
+                </span>
+                <span role="cell" class="fila__tipo">{{ categoria(p.categoria) }}</span>
+                <span role="cell" class="num">{{ p.mensajes }}</span>
+                <span role="cell" class="num suave">{{ precioUnitario(p.micros, p.mensajes) }}</span>
+                <span role="cell" class="num fuerte">{{ dolares(p.micros) }}</span>
+                <i class="fila__barra" [style.width]="anchoPais(p.micros)"></i>
+              </div>
+            }
+          </div>
+        </section>
+
+        <!-- ===== Por agente y por motivo ===== -->
+        <section class="tarjeta">
+          <h2>Quién gastó</h2>
+          <p class="sub">Cada agente con lo suyo, para saber cuál se paga solo.</p>
+
+          @for (a of det.porAgente; track a.agente; let i = $index) {
+            <div class="fila fila--simple" [style.--entrada]="i">
+              <span class="fila__nombre">{{ a.agente }}</span>
+              <span class="num">{{ a.mensajes }}</span>
+              <span class="num fuerte">{{ dolares(a.micros) }}</span>
+              <i class="fila__barra" [style.width]="anchoAgente(a.micros)"></i>
+            </div>
+          }
+
+          <h2 class="segundo">Por qué salió</h2>
+          <p class="sub">Lo que contestás y lo que iniciás vos no cuestan lo mismo.</p>
+          @for (m of det.porMotivo; track m.motivo) {
+            <div class="fila fila--simple">
+              <span class="fila__nombre">{{ motivo(m.motivo) }}</span>
+              <span class="num">{{ m.mensajes }}</span>
+              <span class="num fuerte">{{ dolares(m.micros) }}</span>
+            </div>
+          }
+        </section>
+      </div>
+    }
+  }
+
+  <!-- ===== El detalle auditable ===== -->
+  @if (ultimos().length) {
+    <section class="tarjeta">
+      <h2>Los últimos mensajes cobrados</h2>
+      <p class="sub">
+        Uno por uno, con el precio que se le aplicó. Está acá para que la factura se pueda revisar y
+        no solo creer.
+      </p>
+
+      <div class="tabla tabla--detalle" role="table">
+        <div class="tabla__cabeza" role="row">
+          <span role="columnheader">Cuándo</span>
+          <span role="columnheader">País</span>
+          <span role="columnheader">Tipo</span>
+          <span role="columnheader">Por qué</span>
+          <span role="columnheader" class="num">Costo</span>
+        </div>
+        @for (u of ultimos(); track u.ocurrido + u.contacto) {
+          <div class="fila" role="row">
+            <span role="cell" class="suave">{{ hora(u.ocurrido) }}</span>
+            <span role="cell">{{ u.nombrePais }}</span>
+            <span role="cell" class="fila__tipo">{{ categoria(u.categoria) }}</span>
+            <span role="cell" class="suave">{{ motivo(u.motivo) }}</span>
+            <span role="cell" class="num fuerte">{{ dolares(u.micros) }}</span>
+          </div>
+        }
+      </div>
+    </section>
+  }
+
+  <p class="nota">
+    Los precios están en dólares porque es la moneda en la que se cobran los mensajes de WhatsApp por
+    país. Todavía no hay pasarela de pago: el cobro se emite por factura.
+  </p>
+</div>

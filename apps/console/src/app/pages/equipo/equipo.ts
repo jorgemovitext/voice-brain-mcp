@@ -2,6 +2,7 @@ import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@a
 import { httpResource } from '@angular/common/http';
 import { AuthService } from '../../auth/auth.service';
 import { BrainApiService } from '../../brain-api.service';
+import { Permisos, Rol } from '../../models';
 import { valorDe } from '../../recurso';
 
 interface Miembro {
@@ -9,6 +10,7 @@ interface Miembro {
   username?: string;
   name?: string;
   phone: string;
+  rol: 'admin' | 'usuario';
   creada: string;
 }
 
@@ -43,6 +45,12 @@ export class EquipoPage {
 
   readonly miembros = httpResource<Miembro[]>(() => '/api/auth/equipo');
   readonly invitaciones = httpResource<InvitacionVista[]>(() => '/api/auth/invitaciones');
+  /*
+   * La matriz de permisos viene del servidor y no se escribe en la pantalla:
+   * es la MISMA lista que el guard consulta para decidir. Dos copias de las
+   * reglas se desincronizan, y la que miente es la que el usuario lee.
+   */
+  readonly permisos = httpResource<Permisos>(() => '/api/auth/permisos');
 
   readonly error = signal<string | null>(null);
   readonly generando = signal(false);
@@ -62,6 +70,43 @@ export class EquipoPage {
 
   /** Quién sos vos: tu fila no ofrece el botón de baja. */
   readonly yo = computed(() => this.auth.user()?.username ?? null);
+  readonly miId = computed(() => this.auth.user()?.id ?? null);
+
+  /** Solo el administrador invita y cambia roles. */
+  readonly puedeEditar = computed(() => this.auth.puede('equipo:editar'));
+
+  readonly matriz = computed(() => valorDe(this.permisos)?.matriz ?? []);
+  readonly roles = computed(() => valorDe(this.permisos)?.roles ?? []);
+  readonly empresa = computed(() => this.auth.user()?.empresa ?? null);
+
+  nombreRol(rol: Rol): string {
+    return rol === 'admin' ? 'Administrador' : 'Usuario';
+  }
+
+  /**
+   * Sube o baja a alguien.
+   *
+   * Se avisa que le cierra la sesión porque sí lo hace: el rol viaja dentro
+   * del token, y sin cerrarla alguien a quien le quitan el rol seguiría
+   * configurando por horas con el que ya tiene en el navegador.
+   */
+  async cambiarRol(m: Miembro): Promise<void> {
+    const nuevo: Rol = m.rol === 'admin' ? 'usuario' : 'admin';
+    const quien = m.name || m.username || 'esa cuenta';
+    const aviso =
+      nuevo === 'admin'
+        ? `¿Hacer administrador a ${quien}? Va a poder configurar agentes, números, el equipo y el plan.`
+        : `¿Pasar a ${quien} a usuario? Deja de poder configurar la cuenta y se le cierra la sesión abierta.`;
+    if (!confirm(aviso)) return;
+
+    this.error.set(null);
+    try {
+      await this.api.cambiarRol(m.id, nuevo);
+      this.miembros.reload();
+    } catch (e) {
+      this.error.set(EquipoPage.motivo(e));
+    }
+  }
 
   escribir(campo: 'nota' | 'telefono', e: Event): void {
     this[campo].set((e.target as HTMLInputElement).value);

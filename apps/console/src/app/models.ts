@@ -402,3 +402,125 @@ export interface Linea {
   estado: 'activa' | 'pausada';
   creado: string;
 }
+
+/* ===== Uso, planes y facturación ===== */
+
+/**
+ * La categoría de un mensaje, con los nombres de WhatsApp. Decide el precio:
+ * contestar dentro de la ventana de 24 h cuesta menos que iniciar una
+ * conversación mañana.
+ */
+export type Categoria = 'servicio' | 'utilidad' | 'autenticacion' | 'marketing';
+
+export interface Plan {
+  id: string;
+  nombre: string;
+  resumen: string;
+  /** Por mes, en microdólares (1 USD = 1 000 000). */
+  precioMensual: number;
+  mensajesIncluidos: number;
+  agentes: number | null;
+  usuarios: number | null;
+  funciones: string[];
+  permiteExceso: boolean;
+}
+
+export interface EstadoLimites {
+  plan: Plan;
+  periodo: string;
+  mensajes: number;
+  micros: number;
+  incluidos: number;
+  restantes: number;
+  exceso: number;
+  topeMicros: number | null;
+  totalMicros: number;
+  proyeccionMicros: number;
+  puedeIniciar: boolean;
+  puedeResponder: boolean;
+  motivo: 'bolsa-agotada' | 'tope-alcanzado' | null;
+}
+
+export interface LineaUso {
+  pais: string;
+  nombrePais: string;
+  categoria: Categoria;
+  mensajes: number;
+  micros: number;
+}
+
+export interface UsoPeriodo {
+  periodo: string;
+  mensajes: number;
+  micros: number;
+  porPais: LineaUso[];
+  porAgente: Array<{ agente: string; mensajes: number; micros: number }>;
+  porMotivo: Array<{ motivo: string; mensajes: number; micros: number }>;
+}
+
+export interface Uso {
+  estado: EstadoLimites;
+  detalle: UsoPeriodo;
+  periodos: Array<{ periodo: string; mensajes: number; micros: number }>;
+  ultimos: Array<{
+    pais: string;
+    nombrePais: string;
+    categoria: Categoria;
+    motivo: string;
+    agente?: string;
+    contacto?: string;
+    micros: number;
+    ocurrido: string;
+  }>;
+  moneda: string;
+}
+
+/* ===== Seguimiento ===== */
+
+export interface PasoSeguimiento {
+  id: string;
+  /** Horas desde la referencia. Negativo es ANTES (el día previo a la cita). */
+  horas: number;
+  texto: string;
+  categoria: Categoria;
+  intencion: string;
+}
+
+export interface SecuenciaSeguimiento {
+  id: string;
+  nombre: string;
+  resumen: string;
+  paraPlantillas: string[];
+  disparador: string;
+  automatica: boolean;
+  pasos: PasoSeguimiento[];
+  activa: boolean;
+  estimado: { mensajes: number; micros: number; porPaso: Array<{ paso: string; micros: number }> };
+}
+
+export interface PanoramaSeguimiento {
+  disponible: boolean;
+  maxPorPersonaSemana: number;
+  topePropio: number;
+  noMolestar: { desde: number; hasta: number };
+  secuencias: SecuenciaSeguimiento[];
+  enCurso: Array<{ secuencia: string; personas: number }>;
+}
+
+/* ===== Equipo y permisos ===== */
+
+export type Rol = 'admin' | 'usuario';
+
+export interface MiembroEquipo {
+  id: string;
+  username?: string;
+  name?: string;
+  phone: string;
+  rol: Rol;
+  creada: string;
+}
+
+export interface Permisos {
+  roles: Array<{ id: Rol; nombre: string; descripcion: string }>;
+  matriz: Array<{ permiso: string; nombre: string; admin: boolean; usuario: boolean }>;
+}

@@ -115,6 +115,27 @@ export const routes: Routes = [
   /* La ruta vieja sigue viva: hay enlaces guardados y la usaban otras vistas. */
   { path: 'integrations', pathMatch: 'full', redirectTo: 'actividad' },
   {
+    path: 'uso',
+    canActivate: [authGuard],
+    loadComponent: () => import('./pages/facturacion/uso').then((m) => m.UsoPage),
+    title: 'Uso y facturación · Hive',
+  },
+  {
+    path: 'planes',
+    canActivate: [authGuard],
+    loadComponent: () => import('./pages/facturacion/planes').then((m) => m.PlanesPage),
+    title: 'Planes · Hive',
+  },
+  {
+    path: 'seguimiento',
+    canActivate: [authGuard],
+    loadComponent: () => import('./pages/seguimiento/seguimiento').then((m) => m.SeguimientoPage),
+    title: 'Seguimiento · Hive',
+  },
+  /* La pantalla de Cambio de agente enlazaba a /integraciones, que no existe:
+     caía en el comodín y devolvía al inicio. Ahora hay planes de verdad. */
+  { path: 'integraciones', pathMatch: 'full', redirectTo: 'planes' },
+  {
     path: 'perfil',
     canActivate: [authGuard],
     loadComponent: () => import('./pages/profile/profile').then((m) => m.ProfilePage),

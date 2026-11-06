@@ -20,7 +20,14 @@ import { aceptarArchivosCrudos, DocumentosService } from './documentos.service';
   imports: [ElevenLabsModule, BrainModule],
   controllers: [AgentesController],
   providers: [AgentesService, AsistenteAgentesService, DocumentosService, DerivacionService, OrganizacionesService],
-  exports: [AgentesService],
+  /*
+   * DerivacionService sale del módulo porque el webhook de WhatsApp lo
+   * necesita: el traspaso entre agentes se decide ahí, no en esta pantalla.
+   * Sin exportarlo, el canal lo inyectaba y Nest no podía resolverlo — y un
+   * proveedor que falta no es un error en tiempo de ejecución: la aplicación
+   * entera no arranca.
+   */
+  exports: [AgentesService, DerivacionService],
 })
 export class AgentesModule implements OnModuleInit {
   constructor(private readonly adaptador: HttpAdapterHost) {}

@@ -1,0 +1,440 @@
+/* Uso y facturación.
+
+   La pantalla contesta UNA pregunta antes que nada: «¿cuánto voy a pagar?».
+   Por eso lo primero es una cifra grande y no la tabla — con el detalle
+   arriba, el cliente tiene que sumar de cabeza para enterarse de lo único que
+   vino a ver.
+
+   Las barras del detalle van DETRÁS del texto, no en una columna aparte: dan
+   la proporción de un vistazo sin robarle lugar a los números, que son lo que
+   se compara contra la factura. */
+
+.pagina {
+  height: 100%;
+  box-sizing: border-box;
+  overflow-y: auto;
+  padding: 1.3rem 1.6rem 2.5rem;
+  color: var(--ink);
+}
+
+.cabecera {
+  display: flex;
+  align-items: flex-start;
+  gap: 1rem;
+  flex-wrap: wrap;
+  margin-bottom: 1.1rem;
+
+  h1 { margin: 0; font-size: 1.9rem; font-weight: 700; letter-spacing: -0.025em; }
+  p { margin: 0.2rem 0 0; font-size: 0.85rem; color: var(--ink-soft); }
+}
+
+.cabecera__acciones { margin-left: auto; display: flex; gap: 0.5rem; align-items: center; }
+
+.btn {
+  padding: 0.5rem 1.1rem;
+  border: 0;
+  border-radius: 999px;
+  background: var(--primary);
+  color: var(--primary-ink);
+  font: inherit;
+  font-size: 0.84rem;
+  font-weight: 700;
+  cursor: pointer;
+  box-shadow: 0 6px 18px -8px rgba(243, 71, 0, 0.8);
+  transition: transform 0.12s;
+
+  &:hover:not(:disabled) { transform: translateY(-1px); }
+  &:disabled { opacity: 0.55; cursor: default; }
+}
+
+.btn-plano {
+  padding: 0.5rem 1rem;
+  border: 0;
+  border-radius: 999px;
+  background: var(--panel);
+  box-shadow: var(--sombra-pildora);
+  color: var(--ink);
+  font: inherit;
+  font-size: 0.82rem;
+  font-weight: 700;
+  cursor: pointer;
+  text-decoration: none;
+  transition: transform 0.12s;
+
+  &:hover { transform: translateY(-1px); }
+}
+
+/* ===== El titular ===== */
+.resumen {
+  display: grid;
+  grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr);
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+.resumen__total,
+.resumen__proyeccion {
+  padding: 1.2rem 1.4rem;
+  border-radius: var(--radius);
+  box-shadow: var(--sombra-tarjeta);
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+/* El total va sobre oscuro: es la cifra de la que se habla. */
+.resumen__total {
+  background: var(--oscuro);
+  color: var(--oscuro-ink);
+
+  .resumen__etiqueta { color: rgba(255, 255, 255, 0.65); }
+  .resumen__pie { color: rgba(255, 255, 255, 0.7); }
+}
+
+.resumen__proyeccion {
+  background: var(--panel);
+
+  strong { font-size: 1.5rem; font-weight: 800; letter-spacing: -0.03em; }
+}
+
+.resumen__etiqueta {
+  font-size: 0.74rem;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  font-weight: 700;
+  color: var(--ink-soft);
+}
+
+.resumen__cifra {
+  font-size: 2.6rem;
+  font-weight: 800;
+  letter-spacing: -0.04em;
+  line-height: 1.05;
+}
+
+.resumen__pie { font-size: 0.8rem; color: var(--ink-soft); }
+
+/* ===== Tarjetas ===== */
+.tarjeta {
+  background: var(--panel);
+  border-radius: var(--radius);
+  box-shadow: var(--sombra-tarjeta);
+  padding: 1.1rem 1.3rem 1.3rem;
+  margin-bottom: 1rem;
+
+  h2 { margin: 0; font-size: 1rem; font-weight: 700; }
+  h2.segundo { margin-top: 1.4rem; padding-top: 1.1rem; border-top: 1px solid var(--border); }
+}
+
+.sub { margin: 0.2rem 0 0.9rem; font-size: 0.8rem; color: var(--ink-soft); }
+
+.columnas {
+  display: grid;
+  grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr);
+  gap: 1rem;
+  align-items: start;
+}
+
+/* ===== La bolsa ===== */
+.bolsa__cabeza {
+  display: flex;
+  align-items: baseline;
+  gap: 1rem;
+  margin-bottom: 0.7rem;
+}
+
+.bolsa__cuenta {
+  margin-left: auto;
+  font-size: 0.85rem;
+  color: var(--ink-soft);
+
+  strong { font-size: 1.1rem; color: var(--ink); }
+}
+
+.barra {
+  height: 10px;
+  border-radius: 999px;
+  background: var(--panel-2);
+  overflow: hidden;
+
+  i {
+    display: block;
+    height: 100%;
+    border-radius: 999px;
+    background: var(--primary);
+    /* Crece al entrar: se lee como «esto se está llenando». */
+    transition: width 0.6s cubic-bezier(0.22, 1, 0.36, 1);
+  }
+
+  &--lleno i { background: var(--negative); }
+}
+
+.bolsa__pie { margin: 0.6rem 0 0; font-size: 0.82rem; color: var(--ink-soft); }
+
+/* ===== Avisos de bloqueo ===== */
+.bloqueo {
+  margin-top: 0.9rem;
+  display: flex;
+  align-items: center;
+  gap: 0.8rem;
+  padding: 0.85rem 1rem;
+  border-radius: 14px;
+  background: rgba(248, 40, 52, 0.07);
+  border: 1px solid rgba(248, 40, 52, 0.25);
+
+  &--aviso {
+    background: var(--primary-suave);
+    border-color: rgba(243, 71, 0, 0.3);
+  }
+}
+
+.bloqueo__icono { font-size: 1.1rem; }
+
+.bloqueo__texto {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  font-size: 0.8rem;
+  color: var(--ink-soft);
+
+  strong { font-size: 0.86rem; color: var(--ink); }
+}
+
+.bloqueo__accion {
+  margin-left: auto;
+  flex-shrink: 0;
+  padding: 0.45rem 0.9rem;
+  border: 0;
+  border-radius: 999px;
+  background: var(--oscuro);
+  color: var(--oscuro-ink);
+  font: inherit;
+  font-size: 0.8rem;
+  font-weight: 700;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+/* ===== Tope ===== */
+.tope {
+  display: flex;
+  align-items: center;
+  gap: 1.2rem;
+  flex-wrap: wrap;
+
+  p { margin: 0.25rem 0 0; font-size: 0.8rem; color: var(--ink-soft); max-width: 46ch; }
+}
+
+.tope__valor {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+
+  strong { font-size: 1.3rem; font-weight: 800; letter-spacing: -0.03em; }
+}
+
+.tope__editar {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+
+  label {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    font-size: 0.85rem;
+    font-weight: 700;
+  }
+
+  input {
+    width: 7rem;
+    padding: 0.45rem 0.6rem;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    font: inherit;
+    font-size: 0.9rem;
+
+    &:focus { outline: 2px solid var(--primary); outline-offset: 1px; }
+  }
+}
+
+/* ===== Meses ===== */
+.meses {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  margin-bottom: 1rem;
+}
+
+.mes {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+  padding: 0.5rem 0.9rem;
+  border: 0;
+  border-radius: 14px;
+  background: var(--panel);
+  box-shadow: var(--sombra-pildora);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: transform 0.12s;
+
+  strong { font-size: 0.84rem; }
+  span { font-size: 0.74rem; color: var(--ink-soft); }
+
+  &:hover { transform: translateY(-1px); }
+
+  &--on {
+    background: var(--oscuro);
+    color: var(--oscuro-ink);
+    span { color: rgba(255, 255, 255, 0.7); }
+  }
+}
+
+/* ===== Tablas ===== */
+.tabla { display: flex; flex-direction: column; }
+
+.tabla__cabeza,
+.fila {
+  display: grid;
+  grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr) 5rem 6.5rem 6rem;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+.tabla__cabeza {
+  padding: 0 0.1rem 0.5rem;
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  font-weight: 700;
+  color: var(--ink-soft);
+  border-bottom: 1px solid var(--border);
+}
+
+.fila {
+  position: relative;
+  padding: 0.6rem 0.1rem;
+  border-bottom: 1px solid var(--border);
+  font-size: 0.85rem;
+
+  /* Entrada escalonada: la lista se arma a la vista en vez de aparecer de
+     golpe, y eso deja ver que son filas distintas. */
+  animation: entrar 0.3s cubic-bezier(0.22, 1, 0.36, 1) both;
+  animation-delay: calc(var(--entrada, 0) * 35ms);
+
+  &:last-child { border-bottom: 0; }
+  &:hover { background: var(--panel-2); }
+
+  &--simple {
+    grid-template-columns: minmax(0, 1fr) 4rem 6rem;
+  }
+}
+
+.fila__nombre {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  font-weight: 600;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.punto {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--primary);
+  flex-shrink: 0;
+}
+
+.fila__tipo {
+  font-size: 0.74rem;
+  font-weight: 700;
+  color: var(--ink-soft);
+}
+
+/* La barra vive detrás de la fila: proporción sin quitarle sitio a los
+   números, que son lo que se compara contra la factura. */
+.fila__barra {
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  height: 2px;
+  background: var(--primary);
+  opacity: 0.55;
+  border-radius: 999px;
+  transition: width 0.6s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.num { text-align: right; font-variant-numeric: tabular-nums; }
+.suave { color: var(--ink-soft); font-size: 0.8rem; }
+.fuerte { font-weight: 700; }
+
+.tabla--detalle {
+  .tabla__cabeza,
+  .fila {
+    grid-template-columns: 8.5rem minmax(0, 1fr) 7rem minmax(0, 1.2fr) 5.5rem;
+  }
+}
+
+/* ===== Avisos ===== */
+.aviso {
+  margin: 0 0 0.9rem;
+  padding: 0.6rem 0.9rem;
+  border-radius: 12px;
+  font-size: 0.82rem;
+}
+
+.aviso--mal { background: rgba(248, 40, 52, 0.08); color: var(--negative); }
+.aviso--cerrado { background: var(--panel-2); color: var(--ink-soft); }
+
+.vacio {
+  padding: 1.6rem;
+  border-radius: var(--radius);
+  background: var(--panel);
+  box-shadow: var(--sombra-tarjeta);
+  font-size: 0.88rem;
+  color: var(--ink-soft);
+  text-align: center;
+}
+
+.nota {
+  margin: 1.2rem 0 0;
+  font-size: 0.76rem;
+  color: var(--ink-soft);
+  max-width: 70ch;
+}
+
+@keyframes entrar {
+  from { opacity: 0; transform: translateY(5px); }
+  to { opacity: 1; transform: none; }
+}
+
+/* Quien pidió menos movimiento no recibe ninguno. */
+@media (prefers-reduced-motion: reduce) {
+  .fila { animation: none; }
+  .barra i,
+  .fila__barra { transition: none; }
+  .btn:hover,
+  .btn-plano:hover,
+  .mes:hover { transform: none; }
+}
+
+@media (max-width: 1100px) {
+  .resumen,
+  .columnas { grid-template-columns: 1fr; }
+}
+
+@media (max-width: 760px) {
+  /* En angosto las tablas scrollean solas: el cuerpo de la página nunca se
+     va de lado. */
+  .tabla { overflow-x: auto; }
+  .tabla__cabeza,
+  .fila { min-width: 34rem; }
+}

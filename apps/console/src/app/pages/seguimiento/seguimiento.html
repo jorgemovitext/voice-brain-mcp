@@ -1,0 +1,162 @@
+<div class="pagina">
+  <header class="cabecera">
+    <div>
+      <h1>Seguimiento</h1>
+      <p>Lo que tu agente manda sin que nadie le escriba: recordatorios, rescates, avances</p>
+    </div>
+    <div class="cabecera__estado">
+      @if (mensajesEncendidos()) {
+        <span class="chip-costo">
+          <strong>{{ dolares(costoEncendido()) }}</strong> al mes si se cumple el peor caso
+        </span>
+      }
+      <a class="btn-plano" routerLink="/uso">Ver consumo ›</a>
+    </div>
+  </header>
+
+  @if (error(); as e) { <p class="aviso aviso--mal">⚠ {{ e }}</p> }
+
+  @if (!disponible()) {
+    <div class="bloqueo">
+      <span class="bloqueo__icono">⚠</span>
+      <span class="bloqueo__texto">
+        <strong>El seguimiento automático es del plan Negocio</strong>
+        Podés ver las secuencias y lo que costarían, pero no encenderlas todavía.
+      </span>
+      <a class="bloqueo__accion" routerLink="/planes">Ver planes ›</a>
+    </div>
+  }
+
+  <!-- ===== Los frenos, antes de las secuencias ===== -->
+  <section class="tarjeta frenos">
+    <div>
+      <h2>Lo que nunca va a pasar</h2>
+      <p class="sub">
+        Un agente que escribe de más no es un agente malo: es un número que la gente bloquea. Estos
+        cuatro frenos están siempre puestos.
+      </p>
+    </div>
+
+    <ul class="frenos__lista">
+      <li>
+        <strong>Si contestó, se corta.</strong>
+        La secuencia muere en cuanto la persona responde, en el paso que esté.
+      </li>
+      <li>
+        <strong>Nada de noche.</strong>
+        @if (noMolestar(); as nm) {
+          Entre las {{ nm.desde }}:00 y las {{ nm.hasta }}:00 no sale nada. Lo que caiga en esa franja
+          espera a la mañana, no se pierde.
+        }
+      </li>
+      <li>
+        <strong>Tope por persona.</strong>
+        Nadie recibe más de {{ maxPorPersona() }} mensajes no pedidos por semana, sumando todas las
+        secuencias.
+        @if (disponible() && maxPorPersona() > 1) {
+          <span class="frenos__bajar">
+            @for (n of [1, 2]; track n) {
+              @if (n < maxPorPersona()) {
+                <button class="mini" [disabled]="!!guardando()" (click)="bajarTope(n)">
+                  Bajarlo a {{ n }}
+                </button>
+              }
+            }
+          </span>
+        }
+      </li>
+      <li>
+        <strong>Tope de gasto.</strong>
+        Si se alcanza, los seguimientos se detienen. Las respuestas a quien escribe nunca se cortan
+        por plata.
+      </li>
+    </ul>
+  </section>
+
+  <!-- ===== Cuánta gente ===== -->
+  <section class="tarjeta calculo">
+    <div class="calculo__texto">
+      <h2>Cuánta gente atendés por mes</h2>
+      <p class="sub">Movelo y los costos de abajo se recalculan. La cuenta la hace el servidor con la tarifa real de cada paso.</p>
+    </div>
+    <div class="calculo__control">
+      <span class="calculo__valor">{{ personas() }}</span>
+      <input
+        type="range"
+        min="10"
+        max="2000"
+        step="10"
+        [value]="personas()"
+        [style.--pct]="((personas() - 10) / 1990) * 100"
+        (input)="moverPersonas($event)" />
+      <div class="calculo__escala"><span>10</span><span>500</span><span>1 000</span><span>2 000</span></div>
+    </div>
+  </section>
+
+  <!-- ===== Las secuencias ===== -->
+  <section class="secuencias">
+    @for (s of secuencias(); track s.id; let i = $index) {
+      <article class="sec" [class.sec--on]="s.activa" [style.--entrada]="i">
+        <header class="sec__cabeza">
+          <div>
+            <h2>{{ s.nombre }}</h2>
+            <p class="sec__resumen">{{ s.resumen }}</p>
+          </div>
+
+          <button
+            class="interruptor"
+            [class.interruptor--on]="s.activa"
+            [disabled]="!disponible() || !!guardando()"
+            [attr.aria-label]="s.activa ? 'Apagar ' + s.nombre : 'Encender ' + s.nombre"
+            (click)="alternar(s)">
+            <i></i>
+          </button>
+        </header>
+
+        <div class="sec__etiquetas">
+          <span class="etiqueta">Para: {{ paraQuien(s) }}</span>
+          @if (s.automatica) {
+            <span class="etiqueta etiqueta--auto">Se inscribe sola</span>
+          } @else {
+            <span class="etiqueta etiqueta--manual">La inscribe el flujo del agente</span>
+          }
+          @if (enCurso()(s.id); as cuantos) {
+            <span class="etiqueta etiqueta--vivo">
+              <i class="pulso"></i>{{ cuantos }} {{ cuantos === 1 ? 'persona' : 'personas' }} en curso
+            </span>
+          }
+        </div>
+
+        <p class="sec__disparador">{{ s.disparador }}</p>
+
+        <!-- Los pasos, en orden, con lo que cuesta cada uno -->
+        <ol class="pasos">
+          @for (p of s.pasos; track p.id; let j = $index) {
+            <li class="paso">
+              <span class="paso__cuando">{{ cuando(p.horas) }}</span>
+              <span class="paso__cuerpo">
+                <span class="paso__texto">“{{ comoLlega(p.texto) }}”</span>
+                <span class="paso__intencion">{{ p.intencion }}</span>
+              </span>
+              <span class="paso__tipo">{{ categoria(p.categoria) }}</span>
+              <span class="paso__costo">{{ dolares(s.estimado.porPaso[j].micros) }}</span>
+            </li>
+          }
+        </ol>
+
+        <footer class="sec__pie">
+          <span>
+            Hasta <strong>{{ s.estimado.mensajes }}</strong> mensajes al mes
+          </span>
+          <span class="sec__total">{{ dolares(s.estimado.micros) }}</span>
+        </footer>
+      </article>
+    }
+  </section>
+
+  <p class="nota">
+    Los costos son el <strong>peor caso</strong>: suponen que nadie contesta y que todos reciben
+    todos los pasos. En la práctica sale menos, porque la secuencia se corta en cuanto la persona
+    responde — que es justamente lo que se busca.
+  </p>
+</div>
