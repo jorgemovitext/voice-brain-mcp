@@ -412,10 +412,14 @@ export class SeguimientoService {
     personasPorMes = 100,
     iso = 'HN',
   ): Promise<{ mensajes: number; micros: number; porPaso: Array<{ paso: string; micros: number }> }> {
-    const negociada = await this.medicion.tarifaOrg(org);
+    const [cliente, plataforma] = await Promise.all([
+      this.medicion.tarifaOrg(org),
+      this.medicion.tarifaPlataforma(),
+    ]);
     const porPaso = sec.pasos.map((p) => ({
       paso: p.id,
-      micros: precioDe(iso, p.categoria, negociada) * personasPorMes,
+      // Por WhatsApp: es el único canal por el que sale un seguimiento hoy.
+      micros: precioDe(iso, p.categoria, { canal: 'whatsapp', cliente, plataforma }) * personasPorMes,
     }));
     return {
       /*

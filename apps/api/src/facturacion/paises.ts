@@ -68,6 +68,15 @@ export interface Pais {
   iso: string;
   nombre: string;
   mercado: Mercado;
+  /**
+   * El prefijo que decidió el país, cuando se resolvió desde un número.
+   *
+   * Se devuelve y se guarda en el registro de facturación porque es lo que
+   * permite EXPLICAR un cobro: por qué un +1809 se facturó como Dominicana
+   * y no como Estados Unidos. Sin esto, un reclamo se contesta con «confiá
+   * en el código».
+   */
+  prefijo?: string;
 }
 
 /**
@@ -148,7 +157,7 @@ export function paisDe(telefono?: string): Pais {
   const digitos = (telefono ?? '').replace(/\D/g, '');
   if (!digitos) return PAIS_DESCONOCIDO;
   for (const [prefijo, pais] of ORDENADOS) {
-    if (digitos.startsWith(prefijo)) return pais;
+    if (digitos.startsWith(prefijo)) return { ...pais, prefijo };
   }
   return PAIS_DESCONOCIDO;
 }

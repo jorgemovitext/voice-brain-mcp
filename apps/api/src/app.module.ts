@@ -13,6 +13,7 @@ import { DemoModule } from './demo/demo.module';
 import { IntegrationsModule } from './integrations/integrations.module';
 import { LineasModule } from './lineas/lineas.module';
 import { NlpearlModule } from './nlpearl/nlpearl.module';
+import { PlataformaModule } from './plataforma/plataforma.module';
 import { SeguimientoModule } from './seguimiento/seguimiento.module';
 import { DatabaseModule } from './shared/database.module';
 import { OrgInterceptor } from './shared/org.interceptor';
@@ -43,6 +44,7 @@ import { SharedModule } from './shared/flow-log.service';
     LineasModule,
     NlpearlModule,
     SeguimientoModule,
+    PlataformaModule,
     DemoModule,
   ],
   providers: [

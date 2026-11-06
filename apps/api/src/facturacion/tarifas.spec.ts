@@ -75,15 +75,15 @@ describe('Lo que cuesta y lo que se cobra', () => {
      * alguien la cambia sin querer —o si Meta publica una nueva y se
      * actualiza a medias—, esto lo dice.
      */
-    expect(costoMercado('latam')).toEqual({
+    expect(costoMercado('latam')!).toEqual({
       servicio: 11_300,
       utilidad: 11_300,
       autenticacion: 11_300,
       marketing: 74_000,
     });
-    expect(costoMercado('mexico').marketing).toBe(39_700);
-    expect(costoMercado('norteamerica').servicio).toBe(3_400);
-    expect(costoMercado('colombia').servicio).toBe(800);
+    expect(costoMercado('mexico')!.marketing).toBe(39_700);
+    expect(costoMercado('norteamerica')!.servicio).toBe(3_400);
+    expect(costoMercado('colombia')!.servicio).toBe(800);
   });
 
   it('se vende por encima de lo que cuesta, nunca por debajo', () => {
@@ -113,15 +113,14 @@ describe('Lo que cuesta y lo que se cobra', () => {
   });
 
   it('la tarifa negociada por país le gana a la del mercado', () => {
-    const negociada = {
-      paises: { HN: { servicio: 9_000 } },
-      mercados: { latam: { servicio: 20_000 } },
+    const cliente = {
+      whatsapp: { paises: { HN: { servicio: 9_000 } }, mercados: { latam: { servicio: 20_000 } } },
     } as never;
 
-    expect(precioDe('HN', 'servicio', negociada)).toBe(9_000);
+    expect(precioDe('HN', 'servicio', { cliente })).toBe(9_000);
     // Guatemala es del mismo mercado pero no tiene precio propio: hereda el
     // del mercado negociado, no el de Honduras.
-    expect(precioDe('GT', 'servicio', negociada)).toBe(20_000);
+    expect(precioDe('GT', 'servicio', { cliente })).toBe(20_000);
   });
 
   it('una negociación PARCIAL no borra el resto de las categorías', () => {
@@ -130,24 +129,24 @@ describe('Lo que cuesta y lo que se cobra', () => {
      * perdieran las demás, los avisos y las promociones pasarían a costar
      * cero: el cliente negociaría una categoría y se llevaría todas.
      */
-    const negociada = { paises: { HN: { servicio: 1_000 } } } as never;
+    const cliente = { whatsapp: { paises: { HN: { servicio: 1_000 } } } } as never;
 
-    expect(precioDe('HN', 'servicio', negociada)).toBe(1_000);
-    expect(precioDe('HN', 'marketing', negociada)).toBe(
+    expect(precioDe('HN', 'servicio', { cliente })).toBe(1_000);
+    expect(precioDe('HN', 'marketing', { cliente })).toBe(
       Math.round(costoDe('HN', 'marketing') * MARGEN_POR_DEFECTO),
     );
   });
 
   it('un margen propio cambia todos los precios de esa empresa', () => {
-    const negociada = { margen: 1.3 } as never;
-    expect(precioDe('HN', 'servicio', negociada)).toBe(Math.round(11_300 * 1.3));
+    const cliente = { whatsapp: { margen: 1.3 } } as never;
+    expect(precioDe('HN', 'servicio', { cliente })).toBe(Math.round(11_300 * 1.3));
   });
 
   it('un margen de cero o negativo NO regala los mensajes', () => {
     // Un campo mal escrito en una configuración no puede poner la venta a
     // precio de costo, y mucho menos a cero.
     for (const margen of [0, -3]) {
-      expect(precioDe('HN', 'servicio', { margen } as never)).toBe(
+      expect(precioDe('HN', 'servicio', { cliente: { whatsapp: { margen } } as never })).toBe(
         Math.round(11_300 * MARGEN_POR_DEFECTO),
       );
     }

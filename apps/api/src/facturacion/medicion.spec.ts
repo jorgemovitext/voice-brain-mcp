@@ -84,7 +84,7 @@ describe('Medición de mensajes', () => {
     // Se negocia (o se corrige) la tarifa DESPUÉS del envío.
     const conTarifaNueva = new MedicionService(
       pool,
-      settingsDe({ [`tarifas:${CLINICA}`]: { paises: { HN: { servicio: 999_000 } } } }),
+      settingsDe({ [`tarifas:${CLINICA}`]: { whatsapp: { paises: { HN: { servicio: 999_000 } } } } }),
     );
 
     expect((await conTarifaNueva.consumo(CLINICA)).micros).toBe(antes);

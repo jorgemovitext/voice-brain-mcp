@@ -5,7 +5,7 @@ import { orgActual } from '../shared/contexto-org';
 import { SettingsService } from '../shared/settings.service';
 import { ensureSchema, PG_POOL } from '../shared/database.module';
 import { nombrePais, paisDe } from './paises';
-import { Categoria, costoDe, precioDe, TarifaOrg } from './tarifas';
+import { Categoria, canalValido, costoDe, precioDe, TarifaPorCanal } from './tarifas';
 
 /**
  * La medición: una fila por cada mensaje que sale.
@@ -39,6 +39,20 @@ export interface MensajeMedido {
   agente?: string;
   canal?: string;
   categoria?: Categoria;
+  /** La cuenta del cliente bajo la que se factura este mensaje. */
+  cuenta?: string;
+  /** Quién lo entregó: gupshup, movitext, cloud-api. Para cuadrar su factura. */
+  proveedor?: string;
+  /**
+   * Operador del número: el de origen y el real.
+   *
+   * Con portabilidad son distintos, y el que manda para el costo es el
+   * FINAL. Guardar los dos es lo que deja auditar el cobro de un número
+   * portado; hoy llegan vacíos porque ningún proveedor nos los reporta
+   * todavía.
+   */
+  operadorInicial?: string;
+  operadorFinal?: string;
   /** Por qué salió: respuesta del agente, seguimiento, mano del operador. */
   motivo?: 'respuesta' | 'seguimiento' | 'operador' | 'plantilla' | 'traspaso';
   /** Id del proveedor. Con él, un webhook reintentado no cobra dos veces. */
@@ -81,8 +95,18 @@ export class MedicionService {
   }
 
   /** La tarifa negociada de una organización, si tiene. */
-  async tarifaOrg(org: string): Promise<TarifaOrg | undefined> {
-    return this.settings.get<TarifaOrg>(`tarifas:${org}`);
+  async tarifaOrg(org: string): Promise<TarifaPorCanal | undefined> {
+    return this.settings.get<TarifaPorCanal>(`tarifas:${org}`);
+  }
+
+  /**
+   * NUESTRA lista de precios, la que rige cuando el cliente no negoció.
+   *
+   * Vive en configuración y no en código para que se pueda corregir sin
+   * desplegar: una tarifa equivocada es plata por minuto.
+   */
+  async tarifaPlataforma(): Promise<TarifaPorCanal | undefined> {
+    return this.settings.get<TarifaPorCanal>('tarifas:plataforma');
   }
 
   /**
@@ -95,14 +119,16 @@ export class MedicionService {
     const org = m.organizacion ?? orgActual() ?? SIN_ORG;
     const pais = paisDe(m.destino);
     const categoria: Categoria = m.categoria ?? 'servicio';
+    const canal = canalValido(m.canal);
 
     let precio = 0;
     let costo = 0;
     try {
-      precio = precioDe(pais.iso, categoria, await this.tarifaOrg(org));
+      const [cliente, plataforma] = await Promise.all([this.tarifaOrg(org), this.tarifaPlataforma()]);
+      precio = precioDe(pais.iso, categoria, { canal, cliente, plataforma });
       // Lo que nos cuesta a nosotros se guarda al lado: sin eso, el margen
       // de un mes cerrado solo se puede estimar.
-      costo = costoDe(pais.iso, categoria);
+      costo = costoDe(pais.iso, categoria, canal);
     } catch (err) {
       this.logger.error(`No se pudo resolver la tarifa de ${pais.iso}/${categoria}: ${(err as Error).message}`);
     }
@@ -129,9 +155,10 @@ export class MedicionService {
     try {
       await ensureSchema(this.pool);
       await this.pool.query(
-        `INSERT INTO consumo (id, organizacion_id, periodo, agente, contacto, canal, pais, categoria,
-                              motivo, cantidad, precio_micros, costo_micros, referencia)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, 1, $10, $11, $12)
+        `INSERT INTO consumo (id, organizacion_id, cuenta_id, periodo, agente, contacto, canal, pais,
+                              prefijo, destino, proveedor, operador_inicial, operador_final,
+                              categoria, motivo, cantidad, precio_micros, costo_micros, referencia)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, 1, $16, $17, $18)
          /*
           * El predicado del índice va REPETIDO acá. El índice de referencia
           * es parcial —solo las filas que traen una— y sin repetir su
@@ -144,11 +171,19 @@ export class MedicionService {
         [
           randomUUID(),
           org,
+          // Sin cuenta explícita, la principal del cliente: ningún mensaje
+          // puede quedar colgando de ninguna cuenta.
+          m.cuenta ?? `cta-${org}`,
           MedicionService.periodoDe(),
           m.agente ?? null,
           m.contacto ?? null,
-          m.canal ?? 'whatsapp',
+          canal,
           pais.iso,
+          pais.prefijo ?? null,
+          m.destino ?? null,
+          m.proveedor ?? null,
+          m.operadorInicial ?? null,
+          m.operadorFinal ?? null,
           categoria,
           m.motivo ?? 'respuesta',
           precio,

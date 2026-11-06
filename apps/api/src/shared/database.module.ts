@@ -252,6 +252,75 @@ export function ensureSchema(pool: Pool): Promise<void> {
         CREATE UNIQUE INDEX IF NOT EXISTS consumo_referencia_key
           ON consumo (referencia) WHERE referencia IS NOT NULL;
 
+        -- ===== El cliente, su cuenta y el registro de facturación =====
+        --
+        -- Lo que se factura no es «una organización»: es un CLIENTE con una o
+        -- varias CUENTAS, y cada mensaje cuelga de una de ellas. Es la forma
+        -- que ya tiene la facturación de Movitext (customer / cuenta /
+        -- prefijo / tipo / total) y copiarla acá es lo que permite cuadrar
+        -- una factura contra la otra sin trabajo manual.
+
+        -- Código estable de cliente. El id es un UUID que no se puede dictar
+        -- por teléfono; esto es lo que va en la factura y en los reportes.
+        ALTER TABLE organizaciones ADD COLUMN IF NOT EXISTS codigo text;
+        CREATE SEQUENCE IF NOT EXISTS organizaciones_codigo_seq;
+        UPDATE organizaciones
+           SET codigo = 'C' || lpad(nextval('organizaciones_codigo_seq')::text, 4, '0')
+         WHERE codigo IS NULL;
+        CREATE UNIQUE INDEX IF NOT EXISTS organizaciones_codigo_key ON organizaciones (codigo);
+
+        -- Quién es cliente y quién es el dueño de la plataforma. Es lo que
+        -- habilita ver TODO; por eso es una columna del servidor y no un rol
+        -- que alguien se pueda poner a sí mismo.
+        ALTER TABLE organizaciones ADD COLUMN IF NOT EXISTS tipo text NOT NULL DEFAULT 'cliente';
+        UPDATE organizaciones SET tipo = 'proveedor' WHERE id = 'org-movitext';
+
+        -- La CUENTA: la unidad bajo la que se agrupan los números y se factura.
+        -- Un cliente puede tener varias (por sede, por área, por contrato).
+        CREATE TABLE IF NOT EXISTS cuentas (
+          id text PRIMARY KEY,
+          organizacion_id text NOT NULL,
+          codigo text NOT NULL,
+          nombre text NOT NULL,
+          estado text NOT NULL DEFAULT 'activa',
+          creada timestamptz NOT NULL DEFAULT now()
+        );
+        CREATE UNIQUE INDEX IF NOT EXISTS cuentas_codigo_key ON cuentas (organizacion_id, codigo);
+        CREATE INDEX IF NOT EXISTS idx_cuentas_org ON cuentas (organizacion_id);
+
+        -- Todo cliente estrena una cuenta principal: así nadie queda con
+        -- mensajes colgando de ninguna cuenta mientras el modelo crece.
+        INSERT INTO cuentas (id, organizacion_id, codigo, nombre)
+          SELECT 'cta-' || o.id, o.id, 'PRINCIPAL', 'Cuenta principal'
+            FROM organizaciones o
+           WHERE NOT EXISTS (SELECT 1 FROM cuentas c WHERE c.organizacion_id = o.id);
+
+        ALTER TABLE lineas ADD COLUMN IF NOT EXISTS cuenta_id text;
+        UPDATE lineas SET cuenta_id = 'cta-' || organizacion_id
+         WHERE cuenta_id IS NULL AND organizacion_id IS NOT NULL;
+
+        -- Qué proveedor entregó el mensaje. Va en la línea porque el cambio
+        -- de proveedor es POR NÚMERO: un cliente puede estar en Gupshup y
+        -- otro en el motor de Movitext, y los dos facturan distinto.
+        ALTER TABLE lineas ADD COLUMN IF NOT EXISTS proveedor text;
+
+        -- El registro de facturación, con la forma de un CDR y no de un log.
+        -- Cada columna de acá es una columna del reporte que ya se emite hoy.
+        ALTER TABLE consumo ADD COLUMN IF NOT EXISTS cuenta_id text;
+        -- El número de destino tal cual, no solo el id del contacto: la
+        -- factura se revisa número por número cuando alguien reclama.
+        ALTER TABLE consumo ADD COLUMN IF NOT EXISTS destino text;
+        -- El prefijo que DECIDIÓ el precio. Guardarlo deja explicar por qué
+        -- un mensaje se cobró como Dominicana y no como Estados Unidos.
+        ALTER TABLE consumo ADD COLUMN IF NOT EXISTS prefijo text;
+        ALTER TABLE consumo ADD COLUMN IF NOT EXISTS proveedor text;
+        -- Portabilidad: el operador con el que nació el número y el que lo
+        -- tiene de verdad. El segundo es el que manda para el costo, y sin
+        -- los dos no se puede auditar una factura de un número portado.
+        ALTER TABLE consumo ADD COLUMN IF NOT EXISTS operador_inicial text;
+        ALTER TABLE consumo ADD COLUMN IF NOT EXISTS operador_final text;
+        CREATE INDEX IF NOT EXISTS idx_consumo_cuenta ON consumo (cuenta_id, periodo);
+
         -- SEGUIMIENTO: a quién le falta un mensaje y cuándo le toca.
         --
         -- Vive en la base y no en memoria porque cada webhook en serverless

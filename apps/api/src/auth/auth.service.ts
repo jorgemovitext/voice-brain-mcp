@@ -55,6 +55,15 @@ export interface SessionUser {
   organizacion?: string;
   empresa?: string;
   plan?: string;
+  /**
+   * ¿Es del equipo que opera la plataforma?
+   *
+   * Sale del TIPO de su empresa, no de su rol. Un rol se cambia desde la
+   * pantalla de equipo: si esto dependiera del rol, cualquier
+   * administrador de cualquier cliente se ascendería a dueño y vería la
+   * facturación de todos.
+   */
+  plataforma?: boolean;
 }
 
 @Injectable()
@@ -77,6 +86,34 @@ export class AuthService {
     // Honduras. Es de dónde son los clientes, y se cambia con una variable.
     this.codigoPais = config.get<string>('AUTH_CODIGO_PAIS', '504');
     this.sessionHours = config.get<number>('AUTH_SESSION_HOURS', 12);
+  }
+
+  /**
+   * EL único lugar donde se firma una sesión.
+   *
+   * Había tres —registro, login y código— y dos de ellos se olvidaban de
+   * meter la organización y el rol. El síntoma no era un error: era una
+   * consola en blanco y un administrador degradado a usuario, en silencio.
+   * Con un solo sitio, lo que se agregue acá lo llevan los tres caminos.
+   */
+  private async firmarSesion(user: AuthUser): Promise<string> {
+    const empresa = user.organizacionId
+      ? await this.organizaciones.leer(user.organizacionId).catch(() => null)
+      : null;
+
+    return this.jwt.signAsync({
+      sub: user.id,
+      username: user.username,
+      org: user.organizacionId,
+      rol: rolValido(user.rol),
+      /*
+       * Ser del equipo de la plataforma sale del TIPO de la empresa y no
+       * del rol: un rol se cambia desde la pantalla de equipo, así que
+       * atarlo al rol dejaría que cualquier administrador de cualquier
+       * cliente se ascendiera a dueño y viera la facturación de todos.
+       */
+      plataforma: empresa?.tipo === 'proveedor' && rolValido(user.rol) === 'admin',
+    });
   }
 
   // =============== Password hashing (scrypt) ===============
@@ -198,12 +235,7 @@ export class AuthService {
       phone: user.phone,
       name: user.name,
     };
-    const token = await this.jwt.signAsync({
-      sub: user.id,
-      username: user.username,
-      org: user.organizacionId,
-      rol: user.rol ?? 'usuario',
-    });
+    const token = await this.firmarSesion(user);
     return { token, user: sessionUser };
   }
 
@@ -422,12 +454,7 @@ export class AuthService {
       phone: user.phone,
       name: user.name,
     };
-    const token = await this.jwt.signAsync({
-      sub: user.id,
-      username: user.username,
-      org: user.organizacionId,
-      rol: user.rol ?? 'usuario',
-    });
+    const token = await this.firmarSesion(user);
     return { otpRequired: false, token, user: sessionUser };
   }
 
@@ -527,12 +554,7 @@ export class AuthService {
      * mostraba todo vacío, que es peor que no dejarlo entrar, porque parece
      * que se le borraron los datos.
      */
-    const token = await this.jwt.signAsync({
-      sub: user.id,
-      username: user.username,
-      org: user.organizacionId,
-      rol: user.rol ?? 'usuario',
-    });
+    const token = await this.firmarSesion(user);
     return { token, user: sessionUser };
   }
 
@@ -611,6 +633,7 @@ export class AuthService {
       organizacion: user.organizacionId,
       empresa: empresa?.nombre,
       plan: empresa?.plan ?? 'prueba',
+      plataforma: empresa?.tipo === 'proveedor' && rol === 'admin',
     };
   }
 

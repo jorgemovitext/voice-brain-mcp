@@ -64,6 +64,11 @@ class InvitacionesFalsas {
 class OrganizacionesFalsas {
   creadas: string[] = [];
   borradas: string[] = [];
+  /** El tipo de cada empresa creada. Por defecto, cliente. */
+  tipo: 'cliente' | 'proveedor' = 'cliente';
+  async leer(id: string) {
+    return { id, codigo: 'C0001', nombre: 'Empresa', plan: 'prueba', tipo: this.tipo, creada: '' };
+  }
   async eliminar(id: string) {
     this.borradas.push(id);
     return true;

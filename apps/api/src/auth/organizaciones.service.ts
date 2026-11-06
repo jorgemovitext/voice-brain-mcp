@@ -15,8 +15,17 @@ import { ensureSchema, PG_POOL } from '../shared/database.module';
 
 export interface Organizacion {
   id: string;
+  /** Código estable de cliente: lo que va en la factura y se dicta por teléfono. */
+  codigo: string;
   nombre: string;
   plan: string;
+  /**
+   * `cliente` o `proveedor`. El proveedor somos nosotros, y es lo que
+   * habilita ver TODO. Va en una columna del servidor y no en un rol
+   * porque un rol se puede cambiar desde la pantalla de equipo: cualquier
+   * administrador se ascendería a dueño de la plataforma.
+   */
+  tipo: 'cliente' | 'proveedor';
   creada: string;
 }
 
@@ -68,14 +77,26 @@ export class OrganizacionesService {
     await ensureSchema(this.pool);
     const r = await this.pool.query('SELECT * FROM organizaciones WHERE id = $1', [id]);
     const f = r.rows[0];
-    return f
-      ? {
-          id: String(f.id),
-          nombre: String(f.nombre),
-          plan: String(f.plan),
-          creada: new Date(String(f.creada)).toISOString(),
-        }
-      : null;
+    return f ? OrganizacionesService.aOrganizacion(f) : null;
+  }
+
+  /** Todas las empresas. Solo la usa el back-office de la plataforma. */
+  async listar(): Promise<Organizacion[]> {
+    if (!this.pool) return [];
+    await ensureSchema(this.pool);
+    const r = await this.pool.query('SELECT * FROM organizaciones ORDER BY creada DESC');
+    return r.rows.map((f) => OrganizacionesService.aOrganizacion(f));
+  }
+
+  private static aOrganizacion(f: Record<string, unknown>): Organizacion {
+    return {
+      id: String(f['id']),
+      codigo: String(f['codigo'] ?? ''),
+      nombre: String(f['nombre']),
+      plan: String(f['plan']),
+      tipo: f['tipo'] === 'proveedor' ? 'proveedor' : 'cliente',
+      creada: new Date(String(f['creada'])).toISOString(),
+    };
   }
 
   /**
