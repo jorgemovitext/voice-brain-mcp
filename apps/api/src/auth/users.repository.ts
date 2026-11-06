@@ -60,6 +60,15 @@ export interface UsersRepository {
   save(user: AuthUser): Promise<AuthUser>;
   /** Cuántas cuentas hay. Cero habilita el alta de arranque. */
   contar(): Promise<number>;
+  /**
+   * Cuántas cuentas hay EN una empresa.
+   *
+   * No es lo mismo que el total: «es la única cuenta que queda» se mide
+   * dentro de la empresa, no en toda la plataforma. Con el total, un
+   * cliente con un solo usuario podía borrarlo y dejar su empresa sin
+   * nadie, porque en la plataforma había cientos de cuentas más.
+   */
+  contarEn(org: string): Promise<number>;
   /** Las de UNA organización, para la pantalla de equipo. Sin hashes. */
   listar(org?: string): Promise<AuthUser[]>;
   eliminar(id: string): Promise<boolean>;
@@ -175,6 +184,12 @@ export class PgUsersRepository implements UsersRepository {
     return r.rows[0]?.n ?? 0;
   }
 
+  async contarEn(org: string): Promise<number> {
+    const db = await this.db();
+    const r = await db.query('SELECT count(*)::int AS n FROM users WHERE organizacion_id = $1', [org]);
+    return r.rows[0]?.n ?? 0;
+  }
+
   async listar(org?: string): Promise<AuthUser[]> {
     const db = await this.db();
     // Sin organización no devuelve NADA: un listado que ignora el filtro es
@@ -246,6 +261,10 @@ export class JsonUsersRepository implements UsersRepository {
 
   async contar(): Promise<number> {
     return (await this.load()).length;
+  }
+
+  async contarEn(org: string): Promise<number> {
+    return (await this.load()).filter((u) => u.organizacionId === org).length;
   }
 
   async listar(): Promise<AuthUser[]> {

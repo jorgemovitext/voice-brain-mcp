@@ -111,6 +111,8 @@ const otpSchema = z.object({
 });
 const resendSchema = z.object({ username: identificadorSchema });
 const setUsernameSchema = z.object({ username: usernameSchema, password: z.string().min(1).max(200) });
+/** Darse de baja pide la contraseña aunque haya sesión: no se deshace. */
+const bajaSchema = z.object({ password: z.string().min(1).max(200) });
 /** Solo los dos roles que existen: un valor libre acá sería un rol inventado. */
 const rolSchema = z.object({ rol: z.enum(['admin', 'usuario']) });
 
@@ -180,9 +182,11 @@ export class AuthController {
   @Delete('equipo/:id')
   async quitarDelEquipo(
     @Param('id') id: string,
-    @Req() req: FastifyRequest & { user?: { sub: string } },
+    @Req() req: FastifyRequest & { user?: { sub: string; org?: string } },
   ) {
-    await this.auth.eliminarCuenta(id, req.user?.sub ?? '');
+    // La empresa sale del TOKEN: con solo el id, un administrador podía
+    // borrar cuentas de otro cliente.
+    await this.auth.eliminarCuenta(id, req.user?.sub ?? '', req.user?.org);
     return { ok: true };
   }
 
@@ -277,6 +281,23 @@ export class AuthController {
     await this.auth.cerrarSesiones(req.user?.sub ?? '');
     res.clearCookie(SESSION_COOKIE, { path: '/' });
     return { ok: true };
+  }
+
+  /**
+   * Dar de baja la cuenta propia. Se va la cuenta y, si la empresa queda
+   * sin nadie, se va también.
+   */
+  @Requiere('cuenta-propia')
+  @Delete('cuenta')
+  async darDeBaja(
+    @Body() body: unknown,
+    @Req() req: FastifyRequest & { user?: { sub: string } },
+    @Res({ passthrough: true }) res: FastifyReply,
+  ) {
+    const { password } = this.parse(bajaSchema, body);
+    const r = await this.auth.darDeBajaMiCuenta(req.user?.sub ?? '', password);
+    res.clearCookie(SESSION_COOKIE, { path: '/' });
+    return { ok: true, ...r };
   }
 
   @Requiere('cuenta-propia')

@@ -252,16 +252,86 @@ export class AuthService {
    * cuenta detrás— y no se puede borrar la última, que dejaría la consola
    * sin nadie que pueda entrar ni invitar.
    */
-  async eliminarCuenta(id: string, quienPide: string): Promise<void> {
+  async eliminarCuenta(id: string, quienPide: string, org?: string): Promise<void> {
     if (id === quienPide) {
-      throw new ConflictException('No podés borrar tu propia cuenta: pedíselo a alguien más del equipo.');
+      throw new ConflictException(
+        'No podés borrar a otro con tu propia cuenta desde acá: usá «Dar de baja mi cuenta».',
+      );
     }
-    if ((await this.users.contar()) <= 1) {
-      throw new ConflictException('Es la única cuenta que queda: borrarla dejaría la consola sin acceso.');
+    const victima = await this.users.findById(id);
+    /*
+     * Solo gente de la MISMA empresa. El id viaja en la URL y es
+     * adivinable: sin esto, el administrador de cualquier cliente podía
+     * borrarle cuentas a otro. «No existe» y no «no es tuya», para que la
+     * respuesta tampoco confirme que ese id existe.
+     */
+    if (!victima || (org && victima.organizacionId !== org)) {
+      throw new ConflictException('Esa cuenta ya no existe.');
     }
+
+    /*
+     * La cuenta se cuenta DENTRO de su empresa, no en toda la plataforma.
+     * Con el total global, un cliente con un solo usuario podía borrarlo y
+     * dejar su empresa sin nadie —inalcanzable para siempre— porque en la
+     * plataforma había cientos de cuentas más.
+     */
+    if (victima.organizacionId && (await this.users.contarEn(victima.organizacionId)) <= 1) {
+      throw new ConflictException('Es la única cuenta de la empresa: borrarla la dejaría sin acceso.');
+    }
+
     const ok = await this.users.eliminar(id);
     if (!ok) throw new ConflictException('Esa cuenta ya no existe.');
     this.logger.warn(`Cuenta eliminada: ${id} (por ${quienPide})`);
+  }
+
+  /**
+   * Dar de baja la cuenta propia.
+   *
+   * Faltaba, y la falta se nota cuando alguien prueba el producto: una
+   * cuenta que estrena su propia empresa no la puede borrar NADIE. No es
+   * suya de otro administrador —está sola en su empresa— y ella misma
+   * tenía prohibido borrarse. Quedaban para siempre, con su empresa vacía
+   * detrás.
+   *
+   * Pide la contraseña aunque haya sesión: es destructivo y no se deshace,
+   * y una sesión abierta en una máquina prestada no debería alcanzar.
+   *
+   * Si al irse la empresa queda sin nadie, se borra también. Una empresa
+   * sin usuarios no se puede alcanzar desde ninguna pantalla: son filas
+   * que se acumulan sin que nadie pueda limpiarlas.
+   */
+  async darDeBajaMiCuenta(userId: string, password: string): Promise<{ empresaBorrada: boolean }> {
+    const user = await this.users.findById(userId);
+    if (!user) throw new UnauthorizedException('Sesión inválida');
+
+    if (!(await this.verifyPassword(password, user.passwordHash))) {
+      throw new UnauthorizedException('La contraseña no coincide.');
+    }
+
+    const org = user.organizacionId;
+    /*
+     * Si quedan compañeros, tiene que quedar alguien que pueda configurar.
+     * Irse siendo el único administrador deja la empresa con gente adentro
+     * y sin nadie que pueda invitar, cambiar el plan ni tocar un agente.
+     */
+    if (org) {
+      const equipo = await this.users.listar(org);
+      const otrosAdmins = equipo.filter((u) => u.id !== userId && rolValido(u.rol) === 'admin');
+      if (equipo.length > 1 && !otrosAdmins.length) {
+        throw new ConflictException(
+          'Sos el único administrador y queda gente en la empresa: pasale el rol a alguien antes de irte.',
+        );
+      }
+    }
+
+    await this.users.eliminar(userId);
+    this.logger.warn(`Cuenta dada de baja por su dueño: ${user.username ?? userId}`);
+
+    let empresaBorrada = false;
+    if (org && (await this.users.contarEn(org)) === 0) {
+      empresaBorrada = await this.organizaciones.eliminar(org).catch(() => false);
+    }
+    return { empresaBorrada };
   }
 
   /**

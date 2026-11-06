@@ -32,6 +32,9 @@ class MemoryUsers implements UsersRepository {
   async contar() {
     return this.users.length;
   }
+  async contarEn(org: string) {
+    return this.users.filter((u) => u.organizacionId === org).length;
+  }
   async listar() {
     return [...this.users];
   }
@@ -60,6 +63,11 @@ class InvitacionesFalsas {
 /** Cada alta sin código estrena su propia empresa. */
 class OrganizacionesFalsas {
   creadas: string[] = [];
+  borradas: string[] = [];
+  async eliminar(id: string) {
+    this.borradas.push(id);
+    return true;
+  }
   async crear(nombre: string) {
     const id = `org-${this.creadas.length + 1}`;
     this.creadas.push(nombre);
@@ -213,12 +221,16 @@ describe('AuthService (seguridad)', () => {
 
     await expect(ctx.service.eliminarCuenta(yo.id, yo.id)).rejects.toThrow(/tu propia cuenta/i);
 
+    // Quien invita suma gente a SU empresa: así es como ocurre de verdad.
+    ctx.invitaciones.organizacion = yo.organizacionId!;
     ctx.invitaciones.validos.add('C2');
     await ctx.service.register('otro', PASSWORD, '+50466667777', undefined, 'C2');
     const otro = ctx.users.users[1];
-    await ctx.service.eliminarCuenta(otro.id, yo.id);
+    await ctx.service.eliminarCuenta(otro.id, yo.id, yo.organizacionId);
 
-    await expect(ctx.service.eliminarCuenta(yo.id, 'alguien')).rejects.toThrow(/única cuenta/i);
+    await expect(ctx.service.eliminarCuenta(yo.id, 'alguien', yo.organizacionId)).rejects.toThrow(
+      /única cuenta/i,
+    );
   });
 
   it('el equipo se lista sin hashes y con el teléfono enmascarado', async () => {
@@ -435,6 +447,107 @@ describe('AuthService (seguridad)', () => {
 
       await ctx.service.resendOtp('99990000');
       expect(ctx.otp.sent.at(-1)?.phone).toBe(PHONE);
+    });
+  });
+
+  /*
+   * Darse de baja uno mismo.
+   *
+   * Faltaba, y la falta se nota apenas alguien prueba el producto: una
+   * cuenta que estrena su propia empresa no la puede borrar NADIE —no es
+   * de otro administrador y ella misma lo tenía prohibido—, así que
+   * quedaba para siempre con su empresa vacía detrás.
+   */
+  describe('Dar de baja la cuenta propia', () => {
+    it('se va la cuenta, y con ella la empresa que queda vacía', async () => {
+      const ctx = build();
+      await registered(ctx);
+      const yo = ctx.users.users[0];
+
+      const r = await ctx.service.darDeBajaMiCuenta(yo.id, PASSWORD);
+
+      expect(r.empresaBorrada).toBe(true);
+      expect(ctx.users.users).toHaveLength(0);
+      expect(ctx.organizaciones.borradas).toEqual([yo.organizacionId]);
+    });
+
+    it('pide la contraseña aunque haya sesión', async () => {
+      // Es destructivo y no se deshace: una sesión abierta en una máquina
+      // prestada no debería alcanzar.
+      const ctx = build();
+      await registered(ctx);
+      const yo = ctx.users.users[0];
+
+      await expect(ctx.service.darDeBajaMiCuenta(yo.id, 'otracosa1')).rejects.toThrow(UnauthorizedException);
+      expect(ctx.users.users).toHaveLength(1);
+    });
+
+    it('el único administrador no se va dejando gente adentro', async () => {
+      /*
+       * Irse siendo el único administrador deja la empresa con gente y sin
+       * nadie que pueda invitar, cambiar el plan ni tocar un agente. Desde
+       * afuera eso no se distingue de una cuenta rota.
+       */
+      const ctx = build();
+      await registered(ctx);
+      const yo = ctx.users.users[0];
+      ctx.users.users.push({
+        ...yo,
+        id: 'otro',
+        username: 'companera',
+        rol: 'usuario',
+      });
+
+      await expect(ctx.service.darDeBajaMiCuenta(yo.id, PASSWORD)).rejects.toThrow(ConflictException);
+      expect(ctx.users.users).toHaveLength(2);
+    });
+
+    it('con otro administrador en la empresa, sí se puede ir', async () => {
+      const ctx = build();
+      await registered(ctx);
+      const yo = ctx.users.users[0];
+      ctx.users.users.push({ ...yo, id: 'otro', username: 'socia', rol: 'admin' });
+
+      const r = await ctx.service.darDeBajaMiCuenta(yo.id, PASSWORD);
+
+      // La empresa NO se borra: queda gente adentro.
+      expect(r.empresaBorrada).toBe(false);
+      expect(ctx.users.users.map((u) => u.username)).toEqual(['socia']);
+    });
+  });
+
+  describe('Dar de baja a otro del equipo', () => {
+    it('no se puede borrar una cuenta de OTRA empresa', async () => {
+      /*
+       * El id viaja en la URL y es adivinable. Sin comprobar la empresa, el
+       * administrador de cualquier cliente podía borrarle cuentas a otro —y
+       * del lado de la víctima eso se ve como una cuenta que desapareció
+       * sola.
+       */
+      const ctx = build();
+      await registered(ctx);
+      const yo = ctx.users.users[0];
+      ctx.users.users.push({ ...yo, id: 'ajeno', username: 'de-otro-cliente', organizacionId: 'org-9' });
+      ctx.users.users.push({ ...yo, id: 'ajeno2', username: 'colega-del-otro', organizacionId: 'org-9' });
+
+      await expect(ctx.service.eliminarCuenta('ajeno', yo.id, yo.organizacionId)).rejects.toThrow(
+        /ya no existe/i,
+      );
+      expect(ctx.users.users).toHaveLength(3);
+    });
+
+    it('no se puede dejar a una empresa sin ninguna cuenta', async () => {
+      /*
+       * Antes se contaba el total de la plataforma: un cliente con un solo
+       * usuario podía borrarlo —porque en la plataforma había cientos— y
+       * dejar su empresa sin nadie que pudiera entrar.
+       */
+      const ctx = build();
+      await registered(ctx);
+      const yo = ctx.users.users[0];
+      ctx.users.users.push({ ...yo, id: 'otro', username: 'de-otra-empresa', organizacionId: 'org-9' });
+
+      await expect(ctx.service.eliminarCuenta('otro', yo.id)).rejects.toThrow(ConflictException);
     });
   });
 });

@@ -97,6 +97,25 @@ export class OrganizacionesService {
     this.logger.log(`Plan de ${id}: ${plan}`);
   }
 
+  /**
+   * Borra una empresa. Solo si ya no le queda nadie adentro.
+   *
+   * Existe porque una empresa sin usuarios no se puede alcanzar desde
+   * ninguna pantalla: nadie puede entrar a ella, así que nadie puede
+   * borrarla. Son filas que se acumulan para siempre — y la primera la
+   * dejé yo probando el alta.
+   *
+   * La comprobación de que está vacía NO va acá sino en quien llama, que
+   * es el único que sabe contar usuarios. Acá va el borrado y nada más.
+   */
+  async eliminar(id: string): Promise<boolean> {
+    if (!this.pool) return false;
+    await ensureSchema(this.pool);
+    const r = await this.pool.query('DELETE FROM organizaciones WHERE id = $1', [id]);
+    if (r.rowCount) this.logger.warn(`Empresa eliminada: ${id}`);
+    return !!r.rowCount;
+  }
+
   async renombrar(id: string, nombre: string): Promise<void> {
     const pool = this.exigirBase();
     await pool.query('UPDATE organizaciones SET nombre = $2 WHERE id = $1', [
