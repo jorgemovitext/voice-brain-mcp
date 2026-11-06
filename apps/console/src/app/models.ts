@@ -524,3 +524,18 @@ export interface Permisos {
   roles: Array<{ id: Rol; nombre: string; descripcion: string }>;
   matriz: Array<{ permiso: string; nombre: string; admin: boolean; usuario: boolean }>;
 }
+
+/** La tarifa de venta de un país, categoría por categoría. */
+export interface TarifaPais {
+  iso: string;
+  nombre: string;
+  precios: Record<Categoria, number>;
+}
+
+export interface Tarifas {
+  paises: TarifaPais[];
+  categorias: Array<{ id: Categoria; nombre: string }>;
+  puedeNegociar: boolean;
+  /** Desde cuándo rige la tarjeta de Meta sobre la que se calcula. */
+  vigenteDesde: string;
+}

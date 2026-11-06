@@ -67,6 +67,14 @@ export class SeguimientoController {
   /**
    * La corrida: manda lo que toca. La dispara el cron de Vercel.
    *
+   * Hoy corre UNA VEZ AL DÍA, a las 07:00 de Honduras. No es la precisión
+   * que los pasos describen —un recordatorio «3 horas antes de la cita»
+   * sale esa mañana, no tres horas antes— y es una limitación del plan
+   * Hobby de Vercel, que rechaza el despliegue entero si el cron corre más
+   * seguido. Con un plan Pro, o llamando a este mismo endpoint desde
+   * cualquier programador externo con el secreto, la cadencia sube sin
+   * tocar una línea de código.
+   *
    * Es pública por fuerza —un cron no tiene sesión— y por eso exige un
    * secreto. Sin `CRON_SECRET` configurado NO se abre: un endpoint que
    * manda mensajes de todos los clientes, accesible sin nada, es una

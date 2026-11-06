@@ -438,3 +438,58 @@
   .tabla__cabeza,
   .fila { min-width: 34rem; }
 }
+
+/* ===== Lista de precios ===== */
+/* Plegada por defecto: son treinta y pico de filas y la pregunta del día es
+   «cuánto voy a pagar», no «cuánto cuesta Indonesia». Pero está a un clic,
+   porque el cliente tiene derecho a ver la lista ANTES de la factura. */
+.plegable {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  width: 100%;
+  padding: 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  color: var(--ink);
+
+  span { display: flex; flex-direction: column; gap: 0.15rem; }
+  strong { font-size: 1rem; font-weight: 700; }
+  em { font-size: 0.8rem; font-style: normal; color: var(--ink-soft); }
+}
+
+.plegable__flecha {
+  margin-left: auto;
+  font-size: 1.4rem;
+  color: var(--ink-soft);
+  transition: transform 0.2s cubic-bezier(0.22, 1, 0.36, 1);
+
+  &--abierta { transform: rotate(90deg); }
+}
+
+.tabla--tarifas {
+  margin-top: 0.9rem;
+
+  .tabla__cabeza,
+  .fila {
+    grid-template-columns: minmax(0, 1.6fr) repeat(4, minmax(4.5rem, 1fr));
+  }
+}
+
+.pie-tabla {
+  margin: 0.6rem 0 0;
+  font-size: 0.74rem;
+  color: var(--ink-soft);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .plegable__flecha { transition: none; }
+}
+
+@media (max-width: 760px) {
+  .tabla--tarifas .tabla__cabeza,
+  .tabla--tarifas .fila { min-width: 30rem; }
+}

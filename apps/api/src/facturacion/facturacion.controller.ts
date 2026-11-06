@@ -7,7 +7,7 @@ import { LimitesService } from './limites.service';
 import { MedicionService } from './medicion.service';
 import { NOMBRE_FUNCION, plan as planPorId, planesVisibles } from './planes';
 import { paises } from './paises';
-import { CATEGORIAS, NOMBRE_CATEGORIA, tarifaBase, TarifaOrg } from './tarifas';
+import { CATEGORIAS, NOMBRE_CATEGORIA, precioDe, TarifaOrg } from './tarifas';
 import { SettingsService } from '../shared/settings.service';
 
 /**
@@ -24,7 +24,8 @@ const planSchema = z.object({ plan: z.enum(['prueba', 'negocio', 'institucional'
 const topeSchema = z.object({ dolares: z.number().min(0).max(100_000).nullable() });
 const tarifaSchema = z.object({
   paises: z.record(z.string(), z.record(z.string(), z.number().int().min(0))).optional(),
-  grupos: z.record(z.string(), z.record(z.string(), z.number().int().min(0))).optional(),
+  mercados: z.record(z.string(), z.record(z.string(), z.number().int().min(0))).optional(),
+  margen: z.number().min(0.1).max(20).optional(),
 });
 
 @Controller('api/facturacion')
@@ -128,12 +129,24 @@ export class FacturacionController {
   @Get('tarifas')
   async tarifas(@Req() req: FastifyRequest & { user?: { org?: string } }) {
     const org = this.org(req);
+    const negociada = await this.medicion.tarifaOrg(org);
+
+    /*
+     * Se devuelve el precio de VENTA país por país, ya resuelto, y nunca lo
+     * que a nosotros nos cuesta el mensaje. El costo de Meta es nuestro
+     * margen: publicarlo en una respuesta que el cliente puede abrir en el
+     * navegador es entregarle la negociación hecha.
+     */
     return {
-      base: tarifaBase(),
-      negociada: (await this.medicion.tarifaOrg(org)) ?? {},
-      paises: paises(),
+      paises: paises().map((p) => ({
+        iso: p.iso,
+        nombre: p.nombre,
+        precios: Object.fromEntries(CATEGORIAS.map((c) => [c, precioDe(p.iso, c, negociada)])),
+      })),
       categorias: CATEGORIAS.map((c) => ({ id: c, nombre: NOMBRE_CATEGORIA[c] })),
       puedeNegociar: await this.limites.habilita(org, 'tarifa-propia'),
+      /** Desde cuándo rige la tarifa de Meta sobre la que se calcula. */
+      vigenteDesde: '2026-10-01',
     };
   }
 

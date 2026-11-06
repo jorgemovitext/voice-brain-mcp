@@ -229,6 +229,46 @@
     </section>
   }
 
+  <!-- ===== La lista de precios ===== -->
+  @if (listaTarifas().length) {
+    <section class="tarjeta">
+      <button class="plegable" (click)="verTarifas.set(!verTarifas())">
+        <span>
+          <strong>Tarifa por país</strong>
+          <em>Lo que vale cada mensaje según a dónde va y de qué tipo es</em>
+        </span>
+        <span class="plegable__flecha" [class.plegable__flecha--abierta]="verTarifas()">›</span>
+      </button>
+
+      @if (verTarifas()) {
+        <p class="sub">
+          El precio lo fija el país de quien recibe. Contestar a alguien que te escribió cuesta menos
+          que iniciarle una conversación: eso último lleva plantilla aprobada y WhatsApp lo cobra
+          aparte.
+          @if (vigenteDesde(); as d) { <br />Calculada sobre la tarifa de WhatsApp vigente desde el {{ d }}. }
+        </p>
+
+        <div class="tabla tabla--tarifas" role="table">
+          <div class="tabla__cabeza" role="row">
+            <span role="columnheader">País</span>
+            @for (c of categorias(); track c.id) {
+              <span role="columnheader" class="num">{{ c.nombre }}</span>
+            }
+          </div>
+          @for (p of listaTarifas(); track p.iso) {
+            <div class="fila" role="row">
+              <span role="cell" class="fila__nombre">{{ p.nombre }}</span>
+              @for (c of categorias(); track c.id) {
+                <span role="cell" class="num suave">{{ porMensaje(p.precios[c.id]) }}</span>
+              }
+            </div>
+          }
+        </div>
+        <p class="pie-tabla">En dólares por mensaje entregado.</p>
+      }
+    </section>
+  }
+
   <p class="nota">
     Los precios están en dólares porque es la moneda en la que se cobran los mensajes de WhatsApp por
     país. Todavía no hay pasarela de pago: el cobro se emite por factura.

@@ -230,9 +230,14 @@ export function ensureSchema(pool: Pool): Promise<void> {
           motivo text,
           cantidad integer NOT NULL DEFAULT 1,
           precio_micros bigint NOT NULL,
+          costo_micros bigint NOT NULL DEFAULT 0,
           referencia text,
           ocurrido timestamptz NOT NULL DEFAULT now()
         );
+        -- Lo que el mensaje nos costó a NOSOTROS, congelado igual que el
+        -- precio. Sin esta columna el margen solo se puede estimar, y una
+        -- tarifa de Meta que sube sin que suba la nuestra se descubre tarde.
+        ALTER TABLE consumo ADD COLUMN IF NOT EXISTS costo_micros bigint NOT NULL DEFAULT 0;
         CREATE INDEX IF NOT EXISTS idx_consumo_org_periodo ON consumo (organizacion_id, periodo);
         CREATE INDEX IF NOT EXISTS idx_consumo_ocurrido ON consumo (organizacion_id, ocurrido DESC);
         -- El id del proveedor, cuando lo hay: un webhook reintentado no puede

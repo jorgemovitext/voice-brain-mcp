@@ -2,7 +2,7 @@ import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@a
 import { httpResource } from '@angular/common/http';
 import { RouterLink } from '@angular/router';
 import { BrainApiService } from '../../brain-api.service';
-import { Categoria, Uso, UsoPeriodo } from '../../models';
+import { Categoria, Tarifas, Uso, UsoPeriodo } from '../../models';
 import { valorDe } from '../../recurso';
 
 const NOMBRE_CATEGORIA: Record<Categoria, string> = {
@@ -51,6 +51,14 @@ export class UsoPage {
   readonly historico = httpResource<UsoPeriodo>(() =>
     this.periodo() ? `/api/facturacion/uso/${this.periodo()}` : undefined,
   );
+
+  /*
+   * La tarifa por país. Va aparte del uso porque no cambia con el mes: es
+   * la lista de precios, y el cliente tiene derecho a verla ANTES de que le
+   * llegue la factura y no solo después.
+   */
+  readonly tarifas = httpResource<Tarifas>(() => '/api/facturacion/tarifas');
+  readonly verTarifas = signal(false);
 
   readonly guardando = signal(false);
   readonly error = signal<string | null>(null);
@@ -151,6 +159,15 @@ export class UsoPage {
     } finally {
       this.guardando.set(false);
     }
+  }
+
+  readonly listaTarifas = computed(() => valorDe(this.tarifas)?.paises ?? []);
+  readonly categorias = computed(() => valorDe(this.tarifas)?.categorias ?? []);
+  readonly vigenteDesde = computed(() => valorDe(this.tarifas)?.vigenteDesde);
+
+  /** Precio por mensaje: vive en la cuarta decimal, no en la segunda. */
+  porMensaje(micros: number): string {
+    return (micros / 1_000_000).toFixed(4);
   }
 
   hora(iso: string): string {

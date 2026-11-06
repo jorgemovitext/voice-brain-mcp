@@ -5,7 +5,7 @@ import { orgActual } from '../shared/contexto-org';
 import { SettingsService } from '../shared/settings.service';
 import { ensureSchema, PG_POOL } from '../shared/database.module';
 import { nombrePais, paisDe } from './paises';
-import { Categoria, precioDe, TarifaOrg } from './tarifas';
+import { Categoria, costoDe, precioDe, TarifaOrg } from './tarifas';
 
 /**
  * La medición: una fila por cada mensaje que sale.
@@ -97,8 +97,12 @@ export class MedicionService {
     const categoria: Categoria = m.categoria ?? 'servicio';
 
     let precio = 0;
+    let costo = 0;
     try {
       precio = precioDe(pais.iso, categoria, await this.tarifaOrg(org));
+      // Lo que nos cuesta a nosotros se guarda al lado: sin eso, el margen
+      // de un mes cerrado solo se puede estimar.
+      costo = costoDe(pais.iso, categoria);
     } catch (err) {
       this.logger.error(`No se pudo resolver la tarifa de ${pais.iso}/${categoria}: ${(err as Error).message}`);
     }
@@ -116,7 +120,9 @@ export class MedicionService {
 
     if (!this.pool) {
       // Desarrollo sin base: se ve en el log lo que habría costado.
-      this.logger.log(`[medición] ${pais.iso}/${categoria} → ${precio} micros (sin base, no se guarda)`);
+      this.logger.log(
+        `[medición] ${pais.iso}/${categoria} → cobra ${precio}, cuesta ${costo} micros (sin base, no se guarda)`,
+      );
       return precio;
     }
 
@@ -124,8 +130,8 @@ export class MedicionService {
       await ensureSchema(this.pool);
       await this.pool.query(
         `INSERT INTO consumo (id, organizacion_id, periodo, agente, contacto, canal, pais, categoria,
-                              motivo, cantidad, precio_micros, referencia)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, 1, $10, $11)
+                              motivo, cantidad, precio_micros, costo_micros, referencia)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, 1, $10, $11, $12)
          /*
           * El predicado del índice va REPETIDO acá. El índice de referencia
           * es parcial —solo las filas que traen una— y sin repetir su
@@ -146,6 +152,7 @@ export class MedicionService {
           categoria,
           m.motivo ?? 'respuesta',
           precio,
+          costo,
           m.referencia ?? null,
         ],
       );
